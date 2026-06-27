@@ -10,7 +10,7 @@
 - [ ] Secrets moved to user-secrets/env (JWT key, DB password, Razorpay, Google, SMS)
 - [ ] Rate limiting (auth/OTP endpoints) + security headers + HTTPS
 - [ ] **SEO infra** (see [design.md](../design.md) §13): `sitemap.xml` (from active products/categories) + `robots.txt`; Core Web Vitals pass (image optimization, CDN)
-- [ ] Deployment to **Azure** (container; CI/CD)
+- [ ] Deployment to Hostinger/Azure (container; CI/CD)
 
 ## Dependencies
 All prior stages.

@@ -19,3 +19,9 @@
 *.user
 Thumbs.db
 .DS_Store
+
+# Secrets / local-only — never commit
+documents/deployment.md
+documents/razorpay_test_api_keys_*.csv
+*.env
+secrets.json
