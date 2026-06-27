@@ -25,6 +25,8 @@ export class ProductListComponent implements OnInit {
   readonly brands = signal<Brand[]>([]);
   readonly activeCategory = signal<Category | null>(null);
   readonly loading = signal(true);
+  /** Placeholder cards shown while products load (keeps layout height stable). */
+  readonly skeletons = Array.from({ length: 10 }, (_, i) => i);
 
   searchText = '';
   sort = '';
