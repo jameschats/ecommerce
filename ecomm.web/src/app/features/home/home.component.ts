@@ -1,13 +1,13 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SITE_URL } from '../../core/api.config';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { AuthService } from '../../core/services/auth.service';
-import { CatalogService } from '../../core/services/catalog.service';
-import { CmsService, HomeSection } from '../../core/services/cms.service';
+import { HomeSection } from '../../core/services/cms.service';
 import { SeoService } from '../../core/services/seo.service';
 import { ProductCardComponent } from '../../shared/product-card/product-card.component';
+import { HomeData } from './home.resolver';
 
 interface HeroSlide { image: string; title: string; subtitle: string; cta: string; link: string; }
 interface Testimonial { name: string; company: string; rating: number; text: string; }
@@ -18,8 +18,7 @@ interface Testimonial { name: string; company: string; rating: number; text: str
   templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit, OnDestroy {
-  private readonly catalog = inject(CatalogService);
-  private readonly cms = inject(CmsService);
+  private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly auth = inject(AuthService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -66,10 +65,14 @@ export class HomeComponent implements OnInit, OnDestroy {
       { '@context': 'https://schema.org', '@type': 'Organization', name: 'CalendarShop', url: SITE_URL },
     ]);
 
-    this.cms.getHomeSections().subscribe((s) => this.sections.set(s));
-    this.catalog.getCategories().subscribe((c) => this.categories.set(c));
-    this.catalog.getProducts({ isFeatured: true, pageSize: 10 }).subscribe((r) => this.featured.set(r.items));
-    this.catalog.getProducts({ pageSize: 10 }).subscribe((r) => this.newest.set(r.items));
+    // Data is preloaded by homeResolver → present on first render (no reflow).
+    const data = this.route.snapshot.data['home'] as HomeData | undefined;
+    if (data) {
+      this.sections.set(data.sections);
+      this.categories.set(data.categories);
+      this.featured.set(data.featured);
+      this.newest.set(data.newest);
+    }
 
     if (this.isBrowser) this.timer = setInterval(() => this.next(), 5000);
   }

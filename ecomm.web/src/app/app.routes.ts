@@ -1,9 +1,11 @@
 import { Routes } from '@angular/router';
 import { adminGuard, authGuard } from './core/guards/auth.guard';
+import { homeResolver } from './features/home/home.resolver';
 
 export const routes: Routes = [
   {
     path: '',
+    resolve: { home: homeResolver },
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
   },
   {
