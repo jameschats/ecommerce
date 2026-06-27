@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
 import { Brand, Category, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
@@ -10,11 +10,17 @@ export class CatalogService {
   private readonly http = inject(HttpClient);
   private readonly base = `${API_BASE_URL}/catalog`;
 
+  private categories$?: Observable<Category[]>;
+
   getCategories(): Observable<Category[]> {
-    return this.http.get<ApiResponse<Category[]>>(`${this.base}/categories`).pipe(
+    // Cached for the session: the header, home and listing pages all need it,
+    // so fetch once and replay — avoids a re-fetch (and layout pop-in) per navigation.
+    this.categories$ ??= this.http.get<ApiResponse<Category[]>>(`${this.base}/categories`).pipe(
       map((r) => r.data ?? []),
       catchError(() => of([])),
+      shareReplay({ bufferSize: 1, refCount: false }),
     );
+    return this.categories$;
   }
 
   getBrands(): Observable<Brand[]> {
