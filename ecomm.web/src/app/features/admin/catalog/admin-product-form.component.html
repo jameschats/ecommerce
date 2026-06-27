@@ -1,0 +1,131 @@
+<div class="max-w-4xl mx-auto p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold text-slate-900">{{ isEdit() ? 'Edit' : 'New' }} product</h1>
+    <a routerLink="/admin/products" class="text-sm text-slate-500 hover:text-slate-800">← Back to products</a>
+  </div>
+
+  @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
+  @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
+
+  @if (loading()) {
+    <div class="p-10 text-center text-slate-400">Loading…</div>
+  } @else {
+    <!-- Core fields -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div><label class="lbl">SKU</label><input [(ngModel)]="form.sku" class="input" /></div>
+        <div><label class="lbl">Name</label><input [(ngModel)]="form.name" class="input" /></div>
+        <div>
+          <label class="lbl">Category</label>
+          <select [(ngModel)]="form.categoryId" class="input">
+            <option [ngValue]="0">— Select —</option>
+            @for (c of categories(); track c.categoryId) { <option [ngValue]="c.categoryId">{{ c.name }}</option> }
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Brand</label>
+          <select [(ngModel)]="form.brandId" class="input">
+            <option [ngValue]="null">— None —</option>
+            @for (b of brands(); track b.brandId) { <option [ngValue]="b.brandId">{{ b.name }}</option> }
+          </select>
+        </div>
+        <div><label class="lbl">Price (₹)</label><input type="number" [(ngModel)]="form.price" class="input" /></div>
+        <div><label class="lbl">Compare-at price (₹)</label><input type="number" [(ngModel)]="form.compareAtPrice" class="input" /></div>
+        <div><label class="lbl">HSN code</label><input [(ngModel)]="form.hsnCode" class="input" /></div>
+        <div>
+          <label class="lbl">Status</label>
+          <select [(ngModel)]="form.status" class="input">
+            <option value="Draft">Draft</option><option value="Active">Active</option><option value="Inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+      <div><label class="lbl">Short description</label><input [(ngModel)]="form.shortDescription" class="input" /></div>
+      <div><label class="lbl">Description</label><textarea [(ngModel)]="form.description" rows="4" class="input"></textarea></div>
+      <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.isFeatured" /> Featured</label>
+
+      <!-- Images -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="lbl mb-0">Images</label>
+          <button type="button" (click)="addImage()" class="text-sm text-blue-600 hover:underline">+ Add image</button>
+        </div>
+        <div class="space-y-2">
+          @for (img of form.images; track $index) {
+            <div class="flex items-center gap-2">
+              <input [(ngModel)]="img.url" [name]="'imgurl' + $index" placeholder="Image URL" class="input flex-1" />
+              <label class="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                <input type="radio" name="primaryImg" [checked]="img.isPrimary" (change)="setPrimary($index)" /> Primary
+              </label>
+              <button type="button" (click)="removeImage($index)" class="text-red-500 hover:text-red-700 px-2">×</button>
+            </div>
+          }
+          @if (!form.images?.length) { <p class="text-xs text-slate-400">No images. Add image URLs.</p> }
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button type="button" (click)="saveProduct()" [disabled]="saving()" class="btn-primary">{{ saving() ? 'Saving…' : 'Save product' }}</button>
+        <a routerLink="/admin/products" class="btn-ghost">Cancel</a>
+      </div>
+    </div>
+
+    <!-- Variants + Attributes only when editing (need a product id) -->
+    @if (isEdit()) {
+      <!-- Variants -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <h2 class="font-medium text-slate-800 mb-3">Variants</h2>
+        <div class="space-y-2 mb-4">
+          @for (v of variants(); track v.productVariantId) {
+            <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-sm">
+              <span class="text-slate-700">{{ variantLabel(v) }} <span class="text-slate-400">· {{ v.sku }}</span></span>
+              <button type="button" (click)="deleteVariant(v)" class="text-red-600 hover:underline">Remove</button>
+            </div>
+          }
+          @if (!variants().length) { <p class="text-xs text-slate-400">No variants.</p> }
+        </div>
+        <div class="border-t border-slate-100 pt-3">
+          <div class="grid sm:grid-cols-2 gap-2 mb-2">
+            <input [(ngModel)]="newVariant.sku" name="vsku" placeholder="Variant SKU" class="input" />
+            <input [(ngModel)]="newVariant.name" name="vname" placeholder="Label (e.g. XL / Black)" class="input" />
+          </div>
+          @for (o of newVariant.options; track $index) {
+            <div class="flex gap-2 mb-2">
+              <input [(ngModel)]="o.optionName" [name]="'on' + $index" placeholder="Option (Size)" class="input" />
+              <input [(ngModel)]="o.optionValue" [name]="'ov' + $index" placeholder="Value (XL)" class="input" />
+            </div>
+          }
+          <div class="flex gap-2">
+            <button type="button" (click)="addVariantOption()" class="btn-ghost">+ Option</button>
+            <button type="button" (click)="addVariant()" class="btn-primary">Add variant</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specifications (attributes) -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <h2 class="font-medium text-slate-800 mb-3">Specifications</h2>
+        @if (!attributeDefs().length) {
+          <p class="text-xs text-slate-400">No attributes defined. Create them under <a routerLink="/admin/attributes" class="text-blue-600 hover:underline">Attributes</a>.</p>
+        } @else {
+          <div class="space-y-2">
+            @for (a of attributeDefs(); track a.attributeId) {
+              <div class="flex items-center gap-3">
+                <label class="text-sm text-slate-500 w-40">{{ a.name }}</label>
+                <input [(ngModel)]="attrValues[a.attributeId]" [name]="'attr' + a.attributeId"
+                  [attr.list]="a.values.length ? 'dl' + a.attributeId : null" placeholder="value" class="input flex-1" />
+                @if (a.values.length) {
+                  <datalist [id]="'dl' + a.attributeId">
+                    @for (v of a.values; track v.attributeValueId) { <option [value]="v.value"></option> }
+                  </datalist>
+                }
+              </div>
+            }
+          </div>
+          <button type="button" (click)="saveAttributes()" class="btn-primary mt-3">Save specifications</button>
+        }
+      </div>
+    } @else {
+      <p class="text-xs text-slate-400 mt-3">Save the product first to add variants and specifications.</p>
+    }
+  }
+</div>

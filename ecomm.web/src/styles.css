@@ -1,0 +1,83 @@
+/* Global styles. Tailwind CSS v4 entrypoint. */
+@import "tailwindcss";
+
+/* Brand colors as design tokens — overridden at runtime by the Theme Engine
+   (ThemeService sets --color-primary / --color-primary-dark on :root). */
+@theme {
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+}
+
+/* Shared admin form controls */
+.input {
+  width: 100%;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background: #fff;
+}
+.input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(59 130 246);
+  border-color: rgb(59 130 246);
+}
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-primary:disabled { opacity: 0.6; }
+.btn-ghost {
+  color: rgb(100 116 139);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+}
+.btn-ghost:hover { background: rgb(248 250 252); }
+.lbl {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(100 116 139);
+  margin-bottom: 0.25rem;
+}
+
+/* Wide page container (Flipkart-style: use more of the viewport) */
+.page-container {
+  width: 100%;
+  max-width: 1480px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+/* Account dropdown items */
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: rgb(71 85 105);
+}
+.menu-item:hover { background: rgb(248 250 252); }
+
+/* Vertical auto-scrolling (marquee) for testimonials */
+@keyframes marquee-up {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+.marquee-track { animation: marquee-up 24s linear infinite; }
+.marquee-track.slow { animation-duration: 34s; }
+.marquee-fade:hover .marquee-track { animation-play-state: paused; }
+.marquee-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+}

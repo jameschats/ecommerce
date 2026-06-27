@@ -1,0 +1,56 @@
+<section class="max-w-3xl mx-auto px-4 py-10">
+  <h1 class="text-2xl font-bold text-slate-900">Sign-in methods</h1>
+  <p class="text-sm text-slate-500 mt-1">Enable or disable how customers sign in. Changes apply to the storefront immediately.</p>
+
+  @if (message()) {
+    <div class="mt-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="py-10 text-center text-slate-400">Loading…</div>
+  } @else {
+    <div class="mt-6 space-y-3">
+      @for (p of providers(); track p.provider) {
+        <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
+         <div class="flex items-center justify-between gap-4">
+          <div>
+            <div class="font-medium text-slate-900">{{ p.displayName ?? p.provider }}</div>
+            <div class="text-xs text-slate-400">{{ p.provider }}</div>
+          </div>
+
+          <div class="flex items-center gap-6">
+            <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="p.isEnabled" name="enabled-{{ p.provider }}"
+                class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              Enabled
+            </label>
+
+            @if (supportsRegistration(p)) {
+              <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="p.allowRegistration" name="reg-{{ p.provider }}"
+                  class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                Allow sign-up
+              </label>
+            }
+
+            <button type="button" (click)="save(p)" [disabled]="savingProvider() === p.provider"
+              class="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+              {{ savingProvider() === p.provider ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+         </div>
+
+         @if (p.provider === 'Google') {
+           <div class="border-t border-slate-100 pt-3">
+             <label class="block text-xs font-medium text-slate-500 mb-1">Google OAuth Client ID</label>
+             <input type="text" [(ngModel)]="p.clientId" name="clientId-{{ p.provider }}"
+               placeholder="xxxxx.apps.googleusercontent.com"
+               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+             <p class="text-xs text-slate-400 mt-1">Required for Google sign-in. Add http://localhost:4200 as an authorized JavaScript origin in Google Cloud Console.</p>
+           </div>
+         }
+        </div>
+      }
+    </div>
+  }
+</section>

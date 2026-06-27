@@ -1,0 +1,21 @@
+# Build output
+**/bin/
+**/obj/
+
+# Logs (Serilog)
+**/logs/
+*.log
+
+# .NET user secrets / local settings
+**/appsettings.*.local.json
+
+# Node (frontend has its own .gitignore too)
+**/node_modules/
+**/dist/
+
+# IDE / OS
+.vs/
+.idea/
+*.user
+Thumbs.db
+.DS_Store

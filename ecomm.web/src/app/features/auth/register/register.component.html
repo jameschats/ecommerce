@@ -1,0 +1,51 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div class="text-center mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">Create your account</h1>
+      <p class="text-sm text-slate-500 mt-1">Join in a few seconds</p>
+    </div>
+
+    @if (loading()) {
+      <div class="py-10 text-center text-slate-400">Loading…</div>
+    } @else if (!allowed()) {
+      <div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-3 text-center">
+        Self-registration is currently disabled.
+        <a routerLink="/login" class="text-primary hover:underline font-medium">Back to sign in</a>
+      </div>
+    } @else {
+      @if (error()) {
+        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
+          {{ error() }}
+        </div>
+      }
+      <form (ngSubmit)="submit()" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Full name</label>
+          <input type="text" name="fullName" [(ngModel)]="fullName" autocomplete="name"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            placeholder="Jane Doe" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+          <input type="email" name="email" [(ngModel)]="email" required autocomplete="email"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            placeholder="you@example.com" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+          <input type="password" name="password" [(ngModel)]="password" required autocomplete="new-password"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            placeholder="At least 6 characters" />
+        </div>
+        <button type="submit" [disabled]="submitting()"
+          class="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition">
+          {{ submitting() ? 'Creating…' : 'Create account' }}
+        </button>
+      </form>
+      <p class="text-sm text-slate-500 text-center mt-4">
+        Already have an account?
+        <a routerLink="/login" class="text-primary hover:underline font-medium">Sign in</a>
+      </p>
+    }
+  </div>
+</div>

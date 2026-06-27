@@ -1,0 +1,111 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div class="text-center mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">Welcome back</h1>
+      <p class="text-sm text-slate-500 mt-1">Sign in to continue</p>
+    </div>
+
+    @if (loadingConfig()) {
+      <div class="py-10 text-center text-slate-400">Loading…</div>
+    } @else {
+      @if (error()) {
+        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
+          {{ error() }}
+        </div>
+      }
+
+      <!-- method switcher -->
+      @if (emailProvider() && otpProvider()) {
+        <div class="grid grid-cols-2 gap-1 p-1 mb-5 bg-slate-100 rounded-lg text-sm font-medium">
+          <button type="button" (click)="method.set('otp')"
+            class="py-2 rounded-md transition"
+            [class]="method() === 'otp' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'">
+            Mobile OTP
+          </button>
+          <button type="button" (click)="method.set('email')"
+            class="py-2 rounded-md transition"
+            [class]="method() === 'email' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'">
+            Email
+          </button>
+        </div>
+      }
+
+      <!-- Email + Password -->
+      @if (method() === 'email' && emailProvider()) {
+        <form (ngSubmit)="submitEmail()" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <input type="email" name="email" [(ngModel)]="email" required autocomplete="email"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              placeholder="you@example.com" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <input type="password" name="password" [(ngModel)]="password" required autocomplete="current-password"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              placeholder="••••••••" />
+          </div>
+          <button type="submit" [disabled]="submitting()"
+            class="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition">
+            {{ submitting() ? 'Signing in…' : 'Sign in' }}
+          </button>
+        </form>
+
+        @if (registrationAllowed()) {
+          <p class="text-sm text-slate-500 text-center mt-4">
+            New here?
+            <a routerLink="/register" class="text-primary hover:underline font-medium">Create an account</a>
+          </p>
+        }
+      }
+
+      <!-- Mobile OTP -->
+      @if (method() === 'otp' && otpProvider()) {
+        @if (!otpSent()) {
+          <form (ngSubmit)="sendOtp()" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Mobile number</label>
+              <input type="tel" name="phone" [(ngModel)]="phone" required autocomplete="tel"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                placeholder="9876543210" />
+            </div>
+            <button type="submit" [disabled]="submitting()"
+              class="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition">
+              {{ submitting() ? 'Sending…' : 'Send code' }}
+            </button>
+          </form>
+        } @else {
+          <form (ngSubmit)="verifyOtp()" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Enter the 6-digit code</label>
+              <input type="text" name="code" [(ngModel)]="code" required inputmode="numeric" maxlength="6"
+                class="w-full tracking-[0.5em] text-center rounded-lg border border-slate-300 px-3 py-2 text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                placeholder="••••••" />
+              <p class="text-xs text-slate-400 mt-1">Sent to {{ phone }}</p>
+            </div>
+            <button type="submit" [disabled]="submitting()"
+              class="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition">
+              {{ submitting() ? 'Verifying…' : 'Verify & sign in' }}
+            </button>
+            <button type="button" (click)="resetOtp()" class="w-full text-sm text-slate-500 hover:text-slate-700">
+              Use a different number
+            </button>
+          </form>
+        }
+      }
+
+      <!-- Google -->
+      @if (googleProvider()) {
+        <div class="flex items-center gap-3 my-5">
+          <div class="h-px bg-slate-200 flex-1"></div>
+          <span class="text-xs text-slate-400">or</span>
+          <div class="h-px bg-slate-200 flex-1"></div>
+        </div>
+        <button type="button" (click)="googleSignIn()"
+          class="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-lg transition">
+          Continue with Google
+        </button>
+      }
+    }
+  </div>
+</div>

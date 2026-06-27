@@ -1,0 +1,143 @@
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AttributeDef, SaveProductRequest, SaveVariantRequest } from '../../../core/models/admin-catalog.model';
+import { Brand, Category, ProductDetail, ProductVariant } from '../../../core/models/catalog.model';
+import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
+
+@Component({
+  selector: 'app-admin-product-form',
+  imports: [FormsModule, RouterLink],
+  templateUrl: './admin-product-form.component.html',
+})
+export class AdminProductFormComponent implements OnInit {
+  private readonly api = inject(AdminCatalogService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  readonly productId = signal<number | null>(null);
+  readonly isEdit = computed(() => this.productId() !== null);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly message = signal<string | null>(null);
+
+  readonly categories = signal<Category[]>([]);
+  readonly brands = signal<Brand[]>([]);
+  readonly attributeDefs = signal<AttributeDef[]>([]);
+  readonly variants = signal<ProductVariant[]>([]);
+
+  form: SaveProductRequest = this.blank();
+  newVariant: SaveVariantRequest = this.blankVariant();
+  attrValues: Record<number, string> = {};
+
+  ngOnInit(): void {
+    this.api.listCategories().subscribe((c) => this.categories.set(c));
+    this.api.listBrands().subscribe((b) => this.brands.set(b));
+    this.api.listAttributes().subscribe((a) => this.attributeDefs.set(a));
+
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.productId.set(+id);
+      this.loadProduct(+id);
+    } else {
+      this.loading.set(false);
+    }
+  }
+
+  private blank(): SaveProductRequest {
+    return {
+      sku: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
+      shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false, images: [],
+    };
+  }
+
+  private blankVariant(): SaveVariantRequest {
+    return { sku: '', name: '', priceAdjustment: 0, isActive: true, options: [] };
+  }
+
+  private loadProduct(id: number): void {
+    this.loading.set(true);
+    this.api.getProduct(id).subscribe({
+      next: (p: ProductDetail) => {
+        this.form = {
+          sku: p.sku, name: p.name, categoryId: p.categoryId, brandId: p.brandId,
+          price: p.price, compareAtPrice: p.compareAtPrice, costPrice: p.costPrice,
+          shortDescription: p.shortDescription, description: p.description, hsnCode: p.hsnCode,
+          status: p.status, isFeatured: p.isFeatured,
+          images: p.images.map((i) => ({ url: i.url, altText: i.altText, displayOrder: i.displayOrder, isPrimary: i.isPrimary })),
+        };
+        this.variants.set(p.variants);
+        this.attrValues = {};
+        for (const a of p.attributes) this.attrValues[a.attributeId] = a.value ?? a.valueText ?? '';
+        this.loading.set(false);
+      },
+      error: () => { this.error.set('Could not load product.'); this.loading.set(false); },
+    });
+  }
+
+  // --- Images ---
+  addImage(): void {
+    this.form.images!.push({ url: '', altText: '', displayOrder: this.form.images!.length, isPrimary: this.form.images!.length === 0 });
+  }
+  removeImage(i: number): void {
+    this.form.images!.splice(i, 1);
+  }
+  setPrimary(i: number): void {
+    this.form.images!.forEach((img, idx) => (img.isPrimary = idx === i));
+  }
+
+  // --- Save product ---
+  saveProduct(): void {
+    if (!this.form.sku.trim() || !this.form.name.trim()) { this.error.set('SKU and Name are required.'); return; }
+    if (!this.form.categoryId) { this.error.set('Please choose a category.'); return; }
+    this.saving.set(true);
+    this.error.set(null);
+    this.message.set(null);
+
+    const op = this.isEdit() ? this.api.updateProduct(this.productId()!, this.form) : this.api.createProduct(this.form);
+    op.subscribe({
+      next: (p) => {
+        this.saving.set(false);
+        this.message.set('Saved.');
+        if (!this.isEdit()) this.router.navigate(['/admin/products', p.productId]);
+      },
+      error: (e) => { this.saving.set(false); this.error.set(e?.error?.message ?? 'Save failed.'); },
+    });
+  }
+
+  // --- Variants ---
+  addVariantOption(): void {
+    this.newVariant.options!.push({ optionName: '', optionValue: '' });
+  }
+  addVariant(): void {
+    if (!this.productId() || !this.newVariant.sku.trim()) return;
+    this.api.createVariant(this.productId()!, this.newVariant).subscribe({
+      next: () => { this.newVariant = this.blankVariant(); this.reloadVariants(); },
+      error: (e) => this.error.set(e?.error?.message ?? 'Variant failed.'),
+    });
+  }
+  deleteVariant(v: ProductVariant): void {
+    this.api.deleteVariant(this.productId()!, v.productVariantId).subscribe({
+      next: () => this.reloadVariants(),
+      error: (e) => this.error.set(e?.error?.message ?? 'Delete failed.'),
+    });
+  }
+  private reloadVariants(): void {
+    this.api.listVariants(this.productId()!).subscribe((v) => this.variants.set(v));
+  }
+  variantLabel(v: ProductVariant): string {
+    return v.options.length ? v.options.map((o) => `${o.optionName}: ${o.optionValue}`).join(', ') : v.sku;
+  }
+
+  // --- Attributes ---
+  saveAttributes(): void {
+    const inputs = this.attributeDefs()
+      .filter((a) => (this.attrValues[a.attributeId] ?? '').trim().length > 0)
+      .map((a) => ({ attributeId: a.attributeId, valueText: this.attrValues[a.attributeId].trim() }));
+    this.api.setProductAttributes(this.productId()!, inputs).subscribe({
+      next: () => this.message.set('Specifications saved.'),
+      error: (e) => this.error.set(e?.error?.message ?? 'Failed.'),
+    });
+  }
+}
