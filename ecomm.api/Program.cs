@@ -6,6 +6,7 @@ using ecomm.api.Features.Auth.Services;
 using ecomm.api.Features.Payments;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -63,6 +64,9 @@ builder.Services.AddScoped<ecomm.api.Features.Theme.IThemeService, ecomm.api.Fea
 // CMS
 builder.Services.AddScoped<ecomm.api.Features.Cms.ICmsService, ecomm.api.Features.Cms.CmsService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.IBannerService, ecomm.api.Features.Cms.BannerService>();
+builder.Services.Configure<ecomm.api.Features.Media.MediaOptions>(builder.Configuration.GetSection(ecomm.api.Features.Media.MediaOptions.SectionName));
+builder.Services.AddSingleton<ecomm.api.Features.Media.IMediaStorage, ecomm.api.Features.Media.LocalDiskStorage>();
+builder.Services.AddScoped<ecomm.api.Features.Media.IMediaService, ecomm.api.Features.Media.MediaService>();
 
 // Inventory & Search
 builder.Services.AddScoped<ecomm.api.Features.Inventory.IInventoryService, ecomm.api.Features.Inventory.InventoryService>();
@@ -123,6 +127,21 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Serve uploaded media from the configured folder at Media:RequestPath.
+// Dev relies on this; prod fronts it with an Nginx `location /uploads/` for speed.
+var mediaOpts = app.Configuration.GetSection(ecomm.api.Features.Media.MediaOptions.SectionName)
+    .Get<ecomm.api.Features.Media.MediaOptions>() ?? new ecomm.api.Features.Media.MediaOptions();
+var mediaRoot = Path.IsPathRooted(mediaOpts.UploadPath)
+    ? mediaOpts.UploadPath
+    : Path.Combine(app.Environment.ContentRootPath, mediaOpts.UploadPath);
+Directory.CreateDirectory(mediaRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(mediaRoot),
+    RequestPath = mediaOpts.RequestPath,
+});
+
 app.UseCors(AngularCors);
 app.UseAuthentication();
 app.UseAuthorization();

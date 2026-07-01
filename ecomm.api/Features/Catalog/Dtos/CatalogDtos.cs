@@ -18,7 +18,7 @@ public sealed record SaveBrandRequest(
 
 // --- Product ---
 public sealed record ProductImageDto(long ProductImageId, string Url, string? AltText, int DisplayOrder, bool IsPrimary);
-public sealed record ProductImageInput(string Url, string? AltText, int DisplayOrder, bool IsPrimary);
+public sealed record ProductImageInput(string Url, string? AltText, int DisplayOrder, bool IsPrimary, long? MediaFileId = null);
 
 public sealed record ProductListItemDto(
     long ProductId, string Sku, string Name, string Slug, decimal Price, decimal? CompareAtPrice,

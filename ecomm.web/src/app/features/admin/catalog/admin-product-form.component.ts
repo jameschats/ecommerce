@@ -1,9 +1,10 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AttributeDef, SaveProductRequest, SaveVariantRequest } from '../../../core/models/admin-catalog.model';
+import { AttributeDef, ProductImageInput, SaveProductRequest, SaveVariantRequest } from '../../../core/models/admin-catalog.model';
 import { Brand, Category, ProductDetail, ProductVariant } from '../../../core/models/catalog.model';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
+import { MediaService } from '../../../core/services/media.service';
 
 @Component({
   selector: 'app-admin-product-form',
@@ -12,8 +13,11 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
 })
 export class AdminProductFormComponent implements OnInit {
   private readonly api = inject(AdminCatalogService);
+  private readonly media = inject(MediaService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+
+  readonly uploading = signal(false);
 
   readonly productId = signal<number | null>(null);
   readonly isEdit = computed(() => this.productId() !== null);
@@ -85,6 +89,18 @@ export class AdminProductFormComponent implements OnInit {
   }
   setPrimary(i: number): void {
     this.form.images!.forEach((img, idx) => (img.isPrimary = idx === i));
+  }
+  uploadImage(img: ProductImageInput, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.uploading.set(true);
+    this.error.set(null);
+    this.media.upload(file).subscribe({
+      next: (m) => { img.url = m.url; img.mediaFileId = m.mediaFileId; this.uploading.set(false); },
+      error: () => { this.uploading.set(false); this.error.set('Image upload failed (max 5 MB; JPG/PNG/WebP/GIF only).'); },
+    });
+    input.value = '';
   }
 
   // --- Save product ---

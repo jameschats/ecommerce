@@ -6,6 +6,9 @@
 **/logs/
 *.log
 
+# Locally uploaded media (dev); prod uploads live outside the repo
+ecomm.api/uploads/
+
 # .NET user secrets / local settings
 **/appsettings.*.local.json
 

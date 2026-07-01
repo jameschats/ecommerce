@@ -52,14 +52,23 @@
         <div class="space-y-2">
           @for (img of form.images; track $index) {
             <div class="flex items-center gap-2">
-              <input [(ngModel)]="img.url" [name]="'imgurl' + $index" placeholder="Image URL" class="input flex-1" />
+              <div class="w-12 h-12 shrink-0 rounded border border-slate-200 overflow-hidden bg-slate-50 grid place-items-center">
+                @if (img.url) { <img [src]="img.url" alt="" class="w-full h-full object-cover" /> }
+                @else { <span class="text-[10px] text-slate-300">—</span> }
+              </div>
+              <input [(ngModel)]="img.url" [name]="'imgurl' + $index" placeholder="Image URL or upload →" class="input flex-1" />
+              <label class="text-xs text-blue-600 hover:underline cursor-pointer whitespace-nowrap px-1">
+                Upload
+                <input type="file" accept="image/*" class="hidden" (change)="uploadImage(img, $event)" />
+              </label>
               <label class="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
                 <input type="radio" name="primaryImg" [checked]="img.isPrimary" (change)="setPrimary($index)" /> Primary
               </label>
               <button type="button" (click)="removeImage($index)" class="text-red-500 hover:text-red-700 px-2">×</button>
             </div>
           }
-          @if (!form.images?.length) { <p class="text-xs text-slate-400">No images. Add image URLs.</p> }
+          @if (uploading()) { <p class="text-xs text-blue-500">Uploading…</p> }
+          @if (!form.images?.length) { <p class="text-xs text-slate-400">No images yet. Add a row, then upload a file or paste a URL.</p> }
         </div>
       </div>
 

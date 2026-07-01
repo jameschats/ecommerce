@@ -236,6 +236,7 @@ public sealed class ProductService : IProductService
                 AltText = i.AltText,
                 DisplayOrder = i.DisplayOrder,
                 IsPrimary = i.IsPrimary,
+                MediaFileId = i.MediaFileId,
                 CreatedAt = now,
             })
             .ToList();
@@ -244,9 +245,10 @@ public sealed class ProductService : IProductService
     {
         var baseSlug = Slug.From(source);
         var slug = baseSlug;
+        var exclude = excludeId ?? 0;
         var n = 1;
         while (await _db.Products.AnyAsync(
-            p => p.TenantId == Tenant && p.Slug == slug && p.ProductId != (excludeId ?? 0), ct))
+            p => p.TenantId == Tenant && p.Slug == slug && p.ProductId != exclude, ct))
         {
             slug = $"{baseSlug}-{++n}";
         }

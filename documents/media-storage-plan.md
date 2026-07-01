@@ -1,5 +1,8 @@
 # Media & Image Storage — Plan
 
+> **Status: implemented** (local disk + Nginx, behind `IMediaStorage`). Product images can now be
+> uploaded from the admin product form. Cloud/CDN graduation (Option D) remains future work.
+
 ## Context
 The storefront needs admin-friendly **image uploads**. Today there are none: product
 images are **URL strings** an admin pastes in (`ProductImages.Url`), the Excel import

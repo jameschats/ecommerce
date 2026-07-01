@@ -74,6 +74,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Setting> Settings => Set<Setting>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
+    public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -286,5 +287,6 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.HomeBannerId);
             e.Property(x => x.ImageData).HasColumnType("LONGBLOB");
         });
+        b.Entity<MediaFile>(e => { e.ToTable("MediaFiles"); e.HasKey(x => x.MediaFileId); });
     }
 }

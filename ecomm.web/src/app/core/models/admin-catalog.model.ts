@@ -5,6 +5,7 @@ export interface ProductImageInput {
   altText?: string | null;
   displayOrder: number;
   isPrimary: boolean;
+  mediaFileId?: number | null;
 }
 
 export interface SaveCategoryRequest {
