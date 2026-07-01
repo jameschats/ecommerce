@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, PLATFORM_ID, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SITE_URL } from '../../core/api.config';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
@@ -31,15 +31,15 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly newest = signal<ProductListItem[]>([]);
 
   readonly slides: HeroSlide[] = [
-    { image: 'https://picsum.photos/seed/calhero1/1600/520', title: 'Customizable 2026 Calendars', subtitle: 'Wall, desk, pocket & more — personalized with your photos, brand name and logo.', cta: 'Shop calendars', link: '/products' },
-    { image: 'https://picsum.photos/seed/calhero2/1600/520', title: 'Corporate Gifting Made Easy', subtitle: 'Branded calendars in bulk. Start strong with the right essentials.', cta: 'Order in bulk', link: '/products' },
-    { image: 'https://picsum.photos/seed/calhero3/1600/520', title: 'Desk Calendars for Every Workspace', subtitle: 'Smart, elegant desk calendars that look great on any table.', cta: 'Browse desk calendars', link: '/category/desk-calendars' },
-  ];
-  readonly promos = [
-    { image: 'https://picsum.photos/seed/calpromo1/700/420', title: 'Corporate gifting', subtitle: 'Branded calendars in bulk', link: '/products' },
-    { image: 'https://picsum.photos/seed/calpromo2/700/420', title: 'Desk calendars', subtitle: 'Smart picks for your workspace', link: '/category/desk-calendars' },
+    { image: 'https://picsum.photos/seed/calbanner1/900/300', title: 'Customizable 2026 Calendars', subtitle: 'Wall, desk & pocket — with your photos, brand & logo.', cta: 'Shop calendars', link: '/products' },
+    { image: 'https://picsum.photos/seed/calbanner2/900/300', title: 'Corporate Gifting', subtitle: 'Branded calendars in bulk.', cta: 'Order in bulk', link: '/products' },
+    { image: 'https://picsum.photos/seed/calbanner3/900/300', title: 'Desk Calendars', subtitle: 'Elegant picks for any workspace.', cta: 'Browse', link: '/category/desk-calendars' },
+    { image: 'https://picsum.photos/seed/calbanner4/900/300', title: 'Photo Calendars', subtitle: 'Turn your memories into a year.', cta: 'Create yours', link: '/products' },
+    { image: 'https://picsum.photos/seed/calbanner5/900/300', title: 'New-Year Offers', subtitle: 'Up to 30% off select ranges.', cta: 'Grab deals', link: '/products' },
+    { image: 'https://picsum.photos/seed/calbanner6/900/300', title: 'Pocket & Tent Calendars', subtitle: 'Handy formats for every desk.', cta: 'Explore', link: '/products' },
   ];
   readonly currentSlide = signal(0);
+  private readonly bannerTrack = viewChild<ElementRef<HTMLDivElement>>('bannerTrack');
   private timer: ReturnType<typeof setInterval> | null = null;
 
   readonly googleRating = 4.5;
@@ -85,9 +85,16 @@ export class HomeComponent implements OnInit, OnDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  next(): void { this.currentSlide.update((i) => (i + 1) % this.slides.length); }
-  prev(): void { this.currentSlide.update((i) => (i - 1 + this.slides.length) % this.slides.length); }
-  goTo(i: number): void { this.currentSlide.set(i); }
+  next(): void { this.currentSlide.update((i) => (i + 1) % this.slides.length); this.scrollToCurrent(); }
+  prev(): void { this.currentSlide.update((i) => (i - 1 + this.slides.length) % this.slides.length); this.scrollToCurrent(); }
+  goTo(i: number): void { this.currentSlide.set(i); this.scrollToCurrent(); }
+
+  /** Scroll the banner track so the current banner aligns to the left (browser only). */
+  private scrollToCurrent(): void {
+    const track = this.bannerTrack()?.nativeElement;
+    const card = track?.children[this.currentSlide()] as HTMLElement | undefined;
+    if (track && card) track.scrollTo({ left: card.offsetLeft, behavior: 'smooth' });
+  }
 
   railItems(type: string): ProductListItem[] {
     return type === 'NewArrivals' ? this.newest() : this.featured();
