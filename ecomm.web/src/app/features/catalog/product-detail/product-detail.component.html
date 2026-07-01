@@ -46,10 +46,12 @@
         @if (p.brandName) { <p class="text-sm text-slate-400">{{ p.brandName }}</p> }
         <h1 class="text-2xl font-bold text-slate-900">{{ p.name }}</h1>
 
-        <div class="mt-2 flex items-center gap-2">
-          <span class="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded">{{ avgRating }} ★</span>
-          <span class="text-sm text-slate-500">{{ reviews.length }} reviews</span>
-        </div>
+        @if (reviewCount() > 0) {
+          <div class="mt-2 flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded">{{ avgRating() }} ★</span>
+            <span class="text-sm text-slate-500">{{ reviewCount() }} {{ reviewCount() === 1 ? 'review' : 'reviews' }}</span>
+          </div>
+        }
 
         @if (p.shortDescription) { <p class="text-slate-600 mt-3">{{ p.shortDescription }}</p> }
 
@@ -141,17 +143,59 @@
     <div class="mt-12 border-t border-slate-200 pt-8">
       <div class="flex items-baseline gap-3 mb-5">
         <h2 class="text-xl font-bold text-slate-900">Reviews</h2>
-        <span class="inline-flex items-center gap-1 bg-green-600 text-white text-sm font-semibold px-2 py-0.5 rounded">{{ avgRating }} ★</span>
-        <span class="text-sm text-slate-500">from {{ reviews.length }} reviews</span>
+        @if (reviewCount() > 0) {
+          <span class="inline-flex items-center gap-1 bg-green-600 text-white text-sm font-semibold px-2 py-0.5 rounded">{{ avgRating() }} ★</span>
+          <span class="text-sm text-slate-500">from {{ reviewCount() }} {{ reviewCount() === 1 ? 'review' : 'reviews' }}</span>
+        }
       </div>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (r of reviews; track r.author) {
-          <div class="border border-slate-200 rounded-xl p-4">
-            <div class="text-amber-500 text-sm">{{ star(r.rating) }}</div>
-            <p class="font-semibold text-slate-800 mt-1">{{ r.title }}</p>
-            <p class="text-sm text-slate-600 mt-1">{{ r.text }}</p>
-            <p class="text-xs text-slate-400 mt-3">{{ r.author }} · {{ r.date }}</p>
+
+      @if (reviews().length) {
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          @for (r of reviews(); track r.reviewId) {
+            <div class="border border-slate-200 rounded-xl p-4">
+              <div class="flex items-center gap-2">
+                <div class="text-amber-500 text-sm">{{ star(r.rating) }}</div>
+                @if (r.isVerifiedPurchase) {
+                  <span class="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">Verified purchase</span>
+                }
+              </div>
+              @if (r.title) { <p class="font-semibold text-slate-800 mt-1">{{ r.title }}</p> }
+              @if (r.comment) { <p class="text-sm text-slate-600 mt-1">{{ r.comment }}</p> }
+              <p class="text-xs text-slate-400 mt-3">{{ r.author }} · {{ r.createdAt | date: 'dd MMM yyyy' }}</p>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="text-sm text-slate-500">No reviews yet. Be the first to review this product.</p>
+      }
+
+      <!-- Write a review -->
+      <div class="mt-8 max-w-xl">
+        @if (isAuthenticated()) {
+          <h3 class="font-semibold text-slate-900 mb-2">Write a review</h3>
+          @if (reviewMessage()) {
+            <div class="mb-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ reviewMessage() }}</div>
+          }
+          @if (reviewError()) {
+            <div class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ reviewError() }}</div>
+          }
+          <div class="flex items-center gap-1 mb-3">
+            @for (n of [1, 2, 3, 4, 5]; track n) {
+              <button type="button" (click)="setReviewRating(n)" [attr.aria-label]="n + ' stars'"
+                class="text-2xl leading-none" [class]="n <= reviewForm().rating ? 'text-amber-500' : 'text-slate-300'">★</button>
+            }
           </div>
+          <input [ngModel]="reviewForm().title" (ngModelChange)="reviewForm.set({ ...reviewForm(), title: $event })"
+            name="rvTitle" placeholder="Title (optional)" class="input w-full mb-2" />
+          <textarea [ngModel]="reviewForm().comment" (ngModelChange)="reviewForm.set({ ...reviewForm(), comment: $event })"
+            name="rvComment" rows="3" placeholder="Share your experience…" class="input w-full mb-3"></textarea>
+          <button type="button" (click)="submitReview()" [disabled]="submittingReview()" class="btn-primary">
+            {{ submittingReview() ? 'Submitting…' : 'Submit review' }}
+          </button>
+        } @else {
+          <p class="text-sm text-slate-500">
+            <a routerLink="/login" class="text-primary hover:underline">Sign in</a> to write a review.
+          </p>
         }
       </div>
     </div>

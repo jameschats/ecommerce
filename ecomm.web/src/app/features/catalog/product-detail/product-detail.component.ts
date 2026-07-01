@@ -1,18 +1,20 @@
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { switchMap } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
 import { ProductDetail } from '../../../core/models/catalog.model';
+import { ProductReviews } from '../../../core/models/review.model';
+import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
 import { CatalogService } from '../../../core/services/catalog.service';
+import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
-
-interface DemoReview { author: string; rating: number; title: string; text: string; date: string; }
 
 @Component({
   selector: 'app-product-detail',
-  imports: [RouterLink, CurrencyPipe],
+  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule],
   templateUrl: './product-detail.component.html',
 })
 export class ProductDetailComponent implements OnInit {
@@ -21,6 +23,10 @@ export class ProductDetailComponent implements OnInit {
   private readonly seo = inject(SeoService);
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
+  private readonly reviewSvc = inject(ReviewService);
+  private readonly auth = inject(AuthService);
+
+  readonly isAuthenticated = this.auth.isAuthenticated;
 
   readonly product = signal<ProductDetail | null>(null);
   readonly loading = signal(true);
@@ -33,13 +39,17 @@ export class ProductDetailComponent implements OnInit {
   readonly qty = signal(1);
   selected: Record<string, string> = {};
 
-  // Demo reviews (the Reviews module is Stage 6; these are placeholder content).
-  readonly reviews: DemoReview[] = [
-    { author: 'Joy Bose', rating: 5, title: 'Good product', text: 'It looks amazing! The photos printed really clear.', date: '09 Dec 2025' },
-    { author: 'Meera N.', rating: 5, title: 'Impressed with the quality', text: 'Clear prints and durable design. Hangs nicely without warping. Excellent choice for my home.', date: '02 Dec 2025' },
-    { author: 'Rahul S.', rating: 4, title: 'Great value', text: 'Premium feel for the price. Would have liked a couple more design templates.', date: '21 Nov 2025' },
-  ];
-  readonly avgRating = 4.8;
+  // Reviews (loaded from the API once the product resolves).
+  readonly reviewData = signal<ProductReviews | null>(null);
+  readonly reviews = computed(() => this.reviewData()?.reviews.items ?? []);
+  readonly avgRating = computed(() => this.reviewData()?.summary.average ?? 0);
+  readonly reviewCount = computed(() => this.reviewData()?.summary.count ?? 0);
+
+  // Write-a-review form
+  readonly reviewForm = signal<{ rating: number; title: string; comment: string }>({ rating: 5, title: '', comment: '' });
+  readonly submittingReview = signal(false);
+  readonly reviewMessage = signal<string | null>(null);
+  readonly reviewError = signal<string | null>(null);
 
   readonly mainImage = computed(() => this.product()?.images[this.currentImage()]?.url ?? null);
 
@@ -80,6 +90,7 @@ export class ProductDetailComponent implements OnInit {
           this.selected = {};
           for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
           this.applySeo(product);
+          this.loadReviews(product.productId);
         },
         error: () => { this.loading.set(false); this.notFound.set(true); },
       });
@@ -101,6 +112,33 @@ export class ProductDetailComponent implements OnInit {
   selectOption(name: string, value: string): void { this.selected = { ...this.selected, [name]: value }; }
 
   star(n: number): string { return '★'.repeat(Math.max(0, Math.min(5, n))); }
+
+  private loadReviews(productId: number): void {
+    this.reviewData.set(null);
+    this.reviewSvc.getForProduct(productId).subscribe({
+      next: (d) => { this.reviewData.set(d); const p = this.product(); if (p) this.applySeo(p); },
+      error: () => {},
+    });
+  }
+
+  setReviewRating(n: number): void { this.reviewForm.update((f) => ({ ...f, rating: n })); }
+
+  submitReview(): void {
+    const p = this.product();
+    if (!p || this.submittingReview()) return;
+    const f = this.reviewForm();
+    this.submittingReview.set(true);
+    this.reviewMessage.set(null);
+    this.reviewError.set(null);
+    this.reviewSvc.submit({ productId: p.productId, rating: f.rating, title: f.title.trim() || null, comment: f.comment.trim() || null }).subscribe({
+      next: () => {
+        this.submittingReview.set(false);
+        this.reviewMessage.set('Thanks! Your review will appear once approved.');
+        this.reviewForm.set({ rating: 5, title: '', comment: '' });
+      },
+      error: (e) => { this.submittingReview.set(false); this.reviewError.set(e?.error?.message ?? 'Could not submit review.'); },
+    });
+  }
 
   /** Match the selected options to a concrete variant (null for simple products). */
   private resolveVariantId(): number | null {
@@ -143,7 +181,9 @@ export class ProductDetailComponent implements OnInit {
         '@context': 'https://schema.org/', '@type': 'Product', name: p.name, image: p.images.map((i) => i.url),
         description: p.shortDescription ?? p.description ?? p.name, sku: p.sku,
         brand: p.brandName ? { '@type': 'Brand', name: p.brandName } : undefined,
-        aggregateRating: { '@type': 'AggregateRating', ratingValue: this.avgRating, reviewCount: this.reviews.length },
+        aggregateRating: this.reviewCount() > 0
+          ? { '@type': 'AggregateRating', ratingValue: this.avgRating(), reviewCount: this.reviewCount() }
+          : undefined,
         offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.price, availability: 'https://schema.org/InStock', url },
       },
       {
