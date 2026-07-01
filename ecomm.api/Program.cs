@@ -42,7 +42,16 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
-builder.Services.AddScoped<ISmsSender, ConsoleSmsSender>();
+// SMS sender selected by Sms:Provider (Logging dev-stub | Msg91 real). Powers OTP login + order SMS.
+builder.Services.Configure<SmsOptions>(builder.Configuration.GetSection(SmsOptions.SectionName));
+var smsProvider = builder.Configuration["Sms:Provider"] ?? "Logging";
+if (smsProvider.Equals("Msg91", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<ISmsSender>(sp => new Msg91SmsSender(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("msg91"),
+        sp.GetRequiredService<IOptions<SmsOptions>>(),
+        sp.GetRequiredService<ILogger<Msg91SmsSender>>()));
+else
+    builder.Services.AddScoped<ISmsSender, ConsoleSmsSender>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddScoped<IAuthProviderService, AuthProviderService>();
