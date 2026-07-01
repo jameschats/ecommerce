@@ -80,6 +80,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<CouponUsage> CouponUsages => Set<CouponUsage>();
+    public DbSet<Shipment> Shipments => Set<Shipment>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -309,5 +310,6 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.CouponUsageId);
             e.Property(x => x.DiscountAmount).HasPrecision(12, 2);
         });
+        b.Entity<Shipment>(e => { e.ToTable("Shipments"); e.HasKey(x => x.ShipmentId); });
     }
 }

@@ -43,6 +43,20 @@ public class AdminOrdersController : ControllerBase
     public async Task<IActionResult> Cancel(long id, CancelOrderRequest request, CancellationToken ct)
         => Ok(ApiResponse<OrderDto>.Ok(await _orders.CancelOrderAsync(CurrentUserId ?? 0, id, request, true, ct), "Order cancelled."));
 
+    [HttpPost("{id:long}/shipment")]
+    public async Task<IActionResult> CreateShipment(long id, CreateShipmentRequest request, CancellationToken ct)
+    {
+        var dto = await _orders.CreateShipmentAsync(id, request, CurrentUserId, ct);
+        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
+    }
+
+    [HttpPost("{id:long}/deliver")]
+    public async Task<IActionResult> MarkDelivered(long id, CancellationToken ct)
+    {
+        var dto = await _orders.MarkDeliveredAsync(id, CurrentUserId, ct);
+        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Marked delivered."));
+    }
+
     [HttpGet("{id:long}/invoice")]
     public async Task<IActionResult> Invoice(long id, CancellationToken ct)
     {

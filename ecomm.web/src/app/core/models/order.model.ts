@@ -97,6 +97,17 @@ export interface Order {
   invoiceId: number | null;
   invoiceNumber: string | null;
   canCancel: boolean;
+  shipment: Shipment | null;
+}
+
+export interface Shipment {
+  shipmentId: number;
+  courier: string | null;
+  trackingNumber: string | null;
+  status: string;
+  estimatedDeliveryDate: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
 }
 
 export interface OrderListItem {

@@ -57,6 +57,20 @@ import { orderStatusClass } from './order-status';
               <div class="mt-2 text-xs text-slate-400">{{ o.paymentMethod }} · <span [class]="payClass(o.paymentStatus)">{{ o.paymentStatus }}</span></div>
             </div>
 
+            @if (o.shipment; as s) {
+              <div class="bg-white rounded-xl border border-slate-200 p-4 text-sm">
+                <h3 class="font-medium text-slate-700 mb-1">Tracking</h3>
+                <div class="text-slate-600">
+                  <div>Status: <span class="font-medium text-slate-800">{{ s.status }}</span></div>
+                  @if (s.courier) { <div>Courier: {{ s.courier }}</div> }
+                  @if (s.trackingNumber) { <div>Tracking #: <span class="font-medium">{{ s.trackingNumber }}</span></div> }
+                  @if (s.estimatedDeliveryDate) { <div class="text-slate-500">Est. delivery: {{ s.estimatedDeliveryDate | date:'dd MMM yyyy' }}</div> }
+                  @if (s.shippedAt) { <div class="text-xs text-slate-400 mt-1">Shipped {{ s.shippedAt | date:'dd MMM yyyy' }}</div> }
+                  @if (s.deliveredAt) { <div class="text-xs text-slate-400">Delivered {{ s.deliveredAt | date:'dd MMM yyyy' }}</div> }
+                </div>
+              </div>
+            }
+
             @if (o.shippingAddress; as a) {
               <div class="bg-white rounded-xl border border-slate-200 p-4 text-sm">
                 <h3 class="font-medium text-slate-700 mb-1">Deliver to</h3>

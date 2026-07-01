@@ -21,6 +21,8 @@ public interface IOrderService
     Task<OrderDto?> GetAsync(long orderId, long? userId, bool isAdmin, CancellationToken ct = default);
     Task<PagedResult<OrderListItem>> ListAllAsync(string? status, int page, int pageSize, CancellationToken ct = default);
     Task<OrderDto?> UpdateStatusAsync(long orderId, string toStatus, long? userId, CancellationToken ct = default);
+    Task<OrderDto?> CreateShipmentAsync(long orderId, CreateShipmentRequest req, long? userId, CancellationToken ct = default);
+    Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default);
 }
 
 public sealed class OrderService : IOrderService
@@ -395,10 +397,15 @@ public sealed class OrderService : IOrderService
 
         var canCancel = order.Status is "Pending" or "Paid" or "Packed";
 
+        var shipment = await _db.Shipments.Where(s => s.OrderId == orderId).OrderByDescending(s => s.ShipmentId)
+            .Select(s => new ShipmentDto(s.ShipmentId, s.Courier, s.TrackingNumber, s.Status,
+                s.EstimatedDeliveryDate, s.ShippedAt, s.DeliveredAt))
+            .FirstOrDefaultAsync(ct);
+
         return new OrderDto(order.OrderId, order.OrderNumber, order.Status, order.Currency,
             order.Subtotal, order.DiscountAmount, order.TaxAmount, order.ShippingAmount, order.TotalAmount,
             order.PlacedAt, order.CreatedAt, items, ship, bill,
-            payment?.Method, payment?.Status, invoice?.InvoiceId, invoice?.InvoiceNumber, canCancel);
+            payment?.Method, payment?.Status, invoice?.InvoiceId, invoice?.InvoiceNumber, canCancel, shipment);
     }
 
     public async Task<PagedResult<OrderListItem>> ListAllAsync(string? status, int page, int pageSize, CancellationToken ct = default)
@@ -436,6 +443,59 @@ public sealed class OrderService : IOrderService
         });
         await _db.SaveChangesAsync(ct);
         // Generic status email (Shipped-with-tracking is sent by the Shipments feature).
+        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
+        return await GetAsync(orderId, null, true, ct);
+    }
+
+    // ---------------- Shipments ----------------
+    public async Task<OrderDto?> CreateShipmentAsync(long orderId, CreateShipmentRequest req, long? userId, CancellationToken ct = default)
+    {
+        var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && o.TenantId == Tenant, ct);
+        if (order is null) return null;
+        if (order.Status is not ("Paid" or "Packed"))
+            throw new AppException($"An order that is {order.Status} can't be shipped.");
+        if (string.IsNullOrWhiteSpace(req.Courier) || string.IsNullOrWhiteSpace(req.TrackingNumber))
+            throw new AppException("Courier and tracking number are required.");
+
+        var now = DateTime.UtcNow;
+        _db.Shipments.Add(new Shipment
+        {
+            TenantId = Tenant, OrderId = orderId, ShippingMethodId = order.ShippingMethodId,
+            Courier = req.Courier.Trim(), TrackingNumber = req.TrackingNumber.Trim(),
+            Status = "Shipped", EstimatedDeliveryDate = req.EstimatedDeliveryDate, ShippedAt = now, CreatedAt = now,
+        });
+        var from = order.Status;
+        order.Status = "Shipped";
+        order.UpdatedAt = now;
+        _db.OrderStatusHistories.Add(new OrderStatusHistory
+        {
+            OrderId = orderId, FromStatus = from, ToStatus = "Shipped",
+            Notes = $"Shipped via {req.Courier.Trim()} ({req.TrackingNumber.Trim()})", ChangedBy = userId, CreatedAt = now,
+        });
+        await _db.SaveChangesAsync(ct);
+
+        await NotifyOrderAsync(orderId, "OrderShipped", "OrderShipped",
+            new Dictionary<string, string> { ["Courier"] = req.Courier.Trim(), ["TrackingNumber"] = req.TrackingNumber.Trim() }, ct);
+
+        return await GetAsync(orderId, null, true, ct);
+    }
+
+    public async Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default)
+    {
+        var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && o.TenantId == Tenant, ct);
+        if (order is null) return null;
+        if (order.Status != "Shipped") throw new AppException($"An order that is {order.Status} can't be marked delivered.");
+
+        var now = DateTime.UtcNow;
+        var shipment = await _db.Shipments.Where(s => s.OrderId == orderId).OrderByDescending(s => s.ShipmentId).FirstOrDefaultAsync(ct);
+        if (shipment is not null) { shipment.Status = "Delivered"; shipment.DeliveredAt = now; shipment.UpdatedAt = now; }
+        order.Status = "Delivered";
+        order.UpdatedAt = now;
+        _db.OrderStatusHistories.Add(new OrderStatusHistory
+        {
+            OrderId = orderId, FromStatus = "Shipped", ToStatus = "Delivered", Notes = "Delivered", ChangedBy = userId, CreatedAt = now,
+        });
+        await _db.SaveChangesAsync(ct);
         await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
         return await GetAsync(orderId, null, true, ct);
     }

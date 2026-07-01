@@ -70,4 +70,12 @@ export class OrderService {
   adminCancel(orderId: number, reason?: string): Observable<Order> {
     return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/cancel`, { reason }).pipe(map((r) => r.data!));
   }
+
+  adminCreateShipment(orderId: number, courier: string, trackingNumber: string, estimatedDeliveryDate?: string | null): Observable<Order> {
+    return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/shipment`, { courier, trackingNumber, estimatedDeliveryDate }).pipe(map((r) => r.data!));
+  }
+
+  adminMarkDelivered(orderId: number): Observable<Order> {
+    return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/deliver`, {}).pipe(map((r) => r.data!));
+  }
 }

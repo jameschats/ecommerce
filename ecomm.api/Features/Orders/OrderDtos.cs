@@ -18,6 +18,11 @@ public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddr
 public sealed record ConfirmPaymentRequest(string GatewayPaymentId, string Signature);
 public sealed record CancelOrderRequest(string? Reason);
 
+// ----- Shipments -----
+public sealed record CreateShipmentRequest(string Courier, string TrackingNumber, DateTime? EstimatedDeliveryDate);
+public sealed record ShipmentDto(long shipmentId, string? courier, string? trackingNumber, string status,
+    DateTime? estimatedDeliveryDate, DateTime? shippedAt, DateTime? deliveredAt);
+
 public sealed record PaymentInit(string gateway, string? publicKey, string gatewayOrderId, long paymentId, decimal amount, string currency);
 public sealed record PlaceOrderResult(long orderId, string orderNumber, decimal amount, string currency, PaymentInit payment);
 
@@ -37,7 +42,8 @@ public sealed record OrderDto(
     OrderAddressDto? shippingAddress, OrderAddressDto? billingAddress,
     string? paymentMethod, string? paymentStatus,
     long? invoiceId, string? invoiceNumber,
-    bool canCancel);
+    bool canCancel,
+    ShipmentDto? shipment);
 
 public sealed record OrderListItem(
     long orderId, string orderNumber, string status, decimal totalAmount, int itemCount,

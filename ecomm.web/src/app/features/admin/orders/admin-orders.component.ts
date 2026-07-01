@@ -63,12 +63,38 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           <div class="flex justify-between text-sm font-semibold mb-1"><span>Total</span><span>{{ o.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span></div>
           <div class="text-xs text-slate-400 mb-4">{{ o.paymentMethod }} · {{ o.paymentStatus }}</div>
 
+          @if (o.shipment; as s) {
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm mb-3">
+              <div class="font-medium text-slate-700 mb-0.5">Shipment · {{ s.status }}</div>
+              <div class="text-slate-600">{{ s.courier }} · {{ s.trackingNumber }}</div>
+              @if (s.shippedAt) { <div class="text-xs text-slate-400">Shipped {{ s.shippedAt | date:'dd MMM, HH:mm' }}</div> }
+              @if (s.deliveredAt) { <div class="text-xs text-slate-400">Delivered {{ s.deliveredAt | date:'dd MMM, HH:mm' }}</div> }
+            </div>
+          }
+
           @if (msg(); as m) { <p class="text-sm text-green-600 mb-2">{{ m }}</p> }
           @if (err(); as e) { <p class="text-sm text-red-600 mb-2">{{ e }}</p> }
 
+          <!-- Ship form (Packed → dispatch with courier + tracking) -->
+          @if (o.status === 'Packed') {
+            <div class="border border-slate-200 rounded-lg p-3 mb-3">
+              <div class="text-sm font-medium text-slate-700 mb-2">Create shipment (notifies the customer)</div>
+              <div class="grid grid-cols-2 gap-2">
+                <input [(ngModel)]="shipCourier" name="courier" placeholder="Courier (e.g. Delhivery)" class="input" />
+                <input [(ngModel)]="shipTracking" name="tracking" placeholder="Tracking number" class="input" />
+                <input type="date" [(ngModel)]="shipEta" name="eta" class="input col-span-2" />
+              </div>
+              <button type="button" (click)="createShipment(o)" [disabled]="busy() || !shipCourier.trim() || !shipTracking.trim()"
+                class="btn-primary text-sm px-4 py-2 mt-2 disabled:opacity-50">Ship &amp; notify</button>
+            </div>
+          }
+
           <div class="flex flex-wrap gap-2">
-            @if (nextStatus(o.status); as ns) {
-              <button type="button" (click)="advance(o, ns)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark {{ ns }}</button>
+            @if (o.status === 'Paid') {
+              <button type="button" (click)="advance(o, 'Packed')" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Packed</button>
+            }
+            @if (o.status === 'Shipped') {
+              <button type="button" (click)="markDelivered(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Delivered</button>
             }
             <button type="button" (click)="invoice(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Invoice PDF</button>
             @if (o.status === 'Paid' || o.status === 'Packed' || o.status === 'Pending') {
@@ -91,6 +117,9 @@ export class AdminOrdersComponent implements OnInit {
   readonly msg = signal<string | null>(null);
   readonly err = signal<string | null>(null);
   status = '';
+  shipCourier = '';
+  shipTracking = '';
+  shipEta = '';
 
   ngOnInit(): void { this.reload(); }
 
@@ -104,7 +133,24 @@ export class AdminOrdersComponent implements OnInit {
 
   open(o: OrderListItem): void {
     this.msg.set(null); this.err.set(null);
+    this.shipCourier = ''; this.shipTracking = ''; this.shipEta = '';
     this.svc.adminGet(o.orderId).subscribe((d) => this.selected.set(d));
+  }
+
+  createShipment(o: Order): void {
+    this.busy.set(true); this.msg.set(null); this.err.set(null);
+    this.svc.adminCreateShipment(o.orderId, this.shipCourier.trim(), this.shipTracking.trim(), this.shipEta || null).subscribe({
+      next: (d) => { this.selected.set(d); this.busy.set(false); this.msg.set('Shipment created — customer notified.'); this.reload(); },
+      error: (e: unknown) => { this.busy.set(false); this.err.set(this.m(e)); },
+    });
+  }
+
+  markDelivered(o: Order): void {
+    this.busy.set(true); this.msg.set(null); this.err.set(null);
+    this.svc.adminMarkDelivered(o.orderId).subscribe({
+      next: (d) => { this.selected.set(d); this.busy.set(false); this.msg.set('Marked delivered.'); this.reload(); },
+      error: (e: unknown) => { this.busy.set(false); this.err.set(this.m(e)); },
+    });
   }
 
   badge(s: string): string { return orderStatusClass(s); }
