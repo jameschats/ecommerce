@@ -4,6 +4,7 @@ export interface Profile {
   fullName: string | null;
   phoneNumber: string | null;
   roles: string[];
+  isEmailVerified: boolean;
 }
 
 export interface UpdateProfileRequest {

@@ -7,6 +7,9 @@ public sealed record OtpRequestDto(string PhoneNumber);
 public sealed record OtpVerifyDto(string PhoneNumber, string Code);
 public sealed record GoogleLoginRequest(string IdToken);
 public sealed record RefreshRequest(string RefreshToken);
+public sealed record ForgotPasswordRequest(string Email);
+public sealed record ResetPasswordRequest(string Email, string Code, string NewPassword);
+public sealed record VerifyEmailRequest(string Code);
 
 // --- Responses ---
 public sealed record AuthUserDto(

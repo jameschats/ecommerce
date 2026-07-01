@@ -46,6 +46,22 @@ export class AuthService {
     return this.post('refresh', { refreshToken: this.storage.getRefreshToken() });
   }
 
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/password/forgot`, { email }).pipe(map(() => void 0));
+  }
+
+  resetPassword(email: string, code: string, newPassword: string): Observable<void> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/password/reset`, { email, code, newPassword }).pipe(map(() => void 0));
+  }
+
+  requestEmailVerification(): Observable<void> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/email/verify/request`, {}).pipe(map(() => void 0));
+  }
+
+  confirmEmailVerification(code: string): Observable<void> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/email/verify/confirm`, { code }).pipe(map(() => void 0));
+  }
+
   logout(): void {
     this.storage.clear();
     this.currentUser.set(null);

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Auth.Services;
@@ -17,16 +18,25 @@ public sealed class OtpService : IOtpService
     private const int ExpiryMinutes = 5;
     private const int ResendCooldownSeconds = 30;
 
+    // Email OTP purposes → the notification template used to deliver the code.
+    private static readonly Dictionary<string, string> EmailTemplates = new()
+    {
+        ["ResetPassword"] = "PasswordReset",
+        ["VerifyEmail"] = "EmailVerification",
+    };
+
     private readonly EcommerceDbContext _db;
     private readonly IPasswordHasher _hasher;
     private readonly ISmsSender _sms;
+    private readonly INotificationService _notify;
     private readonly ILogger<OtpService> _logger;
 
-    public OtpService(EcommerceDbContext db, IPasswordHasher hasher, ISmsSender sms, ILogger<OtpService> logger)
+    public OtpService(EcommerceDbContext db, IPasswordHasher hasher, ISmsSender sms, INotificationService notify, ILogger<OtpService> logger)
     {
         _db = db;
         _hasher = hasher;
         _sms = sms;
+        _notify = notify;
         _logger = logger;
     }
 
@@ -55,9 +65,25 @@ public sealed class OtpService : IOtpService
 
         var message = $"Your verification code is {code}. It expires in {ExpiryMinutes} minutes.";
         if (channel == "SMS")
+        {
             await _sms.SendAsync(identifier, message, ct);
+        }
+        else if (channel == "Email" && EmailTemplates.TryGetValue(purpose, out var templateCode))
+        {
+            var name = await _db.Users.Where(u => u.NormalizedEmail == identifier.ToUpperInvariant())
+                .Select(u => u.FullName).FirstOrDefaultAsync(ct) ?? "there";
+            var storeName = await _db.Settings.Where(s => s.SettingKey == "SiteName")
+                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "CalendarShop";
+            var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["OtpCode"] = code, ["CustomerName"] = name!, ["StoreName"] = storeName!,
+            };
+            await _notify.SendEmailAsync(templateCode, identifier, tokens, ct);
+        }
         else
+        {
             _logger.LogWarning("[DEV OTP/{Channel}] {Identifier}: {Code}", channel, identifier, code);
+        }
     }
 
     public async Task<bool> VerifyAsync(string identifier, string purpose, string code, CancellationToken ct = default)

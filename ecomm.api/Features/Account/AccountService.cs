@@ -28,7 +28,7 @@ public sealed class AccountService : IAccountService
         if (user is null) return null;
         var roles = await _db.UserRoles.Where(ur => ur.UserId == userId)
             .Join(_db.Roles, ur => ur.RoleId, r => r.RoleId, (ur, r) => r.Name).ToListAsync(ct);
-        return new ProfileDto(user.UserId, user.Email, user.FullName, user.PhoneNumber, roles);
+        return new ProfileDto(user.UserId, user.Email, user.FullName, user.PhoneNumber, roles, user.IsEmailVerified);
     }
 
     public async Task<ProfileDto?> UpdateProfileAsync(long userId, UpdateProfileRequest req, CancellationToken ct = default)

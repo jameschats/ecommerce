@@ -15,6 +15,10 @@ public interface IAuthService
     Task<AuthResponse> VerifyOtpAsync(OtpVerifyDto request, string? ip, CancellationToken ct = default);
     Task<AuthResponse> GoogleAsync(GoogleLoginRequest request, string? ip, CancellationToken ct = default);
     Task<AuthResponse> RefreshAsync(RefreshRequest request, string? ip, CancellationToken ct = default);
+    Task RequestPasswordResetAsync(string email, CancellationToken ct = default);
+    Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default);
+    Task RequestEmailVerificationAsync(long userId, CancellationToken ct = default);
+    Task<bool> ConfirmEmailVerificationAsync(long userId, string code, CancellationToken ct = default);
 }
 
 public sealed class AuthService : IAuthService
@@ -108,6 +112,61 @@ public sealed class AuthService : IAuthService
         user.LastLoginAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return await IssueTokensAsync(user, ip, ct);
+    }
+
+    // ---------------- Password reset (email OTP) ----------------
+    public async Task RequestPasswordResetAsync(string email, CancellationToken ct = default)
+    {
+        var normalized = (email ?? string.Empty).Trim().ToUpperInvariant();
+        if (normalized.Length == 0) return;
+        var user = await _db.Users.FirstOrDefaultAsync(
+            u => u.TenantId == DefaultTenantId && u.NormalizedEmail == normalized && !u.IsDeleted && u.IsActive, ct);
+        // Anti-enumeration: silently no-op unless the account exists and can use password login.
+        if (user is null || string.IsNullOrEmpty(user.PasswordHash) || string.IsNullOrWhiteSpace(user.Email)) return;
+        try { await _otp.RequestAsync(user.Email!.Trim().ToLowerInvariant(), "Email", "ResetPassword", ct); }
+        catch (AppException) { /* swallow cooldown/rate-limit so the response is always uniform */ }
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default)
+    {
+        if ((request.NewPassword ?? string.Empty).Length < 6)
+            throw new AppException("Password must be at least 6 characters.");
+        var identifier = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+        var ok = await _otp.VerifyAsync(identifier, "ResetPassword", request.Code ?? string.Empty, ct);
+        if (!ok) throw new AppException("Invalid or expired code.");
+
+        var normalized = identifier.ToUpperInvariant();
+        var user = await _db.Users.FirstOrDefaultAsync(
+            u => u.TenantId == DefaultTenantId && u.NormalizedEmail == normalized && !u.IsDeleted, ct)
+            ?? throw new AppException("Account not found.", StatusCodes.Status404NotFound);
+        user.PasswordHash = _hasher.Hash(request.NewPassword!);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // ---------------- Email verification (email OTP) ----------------
+    public async Task RequestEmailVerificationAsync(long userId, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId && u.TenantId == DefaultTenantId, ct)
+            ?? throw new AppException("Account not found.", StatusCodes.Status404NotFound);
+        if (string.IsNullOrWhiteSpace(user.Email)) throw new AppException("There's no email on file to verify.");
+        if (user.IsEmailVerified) throw new AppException("Your email is already verified.");
+        await _otp.RequestAsync(user.Email!.Trim().ToLowerInvariant(), "Email", "VerifyEmail", ct);
+    }
+
+    public async Task<bool> ConfirmEmailVerificationAsync(long userId, string code, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId && u.TenantId == DefaultTenantId, ct)
+            ?? throw new AppException("Account not found.", StatusCodes.Status404NotFound);
+        if (user.IsEmailVerified) return true;
+        var identifier = (user.Email ?? string.Empty).Trim().ToLowerInvariant();
+        var ok = await _otp.VerifyAsync(identifier, "VerifyEmail", code ?? string.Empty, ct);
+        if (!ok) throw new AppException("Invalid or expired code.");
+        user.IsEmailVerified = true;
+        user.EmailVerifiedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task RequestOtpAsync(OtpRequestDto request, CancellationToken ct = default)

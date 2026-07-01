@@ -1,6 +1,6 @@
 namespace ecomm.api.Features.Account;
 
-public sealed record ProfileDto(long UserId, string? Email, string? FullName, string? PhoneNumber, IReadOnlyList<string> Roles);
+public sealed record ProfileDto(long UserId, string? Email, string? FullName, string? PhoneNumber, IReadOnlyList<string> Roles, bool IsEmailVerified);
 public sealed record UpdateProfileRequest(string? FullName, string? PhoneNumber);
 
 public sealed record AddressDto(

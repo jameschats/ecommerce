@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using ecomm.api.Common.Models;
 using ecomm.api.Features.Auth.Dtos;
 using ecomm.api.Features.Auth.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ecomm.api.Features.Auth;
@@ -14,6 +16,8 @@ public sealed class AuthController : ControllerBase
     public AuthController(IAuthService auth) => _auth = auth;
 
     private string? Ip => HttpContext.Connection.RemoteIpAddress?.ToString();
+    private long CurrentUserId =>
+        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : 0;
 
     /// <summary>Enabled auth providers — the storefront renders the login page from this.</summary>
     [HttpGet("config")]
@@ -46,4 +50,35 @@ public sealed class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(RefreshRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.RefreshAsync(request, Ip, ct)));
+
+    /// <summary>Send a password-reset code by email. Always returns success (no account enumeration).</summary>
+    [HttpPost("password/forgot")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
+    {
+        await _auth.RequestPasswordResetAsync(request.Email, ct);
+        return Ok(ApiResponse<object>.Ok(new { sent = true }, "If an account exists for that email, a reset code has been sent."));
+    }
+
+    [HttpPost("password/reset")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
+    {
+        await _auth.ResetPasswordAsync(request, ct);
+        return Ok(ApiResponse<object>.Ok(new { reset = true }, "Your password has been updated. Please sign in."));
+    }
+
+    [Authorize]
+    [HttpPost("email/verify/request")]
+    public async Task<IActionResult> RequestEmailVerification(CancellationToken ct)
+    {
+        await _auth.RequestEmailVerificationAsync(CurrentUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { sent = true }, "Verification code sent to your email."));
+    }
+
+    [Authorize]
+    [HttpPost("email/verify/confirm")]
+    public async Task<IActionResult> ConfirmEmailVerification(VerifyEmailRequest request, CancellationToken ct)
+    {
+        await _auth.ConfirmEmailVerificationAsync(CurrentUserId, request.Code, ct);
+        return Ok(ApiResponse<object>.Ok(new { verified = true }, "Your email is verified."));
+    }
 }
