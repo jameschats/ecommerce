@@ -78,6 +78,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
     public DbSet<NotificationHistory> NotificationHistory => Set<NotificationHistory>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<CouponUsage> CouponUsages => Set<CouponUsage>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -294,5 +296,18 @@ public class EcommerceDbContext : DbContext
         b.Entity<NotificationTemplate>(e => { e.ToTable("NotificationTemplates"); e.HasKey(x => x.NotificationTemplateId); });
         b.Entity<NotificationHistory>(e => { e.ToTable("NotificationHistory"); e.HasKey(x => x.NotificationHistoryId); });
         b.Entity<Review>(e => { e.ToTable("Reviews"); e.HasKey(x => x.ReviewId); });
+        b.Entity<Coupon>(e =>
+        {
+            e.ToTable("Coupons");
+            e.HasKey(x => x.CouponId);
+            foreach (var p in new[] { nameof(Coupon.DiscountValue), nameof(Coupon.MaxDiscountAmount), nameof(Coupon.MinOrderAmount) })
+                e.Property(p).HasPrecision(12, 2);
+        });
+        b.Entity<CouponUsage>(e =>
+        {
+            e.ToTable("CouponUsage");
+            e.HasKey(x => x.CouponUsageId);
+            e.Property(x => x.DiscountAmount).HasPrecision(12, 2);
+        });
     }
 }

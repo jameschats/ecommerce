@@ -28,6 +28,10 @@ export interface CheckoutQuote {
   total: number;
   shippingAddressId: number | null;
   taxMode: string;
+  discountAmount: number;
+  couponCode: string | null;
+  couponMessage: string | null;
+  couponApplied: boolean;
 }
 
 export interface PaymentInit {

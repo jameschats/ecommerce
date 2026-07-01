@@ -1,5 +1,6 @@
 import { CurrencyPipe, isPlatformBrowser } from '@angular/common';
 import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Address } from '../../core/models/account.model';
 import { CheckoutQuote, PlaceOrderResult } from '../../core/models/order.model';
@@ -11,7 +12,7 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
 
 @Component({
   selector: 'app-checkout',
-  imports: [RouterLink, CurrencyPipe],
+  imports: [RouterLink, CurrencyPipe, FormsModule],
   template: `
     <section class="page-container py-8">
       <h1 class="text-xl font-bold text-slate-900 mb-5">Checkout</h1>
@@ -80,7 +81,29 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
                   <div class="flex justify-between text-slate-400 text-xs"><span>Inclusive of all taxes</span><span></span></div>
                 }
                 <div class="flex justify-between text-slate-600"><span>Shipping @if (q.estimatedDays) { <span class="text-slate-400 text-xs">({{ q.estimatedDays }}d)</span> }</span><span>{{ q.shippingCharge === 0 ? 'Free' : (q.shippingCharge | currency:'INR':'symbol':'1.2-2') }}</span></div>
+                @if (q.discountAmount > 0) {
+                  <div class="flex justify-between text-green-700"><span>Discount @if (q.couponCode) { <span class="text-xs">({{ q.couponCode }})</span> }</span><span>−{{ q.discountAmount | currency:'INR':'symbol':'1.2-2' }}</span></div>
+                }
                 <div class="border-t border-slate-100 pt-2 mt-1 flex justify-between font-bold text-slate-900"><span>Total</span><span>{{ q.total | currency:'INR':'symbol':'1.2-2' }}</span></div>
+              </div>
+
+              <!-- Coupon -->
+              <div class="mt-3">
+                @if (appliedCoupon() && q.couponApplied) {
+                  <div class="flex items-center justify-between text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <span class="text-green-700 font-medium">{{ q.couponCode }} applied</span>
+                    <button type="button" (click)="removeCoupon()" class="text-slate-500 hover:text-red-600 text-xs">Remove</button>
+                  </div>
+                } @else {
+                  <div class="flex gap-2">
+                    <input [ngModel]="couponInput()" (ngModelChange)="couponInput.set($event)" (keyup.enter)="applyCoupon()"
+                      placeholder="Coupon code" class="input flex-1 uppercase" />
+                    <button type="button" (click)="applyCoupon()" [disabled]="!couponInput().trim() || loadingQuote()" class="px-3 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50 disabled:opacity-50">Apply</button>
+                  </div>
+                }
+                @if (appliedCoupon() && !q.couponApplied && q.couponMessage) {
+                  <p class="text-xs text-red-600 mt-1">{{ q.couponMessage }}</p>
+                }
               </div>
 
               @if (!q.serviceable && selectedId()) { <p class="text-sm text-red-600 mt-3">{{ q.message }}</p> }
@@ -111,6 +134,8 @@ export class CheckoutComponent implements OnInit {
   readonly loadingQuote = signal(false);
   readonly processing = signal(false);
   readonly error = signal<string | null>(null);
+  readonly couponInput = signal('');
+  readonly appliedCoupon = signal<string | null>(null);
 
   readonly cartEmpty = computed(() => this.cart.itemCount() === 0 && !this.processing());
   readonly canPlace = computed(() =>
@@ -141,10 +166,23 @@ export class CheckoutComponent implements OnInit {
   private loadQuote(addressId: number | null): void {
     this.loadingQuote.set(true);
     this.error.set(null);
-    this.orders.quote(addressId).subscribe({
+    this.orders.quote(addressId, this.appliedCoupon()).subscribe({
       next: (q) => { this.quote.set(q); this.loadingQuote.set(false); },
       error: () => { this.loadingQuote.set(false); this.error.set('Could not load the order summary.'); },
     });
+  }
+
+  applyCoupon(): void {
+    const code = this.couponInput().trim().toUpperCase();
+    if (!code) return;
+    this.appliedCoupon.set(code);
+    this.loadQuote(this.selectedId());
+  }
+
+  removeCoupon(): void {
+    this.appliedCoupon.set(null);
+    this.couponInput.set('');
+    this.loadQuote(this.selectedId());
   }
 
   placeOrder(): void {
@@ -152,7 +190,9 @@ export class CheckoutComponent implements OnInit {
     if (!addressId) return;
     this.processing.set(true);
     this.error.set(null);
-    this.orders.place(addressId).subscribe({
+    // Only send the coupon if the server confirmed it applies, so an invalid code can't block checkout.
+    const coupon = this.quote()?.couponApplied ? this.appliedCoupon() : null;
+    this.orders.place(addressId, null, null, coupon).subscribe({
       next: (res) => this.pay(res),
       error: (e: unknown) => {
         this.processing.set(false);

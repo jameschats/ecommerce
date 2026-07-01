@@ -22,8 +22,8 @@ public class OrdersController : ControllerBase
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : 0;
 
     [HttpGet("quote")]
-    public async Task<IActionResult> Quote([FromQuery] long? addressId, CancellationToken ct)
-        => Ok(ApiResponse<CheckoutQuoteDto>.Ok(await _orders.QuoteAsync(CurrentUserId, addressId, ct)));
+    public async Task<IActionResult> Quote([FromQuery] long? addressId, [FromQuery] string? coupon, CancellationToken ct)
+        => Ok(ApiResponse<CheckoutQuoteDto>.Ok(await _orders.QuoteAsync(CurrentUserId, addressId, coupon, ct)));
 
     [HttpPost]
     public async Task<IActionResult> Place(PlaceOrderRequest request, CancellationToken ct)

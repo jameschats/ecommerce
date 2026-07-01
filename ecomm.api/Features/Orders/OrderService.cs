@@ -3,6 +3,7 @@ using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Checkout;
+using ecomm.api.Features.Coupons;
 using ecomm.api.Features.Inventory;
 using ecomm.api.Features.Notifications;
 using ecomm.api.Features.Payments;
@@ -12,7 +13,7 @@ namespace ecomm.api.Features.Orders;
 
 public interface IOrderService
 {
-    Task<CheckoutQuoteDto> QuoteAsync(long userId, long? shippingAddressId, CancellationToken ct = default);
+    Task<CheckoutQuoteDto> QuoteAsync(long userId, long? shippingAddressId, string? couponCode, CancellationToken ct = default);
     Task<PlaceOrderResult> PlaceOrderAsync(long userId, PlaceOrderRequest req, CancellationToken ct = default);
     Task<OrderDto> ConfirmPaymentAsync(long userId, long orderId, ConfirmPaymentRequest req, CancellationToken ct = default);
     Task<OrderDto> CancelOrderAsync(long userId, long orderId, CancelOrderRequest req, bool isAdmin, CancellationToken ct = default);
@@ -34,14 +35,15 @@ public sealed class OrderService : IOrderService
     private readonly IPaymentGateway _gateway;
     private readonly IInvoiceService _invoices;
     private readonly INotificationService _notify;
+    private readonly ICouponService _coupons;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
-        INotificationService notify, ILogger<OrderService> log)
+        INotificationService notify, ICouponService coupons, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
-        _gateway = gateway; _invoices = invoices; _notify = notify; _log = log;
+        _gateway = gateway; _invoices = invoices; _notify = notify; _coupons = coupons; _log = log;
     }
 
     /// <summary>Fire order lifecycle notifications (email always; SMS when smsCode given).
@@ -78,7 +80,7 @@ public sealed class OrderService : IOrderService
     }
 
     // ---------------- Quote ----------------
-    public async Task<CheckoutQuoteDto> QuoteAsync(long userId, long? shippingAddressId, CancellationToken ct = default)
+    public async Task<CheckoutQuoteDto> QuoteAsync(long userId, long? shippingAddressId, string? couponCode, CancellationToken ct = default)
     {
         var lines = await LoadCartLinesAsync(userId, ct);
         var address = await ResolveAddressAsync(userId, shippingAddressId, ct);
@@ -101,13 +103,20 @@ public sealed class OrderService : IOrderService
         var serviceable = address is not null && ship.Serviceable;
         var message = address is null ? "Select a delivery address." : ship.Message;
         var charge = serviceable ? ship.Charge : 0m;
+
+        // Coupon (order-level discount off the subtotal; tax is computed pre-discount for V1).
+        var coupon = await _coupons.EvaluateAsync(couponCode, userId, subtotal, ct);
+
         // Exclusive adds tax on top; Inclusive/None already have it in the listed price.
-        var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + charge;
+        var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + charge - coupon.Discount;
+        if (total < 0m) total = 0m;
 
         return new CheckoutQuoteDto(serviceable, message, quoteLines,
             subtotal, taxTotal, cgst, sgst, igst, interState,
             charge, ship.MethodName, ship.EstimatedDays,
-            total, address?.CustomerAddressId, mode);
+            total, address?.CustomerAddressId, mode,
+            coupon.Discount, coupon.Code ?? (string.IsNullOrWhiteSpace(couponCode) ? null : couponCode.Trim()),
+            coupon.Ok ? coupon.Description : coupon.Error, coupon.Ok);
     }
 
     // ---------------- Place ----------------
@@ -141,6 +150,14 @@ public sealed class OrderService : IOrderService
         if (!ship.Serviceable) throw new AppException(ship.Message ?? "This address is not serviceable.");
         var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + ship.Charge;
 
+        // Coupon: re-validate server-side (never trust a client-computed discount).
+        var coupon = await _coupons.EvaluateAsync(req.CouponCode, userId, subtotal, ct);
+        if (!string.IsNullOrWhiteSpace(req.CouponCode) && !coupon.Ok)
+            throw new AppException(coupon.Error ?? "That coupon can't be applied.");
+        var discount = coupon.Discount;
+        total -= discount;
+        if (total < 0m) total = 0m;
+
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
         try
         {
@@ -155,7 +172,7 @@ public sealed class OrderService : IOrderService
                 ShippingMethodId = ship.MethodId,
                 Currency = "INR",
                 Subtotal = subtotal,
-                DiscountAmount = 0m,
+                DiscountAmount = discount,
                 TaxAmount = taxTotal,
                 ShippingAmount = ship.Charge,
                 TotalAmount = total,
@@ -210,6 +227,10 @@ public sealed class OrderService : IOrderService
             cart.Status = "Converted";
             cart.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
+
+            if (coupon.Ok && coupon.CouponId is { } couponId)
+                await _coupons.RecordUsageAsync(couponId, userId, order.OrderId, discount, ct);
+
             await tx.CommitAsync(ct);
 
             return new PlaceOrderResult(order.OrderId, order.OrderNumber, total, "INR",

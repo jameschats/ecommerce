@@ -10,10 +10,11 @@ public sealed record CheckoutQuoteDto(
     IReadOnlyList<CheckoutQuoteLine> lines,
     decimal subtotal, decimal taxAmount, decimal cgst, decimal sgst, decimal igst, bool interState,
     decimal shippingCharge, string shippingMethod, int? estimatedDays,
-    decimal total, long? shippingAddressId, string taxMode);
+    decimal total, long? shippingAddressId, string taxMode,
+    decimal discountAmount, string? couponCode, string? couponMessage, bool couponApplied);
 
 // ----- Place / pay -----
-public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddressId, string? Notes);
+public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddressId, string? Notes, string? CouponCode);
 public sealed record ConfirmPaymentRequest(string GatewayPaymentId, string Signature);
 public sealed record CancelOrderRequest(string? Reason);
 

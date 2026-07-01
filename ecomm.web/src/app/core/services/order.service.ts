@@ -12,13 +12,16 @@ export class OrderService {
   private readonly adminBase = `${API_BASE_URL}/admin/orders`;
 
   // ----- customer -----
-  quote(addressId?: number | null): Observable<CheckoutQuote> {
-    const q = addressId ? `?addressId=${addressId}` : '';
+  quote(addressId?: number | null, coupon?: string | null): Observable<CheckoutQuote> {
+    const params = new URLSearchParams();
+    if (addressId) params.set('addressId', String(addressId));
+    if (coupon) params.set('coupon', coupon);
+    const q = params.toString() ? `?${params}` : '';
     return this.http.get<ApiResponse<CheckoutQuote>>(`${this.base}/quote${q}`).pipe(map((r) => r.data!));
   }
 
-  place(shippingAddressId: number, billingAddressId?: number | null, notes?: string | null): Observable<PlaceOrderResult> {
-    return this.http.post<ApiResponse<PlaceOrderResult>>(this.base, { shippingAddressId, billingAddressId, notes }).pipe(map((r) => r.data!));
+  place(shippingAddressId: number, billingAddressId?: number | null, notes?: string | null, couponCode?: string | null): Observable<PlaceOrderResult> {
+    return this.http.post<ApiResponse<PlaceOrderResult>>(this.base, { shippingAddressId, billingAddressId, notes, couponCode }).pipe(map((r) => r.data!));
   }
 
   confirm(orderId: number, gatewayPaymentId: string, signature: string): Observable<Order> {
