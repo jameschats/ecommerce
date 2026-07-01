@@ -73,6 +73,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Setting> Settings => Set<Setting>();
+    public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -279,5 +280,11 @@ public class EcommerceDbContext : DbContext
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
         });
         b.Entity<Setting>(e => { e.ToTable("Settings"); e.HasKey(x => x.SettingId); });
+        b.Entity<HomeBanner>(e =>
+        {
+            e.ToTable("HomeBanners");
+            e.HasKey(x => x.HomeBannerId);
+            e.Property(x => x.ImageData).HasColumnType("LONGBLOB");
+        });
     }
 }

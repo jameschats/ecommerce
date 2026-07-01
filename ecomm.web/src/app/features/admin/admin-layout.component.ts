@@ -40,6 +40,7 @@ export class AdminLayoutComponent {
     { path: '/admin/store-settings', label: 'Store settings' },
     { path: '/admin/theme', label: 'Theme' },
     { path: '/admin/home-page', label: 'Home page' },
+    { path: '/admin/banners', label: 'Banners' },
     { path: '/admin/import', label: 'Import / Export' },
     { path: '/admin/auth-providers', label: 'Sign-in methods' },
   ];

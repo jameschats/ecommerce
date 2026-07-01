@@ -30,7 +30,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly featured = signal<ProductListItem[]>([]);
   readonly newest = signal<ProductListItem[]>([]);
 
-  readonly slides: HeroSlide[] = [
+  // Fallback banners — shown only if the admin has configured none.
+  private readonly defaultSlides: HeroSlide[] = [
     { image: 'https://picsum.photos/seed/calbanner1/900/300', title: 'Customizable 2026 Calendars', subtitle: 'Wall, desk & pocket — with your photos, brand & logo.', cta: 'Shop calendars', link: '/products' },
     { image: 'https://picsum.photos/seed/calbanner2/900/300', title: 'Corporate Gifting', subtitle: 'Branded calendars in bulk.', cta: 'Order in bulk', link: '/products' },
     { image: 'https://picsum.photos/seed/calbanner3/900/300', title: 'Desk Calendars', subtitle: 'Elegant picks for any workspace.', cta: 'Browse', link: '/category/desk-calendars' },
@@ -38,6 +39,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     { image: 'https://picsum.photos/seed/calbanner5/900/300', title: 'New-Year Offers', subtitle: 'Up to 30% off select ranges.', cta: 'Grab deals', link: '/products' },
     { image: 'https://picsum.photos/seed/calbanner6/900/300', title: 'Pocket & Tent Calendars', subtitle: 'Handy formats for every desk.', cta: 'Explore', link: '/products' },
   ];
+  readonly slides = signal<HeroSlide[]>(this.defaultSlides);
   readonly currentSlide = signal(0);
   private readonly bannerTrack = viewChild<ElementRef<HTMLDivElement>>('bannerTrack');
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -76,6 +78,12 @@ export class HomeComponent implements OnInit, OnDestroy {
       this.categories.set(data.categories);
       this.featured.set(data.featured);
       this.newest.set(data.newest);
+      if (data.banners?.length) {
+        this.slides.set(data.banners.map((b) => ({
+          image: b.imageUrl ?? '', title: b.title ?? '', subtitle: b.subtitle ?? '',
+          cta: b.cta ?? '', link: b.link ?? '/products',
+        })));
+      }
     }
 
     if (this.isBrowser) this.timer = setInterval(() => this.next(), 5000);
@@ -85,8 +93,8 @@ export class HomeComponent implements OnInit, OnDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  next(): void { this.currentSlide.update((i) => (i + 1) % this.slides.length); this.scrollToCurrent(); }
-  prev(): void { this.currentSlide.update((i) => (i - 1 + this.slides.length) % this.slides.length); this.scrollToCurrent(); }
+  next(): void { this.currentSlide.update((i) => (i + 1) % this.slides().length); this.scrollToCurrent(); }
+  prev(): void { this.currentSlide.update((i) => (i - 1 + this.slides().length) % this.slides().length); this.scrollToCurrent(); }
   goTo(i: number): void { this.currentSlide.set(i); this.scrollToCurrent(); }
 
   /** Scroll the banner track so the current banner aligns to the left (browser only). */
