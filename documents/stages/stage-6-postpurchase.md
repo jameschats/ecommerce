@@ -5,12 +5,14 @@
 ## Scope & checklist
 - [x] Order status tracking lifecycle (`Pending→Paid→Packed→Shipped→Delivered`, +Cancelled/Returned) with history + customer emails
 - [x] Shipments (courier, tracking number) — `Shipments`; admin create/deliver, customer tracking view
-- [x] **Transactional email** (`IEmailSender`): order confirmation + status updates. `LoggingEmailSender`
-  (dev) / `SmtpEmailSender` (real) selected by `Email:Provider`. *Password reset + email verification deferred (below).*
+- [x] **Transactional email** (`IEmailSender`): order confirmation + status updates + **password reset +
+  email verification** (email OTP). `LoggingEmailSender` (dev) / `SmtpEmailSender` (real) via `Email:Provider`.
 - [x] Coupon engine (flat/percentage; caps; total + per-user usage limits; window) — `Coupons`/`CouponUsage`; checkout + admin
 - [x] Reviews & ratings (verified-purchase flag, moderation) — product page + admin moderation
 - [x] Notification engine (Email + SMS templates; WhatsApp future) — `NotificationTemplates`/`NotificationHistory`
-- [ ] **Deferred:** password-reset + email-verification flows (net-new auth endpoints + UI; reuse the email foundation)
+- [x] **Password-reset + email-verification** — `OtpService` delivers email codes via templates;
+  `/auth/password/forgot`+`/reset` (anti-enumeration) + `/auth/email/verify/request`+`/confirm`;
+  forgot-password page + account verify prompt.
 
 ## Implementation
 - **Notifications:** `Features/Notifications` — `IEmailSender` (Logging/Smtp), `INotificationService`
@@ -38,5 +40,5 @@ on Packed; coupon (percentage under cap, invalid-code message, usage recorded, p
 submit→pending→approve→public with rating summary; shipment dispatch→Shipped (email+SMS w/ tracking),
 re-ship rejected, deliver→Delivered, customer tracking visible. Web builds clean.
 
-**Status:** ✅ Email/SMS notifications · reviews · coupons · shipments — verified backend + build.
-Deferred: password-reset / email-verification flows (P0 follow-up), Returns/RMA, WhatsApp.
+**Status:** ✅ Email/SMS notifications · reviews · coupons · shipments · password-reset + email-verification
+— verified backend + build. Deferred (future): Returns/RMA, WhatsApp.
