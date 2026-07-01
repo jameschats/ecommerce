@@ -75,6 +75,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<Setting> Settings => Set<Setting>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<NotificationHistory> NotificationHistory => Set<NotificationHistory>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -288,5 +290,7 @@ public class EcommerceDbContext : DbContext
             e.Property(x => x.ImageData).HasColumnType("LONGBLOB");
         });
         b.Entity<MediaFile>(e => { e.ToTable("MediaFiles"); e.HasKey(x => x.MediaFileId); });
+        b.Entity<NotificationTemplate>(e => { e.ToTable("NotificationTemplates"); e.HasKey(x => x.NotificationTemplateId); });
+        b.Entity<NotificationHistory>(e => { e.ToTable("NotificationHistory"); e.HasKey(x => x.NotificationHistoryId); });
     }
 }

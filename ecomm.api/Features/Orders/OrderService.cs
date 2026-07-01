@@ -4,6 +4,7 @@ using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Checkout;
 using ecomm.api.Features.Inventory;
+using ecomm.api.Features.Notifications;
 using ecomm.api.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,13 +33,48 @@ public sealed class OrderService : IOrderService
     private readonly IShippingService _shipping;
     private readonly IPaymentGateway _gateway;
     private readonly IInvoiceService _invoices;
+    private readonly INotificationService _notify;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
-        IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices, ILogger<OrderService> log)
+        IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
+        INotificationService notify, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
-        _gateway = gateway; _invoices = invoices; _log = log;
+        _gateway = gateway; _invoices = invoices; _notify = notify; _log = log;
+    }
+
+    /// <summary>Fire order lifecycle notifications (email always; SMS when smsCode given).
+    /// Never throws — notification failure must not break the order flow.</summary>
+    private async Task NotifyOrderAsync(long orderId, string emailCode, string? smsCode,
+        IReadOnlyDictionary<string, string>? extra, CancellationToken ct)
+    {
+        try
+        {
+            var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
+            if (order is null) return;
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == order.UserId, ct);
+            if (user is null) return;
+            var storeName = await _db.Settings.Where(s => s.TenantId == Tenant && s.SettingKey == "SiteName")
+                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "CalendarShop";
+
+            var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CustomerName"] = user.FullName ?? "there",
+                ["OrderNumber"] = order.OrderNumber,
+                ["OrderTotal"] = $"{order.Currency} {order.TotalAmount:0.00}",
+                ["Status"] = order.Status,
+                ["StoreName"] = storeName,
+            };
+            if (extra is not null) foreach (var kv in extra) tokens[kv.Key] = kv.Value;
+
+            if (!string.IsNullOrWhiteSpace(user.Email)) await _notify.SendEmailAsync(emailCode, user.Email!, tokens, ct);
+            if (smsCode is not null && !string.IsNullOrWhiteSpace(user.PhoneNumber)) await _notify.SendSmsAsync(smsCode, user.PhoneNumber!, tokens, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Order notification '{Code}' failed for order {OrderId}", emailCode, orderId);
+        }
     }
 
     // ---------------- Quote ----------------
@@ -241,6 +277,8 @@ public sealed class OrderService : IOrderService
         try { await _invoices.GenerateForOrderAsync(orderId, ct); }
         catch (Exception ex) { _log.LogError(ex, "Invoice generation failed for order {OrderId}", orderId); }
 
+        await NotifyOrderAsync(orderId, "OrderConfirmation", "OrderConfirmation", null, ct);
+
         return (await GetAsync(orderId, userId, false, ct))!;
     }
 
@@ -297,6 +335,7 @@ public sealed class OrderService : IOrderService
             Notes = req.Reason ?? "Cancelled", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
         });
         await _db.SaveChangesAsync(ct);
+        await NotifyOrderAsync(orderId, "OrderCancelled", "OrderCancelled", null, ct);
         return (await GetAsync(orderId, userId, isAdmin, ct))!;
     }
 
@@ -375,6 +414,8 @@ public sealed class OrderService : IOrderService
             OrderId = orderId, FromStatus = from, ToStatus = toStatus, Notes = "Status updated by admin", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
         });
         await _db.SaveChangesAsync(ct);
+        // Generic status email (Shipped-with-tracking is sent by the Shipments feature).
+        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
         return await GetAsync(orderId, null, true, ct);
     }
 

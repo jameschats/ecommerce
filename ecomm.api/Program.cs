@@ -68,6 +68,15 @@ builder.Services.Configure<ecomm.api.Features.Media.MediaOptions>(builder.Config
 builder.Services.AddSingleton<ecomm.api.Features.Media.IMediaStorage, ecomm.api.Features.Media.LocalDiskStorage>();
 builder.Services.AddScoped<ecomm.api.Features.Media.IMediaService, ecomm.api.Features.Media.MediaService>();
 
+// Notifications — email sender selected by Email:Provider (Logging dev-stub | Smtp real).
+builder.Services.Configure<ecomm.api.Features.Notifications.EmailOptions>(builder.Configuration.GetSection(ecomm.api.Features.Notifications.EmailOptions.SectionName));
+var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
+if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.SmtpEmailSender>();
+else
+    builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.LoggingEmailSender>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();
+
 // Inventory & Search
 builder.Services.AddScoped<ecomm.api.Features.Inventory.IInventoryService, ecomm.api.Features.Inventory.InventoryService>();
 builder.Services.AddScoped<ecomm.api.Features.Inventory.IInventoryImportService, ecomm.api.Features.Inventory.InventoryImportService>();
