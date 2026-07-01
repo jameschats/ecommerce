@@ -57,6 +57,7 @@ import { CartService } from '../../core/services/cart.service';
             <div class="flex justify-between text-sm text-slate-600 mb-1"><span>Subtotal ({{ count() }} items)</span><span>{{ subtotal() | currency:'INR':'symbol':'1.0-0' }}</span></div>
             <div class="flex justify-between text-sm text-slate-500 mb-3"><span>Shipping</span><span>Calculated at checkout</span></div>
             <div class="border-t border-slate-100 pt-3 flex justify-between font-bold text-slate-900"><span>Total</span><span>{{ subtotal() | currency:'INR':'symbol':'1.0-0' }}</span></div>
+            @if (taxMode() === 'Inclusive') { <p class="text-xs text-slate-400 mt-1">Inclusive of all taxes</p> }
             <button type="button" (click)="checkout()" [disabled]="!canCheckout()" class="btn-primary w-full mt-4 py-3 disabled:opacity-50 disabled:cursor-not-allowed">Proceed to checkout</button>
             @if (checkoutNote()) { <p class="text-xs text-amber-600 mt-2 text-center">{{ checkoutNote() }}</p> }
             <a routerLink="/products" class="block text-center text-sm text-primary hover:underline mt-3">Continue shopping</a>
@@ -75,6 +76,7 @@ export class CartComponent {
   readonly items = this.cartService.items;
   readonly subtotal = this.cartService.subtotal;
   readonly count = this.cartService.itemCount;
+  readonly taxMode = computed(() => this.cartService.cart()?.taxMode ?? 'Exclusive');
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly checkoutNote = signal<string | null>(null);

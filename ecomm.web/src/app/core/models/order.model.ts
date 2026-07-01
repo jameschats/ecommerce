@@ -27,6 +27,7 @@ export interface CheckoutQuote {
   estimatedDays: number | null;
   total: number;
   shippingAddressId: number | null;
+  taxMode: string;
 }
 
 export interface PaymentInit {

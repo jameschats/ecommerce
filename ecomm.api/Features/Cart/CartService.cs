@@ -26,7 +26,12 @@ public sealed class CartService : ICartService
 {
     private const long Tenant = 1;
     private readonly EcommerceDbContext _db;
-    public CartService(EcommerceDbContext db) => _db = db;
+    private readonly ecomm.api.Features.Checkout.ITaxService _tax;
+    public CartService(EcommerceDbContext db, ecomm.api.Features.Checkout.ITaxService tax)
+    {
+        _db = db;
+        _tax = tax;
+    }
 
     public async Task<CartDto> GetCartAsync(long? userId, string? sessionId, CancellationToken ct = default)
     {
@@ -206,7 +211,8 @@ public sealed class CartService : ICartService
 
     private async Task<CartDto> BuildDtoAsync(CartEntity? cart, CancellationToken ct)
     {
-        if (cart is null) return new CartDto(0, Array.Empty<CartItemDto>(), 0, 0, 0m);
+        var taxMode = await _tax.GetTaxModeAsync(ct);
+        if (cart is null) return new CartDto(0, Array.Empty<CartItemDto>(), 0, 0, 0m, taxMode);
 
         var rows = await _db.CartItems
             .Where(ci => ci.CartId == cart.CartId)
@@ -228,6 +234,6 @@ public sealed class CartService : ICartService
             x.CartItemId, x.ProductId, x.ProductVariantId, x.Name, x.Slug, x.ImageUrl, x.VariantLabel,
             x.UnitPrice, x.Quantity, x.UnitPrice * x.Quantity, x.Available, x.Available > 0)).ToList();
 
-        return new CartDto(cart.CartId, items, items.Sum(i => i.Quantity), items.Count, items.Sum(i => i.LineTotal));
+        return new CartDto(cart.CartId, items, items.Sum(i => i.Quantity), items.Count, items.Sum(i => i.LineTotal), taxMode);
     }
 }

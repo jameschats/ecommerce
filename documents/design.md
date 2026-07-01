@@ -219,6 +219,13 @@ Cart → resolve **tax** (per HSN) → resolve **shipping** (serviceable pincode
 
 **India / GST fields** (design now, even if calc is basic at first): `GST Number`, `HSN Code`, `CGST`, `SGST`, `IGST`. Both Admin and Customer can **download invoice PDFs** from order history.
 
+**Tax display mode (admin-toggleable `TaxMode`)** *(new)* — an admin setting controls how tax is presented and charged:
+- **`Exclusive`** (default) — GST added on top of the price; CGST/SGST/IGST shown as separate lines in cart, checkout and invoice. `Total = Subtotal + Tax + Shipping`.
+- **`Inclusive`** — prices already include GST; storefront hides the breakdown and shows **"inclusive of all taxes"**. Tax is **reverse-calculated** (`tax = price − price/(1+rate)`) so the **tax invoice remains legally valid** (GST amount still recorded/shown), but nothing is added on top: `Total = Subtotal(gross) + Shipping`.
+- **`None`** — no GST charged (unregistered / composition seller); invoice renders as a **Bill of Supply** with no tax lines.
+
+Default is `Exclusive` so existing behaviour is unchanged until an admin switches it. ⚠️ Switching to `Inclusive` makes the listed price the final price (tax no longer added on top) — a pricing decision, since effective revenue changes unless base prices are set tax-inclusive.
+
 ### 8.3 Order status lifecycle
 `Pending → Paid → Packed → Shipped → Delivered`, plus `Cancelled` and `Returned`. Every transition is recorded in `OrderStatusHistory` and (for customer-facing transitions) triggers a transactional email.
 
@@ -436,3 +443,5 @@ The storefront must be crawlable and rich-result friendly — organic search dri
 ---
 
 *End of revised V1 design baseline. Microservices, event-driven architecture, Elasticsearch, and marketplace flows are explicitly deferred to later phases; the schema is built to accommodate them — plus tax, shipping, refunds, COD, multi-provider auth, and SEO — without rework.*
+
+

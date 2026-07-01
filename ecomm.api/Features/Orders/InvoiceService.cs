@@ -105,6 +105,7 @@ public sealed class InvoiceService : IInvoiceService
 
     private static byte[] BuildPdf(Invoice inv, List<InvoiceItem> items, Order order, string sellerName, string sellerState)
     {
+        var docTitle = inv.TaxAmount <= 0m ? "BILL OF SUPPLY" : "TAX INVOICE";
         var doc = Document.Create(container =>
         {
             container.Page(page =>
@@ -125,7 +126,7 @@ public sealed class InvoiceService : IInvoiceService
                         });
                         row.ConstantItem(180).Column(c =>
                         {
-                            c.Item().AlignRight().Text("TAX INVOICE").FontSize(13).Bold().FontColor(Colors.Black);
+                            c.Item().AlignRight().Text(docTitle).FontSize(13).Bold().FontColor(Colors.Black);
                             c.Item().AlignRight().Text($"No: {inv.InvoiceNumber}");
                             c.Item().AlignRight().Text($"Date: {inv.InvoiceDate:dd MMM yyyy}");
                             c.Item().AlignRight().Text($"Order: {order.OrderNumber}");
@@ -178,6 +179,12 @@ public sealed class InvoiceService : IInvoiceService
                     });
 
                     var shipping = order.ShippingAmount;
+                    // Infer how the order was charged from its stored amounts (order-accurate,
+                    // independent of the current TaxMode setting).
+                    var billOfSupply = inv.TaxAmount <= 0m;
+                    var taxAddedOnTop = Math.Abs(order.TotalAmount - (inv.Subtotal + inv.TaxAmount + shipping)) < 0.01m;
+                    var inclusive = !billOfSupply && !taxAddedOnTop;
+
                     col.Item().PaddingTop(10).AlignRight().Column(c =>
                     {
                         void Line(string label, string val, bool bold = false)
@@ -192,11 +199,21 @@ public sealed class InvoiceService : IInvoiceService
                         }
                         Line("Subtotal", Money(inv.Subtotal));
                         if (order.DiscountAmount > 0) Line("Discount", "-" + Money(order.DiscountAmount));
-                        if (inv.IgstAmount > 0) Line("IGST", Money(inv.IgstAmount));
-                        else { Line("CGST", Money(inv.CgstAmount)); Line("SGST", Money(inv.SgstAmount)); }
+                        if (taxAddedOnTop && !billOfSupply)   // Exclusive — GST added on top
+                        {
+                            if (inv.IgstAmount > 0) Line("IGST", Money(inv.IgstAmount));
+                            else { Line("CGST", Money(inv.CgstAmount)); Line("SGST", Money(inv.SgstAmount)); }
+                        }
                         Line("Shipping", Money(shipping));
                         c.Item().PaddingVertical(2).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
                         Line("Grand Total", Money(inv.TotalAmount), true);
+                        if (inclusive)
+                        {
+                            var note = inv.IgstAmount > 0
+                                ? $"Inclusive of IGST {Money(inv.IgstAmount)}"
+                                : $"Inclusive of all taxes (CGST {Money(inv.CgstAmount)} + SGST {Money(inv.SgstAmount)})";
+                            c.Item().PaddingTop(3).Text(note).FontSize(8).FontColor(Colors.Grey.Darken1);
+                        }
                     });
                 });
 

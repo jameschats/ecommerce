@@ -46,30 +46,32 @@ public sealed class OrderService : IOrderService
     {
         var lines = await LoadCartLinesAsync(userId, ct);
         var address = await ResolveAddressAsync(userId, shippingAddressId, ct);
+        var mode = await _tax.GetTaxModeAsync(ct);
         var interState = await _tax.IsInterStateAsync(address?.State, ct);
 
         var quoteLines = new List<CheckoutQuoteLine>();
-        decimal subtotal = 0m, taxTotal = 0m;
+        decimal subtotal = 0m, taxTotal = 0m, cgst = 0m, sgst = 0m, igst = 0m;
         foreach (var l in lines)
         {
-            var lineSub = l.UnitPrice * l.Quantity;
+            var listed = l.UnitPrice * l.Quantity;
             var rate = await _tax.ResolveRateAsync(l.Hsn, ct);
-            var lineTax = Math.Round(lineSub * rate / 100m, 2, MidpointRounding.AwayFromZero);
-            subtotal += lineSub; taxTotal += lineTax;
+            var r = _tax.ComputeLine(listed, rate, interState, mode);
+            subtotal += listed; taxTotal += r.Tax; cgst += r.Cgst; sgst += r.Sgst; igst += r.Igst;
             quoteLines.Add(new CheckoutQuoteLine(l.ProductId, l.VariantId, l.Name, l.VariantLabel,
-                l.Quantity, l.UnitPrice, lineSub, rate, lineTax, l.Available, l.Available >= l.Quantity));
+                l.Quantity, l.UnitPrice, listed, r.Rate, r.Tax, l.Available, l.Available >= l.Quantity));
         }
 
-        var (cgst, sgst, igst) = SplitTax(taxTotal, interState);
         var ship = await _shipping.QuoteAsync(address?.Pincode, subtotal, ct);
         var serviceable = address is not null && ship.Serviceable;
         var message = address is null ? "Select a delivery address." : ship.Message;
         var charge = serviceable ? ship.Charge : 0m;
+        // Exclusive adds tax on top; Inclusive/None already have it in the listed price.
+        var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + charge;
 
         return new CheckoutQuoteDto(serviceable, message, quoteLines,
             subtotal, taxTotal, cgst, sgst, igst, interState,
             charge, ship.MethodName, ship.EstimatedDays,
-            subtotal + taxTotal + charge, address?.CustomerAddressId);
+            total, address?.CustomerAddressId, mode);
     }
 
     // ---------------- Place ----------------
@@ -87,18 +89,21 @@ public sealed class OrderService : IOrderService
         var lines = await LoadCartLinesAsync(userId, ct);
         if (lines.Count == 0) throw new AppException("Your cart is empty.");
 
+        var mode = await _tax.GetTaxModeAsync(ct);
         var interState = await _tax.IsInterStateAsync(shipAddr.State, ct);
         decimal subtotal = 0m, taxTotal = 0m;
         foreach (var l in lines)
         {
-            l.Rate = await _tax.ResolveRateAsync(l.Hsn, ct);
+            var rate = await _tax.ResolveRateAsync(l.Hsn, ct);
             l.LineSub = l.UnitPrice * l.Quantity;
-            l.LineTax = Math.Round(l.LineSub * l.Rate / 100m, 2, MidpointRounding.AwayFromZero);
+            var r = _tax.ComputeLine(l.LineSub, rate, interState, mode);
+            l.Rate = r.Rate;          // effective rate (0 in None mode)
+            l.LineTax = r.Tax;
             subtotal += l.LineSub; taxTotal += l.LineTax;
         }
         var ship = await _shipping.QuoteAsync(shipAddr.Pincode, subtotal, ct);
         if (!ship.Serviceable) throw new AppException(ship.Message ?? "This address is not serviceable.");
-        var total = subtotal + taxTotal + ship.Charge;
+        var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + ship.Charge;
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
         try
@@ -374,13 +379,6 @@ public sealed class OrderService : IOrderService
     }
 
     // ---------------- helpers ----------------
-    private static (decimal cgst, decimal sgst, decimal igst) SplitTax(decimal tax, bool interState)
-    {
-        if (interState) return (0m, 0m, tax);
-        var cgst = Math.Round(tax / 2m, 2, MidpointRounding.AwayFromZero);
-        return (cgst, tax - cgst, 0m);
-    }
-
     private Task<CustomerAddress?> ResolveAddressAsync(long userId, long? addressId, CancellationToken ct)
     {
         if (addressId is { } id)

@@ -19,4 +19,5 @@ export interface Cart {
   itemCount: number;
   distinctCount: number;
   subtotal: number;
+  taxMode: string;
 }

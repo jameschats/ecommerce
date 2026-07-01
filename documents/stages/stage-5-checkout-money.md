@@ -30,6 +30,14 @@ Cart → resolve **tax** (per HSN) → resolve **shipping** (serviceable pincode
 ## Verification
 Backend tested end-to-end on a throwaway port: quote (12% GST, intra-state split, free shipping), place→pay (mock)→**Paid**, inventory reserve→commit, invoice PDF (valid `%PDF`), cancel→**refund Processed**+restock, non-serviceable pincode rejected, admin list + Paid→Packed. Web builds clean; `/`, `/cart`, `/product/:slug`, `/checkout`→login, `/account/orders`→login all SSR-render 200. Test data cleaned up.
 
+## Enhancement — tax display mode (`TaxMode`)
+Admin-toggleable **`Exclusive` / `Inclusive` / `None`** (Store settings). `Exclusive` (default) adds GST on
+top with CGST/SGST/IGST lines; `Inclusive` treats prices as tax-inclusive (reverse-calculates GST, shows
+"inclusive of all taxes"); `None` charges no GST and renders a **Bill of Supply**. Touches `TaxService`,
+`OrderService`, cart/checkout DTOs, invoice PDF, and a new `GET/PUT /api/admin/store/settings`. Migration
+`022_tax_mode.sql`. Verified across all 3 modes (math + invoices). *(Also: `021_suppliers.sql` added for the
+P1 analytics stage.)*
+
 ## Deferred
 COD operational workflow (V1.1), coupons (Stage 7), shipments/courier tracking detail & confirmation email (Stage 6), credit notes (future).
 

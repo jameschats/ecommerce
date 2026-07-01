@@ -15,6 +15,7 @@ import {
   SaveCategoryRequest,
   SaveProductRequest,
   SaveVariantRequest,
+  StoreSettings,
   VariantInventory,
 } from '../models/admin-catalog.model';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
@@ -156,5 +157,13 @@ export class AdminCatalogService {
   }
   setVariantStock(productId: number, variantId: number, availableQty: number, reorderLevel: number): Observable<VariantInventory> {
     return this.unwrap(this.http.put<ApiResponse<VariantInventory>>(`${this.base}/inventory/${productId}/variant/${variantId}`, { availableQty, reorderLevel }));
+  }
+
+  // ----- Store settings (tax mode + store identity) -----
+  getStoreSettings(): Observable<StoreSettings> {
+    return this.unwrap(this.http.get<ApiResponse<StoreSettings>>(`${this.base}/store/settings`));
+  }
+  updateStoreSettings(body: StoreSettings): Observable<StoreSettings> {
+    return this.unwrap(this.http.put<ApiResponse<StoreSettings>>(`${this.base}/store/settings`, body));
   }
 }

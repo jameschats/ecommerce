@@ -44,7 +44,7 @@ mysql -u root -padmin ecommerce < database/migrations/00X_name.sql
 
 ## Database
 - Name **`ecommerce`**; dev conn (in `appsettings.json`): `Server=localhost;Database=ecommerce;Uid=root;Pwd=admin;CharSet=utf8mb4;`
-- Migrations are **forward-only and numbered** (`001`–`015` so far). **Never edit an applied script** — add a new higher-numbered one. Each records itself in `__schema_migrations`.
+- Migrations are **forward-only and numbered** (`001`–`022` so far). **Never edit an applied script** — add a new higher-numbered one. Each records itself in `__schema_migrations`.
 - Tables/columns are PascalCase in SQL; MySQL-on-Windows stores **table** names lowercased (case-insensitive). That's why entities are **hand-authored + Fluent-mapped** (`ToTable("Users")`), not auto-scaffolded.
 
 ## Conventions

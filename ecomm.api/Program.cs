@@ -79,6 +79,7 @@ builder.Services.AddScoped<ecomm.api.Features.Checkout.ITaxService, ecomm.api.Fe
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IShippingService, ecomm.api.Features.Checkout.ShippingService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IInvoiceService, ecomm.api.Features.Orders.InvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderService, ecomm.api.Features.Orders.OrderService>();
+builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<IPaymentGateway>(sp =>
 {
     var opt = sp.GetRequiredService<IOptions<PaymentOptions>>().Value;

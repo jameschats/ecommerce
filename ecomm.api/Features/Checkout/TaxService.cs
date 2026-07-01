@@ -13,7 +13,10 @@ public interface ITaxService
 {
     Task<bool> IsInterStateAsync(string? destinationState, CancellationToken ct = default);
     Task<decimal> ResolveRateAsync(string? hsnCode, CancellationToken ct = default);
-    Task<TaxLine> ComputeAsync(string? hsnCode, decimal taxableAmount, bool interState, CancellationToken ct = default);
+    Task<string> GetTaxModeAsync(CancellationToken ct = default);
+
+    /// <summary>Compute GST for one line given the listed line amount, rate, inter-state flag and mode.</summary>
+    TaxLineResult ComputeLine(decimal listedAmount, decimal rate, bool interState, string mode);
 }
 
 public sealed class TaxService : ITaxService
@@ -23,6 +26,7 @@ public sealed class TaxService : ITaxService
     private readonly Dictionary<string, decimal> _rateCache = new();
     private string? _storeState;
     private string? _defaultRateName;
+    private string? _taxMode;
 
     public TaxService(EcommerceDbContext db) => _db = db;
 
@@ -55,24 +59,48 @@ public sealed class TaxService : ITaxService
         return rate;
     }
 
-    public async Task<TaxLine> ComputeAsync(string? hsnCode, decimal taxableAmount, bool interState, CancellationToken ct = default)
+    public async Task<string> GetTaxModeAsync(CancellationToken ct = default)
     {
-        var rate = await ResolveRateAsync(hsnCode, ct);
-        var tax = Math.Round(taxableAmount * rate / 100m, 2, MidpointRounding.AwayFromZero);
-        if (interState)
-            return new TaxLine(rate, tax, 0m, 0m, tax, true);
-        var half = Math.Round(tax / 2m, 2, MidpointRounding.AwayFromZero);
-        return new TaxLine(rate, tax, half, tax - half, 0m, false);
+        await EnsureStoreAsync(ct);
+        return _taxMode!;
+    }
+
+    public TaxLineResult ComputeLine(decimal listedAmount, decimal rate, bool interState, string mode)
+    {
+        if (mode == TaxMode.None) return new TaxLineResult(0m, listedAmount, 0m, 0m, 0m, 0m);
+
+        decimal net, tax;
+        if (rate <= 0m)
+        {
+            net = listedAmount;
+            tax = 0m;
+        }
+        else if (mode == TaxMode.Inclusive)
+        {
+            // listed amount already includes GST → reverse it out
+            net = Math.Round(listedAmount / (1m + rate / 100m), 2, MidpointRounding.AwayFromZero);
+            tax = listedAmount - net;
+        }
+        else // Exclusive: GST on top
+        {
+            net = listedAmount;
+            tax = Math.Round(listedAmount * rate / 100m, 2, MidpointRounding.AwayFromZero);
+        }
+
+        if (interState) return new TaxLineResult(rate, net, tax, 0m, 0m, tax);
+        var cgst = Math.Round(tax / 2m, 2, MidpointRounding.AwayFromZero);
+        return new TaxLineResult(rate, net, tax, cgst, tax - cgst, 0m);
     }
 
     private async Task EnsureStoreAsync(CancellationToken ct)
     {
-        if (_storeState is not null || _defaultRateName is not null) return;
+        if (_taxMode is not null) return;
         var settings = await _db.Settings
-            .Where(s => s.TenantId == Tenant && (s.SettingKey == "StoreState" || s.SettingKey == "DefaultTaxRateName"))
+            .Where(s => s.TenantId == Tenant && (s.SettingKey == "StoreState" || s.SettingKey == "DefaultTaxRateName" || s.SettingKey == "TaxMode"))
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue, ct);
         _storeState = settings.GetValueOrDefault("StoreState") ?? string.Empty;
         _defaultRateName = settings.GetValueOrDefault("DefaultTaxRateName") ?? "GST 12%";
+        _taxMode = settings.GetValueOrDefault("TaxMode") ?? TaxMode.Exclusive;
     }
 
     private static string Normalize(string s) => s.Trim().Replace(" ", "").ToLowerInvariant();

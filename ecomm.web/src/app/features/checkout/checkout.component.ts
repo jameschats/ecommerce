@@ -69,11 +69,15 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
             @else if (quote(); as q) {
               <div class="space-y-1 text-sm">
                 <div class="flex justify-between text-slate-600"><span>Subtotal</span><span>{{ q.subtotal | currency:'INR':'symbol':'1.2-2' }}</span></div>
-                @if (q.interState) {
-                  <div class="flex justify-between text-slate-600"><span>IGST</span><span>{{ q.igst | currency:'INR':'symbol':'1.2-2' }}</span></div>
-                } @else {
-                  <div class="flex justify-between text-slate-600"><span>CGST</span><span>{{ q.cgst | currency:'INR':'symbol':'1.2-2' }}</span></div>
-                  <div class="flex justify-between text-slate-600"><span>SGST</span><span>{{ q.sgst | currency:'INR':'symbol':'1.2-2' }}</span></div>
+                @if (q.taxMode === 'Exclusive') {
+                  @if (q.interState) {
+                    <div class="flex justify-between text-slate-600"><span>IGST</span><span>{{ q.igst | currency:'INR':'symbol':'1.2-2' }}</span></div>
+                  } @else {
+                    <div class="flex justify-between text-slate-600"><span>CGST</span><span>{{ q.cgst | currency:'INR':'symbol':'1.2-2' }}</span></div>
+                    <div class="flex justify-between text-slate-600"><span>SGST</span><span>{{ q.sgst | currency:'INR':'symbol':'1.2-2' }}</span></div>
+                  }
+                } @else if (q.taxMode === 'Inclusive') {
+                  <div class="flex justify-between text-slate-400 text-xs"><span>Inclusive of all taxes</span><span></span></div>
                 }
                 <div class="flex justify-between text-slate-600"><span>Shipping @if (q.estimatedDays) { <span class="text-slate-400 text-xs">({{ q.estimatedDays }}d)</span> }</span><span>{{ q.shippingCharge === 0 ? 'Free' : (q.shippingCharge | currency:'INR':'symbol':'1.2-2') }}</span></div>
                 <div class="border-t border-slate-100 pt-2 mt-1 flex justify-between font-bold text-slate-900"><span>Total</span><span>{{ q.total | currency:'INR':'symbol':'1.2-2' }}</span></div>

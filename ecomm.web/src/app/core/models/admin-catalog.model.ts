@@ -123,6 +123,13 @@ export interface InventoryTransaction {
   createdAt: string;
 }
 
+export interface StoreSettings {
+  taxMode: string;               // Exclusive | Inclusive | None
+  storeState: string | null;
+  storeGstin: string | null;
+  storeLegalName: string | null;
+}
+
 export interface InventoryImportResult {
   total: number;
   success: number;

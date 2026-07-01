@@ -10,7 +10,7 @@ public sealed record CheckoutQuoteDto(
     IReadOnlyList<CheckoutQuoteLine> lines,
     decimal subtotal, decimal taxAmount, decimal cgst, decimal sgst, decimal igst, bool interState,
     decimal shippingCharge, string shippingMethod, int? estimatedDays,
-    decimal total, long? shippingAddressId);
+    decimal total, long? shippingAddressId, string taxMode);
 
 // ----- Place / pay -----
 public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddressId, string? Notes);
