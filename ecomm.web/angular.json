@@ -33,7 +33,7 @@
             "server": "src/main.server.ts",
             "outputMode": "server",
             "security": {
-              "allowedHosts": ["localhost", "localhost:4000", "localhost:4200", "127.0.0.1"]
+              "allowedHosts": ["localhost", "localhost:4000", "localhost:4200", "127.0.0.1", "calendarshop.online", "www.calendarshop.online"]
             },
             "ssr": {
               "entry": "src/server.ts"
