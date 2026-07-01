@@ -10,6 +10,16 @@ Legend: ✅ fixed · 🕒 deferred (owner will do) · ⚙️ operational (no cod
 
 ---
 
+## Open items (tracked — not yet done)
+- [ ] ⚙️ **Change the live prod admin password** — still the seeded default `Admin@123`
+  (`admin@ecommerce.local`). Highest real risk in the audit. Externalizing the seeder does NOT
+  change the existing account; must be reset manually (admin profile change-password, or DB reset).
+- [ ] ⚙️ **Enter real store GSTIN + legal name** in Admin → Store settings (fake `33AAAAA0000A1Z5`
+  prints on tax invoices).
+- [ ] 🕒 **Real contact details** on the contact page (currently fake `support@calendarshop.example`).
+
+---
+
 ## Fixed in this pass
 - ✅ **SSR allowedHosts** — added `calendarshop.online` / `www.calendarshop.online` to
   `angular.json` `build.security.allowedHosts` (was localhost-only; prod worked only because the
