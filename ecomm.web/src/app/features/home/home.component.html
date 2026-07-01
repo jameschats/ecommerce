@@ -2,30 +2,47 @@
   @for (s of sections(); track s.pageSectionId) {
 
     @if (s.sectionType === 'Banner') {
-      <!-- Hero slider -->
+      <!-- Hero: large rotating banner + stacked side promos -->
       <section class="page-container pt-6">
-        <div class="relative rounded-2xl overflow-hidden h-[360px] sm:h-[480px] bg-slate-900">
-          @for (slide of slides; track $index) {
-            <div class="absolute inset-0 transition-opacity duration-700"
-                 [class.opacity-100]="currentSlide() === $index" [class.opacity-0]="currentSlide() !== $index"
-                 [class.pointer-events-none]="currentSlide() !== $index">
-              <img [src]="slide.image" [alt]="slide.title" class="w-full h-full object-cover" />
-              <div class="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-transparent"></div>
-              <div class="absolute inset-0 flex flex-col justify-center px-8 sm:px-16 max-w-2xl text-white">
-                <h2 class="text-3xl sm:text-5xl font-bold leading-[1.1]">{{ slide.title }}</h2>
-                <p class="mt-3 text-white/85 text-base sm:text-lg max-w-lg">{{ slide.subtitle }}</p>
-                <a [routerLink]="slide.link" class="mt-6 w-fit bg-primary hover:bg-primary-dark px-6 py-3 rounded-lg font-medium transition">{{ slide.cta }}</a>
-              </div>
-            </div>
-          }
-          <button type="button" (click)="prev()" aria-label="Previous"
-            class="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 w-9 h-9 rounded-full grid place-items-center shadow">‹</button>
-          <button type="button" (click)="next()" aria-label="Next"
-            class="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 w-9 h-9 rounded-full grid place-items-center shadow">›</button>
-          <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        <div class="grid lg:grid-cols-3 gap-4">
+          <!-- Left: large rotating banner -->
+          <div class="lg:col-span-2 relative rounded-2xl overflow-hidden h-[300px] sm:h-[420px] bg-slate-900">
             @for (slide of slides; track $index) {
-              <button type="button" (click)="goTo($index)" [attr.aria-label]="'Slide ' + ($index + 1)"
-                class="w-2 h-2 rounded-full transition" [class]="currentSlide() === $index ? 'bg-white w-5' : 'bg-white/50'"></button>
+              <div class="absolute inset-0 transition-opacity duration-700"
+                   [class.opacity-100]="currentSlide() === $index" [class.opacity-0]="currentSlide() !== $index"
+                   [class.pointer-events-none]="currentSlide() !== $index">
+                <img [src]="slide.image" [alt]="slide.title" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-transparent"></div>
+                <div class="absolute inset-0 flex flex-col justify-center px-8 sm:px-12 max-w-xl text-white">
+                  <h2 class="text-2xl sm:text-4xl font-bold leading-[1.1]">{{ slide.title }}</h2>
+                  <p class="mt-3 text-white/85 text-sm sm:text-base max-w-md">{{ slide.subtitle }}</p>
+                  <a [routerLink]="slide.link" class="mt-5 w-fit bg-primary hover:bg-primary-dark px-5 py-2.5 rounded-lg font-medium transition">{{ slide.cta }}</a>
+                </div>
+              </div>
+            }
+            <button type="button" (click)="prev()" aria-label="Previous"
+              class="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 w-9 h-9 rounded-full grid place-items-center shadow">‹</button>
+            <button type="button" (click)="next()" aria-label="Next"
+              class="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 w-9 h-9 rounded-full grid place-items-center shadow">›</button>
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              @for (slide of slides; track $index) {
+                <button type="button" (click)="goTo($index)" [attr.aria-label]="'Slide ' + ($index + 1)"
+                  class="w-2 h-2 rounded-full transition" [class]="currentSlide() === $index ? 'bg-white w-5' : 'bg-white/50'"></button>
+              }
+            </div>
+          </div>
+
+          <!-- Right: two stacked promo banners (desktop) -->
+          <div class="hidden lg:grid grid-rows-2 gap-4 h-[420px]">
+            @for (p of promos; track $index) {
+              <a [routerLink]="p.link" class="relative rounded-2xl overflow-hidden bg-slate-800 group">
+                <img [src]="p.image" [alt]="p.title" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                <div class="absolute bottom-0 left-0 p-4 text-white">
+                  <div class="text-lg font-semibold leading-tight">{{ p.title }}</div>
+                  <div class="text-xs text-white/85 mt-0.5">{{ p.subtitle }}</div>
+                </div>
+              </a>
             }
           </div>
         </div>

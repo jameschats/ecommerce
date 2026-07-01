@@ -35,6 +35,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     { image: 'https://picsum.photos/seed/calhero2/1600/520', title: 'Corporate Gifting Made Easy', subtitle: 'Branded calendars in bulk. Start strong with the right essentials.', cta: 'Order in bulk', link: '/products' },
     { image: 'https://picsum.photos/seed/calhero3/1600/520', title: 'Desk Calendars for Every Workspace', subtitle: 'Smart, elegant desk calendars that look great on any table.', cta: 'Browse desk calendars', link: '/category/desk-calendars' },
   ];
+  readonly promos = [
+    { image: 'https://picsum.photos/seed/calpromo1/700/420', title: 'Corporate gifting', subtitle: 'Branded calendars in bulk', link: '/products' },
+    { image: 'https://picsum.photos/seed/calpromo2/700/420', title: 'Desk calendars', subtitle: 'Smart picks for your workspace', link: '/category/desk-calendars' },
+  ];
   readonly currentSlide = signal(0);
   private timer: ReturnType<typeof setInterval> | null = null;
 
