@@ -31,6 +31,7 @@ export class AdminLayoutComponent {
   private readonly router = inject(Router);
 
   readonly links = [
+    { path: '/admin/analytics', label: 'Analytics' },
     { path: '/admin/products', label: 'Products' },
     { path: '/admin/categories', label: 'Categories' },
     { path: '/admin/brands', label: 'Brands' },
