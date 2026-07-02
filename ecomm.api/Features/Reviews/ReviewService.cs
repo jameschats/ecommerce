@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Reviews;
@@ -26,8 +27,13 @@ public sealed class ReviewService : IReviewService
     private const long Tenant = 1;
     private static readonly string[] PurchasedStatuses = { "Paid", "Packed", "Shipped", "Delivered" };
     private readonly EcommerceDbContext _db;
+    private readonly INotificationFeedService _feed;
 
-    public ReviewService(EcommerceDbContext db) => _db = db;
+    public ReviewService(EcommerceDbContext db, INotificationFeedService feed)
+    {
+        _db = db;
+        _feed = feed;
+    }
 
     public async Task<ProductReviewsDto> GetForProductAsync(long productId, int page, int pageSize, CancellationToken ct = default)
     {
@@ -81,6 +87,9 @@ public sealed class ReviewService : IReviewService
         review.IsApproved = false; // (re)moderate
         review.UpdatedAt = now;
         await _db.SaveChangesAsync(ct);
+
+        await _feed.NotifyAdminsAsync("PendingReview", "Review awaiting approval",
+            $"{req.Rating}★ on {product.Name}", "/admin/reviews", ct);
 
         var author = await _db.Users.Where(u => u.UserId == userId).Select(u => u.FullName).FirstOrDefaultAsync(ct) ?? "Anonymous";
         return new ReviewDto(review.ReviewId, author, review.Rating, review.Title, review.Comment, review.IsVerifiedPurchase, review.CreatedAt);

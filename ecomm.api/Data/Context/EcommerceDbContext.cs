@@ -82,6 +82,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<CouponUsage> CouponUsages => Set<CouponUsage>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -313,5 +314,6 @@ public class EcommerceDbContext : DbContext
         });
         b.Entity<Shipment>(e => { e.ToTable("Shipments"); e.HasKey(x => x.ShipmentId); });
         b.Entity<WishlistItem>(e => { e.ToTable("WishlistItems"); e.HasKey(x => x.WishlistItemId); });
+        b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });
     }
 }

@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Inventory;
@@ -37,8 +38,13 @@ public sealed class InventoryService : IInventoryService
 {
     private const long Tenant = 1;
     private readonly EcommerceDbContext _db;
+    private readonly INotificationFeedService _feed;
 
-    public InventoryService(EcommerceDbContext db) => _db = db;
+    public InventoryService(EcommerceDbContext db, INotificationFeedService feed)
+    {
+        _db = db;
+        _feed = feed;
+    }
 
     public async Task<PagedResult<InventoryRowDto>> ListAsync(InventoryQuery query, CancellationToken ct = default)
     {
@@ -158,11 +164,20 @@ public sealed class InventoryService : IInventoryService
         if (qty <= 0) return true;
         var inv = await GetOrCreateAsync(productId, variantId, ct);
         if (inv.AvailableQty < qty) return false;
+        var before = inv.AvailableQty;
         inv.AvailableQty -= qty;
         inv.ReservedQty += qty;
         inv.UpdatedAt = DateTime.UtcNow;
         AddTransaction(inv, -qty, InventoryTxnType.Reservation, refType, refId, null, null);
         await _db.SaveChangesAsync(ct);
+
+        // Notify admins once, when stock first drops to/below the reorder level.
+        if (inv.ReorderLevel > 0 && before > inv.ReorderLevel && inv.AvailableQty <= inv.ReorderLevel)
+        {
+            var name = await _db.Products.Where(p => p.ProductId == productId).Select(p => p.Name).FirstOrDefaultAsync(ct) ?? "A product";
+            await _feed.NotifyAdminsAsync("LowStock", $"Low stock: {name}",
+                $"{inv.AvailableQty} left (reorder at {inv.ReorderLevel})", "/admin/inventory", ct);
+        }
         return true;
     }
 

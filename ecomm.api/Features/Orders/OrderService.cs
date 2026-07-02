@@ -36,15 +36,16 @@ public sealed class OrderService : IOrderService
     private readonly IPaymentGateway _gateway;
     private readonly IInvoiceService _invoices;
     private readonly INotificationService _notify;
+    private readonly INotificationFeedService _feed;
     private readonly ICouponService _coupons;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
-        INotificationService notify, ICouponService coupons, ILogger<OrderService> log)
+        INotificationService notify, INotificationFeedService feed, ICouponService coupons, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
-        _gateway = gateway; _invoices = invoices; _notify = notify; _coupons = coupons; _log = log;
+        _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons; _log = log;
     }
 
     /// <summary>Fire order lifecycle notifications (email always; SMS when smsCode given).
@@ -73,6 +74,19 @@ public sealed class OrderService : IOrderService
 
             if (!string.IsNullOrWhiteSpace(user.Email)) await _notify.SendEmailAsync(emailCode, user.Email!, tokens, ct);
             if (smsCode is not null && !string.IsNullOrWhiteSpace(user.PhoneNumber)) await _notify.SendSmsAsync(smsCode, user.PhoneNumber!, tokens, ct);
+
+            // In-app bell: notify the customer, and (on confirmation) the admins of a new order.
+            var feedTitle = emailCode switch
+            {
+                "OrderConfirmation" => "Order confirmed",
+                "OrderShipped" => "Order shipped",
+                "OrderCancelled" => "Order cancelled",
+                _ => $"Order {order.Status}",
+            };
+            await _feed.NotifyUserAsync(order.UserId, "OrderUpdate", feedTitle, $"Order {order.OrderNumber}", $"/account/orders/{orderId}", ct);
+            if (emailCode == "OrderConfirmation")
+                await _feed.NotifyAdminsAsync("NewOrder", "New order received",
+                    $"Order {order.OrderNumber} · {order.Currency} {order.TotalAmount:0.00}", "/admin/orders", ct);
         }
         catch (Exception ex)
         {
