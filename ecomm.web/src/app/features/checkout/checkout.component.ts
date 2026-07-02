@@ -108,10 +108,23 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
 
               @if (!q.serviceable && selectedId()) { <p class="text-sm text-red-600 mt-3">{{ q.message }}</p> }
 
+              <!-- Payment method -->
+              @if (q.codEnabled) {
+                <div class="mt-4 space-y-2">
+                  <div class="text-sm font-medium text-slate-700">Payment</div>
+                  <label class="flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm" [class]="payMethod() === 'Online' ? 'border-primary bg-primary/5' : 'border-slate-200'">
+                    <input type="radio" name="pm" value="Online" [checked]="payMethod() === 'Online'" (change)="payMethod.set('Online')" /> Pay online (card / UPI / netbanking)
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm" [class]="payMethod() === 'COD' ? 'border-primary bg-primary/5' : 'border-slate-200'">
+                    <input type="radio" name="pm" value="COD" [checked]="payMethod() === 'COD'" (change)="payMethod.set('COD')" /> Cash on delivery
+                  </label>
+                </div>
+              }
+
               <button type="button" (click)="placeOrder()" [disabled]="!canPlace()" class="btn-primary w-full mt-4 py-3 disabled:opacity-50 disabled:cursor-not-allowed">
-                {{ processing() ? 'Processing…' : 'Place order & pay' }}
+                {{ processing() ? 'Processing…' : (payMethod() === 'COD' ? 'Place COD order' : 'Place order & pay') }}
               </button>
-              <p class="text-xs text-slate-400 mt-2 text-center">Payments via {{ gatewayLabel() }}</p>
+              @if (payMethod() !== 'COD') { <p class="text-xs text-slate-400 mt-2 text-center">Payments via {{ gatewayLabel() }}</p> }
             }
             @if (error(); as e) { <p class="text-sm text-red-600 mt-2 text-center">{{ e }}</p> }
           </div>
@@ -136,6 +149,7 @@ export class CheckoutComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly couponInput = signal('');
   readonly appliedCoupon = signal<string | null>(null);
+  readonly payMethod = signal<'Online' | 'COD'>('Online');
 
   readonly cartEmpty = computed(() => this.cart.itemCount() === 0 && !this.processing());
   readonly canPlace = computed(() =>
@@ -192,8 +206,16 @@ export class CheckoutComponent implements OnInit {
     this.error.set(null);
     // Only send the coupon if the server confirmed it applies, so an invalid code can't block checkout.
     const coupon = this.quote()?.couponApplied ? this.appliedCoupon() : null;
-    this.orders.place(addressId, null, null, coupon).subscribe({
-      next: (res) => this.pay(res),
+    this.orders.place(addressId, null, null, coupon, this.payMethod()).subscribe({
+      next: (res) => {
+        if (res.codOrder) {
+          // COD: confirmed at placement, no online payment.
+          this.cart.reload();
+          this.router.navigate(['/account/orders', res.orderId], { queryParams: { placed: 1 } });
+          return;
+        }
+        this.pay(res);
+      },
       error: (e: unknown) => {
         this.processing.set(false);
         this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'Could not place the order.');
@@ -202,6 +224,7 @@ export class CheckoutComponent implements OnInit {
   }
 
   private pay(res: PlaceOrderResult): void {
+    if (!res.payment) { this.processing.set(false); return; }
     // Mock gateway: no public key → confirm immediately.
     if (!res.payment.publicKey) {
       this.confirm(res.orderId, `mock_pay_${res.payment.gatewayOrderId}`, 'mock_signature');
@@ -212,13 +235,15 @@ export class CheckoutComponent implements OnInit {
   }
 
   private openRazorpay(res: PlaceOrderResult): void {
+    const payment = res.payment;
+    if (!payment) return;
     const w = window as unknown as RazorpayWindow;
     const launch = () => {
       const rzp = new w.Razorpay!({
-        key: res.payment.publicKey,
-        order_id: res.payment.gatewayOrderId,
-        amount: Math.round(res.payment.amount * 100),
-        currency: res.payment.currency,
+        key: payment.publicKey,
+        order_id: payment.gatewayOrderId,
+        amount: Math.round(payment.amount * 100),
+        currency: payment.currency,
         name: 'CalendarShop',
         description: res.orderNumber,
         handler: (r: { razorpay_payment_id: string; razorpay_signature: string }) =>

@@ -28,7 +28,6 @@ public interface IOrderService
 public sealed class OrderService : IOrderService
 {
     private const long Tenant = 1;
-    private static readonly string[] AdminFlow = { "Paid", "Packed", "Shipped", "Delivered" };
 
     private readonly EcommerceDbContext _db;
     private readonly IInventoryService _inventory;
@@ -118,8 +117,13 @@ public sealed class OrderService : IOrderService
             charge, ship.MethodName, ship.EstimatedDays,
             total, address?.CustomerAddressId, mode,
             coupon.Discount, coupon.Code ?? (string.IsNullOrWhiteSpace(couponCode) ? null : couponCode.Trim()),
-            coupon.Ok ? coupon.Description : coupon.Error, coupon.Ok);
+            coupon.Ok ? coupon.Description : coupon.Error, coupon.Ok,
+            await CodEnabledAsync(ct));
     }
+
+    private async Task<bool> CodEnabledAsync(CancellationToken ct) =>
+        await _db.Settings.Where(s => s.TenantId == Tenant && s.SettingKey == "CodEnabled")
+            .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) == "true";
 
     // ---------------- Place ----------------
     public async Task<PlaceOrderResult> PlaceOrderAsync(long userId, PlaceOrderRequest req, CancellationToken ct = default)
@@ -207,24 +211,54 @@ public sealed class OrderService : IOrderService
                 });
             }
 
-            var gatewayOrder = await _gateway.CreateOrderAsync(order.OrderId, total, "INR", order.OrderNumber, ct);
-            var payment = new Payment
-            {
-                TenantId = Tenant, OrderId = order.OrderId, Method = _gateway.Name,
-                Status = "Pending", Amount = total, Currency = "INR", CreatedAt = DateTime.UtcNow,
-            };
-            _db.Payments.Add(payment);
-            await _db.SaveChangesAsync(ct);
+            var isCod = string.Equals(req.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
+            if (isCod && !await CodEnabledAsync(ct))
+                throw new AppException("Cash on delivery isn't available right now.");
 
-            _db.PaymentTransactions.Add(new PaymentTransaction
+            PlaceOrderResult result;
+            if (isCod)
             {
-                PaymentId = payment.PaymentId, Gateway = _gateway.Name, GatewayOrderId = gatewayOrder.GatewayOrderId,
-                TransactionType = "Authorize", Amount = total, Status = "Created", CreatedAt = DateTime.UtcNow,
-            });
-            _db.OrderStatusHistories.Add(new OrderStatusHistory
+                // COD: no prepayment. Confirm the order + commit inventory now (the sale is accepted);
+                // cash is collected on delivery. No gateway, no payment widget.
+                foreach (var l in lines)
+                    await _inventory.CommitAsync(l.ProductId, l.VariantId, l.Quantity, "Order", order.OrderId, ct);
+
+                _db.Payments.Add(new Payment
+                {
+                    TenantId = Tenant, OrderId = order.OrderId, Method = "COD",
+                    Status = "Pending", Amount = total, Currency = "INR", CreatedAt = DateTime.UtcNow,
+                });
+                order.Status = "Confirmed";
+                order.PlacedAt = DateTime.UtcNow;
+                _db.OrderStatusHistories.Add(new OrderStatusHistory
+                {
+                    OrderId = order.OrderId, FromStatus = null, ToStatus = "Confirmed", Notes = "COD order placed", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
+                });
+                result = new PlaceOrderResult(order.OrderId, order.OrderNumber, total, "INR", null, true);
+            }
+            else
             {
-                OrderId = order.OrderId, FromStatus = null, ToStatus = "Pending", Notes = "Order placed", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
-            });
+                var gatewayOrder = await _gateway.CreateOrderAsync(order.OrderId, total, "INR", order.OrderNumber, ct);
+                var payment = new Payment
+                {
+                    TenantId = Tenant, OrderId = order.OrderId, Method = _gateway.Name,
+                    Status = "Pending", Amount = total, Currency = "INR", CreatedAt = DateTime.UtcNow,
+                };
+                _db.Payments.Add(payment);
+                await _db.SaveChangesAsync(ct);
+
+                _db.PaymentTransactions.Add(new PaymentTransaction
+                {
+                    PaymentId = payment.PaymentId, Gateway = _gateway.Name, GatewayOrderId = gatewayOrder.GatewayOrderId,
+                    TransactionType = "Authorize", Amount = total, Status = "Created", CreatedAt = DateTime.UtcNow,
+                });
+                _db.OrderStatusHistories.Add(new OrderStatusHistory
+                {
+                    OrderId = order.OrderId, FromStatus = null, ToStatus = "Pending", Notes = "Order placed", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
+                });
+                result = new PlaceOrderResult(order.OrderId, order.OrderNumber, total, "INR",
+                    new PaymentInit(_gateway.Name, _gateway.PublicKey, gatewayOrder.GatewayOrderId, payment.PaymentId, total, "INR"), false);
+            }
 
             cart.Status = "Converted";
             cart.UpdatedAt = DateTime.UtcNow;
@@ -235,8 +269,10 @@ public sealed class OrderService : IOrderService
 
             await tx.CommitAsync(ct);
 
-            return new PlaceOrderResult(order.OrderId, order.OrderNumber, total, "INR",
-                new PaymentInit(_gateway.Name, _gateway.PublicKey, gatewayOrder.GatewayOrderId, payment.PaymentId, total, "INR"));
+            // COD orders are confirmed at placement → send the confirmation now (online sends on payment capture).
+            if (isCod) await NotifyOrderAsync(order.OrderId, "OrderConfirmation", "OrderConfirmation", null, ct);
+
+            return result;
         }
         catch
         {
@@ -314,11 +350,12 @@ public sealed class OrderService : IOrderService
             throw new AppException($"An order that is {order.Status} cannot be cancelled.");
 
         var items = await _db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
-        var wasPaid = order.Status is "Paid" or "Packed";
+        // Inventory is committed once an order is Paid/Confirmed (COD)/Packed; only Pending orders are still reserved.
+        var wasCommitted = order.Status is "Paid" or "Packed" or "Confirmed";
 
         foreach (var it in items)
         {
-            if (wasPaid) await _inventory.RestockAsync(it.ProductId, it.ProductVariantId, it.Quantity, "Order", orderId, ct);
+            if (wasCommitted) await _inventory.RestockAsync(it.ProductId, it.ProductVariantId, it.Quantity, "Order", orderId, ct);
             else await _inventory.ReleaseAsync(it.ProductId, it.ProductVariantId, it.Quantity, "Order", orderId, ct);
         }
 
@@ -350,11 +387,12 @@ public sealed class OrderService : IOrderService
             payment.UpdatedAt = DateTime.UtcNow;
         }
 
+        var fromStatus = order.Status;
         order.Status = "Cancelled";
         order.UpdatedAt = DateTime.UtcNow;
         _db.OrderStatusHistories.Add(new OrderStatusHistory
         {
-            OrderId = orderId, FromStatus = wasPaid ? "Paid" : "Pending", ToStatus = "Cancelled",
+            OrderId = orderId, FromStatus = fromStatus, ToStatus = "Cancelled",
             Notes = req.Reason ?? "Cancelled", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
         });
         await _db.SaveChangesAsync(ct);
@@ -395,7 +433,7 @@ public sealed class OrderService : IOrderService
         var invoice = await _db.Invoices.Where(i => i.OrderId == orderId)
             .Select(i => new { i.InvoiceId, i.InvoiceNumber }).FirstOrDefaultAsync(ct);
 
-        var canCancel = order.Status is "Pending" or "Paid" or "Packed";
+        var canCancel = order.Status is "Pending" or "Paid" or "Packed" or "Confirmed";
 
         var shipment = await _db.Shipments.Where(s => s.OrderId == orderId).OrderByDescending(s => s.ShipmentId)
             .Select(s => new ShipmentDto(s.ShipmentId, s.Courier, s.TrackingNumber, s.Status,
@@ -424,15 +462,18 @@ public sealed class OrderService : IOrderService
         return new PagedResult<OrderListItem> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };
     }
 
+    // Valid single-step admin transitions (Confirmed = COD start, Paid = online start).
+    private static readonly Dictionary<string, string> NextAdminStatus = new()
+    {
+        ["Paid"] = "Packed", ["Confirmed"] = "Packed", ["Packed"] = "Shipped", ["Shipped"] = "Delivered",
+    };
+
     public async Task<OrderDto?> UpdateStatusAsync(long orderId, string toStatus, long? userId, CancellationToken ct = default)
     {
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
         if (order is null) return null;
-        if (!AdminFlow.Contains(toStatus)) throw new AppException($"'{toStatus}' is not a valid status.");
-        var fromIdx = Array.IndexOf(AdminFlow, order.Status);
-        var toIdx = Array.IndexOf(AdminFlow, toStatus);
-        if (fromIdx < 0) throw new AppException($"An order that is {order.Status} cannot change to {toStatus}.");
-        if (toIdx != fromIdx + 1) throw new AppException($"Cannot move from {order.Status} to {toStatus}.");
+        if (!NextAdminStatus.TryGetValue(order.Status, out var expected) || expected != toStatus)
+            throw new AppException($"Cannot move an order from {order.Status} to {toStatus}.");
 
         var from = order.Status;
         order.Status = toStatus;
@@ -442,9 +483,25 @@ public sealed class OrderService : IOrderService
             OrderId = orderId, FromStatus = from, ToStatus = toStatus, Notes = "Status updated by admin", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
         });
         await _db.SaveChangesAsync(ct);
+        if (toStatus == "Delivered") await CollectCodOnDeliveryAsync(orderId, ct);
         // Generic status email (Shipped-with-tracking is sent by the Shipments feature).
         await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
         return await GetAsync(orderId, null, true, ct);
+    }
+
+    /// <summary>On delivery of a COD order, record the cash as collected (payment → Success).</summary>
+    private async Task CollectCodOnDeliveryAsync(long orderId, CancellationToken ct)
+    {
+        var payment = await _db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId && p.Method == "COD" && p.Status == "Pending", ct);
+        if (payment is null) return;
+        payment.Status = "Success";
+        payment.UpdatedAt = DateTime.UtcNow;
+        _db.PaymentTransactions.Add(new PaymentTransaction
+        {
+            PaymentId = payment.PaymentId, Gateway = "COD", TransactionType = "Capture",
+            Amount = payment.Amount, Status = "Captured", CreatedAt = DateTime.UtcNow,
+        });
+        await _db.SaveChangesAsync(ct);
     }
 
     // ---------------- Shipments ----------------
@@ -452,7 +509,7 @@ public sealed class OrderService : IOrderService
     {
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && o.TenantId == Tenant, ct);
         if (order is null) return null;
-        if (order.Status is not ("Paid" or "Packed"))
+        if (order.Status is not ("Paid" or "Packed" or "Confirmed"))
             throw new AppException($"An order that is {order.Status} can't be shipped.");
         if (string.IsNullOrWhiteSpace(req.Courier) || string.IsNullOrWhiteSpace(req.TrackingNumber))
             throw new AppException("Courier and tracking number are required.");
@@ -496,6 +553,7 @@ public sealed class OrderService : IOrderService
             OrderId = orderId, FromStatus = "Shipped", ToStatus = "Delivered", Notes = "Delivered", ChangedBy = userId, CreatedAt = now,
         });
         await _db.SaveChangesAsync(ct);
+        await CollectCodOnDeliveryAsync(orderId, ct);
         await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
         return await GetAsync(orderId, null, true, ct);
     }

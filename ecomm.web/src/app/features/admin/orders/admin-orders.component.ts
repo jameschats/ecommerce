@@ -75,8 +75,8 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           @if (msg(); as m) { <p class="text-sm text-green-600 mb-2">{{ m }}</p> }
           @if (err(); as e) { <p class="text-sm text-red-600 mb-2">{{ e }}</p> }
 
-          <!-- Ship form (Packed → dispatch with courier + tracking) -->
-          @if (o.status === 'Packed') {
+          <!-- Ship form (Confirmed/Packed → dispatch with courier + tracking) -->
+          @if (o.status === 'Packed' || o.status === 'Confirmed') {
             <div class="border border-slate-200 rounded-lg p-3 mb-3">
               <div class="text-sm font-medium text-slate-700 mb-2">Create shipment (notifies the customer)</div>
               <div class="grid grid-cols-2 gap-2">
@@ -90,15 +90,15 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           }
 
           <div class="flex flex-wrap gap-2">
-            @if (o.status === 'Paid') {
+            @if (o.status === 'Paid' || o.status === 'Confirmed') {
               <button type="button" (click)="advance(o, 'Packed')" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Packed</button>
             }
             @if (o.status === 'Shipped') {
               <button type="button" (click)="markDelivered(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Delivered</button>
             }
             <button type="button" (click)="invoice(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Invoice PDF</button>
-            @if (o.status === 'Paid' || o.status === 'Packed' || o.status === 'Pending') {
-              <button type="button" (click)="cancel(o)" [disabled]="busy()" class="text-sm px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">Cancel &amp; refund</button>
+            @if (o.status === 'Paid' || o.status === 'Confirmed' || o.status === 'Packed' || o.status === 'Pending') {
+              <button type="button" (click)="cancel(o)" [disabled]="busy()" class="text-sm px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">{{ o.status === 'Confirmed' ? 'Cancel order' : 'Cancel & refund' }}</button>
             }
           </div>
         </div>
@@ -108,7 +108,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
 })
 export class AdminOrdersComponent implements OnInit {
   private readonly svc = inject(OrderService);
-  readonly statuses = ['Pending', 'Paid', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
+  readonly statuses = ['Pending', 'Paid', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
 
   readonly result = signal<PagedResult<OrderListItem> | null>(null);
   readonly loading = signal(true);

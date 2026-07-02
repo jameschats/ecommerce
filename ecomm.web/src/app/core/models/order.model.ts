@@ -32,6 +32,7 @@ export interface CheckoutQuote {
   couponCode: string | null;
   couponMessage: string | null;
   couponApplied: boolean;
+  codEnabled: boolean;
 }
 
 export interface PaymentInit {
@@ -48,7 +49,8 @@ export interface PlaceOrderResult {
   orderNumber: string;
   amount: number;
   currency: string;
-  payment: PaymentInit;
+  payment: PaymentInit | null;
+  codOrder: boolean;
 }
 
 export interface OrderItem {

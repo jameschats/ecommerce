@@ -129,6 +129,7 @@ export interface StoreSettings {
   storeState: string | null;
   storeGstin: string | null;
   storeLegalName: string | null;
+  codEnabled: boolean;
 }
 
 export interface InventoryImportResult {

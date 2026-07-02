@@ -41,6 +41,16 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
           </div>
           <p class="text-xs text-slate-400">Store state decides intra-state (CGST+SGST) vs inter-state (IGST) on tax invoices.</p>
 
+          <div class="border-t border-slate-100 pt-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="form.codEnabled" name="codEnabled" class="w-4 h-4" />
+              <span>
+                <span class="text-sm font-medium text-slate-800">Cash on delivery (COD)</span>
+                <span class="block text-xs text-slate-400">When on, customers can place COD orders at checkout without paying online.</span>
+              </span>
+            </label>
+          </div>
+
           <div class="flex items-center gap-3 pt-1">
             <button type="submit" [disabled]="saving()" class="btn-primary px-5 py-2.5">{{ saving() ? 'Saving…' : 'Save settings' }}</button>
             @if (saved()) { <span class="text-sm text-green-600">✓ Saved</span> }
@@ -64,7 +74,7 @@ export class AdminStoreSettingsComponent implements OnInit {
   readonly saving = signal(false);
   readonly saved = signal(false);
   readonly error = signal<string | null>(null);
-  form: StoreSettings = { taxMode: 'Exclusive', storeState: '', storeGstin: '', storeLegalName: '' };
+  form: StoreSettings = { taxMode: 'Exclusive', storeState: '', storeGstin: '', storeLegalName: '', codEnabled: false };
 
   ngOnInit(): void {
     this.api.getStoreSettings().subscribe({

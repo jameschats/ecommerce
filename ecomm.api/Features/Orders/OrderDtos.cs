@@ -11,10 +11,11 @@ public sealed record CheckoutQuoteDto(
     decimal subtotal, decimal taxAmount, decimal cgst, decimal sgst, decimal igst, bool interState,
     decimal shippingCharge, string shippingMethod, int? estimatedDays,
     decimal total, long? shippingAddressId, string taxMode,
-    decimal discountAmount, string? couponCode, string? couponMessage, bool couponApplied);
+    decimal discountAmount, string? couponCode, string? couponMessage, bool couponApplied,
+    bool codEnabled);
 
 // ----- Place / pay -----
-public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddressId, string? Notes, string? CouponCode);
+public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddressId, string? Notes, string? CouponCode, string? PaymentMethod);
 public sealed record ConfirmPaymentRequest(string GatewayPaymentId, string Signature);
 public sealed record CancelOrderRequest(string? Reason);
 
@@ -24,7 +25,7 @@ public sealed record ShipmentDto(long shipmentId, string? courier, string? track
     DateTime? estimatedDeliveryDate, DateTime? shippedAt, DateTime? deliveredAt);
 
 public sealed record PaymentInit(string gateway, string? publicKey, string gatewayOrderId, long paymentId, decimal amount, string currency);
-public sealed record PlaceOrderResult(long orderId, string orderNumber, decimal amount, string currency, PaymentInit payment);
+public sealed record PlaceOrderResult(long orderId, string orderNumber, decimal amount, string currency, PaymentInit? payment, bool codOrder);
 
 // ----- Read models -----
 public sealed record OrderAddressDto(

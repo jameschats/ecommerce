@@ -2,6 +2,7 @@
 export function orderStatusClass(status: string): string {
   switch (status) {
     case 'Paid':
+    case 'Confirmed':
     case 'Delivered':
     case 'Success':
       return 'bg-green-100 text-green-700';

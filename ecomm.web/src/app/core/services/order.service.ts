@@ -20,8 +20,8 @@ export class OrderService {
     return this.http.get<ApiResponse<CheckoutQuote>>(`${this.base}/quote${q}`).pipe(map((r) => r.data!));
   }
 
-  place(shippingAddressId: number, billingAddressId?: number | null, notes?: string | null, couponCode?: string | null): Observable<PlaceOrderResult> {
-    return this.http.post<ApiResponse<PlaceOrderResult>>(this.base, { shippingAddressId, billingAddressId, notes, couponCode }).pipe(map((r) => r.data!));
+  place(shippingAddressId: number, billingAddressId?: number | null, notes?: string | null, couponCode?: string | null, paymentMethod?: string | null): Observable<PlaceOrderResult> {
+    return this.http.post<ApiResponse<PlaceOrderResult>>(this.base, { shippingAddressId, billingAddressId, notes, couponCode, paymentMethod }).pipe(map((r) => r.data!));
   }
 
   confirm(orderId: number, gatewayPaymentId: string, signature: string): Observable<Order> {
