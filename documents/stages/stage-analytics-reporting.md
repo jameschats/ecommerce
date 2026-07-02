@@ -78,10 +78,61 @@ picker and CSV export. Simple bar/line charts optional (keep dependencies light)
 - Link the Umami/Plausible dashboard from the admin nav (SSO/embed optional).
 - Gives sessions, unique visitors, geo, acquisition, realtime — without reinventing sessionization/bot-filtering.
 
+### Implementation (done)
+- `WebAnalyticsService` (`core/services/web-analytics.service.ts`) injects the Umami `<script>` **once, browser-only**
+  (`isPlatformBrowser`), and is a **no-op until configured**. Called from `App.ngOnInit`.
+- Config in `core/api.config.ts` (deploy-replaced, empty by default = disabled):
+  `UMAMI_SRC`, `UMAMI_WEBSITE_ID`, `UMAMI_DASHBOARD_URL`.
+- Admin sidebar shows a **"Web traffic ↗"** link only when `UMAMI_DASHBOARD_URL` is set.
+- Umami auto-tracks SPA route changes, so no per-navigation wiring is needed.
+
+### VPS self-host guide (run once on the Hostinger box)
+Umami needs Node 18+ and its own database. Simplest path with Docker Compose (own MySQL container):
+
+```bash
+# 1. App + DB via Docker Compose
+mkdir -p /opt/umami && cd /opt/umami
+cat > docker-compose.yml <<'YML'
+services:
+  umami:
+    image: ghcr.io/umami-software/umami:mysql-latest
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: mysql://umami:CHANGE_ME@db:3306/umami
+      DATABASE_TYPE: mysql
+      APP_SECRET: CHANGE_ME_RANDOM_LONG_STRING
+    depends_on: [db]
+    restart: always
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: umami
+      MYSQL_USER: umami
+      MYSQL_PASSWORD: CHANGE_ME
+      MYSQL_ROOT_PASSWORD: CHANGE_ME_ROOT
+    volumes: ["umami-db:/var/lib/mysql"]
+    restart: always
+volumes: { umami-db: {} }
+YML
+docker compose up -d      # Umami now on 127.0.0.1:3000
+
+# 2. Nginx subdomain → reverse-proxy to :3000 (analytics.calendarshop.online)
+#    server_name analytics.calendarshop.online;  location / { proxy_pass http://127.0.0.1:3000; ... }
+#    then: certbot --nginx -d analytics.calendarshop.online
+
+# 3. In the Umami UI (default login admin/umami — CHANGE IT):
+#    Settings → Websites → Add → domain calendarshop.online → copy the Website ID + script URL.
+
+# 4. Point the frontend at it (deploy-replaced api.config.ts before ng build):
+#    UMAMI_SRC           = 'https://analytics.calendarshop.online/script.js'
+#    UMAMI_WEBSITE_ID    = '<website-id>'
+#    UMAMI_DASHBOARD_URL = 'https://analytics.calendarshop.online'
+```
+
 ---
 
 ## Tables
-New: `Suppliers`, `ProductSuppliers` *(021 ✓)*; add `OrderItems.UnitCost` *(022)*.
+New: `Suppliers`, `ProductSuppliers` *(021 ✓)*; add `OrderItems.UnitCost` *(028 ✓)*.
 Reads: `Orders, OrderItems, Products, Refunds, Categories, Inventory, PopularSearches, Users`.
 
 ## Dependencies
@@ -91,4 +142,8 @@ Stage 5 (orders/refunds/OrderItems), Catalog (`CostPrice`), Suppliers migration 
 Full **net P&L** (gateway fees + shipping cost + inventory valuation), **Purchase Orders** (procurement
 on top of Suppliers), cohort/RFM/LTV, custom report builder, scheduled email reports.
 
-**Status:** ⬜ Planned (P1). Migration 021 (Suppliers) done; 022 (OrderItems.UnitCost) pending.
+**Status:** ✅ Done. Track A — cost snapshot (migration 028) + cost wiring in `OrderService`; the 6 reports +
+activity widget (`AnalyticsService`/`AnalyticsController`); admin Analytics UI (widget, report tabs, date range,
+CSV export, inline bars); Suppliers CRUD + product supplier assignment + `CostPrice` field & missing-cost nudge on
+the product form. Track B — SSR-safe Umami tracking (`WebAnalyticsService`, config-gated) + admin "Web traffic" link
++ VPS self-host guide above. **Remaining ops step:** run the Umami self-host + fill `UMAMI_*` config on the VPS.

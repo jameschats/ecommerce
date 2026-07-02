@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -16,6 +17,9 @@ import { AuthService } from '../../core/services/auth.service';
           }
         </nav>
         <div class="p-3 border-t border-slate-200 text-sm">
+          @if (umamiUrl) {
+            <a [href]="umamiUrl" target="_blank" rel="noopener" class="block px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-50">Web traffic ↗</a>
+          }
           <a routerLink="/" class="block px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-50">← View store</a>
           <button type="button" (click)="logout()" class="block w-full text-left px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-50">Sign out</button>
         </div>
@@ -29,6 +33,8 @@ import { AuthService } from '../../core/services/auth.service';
 export class AdminLayoutComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+
+  readonly umamiUrl = UMAMI_DASHBOARD_URL;
 
   readonly links = [
     { path: '/admin/analytics', label: 'Analytics' },

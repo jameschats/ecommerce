@@ -7,6 +7,7 @@ import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
 import { CatalogService } from './core/services/catalog.service';
 import { ThemeService } from './core/services/theme.service';
+import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
 
 @Component({
@@ -21,6 +22,7 @@ export class App implements OnInit {
   private readonly theme = inject(ThemeService);
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
+  private readonly webAnalytics = inject(WebAnalyticsService);
 
   readonly user = this.auth.currentUser;
   readonly isAuthenticated = this.auth.isAuthenticated;
@@ -42,6 +44,7 @@ export class App implements OnInit {
   private readonly searchInput$ = new Subject<string>();
 
   ngOnInit(): void {
+    this.webAnalytics.init();
     this.theme.load().subscribe();
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
 
