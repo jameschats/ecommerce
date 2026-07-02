@@ -18,6 +18,21 @@ Legend: ✅ fixed · 🕒 deferred (owner will do) · ⚙️ operational (no cod
   prints on tax invoices).
 - [ ] 🕒 **Real contact details** on the contact page (currently fake `support@calendarshop.example`).
 
+### Notification delivery (code seams built — need external onboarding + keys)
+- [ ] ⚙️ **SMS delivery (MSG91)** — `ISmsSender` + `Msg91SmsSender` are built and config-selectable
+  (`Sms:Provider=Msg91`). Blocked on **India DLT registration** (register business + 6-char sender id
+  `CALSHP` + message templates on the DLT portal via MSG91 — a few-day KYC process), then set
+  `Sms__AuthKey` / `Sms__SenderId` / `Sms__TemplateId` in `/etc/ecomm/api.env` and restart. Lights up
+  **Mobile-OTP login + all order SMS** at once. Until then `Sms:Provider=Logging` (OTP in `journalctl`).
+- [ ] ⚙️ **Email delivery (SMTP)** — `IEmailSender` + `SmtpEmailSender` built (`Email:Provider=Smtp`).
+  Set `Email__Host/Port/Username/Password/FromAddress` in `api.env` (e.g. Zoho/SendGrid), then restart.
+  Until then emails only log. Powers order emails + password-reset + email-verification.
+- [ ] 💡 **(Optional) WhatsApp OTP** — a cheaper/higher-delivery alternative (or addition) to SMS in
+  India. Implementable as **another `ISmsSender` provider** (`Sms:Provider=Whatsapp`) via MSG91's or
+  Meta's WhatsApp Cloud API — no caller changes. Paid per-message (cheap in India), needs a WhatsApp
+  Business Account + an **approved authentication template** (Meta approval, not DLT). Decide after SMS
+  is live; the seam already supports it.
+
 ---
 
 ## Fixed in this pass
