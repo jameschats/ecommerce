@@ -146,6 +146,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.KnownProxies.Clear();
 });
 
+// Readiness health check (DB probe) + response compression.
+builder.Services.AddHealthChecks().AddCheck<ecomm.api.Common.Health.DatabaseHealthCheck>("database");
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    o.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+
 // Rate limiting — throttle sensitive auth endpoints per client IP (brute-force / OTP abuse).
 builder.Services.AddRateLimiter(options =>
 {
@@ -159,6 +168,7 @@ var app = builder.Build();
 
 // --- Pipeline -------------------------------------------------------------
 app.UseForwardedHeaders();   // real client IP + original scheme (must be first, behind Nginx)
+app.UseResponseCompression();
 
 // Security headers on every response.
 app.Use(async (ctx, next) =>
@@ -204,5 +214,6 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/api/health/ready");   // 200 Healthy / 503 if DB unreachable
 
 app.Run();
