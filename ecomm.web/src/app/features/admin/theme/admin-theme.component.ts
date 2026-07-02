@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { API_BASE_URL } from '../../../core/api.config';
 import { ApiResponse } from '../../../core/models/api-response.model';
+import { MediaService } from '../../../core/services/media.service';
 import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
 
 @Component({
@@ -46,7 +47,20 @@ import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
               </select>
             </div>
           </div>
-          <div><label class="lbl">Logo URL</label><input type="text" [(ngModel)]="settings.Logo" placeholder="https://…" class="input" /></div>
+          <div>
+            <label class="lbl">Logo</label>
+            <div class="flex items-center gap-3">
+              <div class="w-24 h-12 rounded border border-slate-200 bg-slate-50 grid place-items-center overflow-hidden shrink-0">
+                @if (settings.Logo) { <img [src]="settings.Logo" alt="logo" class="max-w-full max-h-full object-contain" /> }
+                @else { <span class="text-[10px] text-slate-400">No logo</span> }
+              </div>
+              <input type="text" [(ngModel)]="settings.Logo" placeholder="Paste a URL or upload →" class="input flex-1" />
+              <label class="text-sm text-blue-600 hover:underline cursor-pointer whitespace-nowrap">
+                {{ uploading() ? 'Uploading…' : 'Upload' }}
+                <input type="file" accept="image/*" class="hidden" (change)="uploadLogo($event)" />
+              </label>
+            </div>
+          </div>
 
           <div class="flex items-center gap-3 pt-1">
             <button type="button" (click)="save()" [disabled]="saving()" class="btn-primary">{{ saving() ? 'Saving…' : 'Save theme' }}</button>
@@ -61,10 +75,12 @@ import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
 export class AdminThemeComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly theme = inject(ThemeService);
+  private readonly media = inject(MediaService);
   private readonly base = `${API_BASE_URL}/admin/theme`;
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly uploading = signal(false);
   readonly message = signal<string | null>(null);
 
   settings = { PrimaryColor: '#2563eb', SecondaryColor: '#1e293b', Font: 'Inter', ButtonStyle: 'rounded', Logo: '' };
@@ -88,6 +104,19 @@ export class AdminThemeComponent implements OnInit {
 
   preview(): void {
     this.theme.apply(this.settings);
+  }
+
+  uploadLogo(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.uploading.set(true);
+    this.message.set(null);
+    this.media.upload(file).subscribe({
+      next: (m) => { this.settings.Logo = m.url; this.uploading.set(false); },
+      error: () => { this.uploading.set(false); this.message.set('Logo upload failed (max 5 MB; image files only).'); },
+    });
+    input.value = '';
   }
 
   save(): void {
