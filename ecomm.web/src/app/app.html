@@ -44,6 +44,7 @@
                 <div class="px-4 py-2 text-xs text-slate-400 border-b border-slate-100">Your account</div>
                 <a routerLink="/account/profile" (click)="menuOpen.set(false)" class="menu-item">My profile</a>
                 <a routerLink="/account/orders" (click)="menuOpen.set(false)" class="menu-item">My orders</a>
+                <a routerLink="/account/wishlist" (click)="menuOpen.set(false)" class="menu-item">My wishlist</a>
                 <a routerLink="/account/addresses" (click)="menuOpen.set(false)" class="menu-item">My addresses</a>
                 @if (isAdmin()) { <a routerLink="/admin" (click)="menuOpen.set(false)" class="menu-item">Admin dashboard</a> }
                 <button type="button" (click)="logout()" class="menu-item">Logout</button>

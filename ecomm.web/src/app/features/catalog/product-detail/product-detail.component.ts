@@ -11,10 +11,11 @@ import { CartService } from '../../../core/services/cart.service';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 
 @Component({
   selector: 'app-product-detail',
-  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule],
+  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule, WishlistButtonComponent],
   templateUrl: './product-detail.component.html',
 })
 export class ProductDetailComponent implements OnInit {

@@ -39,6 +39,7 @@ export const routes: Routes = [
       { path: 'addresses', loadComponent: () => import('./features/account/addresses.component').then((m) => m.AddressesComponent) },
       { path: 'orders', loadComponent: () => import('./features/orders/order-history.component').then((m) => m.OrderHistoryComponent) },
       { path: 'orders/:id', loadComponent: () => import('./features/orders/order-detail.component').then((m) => m.OrderDetailComponent) },
+      { path: 'wishlist', loadComponent: () => import('./features/account/wishlist.component').then((m) => m.WishlistComponent) },
     ],
   },
   { path: 'about', loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent) },

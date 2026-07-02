@@ -12,6 +12,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
           <a routerLink="/account/profile" routerLinkActive="bg-primary/10 text-primary font-medium" class="block px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Profile</a>
           <a routerLink="/account/addresses" routerLinkActive="bg-primary/10 text-primary font-medium" class="block px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Addresses</a>
           <a routerLink="/account/orders" routerLinkActive="bg-primary/10 text-primary font-medium" class="block px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Orders</a>
+          <a routerLink="/account/wishlist" routerLinkActive="bg-primary/10 text-primary font-medium" class="block px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Wishlist</a>
         </nav>
         <div class="min-w-0">
           <router-outlet />

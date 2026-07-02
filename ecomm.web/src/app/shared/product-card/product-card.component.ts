@@ -2,10 +2,11 @@ import { CurrencyPipe } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ProductListItem } from '../../core/models/catalog.model';
+import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.component';
 
 @Component({
   selector: 'app-product-card',
-  imports: [RouterLink, CurrencyPipe],
+  imports: [RouterLink, CurrencyPipe, WishlistButtonComponent],
   template: `
     <a [routerLink]="['/product', product().slug]"
        class="group block bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition">
@@ -24,6 +25,9 @@ import { ProductListItem } from '../../core/models/catalog.model';
             <span class="bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded">Out of stock</span>
           </div>
         }
+        <div class="absolute top-2 right-2">
+          <app-wishlist-button [productId]="product().productId" />
+        </div>
       </div>
       <div class="p-3">
         <p class="text-xs text-slate-400">{{ product().brandName ?? product().categoryName }}</p>
