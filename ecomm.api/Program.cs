@@ -146,6 +146,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.KnownProxies.Clear();
 });
 
+// Output caching for anonymous storefront reads (authenticated requests bypass automatically).
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy("public", b => b.Expire(TimeSpan.FromSeconds(60)).SetVaryByQuery("*"));
+});
+
 // Readiness health check (DB probe) + response compression.
 builder.Services.AddHealthChecks().AddCheck<ecomm.api.Common.Health.DatabaseHealthCheck>("database");
 builder.Services.AddResponseCompression(o =>
@@ -210,6 +216,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseCors(AngularCors);
+app.UseOutputCache();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -3,12 +3,15 @@ using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
 using ecomm.api.Features.Search;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace ecomm.api.Features.Catalog;
 
-/// <summary>Public storefront browsing endpoints.</summary>
+/// <summary>Public storefront browsing endpoints. Anonymous reads are output-cached
+/// (60s, varied by query); authenticated requests bypass the cache automatically.</summary>
 [ApiController]
 [Route("api/catalog")]
+[OutputCache(PolicyName = "public")]
 public sealed class CatalogController : ControllerBase
 {
     private readonly ICategoryService _categories;

@@ -1,6 +1,7 @@
 using ecomm.api.Common.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace ecomm.api.Features.Cms;
 
@@ -13,6 +14,7 @@ public sealed class CmsController : ControllerBase
 
     public CmsController(ICmsService cms) => _cms = cms;
 
+    [OutputCache(PolicyName = "public")]
     [HttpGet("home")]
     public async Task<IActionResult> Home(CancellationToken ct)
         => Ok(ApiResponse<List<SectionDto>>.Ok(await _cms.GetHomeSectionsAsync(visibleOnly: true, ct)));

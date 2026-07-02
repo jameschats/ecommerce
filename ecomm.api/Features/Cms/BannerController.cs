@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace ecomm.api.Features.Cms;
 
@@ -14,6 +15,7 @@ public sealed class BannerController : ControllerBase
 
     public BannerController(IBannerService banners) => _banners = banners;
 
+    [OutputCache(PolicyName = "public")]
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
         => Ok(ApiResponse<List<BannerDto>>.Ok(await _banners.GetActiveAsync(ct)));
