@@ -11,7 +11,7 @@
 - [x] Performance: query/index review (schema already indexes hot paths; no migration) + N+1 check (projections are query-batched)
 - [x] **Automated tests** (xUnit): GST math, coupon engine, password hashing, slug — 25 passing
 - [x] Secrets in user-secrets/env (done earlier — `/etc/ecomm/api.env`)
-- [ ] **SEO infra** (deferred): `sitemap.xml` + `robots.txt`, Core Web Vitals / image CDN
+- [x] **SEO infra**: dynamic `sitemap.xml` (API, from live categories + products) + static `robots.txt`
 - [ ] Operational (owner): change prod admin password, real GSTIN, wire SMTP/MSG91, Nginx security headers for the storefront
 
 ## Implementation
