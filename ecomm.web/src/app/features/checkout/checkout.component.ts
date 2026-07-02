@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Address } from '../../core/models/account.model';
 import { CheckoutQuote, PlaceOrderResult } from '../../core/models/order.model';
 import { AccountService } from '../../core/services/account.service';
+import { AuthService } from '../../core/services/auth.service';
 import { CartService } from '../../core/services/cart.service';
 import { OrderService } from '../../core/services/order.service';
 
@@ -136,6 +137,7 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
 export class CheckoutComponent implements OnInit {
   private readonly orders = inject(OrderService);
   private readonly account = inject(AccountService);
+  private readonly auth = inject(AuthService);
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -238,6 +240,7 @@ export class CheckoutComponent implements OnInit {
     const payment = res.payment;
     if (!payment) return;
     const w = window as unknown as RazorpayWindow;
+    const user = this.auth.currentUser();
     const launch = () => {
       const rzp = new w.Razorpay!({
         key: payment.publicKey,
@@ -246,6 +249,11 @@ export class CheckoutComponent implements OnInit {
         currency: payment.currency,
         name: 'CalendarShop',
         description: res.orderNumber,
+        prefill: {
+          name: user?.fullName ?? undefined,
+          email: user?.email ?? undefined,
+          contact: user?.phoneNumber ?? undefined,
+        },
         handler: (r: { razorpay_payment_id: string; razorpay_signature: string }) =>
           this.confirm(res.orderId, r.razorpay_payment_id, r.razorpay_signature),
         modal: { ondismiss: () => { this.processing.set(false); this.error.set('Payment cancelled.'); } },
