@@ -7,10 +7,11 @@ import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
 import { CatalogService } from './core/services/catalog.service';
 import { ThemeService } from './core/services/theme.service';
+import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule],
+  imports: [RouterOutlet, RouterLink, FormsModule, NotificationBellComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

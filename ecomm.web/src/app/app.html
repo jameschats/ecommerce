@@ -32,6 +32,7 @@
 
       <div class="flex items-center gap-5 shrink-0 text-sm ml-auto">
         @if (isAuthenticated()) {
+          <app-notification-bell />
           <div class="relative">
             <button type="button" (click)="menuOpen.set(!menuOpen())" class="flex items-center gap-1.5 font-medium text-slate-700">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
