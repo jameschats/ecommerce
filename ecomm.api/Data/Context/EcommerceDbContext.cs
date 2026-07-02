@@ -83,6 +83,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<ProductSupplier> ProductSuppliers => Set<ProductSupplier>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -249,7 +251,7 @@ public class EcommerceDbContext : DbContext
         {
             e.ToTable("OrderItems");
             e.HasKey(x => x.OrderItemId);
-            foreach (var p in new[] { nameof(OrderItem.UnitPrice), nameof(OrderItem.DiscountAmount), nameof(OrderItem.TaxAmount), nameof(OrderItem.LineTotal) })
+            foreach (var p in new[] { nameof(OrderItem.UnitPrice), nameof(OrderItem.UnitCost), nameof(OrderItem.DiscountAmount), nameof(OrderItem.TaxAmount), nameof(OrderItem.LineTotal) })
                 e.Property(p).HasPrecision(12, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
         });
@@ -315,5 +317,12 @@ public class EcommerceDbContext : DbContext
         b.Entity<Shipment>(e => { e.ToTable("Shipments"); e.HasKey(x => x.ShipmentId); });
         b.Entity<WishlistItem>(e => { e.ToTable("WishlistItems"); e.HasKey(x => x.WishlistItemId); });
         b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });
+        b.Entity<Supplier>(e => { e.ToTable("Suppliers"); e.HasKey(x => x.SupplierId); });
+        b.Entity<ProductSupplier>(e =>
+        {
+            e.ToTable("ProductSuppliers");
+            e.HasKey(x => x.ProductSupplierId);
+            e.Property(x => x.CostPrice).HasPrecision(12, 2);
+        });
     }
 }

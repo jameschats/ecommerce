@@ -217,6 +217,7 @@ public sealed class OrderService : IOrderService
                     HsnCode = l.Hsn,
                     Quantity = l.Quantity,
                     UnitPrice = l.UnitPrice,
+                    UnitCost = l.Cost,
                     DiscountAmount = 0m,
                     TaxRate = l.Rate,
                     TaxAmount = l.LineTax,
@@ -603,7 +604,7 @@ public sealed class OrderService : IOrderService
                           select new
                           {
                               ci.ProductId, ci.ProductVariantId, ci.Quantity,
-                              p.Name, p.Slug, p.Sku, p.HsnCode, p.Price,
+                              p.Name, p.Slug, p.Sku, p.HsnCode, p.Price, p.CostPrice,
                               VariantName = ci.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.Name).FirstOrDefault(),
                               VariantSku = ci.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.Sku).FirstOrDefault(),
                               PriceAdj = ci.ProductVariantId == null ? 0m : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.PriceAdjustment).FirstOrDefault(),
@@ -620,6 +621,7 @@ public sealed class OrderService : IOrderService
             Sku = r.VariantSku ?? r.Sku,
             Hsn = r.HsnCode,
             UnitPrice = r.Price + r.PriceAdj,
+            Cost = r.CostPrice,
             VariantLabel = r.VariantName,
             Available = r.Available,
         }).ToList();
@@ -635,6 +637,7 @@ public sealed class OrderService : IOrderService
         public string? Sku { get; init; }
         public string? Hsn { get; init; }
         public decimal UnitPrice { get; init; }
+        public decimal? Cost { get; init; }
         public string? VariantLabel { get; init; }
         public int Available { get; init; }
         public decimal Rate { get; set; }
