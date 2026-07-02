@@ -39,11 +39,15 @@ public sealed class ProductImportService : IProductImportService
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Products");
         for (var i = 0; i < Headers.Length; i++) ws.Cell(1, i + 1).Value = Headers[i];
-        ws.Cell(2, 1).Value = "BAT001";
-        ws.Cell(2, 2).Value = "Dell Battery 65Wh";
-        ws.Cell(2, 3).Value = "Batteries";
-        ws.Cell(2, 4).Value = "Dell";
-        ws.Cell(2, 5).Value = 1200;
+        // Example row (replace with your products). Category must already exist; Brand is auto-created.
+        ws.Cell(2, 1).Value = "SAMPLE-001";
+        ws.Cell(2, 2).Value = "Sample Wall Calendar 2026";
+        ws.Cell(2, 3).Value = "Wall Calendars";
+        ws.Cell(2, 4).Value = "";
+        ws.Cell(2, 5).Value = 499;
+        ws.Cell(2, 8).Value = "4910";
+        ws.Cell(2, 9).Value = "Active";
+        ws.Cell(2, 11).Value = "https://example.com/your-image.jpg";
         ws.Row(1).Style.Font.Bold = true;
         return Save(wb);
     }
