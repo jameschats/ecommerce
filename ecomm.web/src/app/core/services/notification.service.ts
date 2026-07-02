@@ -48,8 +48,8 @@ export class NotificationService {
     });
   }
 
-  load(): Observable<AppNotification[]> {
-    return this.http.get<ApiResponse<AppNotification[]>>(this.base).pipe(map((r) => r.data ?? []));
+  load(limit = 15): Observable<AppNotification[]> {
+    return this.http.get<ApiResponse<AppNotification[]>>(`${this.base}?limit=${limit}`).pipe(map((r) => r.data ?? []));
   }
 
   markRead(id: number): void {
