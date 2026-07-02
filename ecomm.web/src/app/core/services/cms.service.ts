@@ -10,6 +10,8 @@ export interface HomeSection {
   title: string | null;
   displayOrder: number;
   isVisible: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
 }
 
 export interface UpdateSectionItem {
@@ -17,6 +19,8 @@ export interface UpdateSectionItem {
   displayOrder: number;
   isVisible: boolean;
   title: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

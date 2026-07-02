@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Cms;
 
-public sealed record SectionDto(long PageSectionId, string SectionType, string? Title, int DisplayOrder, bool IsVisible);
-public sealed record UpdateSectionItem(long PageSectionId, int DisplayOrder, bool IsVisible, string? Title);
+public sealed record SectionDto(long PageSectionId, string SectionType, string? Title, int DisplayOrder, bool IsVisible, DateTime? StartsAt, DateTime? EndsAt);
+public sealed record UpdateSectionItem(long PageSectionId, int DisplayOrder, bool IsVisible, string? Title, DateTime? StartsAt, DateTime? EndsAt);
 public sealed record UpdateSectionsRequest(List<UpdateSectionItem> Sections);
 
 public interface ICmsService
@@ -25,10 +25,12 @@ public sealed class CmsService : ICmsService
         var pageId = await HomePageId(ct);
         if (pageId is null) return [];
 
+        var now = DateTime.UtcNow;
         return await _db.PageSections
-            .Where(s => s.PageId == pageId && (!visibleOnly || s.IsVisible))
+            .Where(s => s.PageId == pageId && (!visibleOnly ||
+                (s.IsVisible && (s.StartsAt == null || s.StartsAt <= now) && (s.EndsAt == null || s.EndsAt >= now))))
             .OrderBy(s => s.DisplayOrder)
-            .Select(s => new SectionDto(s.PageSectionId, s.SectionType, s.Title, s.DisplayOrder, s.IsVisible))
+            .Select(s => new SectionDto(s.PageSectionId, s.SectionType, s.Title, s.DisplayOrder, s.IsVisible, s.StartsAt, s.EndsAt))
             .ToListAsync(ct);
     }
 
@@ -46,6 +48,8 @@ public sealed class CmsService : ICmsService
             section.DisplayOrder = item.DisplayOrder;
             section.IsVisible = item.IsVisible;
             if (item.Title is not null) section.Title = item.Title;
+            section.StartsAt = item.StartsAt;
+            section.EndsAt = item.EndsAt;
             section.UpdatedAt = now;
         }
         await _db.SaveChangesAsync(ct);
