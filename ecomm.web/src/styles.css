@@ -1,6 +1,19 @@
 /* Global styles. Tailwind CSS v4 entrypoint. */
 @import "tailwindcss";
 
+/* Tailwind v4 removed the default `cursor: pointer` on buttons (it now matches the
+   browser's arrow default). Restore it for interactive controls — users expect a
+   hand cursor on clickable things. Disabled controls keep the default cursor. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  label:has(input[type="checkbox"]:not(:disabled)),
+  label:has(input[type="radio"]:not(:disabled)),
+  summary {
+    cursor: pointer;
+  }
+}
+
 /* Brand colors as design tokens — overridden at runtime by the Theme Engine
    (ThemeService sets --color-primary / --color-primary-dark on :root). */
 @theme {
