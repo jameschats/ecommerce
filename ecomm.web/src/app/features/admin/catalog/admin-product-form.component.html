@@ -31,6 +31,13 @@
         </div>
         <div><label class="lbl">Price (₹)</label><input type="number" [(ngModel)]="form.price" class="input" /></div>
         <div><label class="lbl">Compare-at price (₹)</label><input type="number" [(ngModel)]="form.compareAtPrice" class="input" /></div>
+        <div>
+          <label class="lbl">Cost price (₹)</label>
+          <input type="number" [(ngModel)]="form.costPrice" class="input" placeholder="What you pay per unit" />
+          @if (form.costPrice == null) {
+            <p class="mt-1 text-xs text-amber-600">Set this so profit &amp; margin reports are accurate.</p>
+          }
+        </div>
         <div><label class="lbl">HSN code</label><input [(ngModel)]="form.hsnCode" class="input" /></div>
         <div>
           <label class="lbl">Status</label>
@@ -131,6 +138,37 @@
             }
           </div>
           <button type="button" (click)="saveAttributes()" class="btn-primary mt-3">Save specifications</button>
+        }
+      </div>
+
+      <!-- Suppliers -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-medium text-slate-800">Suppliers</h2>
+          <button type="button" (click)="addProductSupplier()" class="text-sm text-blue-600 hover:underline">+ Add supplier</button>
+        </div>
+        @if (!allSuppliers().length) {
+          <p class="text-xs text-slate-400">No suppliers defined. Create them under <a routerLink="/admin/suppliers" class="text-blue-600 hover:underline">Suppliers</a> first.</p>
+        } @else {
+          @if (!productSuppliers.length) { <p class="text-xs text-slate-400 mb-2">No supplier assigned. Add one to track sourcing cost &amp; lead time.</p> }
+          <div class="space-y-2">
+            @for (ps of productSuppliers; track $index) {
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-50 rounded-lg px-3 py-2">
+                <select [(ngModel)]="ps.supplierId" [name]="'ps' + $index" class="input sm:col-span-4">
+                  <option [ngValue]="0">— Select supplier —</option>
+                  @for (s of allSuppliers(); track s.supplierId) { <option [ngValue]="s.supplierId">{{ s.name }}</option> }
+                </select>
+                <input [(ngModel)]="ps.supplierSku" [name]="'pssku' + $index" placeholder="Supplier SKU" class="input sm:col-span-3" />
+                <input type="number" [(ngModel)]="ps.costPrice" [name]="'pscost' + $index" placeholder="Cost ₹" class="input sm:col-span-2" />
+                <input type="number" [(ngModel)]="ps.leadTimeDays" [name]="'pslead' + $index" placeholder="Lead d" class="input sm:col-span-1" />
+                <label class="flex items-center gap-1 text-xs text-slate-500 sm:col-span-1 whitespace-nowrap">
+                  <input type="radio" name="psPrimary" [checked]="ps.isPrimary" (change)="setPrimarySupplier($index)" /> Primary
+                </label>
+                <button type="button" (click)="removeProductSupplier($index)" class="text-red-500 hover:text-red-700 sm:col-span-1 justify-self-end px-2">×</button>
+              </div>
+            }
+          </div>
+          <button type="button" (click)="saveProductSuppliers()" class="btn-primary mt-3">Save suppliers</button>
         }
       </div>
     } @else {

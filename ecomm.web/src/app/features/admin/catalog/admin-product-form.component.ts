@@ -5,6 +5,8 @@ import { AttributeDef, ProductImageInput, SaveProductRequest, SaveVariantRequest
 import { Brand, Category, ProductDetail, ProductVariant } from '../../../core/models/catalog.model';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
 import { MediaService } from '../../../core/services/media.service';
+import { ProductSupplierInput, Supplier } from '../../../core/models/supplier.model';
+import { SupplierService } from '../../../core/services/supplier.service';
 
 @Component({
   selector: 'app-admin-product-form',
@@ -14,6 +16,7 @@ import { MediaService } from '../../../core/services/media.service';
 export class AdminProductFormComponent implements OnInit {
   private readonly api = inject(AdminCatalogService);
   private readonly media = inject(MediaService);
+  private readonly suppliers = inject(SupplierService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -31,6 +34,9 @@ export class AdminProductFormComponent implements OnInit {
   readonly attributeDefs = signal<AttributeDef[]>([]);
   readonly variants = signal<ProductVariant[]>([]);
 
+  readonly allSuppliers = signal<Supplier[]>([]);
+  productSuppliers: ProductSupplierInput[] = [];
+
   form: SaveProductRequest = this.blank();
   newVariant: SaveVariantRequest = this.blankVariant();
   attrValues: Record<number, string> = {};
@@ -40,10 +46,13 @@ export class AdminProductFormComponent implements OnInit {
     this.api.listBrands().subscribe((b) => this.brands.set(b));
     this.api.listAttributes().subscribe((a) => this.attributeDefs.set(a));
 
+    this.suppliers.list().subscribe((s) => this.allSuppliers.set(s));
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.productId.set(+id);
       this.loadProduct(+id);
+      this.loadProductSuppliers(+id);
     } else {
       this.loading.set(false);
     }
@@ -153,6 +162,36 @@ export class AdminProductFormComponent implements OnInit {
       .map((a) => ({ attributeId: a.attributeId, valueText: this.attrValues[a.attributeId].trim() }));
     this.api.setProductAttributes(this.productId()!, inputs).subscribe({
       next: () => this.message.set('Specifications saved.'),
+      error: (e) => this.error.set(e?.error?.message ?? 'Failed.'),
+    });
+  }
+
+  // --- Suppliers ---
+  private loadProductSuppliers(id: number): void {
+    this.suppliers.forProduct(id).subscribe((ps) => {
+      this.productSuppliers = ps.map((p) => ({
+        supplierId: p.supplierId, supplierSku: p.supplierSku, costPrice: p.costPrice,
+        leadTimeDays: p.leadTimeDays, isPrimary: p.isPrimary,
+      }));
+    });
+  }
+  addProductSupplier(): void {
+    this.productSuppliers.push({
+      supplierId: 0, supplierSku: null, costPrice: null, leadTimeDays: null,
+      isPrimary: this.productSuppliers.length === 0,
+    });
+  }
+  removeProductSupplier(i: number): void {
+    this.productSuppliers.splice(i, 1);
+  }
+  setPrimarySupplier(i: number): void {
+    this.productSuppliers.forEach((ps, idx) => (ps.isPrimary = idx === i));
+  }
+  saveProductSuppliers(): void {
+    const rows = this.productSuppliers.filter((ps) => ps.supplierId);
+    if (rows.length && !rows.some((ps) => ps.isPrimary)) rows[0].isPrimary = true;
+    this.suppliers.setForProduct(this.productId()!, rows).subscribe({
+      next: () => this.message.set('Suppliers saved.'),
       error: (e) => this.error.set(e?.error?.message ?? 'Failed.'),
     });
   }
