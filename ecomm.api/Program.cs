@@ -1,5 +1,7 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using ecomm.api.Common.Middleware;
+using Microsoft.AspNetCore.HttpOverrides;
 using ecomm.api.Data.Context;
 using ecomm.api.Features.Auth;
 using ecomm.api.Features.Auth.Services;
@@ -136,15 +138,49 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// Trust the reverse proxy (Nginx on the same host) so the API sees the real client IP + scheme.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
+// Rate limiting — throttle sensitive auth endpoints per client IP (brute-force / OTP abuse).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
+
 var app = builder.Build();
 
 // --- Pipeline -------------------------------------------------------------
+app.UseForwardedHeaders();   // real client IP + original scheme (must be first, behind Nginx)
+
+// Security headers on every response.
+app.Use(async (ctx, next) =>
+{
+    var h = ctx.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";
+    h["X-Frame-Options"] = "DENY";
+    h["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    h["X-Permitted-Cross-Domain-Policies"] = "none";
+    await next();
+});
+
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+}
+else
+{
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();
@@ -164,6 +200,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseCors(AngularCors);
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

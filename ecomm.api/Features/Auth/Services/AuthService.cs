@@ -25,6 +25,8 @@ public sealed class AuthService : IAuthService
 {
     private const long DefaultTenantId = 1;
     private const string CustomerRole = "CUSTOMER";
+    private const int MaxFailedLogins = 5;
+    private static readonly TimeSpan LockoutWindow = TimeSpan.FromMinutes(15);
 
     private readonly EcommerceDbContext _db;
     private readonly IPasswordHasher _hasher;
@@ -104,14 +106,36 @@ public sealed class AuthService : IAuthService
         var user = await _db.Users.FirstOrDefaultAsync(
             u => u.TenantId == DefaultTenantId && u.NormalizedEmail == normalized && !u.IsDeleted, ct);
 
+        var now = DateTime.UtcNow;
+        if (user is not null && user.LockoutEndUtc is { } until && until > now)
+            throw new AppException("Too many failed attempts. Try again in a few minutes.", StatusCodes.Status429TooManyRequests);
+
         if (user is null || string.IsNullOrEmpty(user.PasswordHash) || !_hasher.Verify(request.Password ?? "", user.PasswordHash))
+        {
+            if (user is not null) await RegisterFailedLoginAsync(user, now, ct);
             throw new AppException("Invalid email or password.", StatusCodes.Status401Unauthorized);
+        }
         if (!user.IsActive)
             throw new AppException("Your account is disabled.", StatusCodes.Status403Forbidden);
 
-        user.LastLoginAt = DateTime.UtcNow;
+        user.FailedLoginCount = 0;
+        user.LockoutEndUtc = null;
+        user.LastLoginAt = now;
         await _db.SaveChangesAsync(ct);
         return await IssueTokensAsync(user, ip, ct);
+    }
+
+    /// <summary>Count a failed password attempt; lock the account for a window once the limit is hit.</summary>
+    private async Task RegisterFailedLoginAsync(User user, DateTime now, CancellationToken ct)
+    {
+        user.FailedLoginCount++;
+        if (user.FailedLoginCount >= MaxFailedLogins)
+        {
+            user.LockoutEndUtc = now.Add(LockoutWindow);
+            user.FailedLoginCount = 0;
+        }
+        user.UpdatedAt = now;
+        await _db.SaveChangesAsync(ct);
     }
 
     // ---------------- Password reset (email OTP) ----------------

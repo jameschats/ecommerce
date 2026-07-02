@@ -16,6 +16,8 @@ public class User
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    public int FailedLoginCount { get; set; }
+    public DateTime? LockoutEndUtc { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

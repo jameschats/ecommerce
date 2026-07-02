@@ -4,6 +4,7 @@ using ecomm.api.Features.Auth.Dtos;
 using ecomm.api.Features.Auth.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ecomm.api.Features.Auth;
 
@@ -24,14 +25,17 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> Config(CancellationToken ct)
         => Ok(ApiResponse<AuthConfigResponse>.Ok(await _auth.GetConfigAsync(ct)));
 
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.RegisterAsync(request, Ip, ct)));
 
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.LoginAsync(request, Ip, ct)));
 
+    [EnableRateLimiting("auth")]
     [HttpPost("otp/request")]
     public async Task<IActionResult> OtpRequest(OtpRequestDto request, CancellationToken ct)
     {
@@ -52,6 +56,7 @@ public sealed class AuthController : ControllerBase
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.RefreshAsync(request, Ip, ct)));
 
     /// <summary>Send a password-reset code by email. Always returns success (no account enumeration).</summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("password/forgot")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
     {
