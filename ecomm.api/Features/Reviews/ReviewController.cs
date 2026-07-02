@@ -30,6 +30,10 @@ public sealed class ReviewController : ControllerBase
     private long CurrentUserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : 0;
 
+    [HttpGet("eligibility/{productId:long}")]
+    public async Task<IActionResult> Eligibility(long productId, CancellationToken ct)
+        => Ok(ApiResponse<ReviewEligibilityDto>.Ok(await _reviews.EligibilityAsync(CurrentUserId, productId, ct)));
+
     [HttpPost]
     public async Task<IActionResult> Submit(SubmitReviewRequest req, CancellationToken ct)
         => Ok(ApiResponse<ReviewDto>.Ok(await _reviews.SubmitAsync(CurrentUserId, req, ct), "Thanks! Your review will appear once approved."));

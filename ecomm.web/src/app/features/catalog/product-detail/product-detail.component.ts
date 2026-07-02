@@ -46,7 +46,9 @@ export class ProductDetailComponent implements OnInit {
   readonly avgRating = computed(() => this.reviewData()?.summary.average ?? 0);
   readonly reviewCount = computed(() => this.reviewData()?.summary.count ?? 0);
 
-  // Write-a-review form
+  // Write-a-review form (only purchasers may review)
+  readonly canReview = signal(false);
+  readonly alreadyReviewed = signal(false);
   readonly reviewForm = signal<{ rating: number; title: string; comment: string }>({ rating: 5, title: '', comment: '' });
   readonly submittingReview = signal(false);
   readonly reviewMessage = signal<string | null>(null);
@@ -92,6 +94,7 @@ export class ProductDetailComponent implements OnInit {
           for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
           this.applySeo(product);
           this.loadReviews(product.productId);
+          if (this.isAuthenticated()) this.loadEligibility(product.productId);
         },
         error: () => { this.loading.set(false); this.notFound.set(true); },
       });
@@ -118,6 +121,14 @@ export class ProductDetailComponent implements OnInit {
     this.reviewData.set(null);
     this.reviewSvc.getForProduct(productId).subscribe({
       next: (d) => { this.reviewData.set(d); const p = this.product(); if (p) this.applySeo(p); },
+      error: () => {},
+    });
+  }
+
+  private loadEligibility(productId: number): void {
+    this.canReview.set(false);
+    this.reviewSvc.eligibility(productId).subscribe({
+      next: (e) => { this.canReview.set(e.canReview); this.alreadyReviewed.set(e.alreadyReviewed); },
       error: () => {},
     });
   }

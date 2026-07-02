@@ -170,10 +170,10 @@
         <p class="text-sm text-slate-500">No reviews yet. Be the first to review this product.</p>
       }
 
-      <!-- Write a review -->
+      <!-- Write a review (only verified purchasers) -->
       <div class="mt-8 max-w-xl">
-        @if (isAuthenticated()) {
-          <h3 class="font-semibold text-slate-900 mb-2">Write a review</h3>
+        @if (isAuthenticated() && canReview()) {
+          <h3 class="font-semibold text-slate-900 mb-2">{{ alreadyReviewed() ? 'Update your review' : 'Write a review' }}</h3>
           @if (reviewMessage()) {
             <div class="mb-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ reviewMessage() }}</div>
           }
@@ -191,11 +191,13 @@
           <textarea [ngModel]="reviewForm().comment" (ngModelChange)="reviewForm.set({ ...reviewForm(), comment: $event })"
             name="rvComment" rows="3" placeholder="Share your experience…" class="input w-full mb-3"></textarea>
           <button type="button" (click)="submitReview()" [disabled]="submittingReview()" class="btn-primary">
-            {{ submittingReview() ? 'Submitting…' : 'Submit review' }}
+            {{ submittingReview() ? 'Submitting…' : (alreadyReviewed() ? 'Update review' : 'Submit review') }}
           </button>
+        } @else if (isAuthenticated()) {
+          <p class="text-sm text-slate-500">Only customers who purchased this product can review it.</p>
         } @else {
           <p class="text-sm text-slate-500">
-            <a routerLink="/login" class="text-primary hover:underline">Sign in</a> to write a review.
+            <a routerLink="/login" class="text-primary hover:underline">Sign in</a> — only verified purchasers can review.
           </p>
         }
       </div>

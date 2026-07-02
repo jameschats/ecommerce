@@ -12,10 +12,12 @@ public sealed record ReviewSummaryDto(double Average, int Count, int[] Distribut
 public sealed record ProductReviewsDto(ReviewSummaryDto Summary, PagedResult<ReviewDto> Reviews);
 public sealed record SubmitReviewRequest(long ProductId, int Rating, string? Title, string? Comment);
 public sealed record AdminReviewDto(long ReviewId, long ProductId, string ProductName, string Author, int Rating, string? Title, string? Comment, bool IsApproved, bool IsVerifiedPurchase, DateTime CreatedAt);
+public sealed record ReviewEligibilityDto(bool CanReview, bool AlreadyReviewed);
 
 public interface IReviewService
 {
     Task<ProductReviewsDto> GetForProductAsync(long productId, int page, int pageSize, CancellationToken ct = default);
+    Task<ReviewEligibilityDto> EligibilityAsync(long userId, long productId, CancellationToken ct = default);
     Task<ReviewDto> SubmitAsync(long userId, SubmitReviewRequest req, CancellationToken ct = default);
     Task<PagedResult<AdminReviewDto>> ListAdminAsync(string? status, int page, int pageSize, CancellationToken ct = default);
     Task ApproveAsync(long reviewId, bool approved, CancellationToken ct = default);
@@ -59,18 +61,32 @@ public sealed class ReviewService : IReviewService
             new PagedResult<ReviewDto> { Items = items, Page = page, PageSize = pageSize, TotalCount = total });
     }
 
+    public async Task<ReviewEligibilityDto> EligibilityAsync(long userId, long productId, CancellationToken ct = default)
+    {
+        var hasPurchased = await _db.OrderItems
+            .Where(i => i.ProductId == productId)
+            .Join(_db.Orders.Where(o => o.UserId == userId && PurchasedStatuses.Contains(o.Status)),
+                  i => i.OrderId, o => o.OrderId, (i, o) => o.OrderId)
+            .AnyAsync(ct);
+        var alreadyReviewed = await _db.Reviews.AnyAsync(
+            r => r.TenantId == Tenant && r.ProductId == productId && r.UserId == userId, ct);
+        return new ReviewEligibilityDto(hasPurchased, alreadyReviewed);
+    }
+
     public async Task<ReviewDto> SubmitAsync(long userId, SubmitReviewRequest req, CancellationToken ct = default)
     {
         if (req.Rating is < 1 or > 5) throw new AppException("Rating must be between 1 and 5.");
         var product = await _db.Products.FirstOrDefaultAsync(p => p.ProductId == req.ProductId && p.TenantId == Tenant && !p.IsDeleted, ct)
             ?? throw new AppException("Product not found.", 404);
 
-        // Verified purchase = the user has a non-cancelled order containing this product.
+        // Only customers who bought this product may review it.
         var purchaseOrderId = await _db.OrderItems
             .Where(i => i.ProductId == req.ProductId)
             .Join(_db.Orders.Where(o => o.UserId == userId && PurchasedStatuses.Contains(o.Status)),
                   i => i.OrderId, o => o.OrderId, (i, o) => (long?)o.OrderId)
             .FirstOrDefaultAsync(ct);
+        if (purchaseOrderId is null)
+            throw new AppException("You can review a product only after purchasing it.", 403);
 
         var now = DateTime.UtcNow;
         var review = await _db.Reviews.FirstOrDefaultAsync(r => r.TenantId == Tenant && r.ProductId == req.ProductId && r.UserId == userId, ct);

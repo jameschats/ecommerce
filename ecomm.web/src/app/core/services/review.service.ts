@@ -16,6 +16,12 @@ export class ReviewService {
       .pipe(map((r) => r.data as ProductReviews));
   }
 
+  eligibility(productId: number): Observable<{ canReview: boolean; alreadyReviewed: boolean }> {
+    return this.http
+      .get<ApiResponse<{ canReview: boolean; alreadyReviewed: boolean }>>(`${this.base}/reviews/eligibility/${productId}`)
+      .pipe(map((r) => r.data as { canReview: boolean; alreadyReviewed: boolean }));
+  }
+
   submit(body: SubmitReviewRequest): Observable<ProductReview> {
     return this.http.post<ApiResponse<ProductReview>>(`${this.base}/reviews`, body).pipe(map((r) => r.data as ProductReview));
   }
