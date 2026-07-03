@@ -1,8 +1,10 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using ecomm.api.Common.Middleware;
+using ecomm.api.Common.Tenancy;
 using Microsoft.AspNetCore.HttpOverrides;
 using ecomm.api.Data.Context;
+using Serilog.Core;
 using ecomm.api.Features.Auth;
 using ecomm.api.Features.Auth.Services;
 using ecomm.api.Features.Payments;
@@ -27,6 +29,13 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 // --- Services -------------------------------------------------------------
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Multi-tenancy (V2-0): tenant context + resolution + request tracing.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.Configure<TenancyOptions>(builder.Configuration.GetSection(TenancyOptions.SectionName));
+builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+builder.Services.AddSingleton<ILogEventEnricher, HttpContextLogEnricher>();   // CorrelationId + TenantId on every log
 
 // CORS for the Angular dev server (ecomm.web)
 const string AngularCors = "AngularCors";
@@ -202,6 +211,7 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+app.UseMiddleware<CorrelationIdMiddleware>();   // trace id on every request + log line
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -235,6 +245,7 @@ app.UseOutputCache();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TenantResolutionMiddleware>();   // resolve store from subdomain (apex → default tenant)
 app.MapControllers();
 app.MapHealthChecks("/api/health/ready");   // 200 Healthy / 503 if DB unreachable
 app.MapHub<ecomm.api.Features.Notifications.NotificationHub>("/hubs/notifications");

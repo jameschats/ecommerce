@@ -23,14 +23,21 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (AppException ex)
         {
+            var resp = ApiResponse<object>.Fail(ex.Message);
+            resp.CorrelationId = Cid(context);
             context.Response.StatusCode = ex.StatusCode;
-            await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail(ex.Message));
+            await context.Response.WriteAsJsonAsync(resp);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception on {Path}", context.Request.Path);
+            var resp = ApiResponse<object>.Fail("An unexpected error occurred.");
+            resp.CorrelationId = Cid(context);
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail("An unexpected error occurred."));
+            await context.Response.WriteAsJsonAsync(resp);
         }
     }
+
+    private static string? Cid(HttpContext context) =>
+        context.Items.TryGetValue(CorrelationIdMiddleware.ItemKey, out var v) ? v as string : null;
 }

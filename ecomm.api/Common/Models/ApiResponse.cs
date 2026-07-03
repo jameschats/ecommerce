@@ -10,6 +10,8 @@ public sealed class ApiResponse<T>
     public T? Data { get; init; }
     public string? Message { get; init; }
     public IReadOnlyList<string>? Errors { get; init; }
+    /// <summary>Request trace id — set on error responses so it can be quoted in a support ticket. See CorrelationIdMiddleware.</summary>
+    public string? CorrelationId { get; set; }
 
     public static ApiResponse<T> Ok(T data, string? message = null) =>
         new() { Success = true, Data = data, Message = message };
