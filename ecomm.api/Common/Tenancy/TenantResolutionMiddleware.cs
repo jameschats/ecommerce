@@ -25,34 +25,47 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next, IOptions<Te
     {
         var host = context.Request.Host.Host.ToLowerInvariant();
         var slug = ExtractSlug(host);
+        long tenantId;
 
         if (slug is null)
         {
             // apex / www / localhost / IP / no BaseDomain → default tenant
-            context.Items[CurrentTenantService.HttpContextItemKey] = _opt.DefaultTenantId;
-            await next(context);
+            tenantId = _opt.DefaultTenantId;
+        }
+        else
+        {
+            var resolved = await cache.GetOrCreateAsync($"tenant:slug:{slug}", async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = CacheTtl;
+                return await db.Tenants
+                    .AsNoTracking()
+                    .Where(t => t.Slug == slug)
+                    .Select(t => new ResolvedTenant(t.TenantId, t.IsActive, t.SuspendedAt))
+                    .FirstOrDefaultAsync();
+            });
+
+            if (resolved is null || !resolved.IsActive || resolved.SuspendedAt is not null)
+            {
+                logger.LogWarning("Tenant not resolvable for host {Host} (slug {Slug})", host, slug);
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                await context.Response.WriteAsync("Store not found.");
+                return;
+            }
+            tenantId = resolved.TenantId;
+        }
+
+        // Defence in depth: a token issued for one store can't be used against another
+        // (e.g. a tenant-A admin token pointed at tenant-B's subdomain).
+        var tokenTenant = context.User.FindFirst("tenant")?.Value;
+        if (tokenTenant is not null && long.TryParse(tokenTenant, out var tt) && tt != tenantId)
+        {
+            logger.LogWarning("Token tenant {TokenTenant} != host tenant {HostTenant} on {Host}", tokenTenant, tenantId, host);
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync("This sign-in is not valid for this store.");
             return;
         }
 
-        var resolved = await cache.GetOrCreateAsync($"tenant:slug:{slug}", async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = CacheTtl;
-            return await db.Tenants
-                .AsNoTracking()
-                .Where(t => t.Slug == slug)
-                .Select(t => new ResolvedTenant(t.TenantId, t.IsActive, t.SuspendedAt))
-                .FirstOrDefaultAsync();
-        });
-
-        if (resolved is null || !resolved.IsActive || resolved.SuspendedAt is not null)
-        {
-            logger.LogWarning("Tenant not resolvable for host {Host} (slug {Slug})", host, slug);
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            await context.Response.WriteAsync("Store not found.");
-            return;
-        }
-
-        context.Items[CurrentTenantService.HttpContextItemKey] = resolved.TenantId;
+        context.Items[CurrentTenantService.HttpContextItemKey] = tenantId;
         await next(context);
     }
 
