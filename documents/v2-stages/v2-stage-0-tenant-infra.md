@@ -13,6 +13,7 @@
 - [ ] **JWT ↔ host check** — the token's `TenantId` claim must match the host-resolved tenant (block a token replayed against another store).
 - [ ] **`IgnoreQueryFilters()` policy** — allowed **only** in `Features/SuperAdmin`; anywhere else is a bug.
 - [ ] **Seed a second tenant** in dev so isolation is testable (V1's default tenant is `TenantId = 1`).
+- [ ] **(Pull forward from V2-10) `CorrelationId` middleware + `TenantId` Serilog enricher** — assign a correlation id per request, stamp it on every log line + the `ApiResponse` envelope. Cheap now, painful to retrofit; makes every later stage's logs tenant- and request-traceable. See [V2-10](v2-stage-10-observability-diagnostics.md).
 
 ## Data model
 No new tables. Migration `100_tenant_columns.sql` extends the existing `Tenants` (additive `ALTER`): `Slug`, `DisplayName`, `CustomDomain`, `PlanId`, `TrialEndsAt`, `SuspendedAt`; backfill `Slug` from `Code`. Add indexes on `Tenants.Slug`.

@@ -175,7 +175,7 @@ Build in `Features/Subscriptions`: `Plans` service, `TenantSubscriptions` state 
 ### 6.4 Subdomain storefront per merchant
 - `merchant-slug.calendarshop.online` → the existing Angular storefront reads the subdomain on bootstrap, calls `/api/tenant/resolve`, and loads that tenant's theme + catalog.
 - **One** storefront deployment; tenant context drives every data fetch (the API is already host-scoped by 6.2).
-- **Custom domains (V2.1):** merchant points `www.theirbrand.com` via CNAME; resolve through a `TenantDomains` lookup table + on-demand TLS (e.g. Caddy/Nginx + Let's Encrypt wildcard, or per-domain certs).
+- **Custom domains (post-GA point release):** merchant points `www.theirbrand.com` via CNAME; resolve through a `TenantDomains` lookup table + on-demand TLS (e.g. Caddy/Nginx + Let's Encrypt wildcard, or per-domain certs).
 
 ### 6.5 Per-merchant payment accounts — **Razorpay Route (recommended)**
 
@@ -212,7 +212,7 @@ All V1 tables are unchanged. V2 **extends** `Tenants` and adds new tables via mi
 ALTER TABLE Tenants
   ADD COLUMN Slug         VARCHAR(80)  NULL UNIQUE,   -- subdomain; backfill from Code
   ADD COLUMN DisplayName  VARCHAR(200) NULL,
-  ADD COLUMN CustomDomain VARCHAR(255) NULL,          -- V2.1
+  ADD COLUMN CustomDomain VARCHAR(255) NULL,          -- post-GA
   ADD COLUMN PlanId       INT          NULL,
   ADD COLUMN TrialEndsAt  DATETIME     NULL,
   ADD COLUMN SuspendedAt  DATETIME     NULL;
@@ -234,7 +234,7 @@ TenantSettings        -- per-tenant config: StoreName, SenderEmail, CurrencyCode
 TenantPaymentAccounts
   TenantId, Provider (Razorpay|Stripe), AccountId, IsVerified, ConnectedAt
 
-TenantDomains         -- V2.1 custom domains
+TenantDomains         -- post-GA custom domains
   TenantId, Domain, IsVerified, CertStatus
 ```
 Keep the hand-authored-entity + Fluent-mapping convention (`ToTable(...)`), exactly as V1.
@@ -279,7 +279,15 @@ Its full design (provider abstraction, feature modules, credit ledger, connector
 | **V2-3 — Super Admin panel** | Separate Angular app; unfiltered queries w/ explicit scope; tenant mgmt; impersonation; revenue dashboard | Every cross-tenant action audit-logged |
 | **V2-4 — Per-tenant storefront** | Storefront reads subdomain on bootstrap; `/api/tenant/resolve`; per-tenant SEO + theme | Two subdomains render two brands |
 | **V2-5 — Per-merchant payments** | Razorpay Route; merchant connect flow; platform commission at source | Split settlement verified in Razorpay test |
-| **V2-6 — Hardening** | Plan-limit enforcement, Redis tenant-namespaced keys, per-tenant rate limiting, load test w/ 50 tenants, data export | Load + isolation both green |
+| **V2-6 — Win-a-Merchant** | Migration import (Shopify/Woo/CSV), visual storefront builder, WhatsApp commerce, Indian courier aggregator, abandoned-cart recovery | Import → live in <15 min; builder publishes |
+| **V2-7 — Hardening & Scale** | Plan-limit enforcement, Redis tenant-namespaced keys, per-tenant rate limiting, load test w/ 50 tenants, data export | Load + isolation both green |
+| **V2-8 — Webhooks & Public API** | Outbound webhooks (order.created, …) + delivery/retry log; scoped public REST API + API tokens; per-tenant management | 3rd-party endpoint receives a signed event; token reads only its tenant |
+| **V2-9 — Merchant Support & Ticketing** | In-app tickets → super-admin queue; threaded + internal notes; SLA per plan; correlation-id link to diagnostics | Merchant raises → queue → resolve; own-tenant only |
+| **V2-10 — Observability & Diagnostics** | `CorrelationId` + `TenantId` log enricher; per-tenant logs (Seq); transaction inspector; remediation toolkit; `PlatformAccessLog` | Trace an error by correlation id; retry webhook / replay job from the pane |
+| **V2-11 — Unified Multi-Channel Notifications** | One dispatcher → in-app / email / SMS / WhatsApp; per-tenant branding + templates; preferences + DPDP/DLT compliance; delivery log | Event fans to right channels under tenant brand; opt-out honoured |
+| **V2-12 — Merchant Engagement & Lifecycle** | Super-admin scheduler: anniversaries, festival wishes, milestones, quarterly/annual NPS; merchant health score; frequency caps | Anniversary/festival auto-send; NPS → health score; opt-out honoured |
+
+> These build stages are the source of truth — see [`v2-stages/`](v2-stages/). The dotted "V2.1 / V2.2" labels elsewhere in this doc are older release-milestone names; they map onto the stages above (§13/§14 now reference stage numbers).
 
 ---
 
@@ -302,7 +310,7 @@ Its full design (provider abstraction, feature modules, credit ledger, connector
 - **The admin seeder is now per-tenant.** V1's `AdminUserSeeder` seeds one global admin — V2 must seed a merchant-admin per new tenant at onboarding, not globally.
 - **Webhooks must be idempotent.** Razorpay may deliver twice; dedupe on payment/subscription IDs.
 - **Redis is mandatory, not optional** — the slug→tenant lookup on every request needs it.
-- **Custom domains need on-demand TLS** — plan the cert story before promising the feature (V2.1).
+- **Custom domains need on-demand TLS** — plan the cert story before promising the feature (post-GA point release).
 
 ---
 
@@ -329,14 +337,14 @@ Markers: ✅ native/strong · ⚠️ gap we must build · ❌ not offered.
 | **Extra platform txn fee** (on top of gateway) | **2% Basic / 1% Grow / 0.5% Advanced** — Shopify Payments unavailable in India | none | **none** (Razorpay Route) |
 | GST-compliant invoicing | ❌ Paid app (~₹200–800/mo) | ❌ Paid plugin ₹2k–5k | ✅ **Native** |
 | COD (+ OTP verify) | ❌ Paid app | ⚠️ basic free; verify = paid | ✅ **Native + admin toggle** |
-| WhatsApp order updates + marketing | ❌ Paid app | ❌ Paid plugin | ✅ Native (V2.1) |
-| Indian couriers (Shiprocket/Delhivery) | ❌ Paid app | ❌ Paid plugin | ✅ Native aggregator (V2.1) |
+| WhatsApp order updates + marketing | ❌ Paid app | ❌ Paid plugin | ✅ Native (V2-6) |
+| Indian couriers (Shiprocket/Delhivery) | ❌ Paid app | ❌ Paid plugin | ✅ Native aggregator (V2-6) |
 | AI marketing (copy/image/video) | ❌ Paid apps, per-tool ₹₹₹ | ❌ few/none | ✅ **Bundled add-on (V3)** |
 | Managed hosting / security / updates | ✅ Included | ❌ **You own it** | ✅ Included |
-| Storefront visual builder | ✅ Best-in-class (sections) | ⚠️ Page builders (Elementor) | ⚠️ **Gap → build (V2.1)** |
-| App / extension ecosystem | ✅ 8,000+ | ✅ 50,000+ | ❌ not for the wedge (V2.2+) |
+| Storefront visual builder | ✅ Best-in-class (sections) | ⚠️ Page builders (Elementor) | ⚠️ **Gap → build (V2-6)** |
+| App / extension ecosystem | ✅ 8,000+ | ✅ 50,000+ | ⚠️ Webhooks + public API (V2-8); full app store later |
 | Regional language / Hinglish store + copy | ⚠️ limited | ⚠️ DIY | ✅ Roadmap (V3 AI) |
-| Multi-channel (IG/FB shop, Google) | ✅ | ⚠️ plugins | ⚠️ Roadmap (V2.2) |
+| Multi-channel (IG/FB shop, Google) | ✅ | ⚠️ plugins | ⚠️ Roadmap (Future) |
 
 **Bottom line:** a typical Indian SMB on Shopify pays base **+ 18% GST + platform transaction fee + 4–6 paid apps** (GST, COD, WhatsApp, courier, reviews) ≈ **₹3,000–₹6,000+/mo effective**. WooCommerce is "free" but **₹35k–1.5L to stand up** and you own security + uptime. Our all-inclusive ₹499–₹1,999 wins on price **and** total-cost-of-ownership — *provided we close the three ⚠️ gaps below.*
 
@@ -348,19 +356,21 @@ The core V2 in §6 (tenancy, onboarding/billing, subdomain storefront, Razorpay 
 
 | Feature | Why it wins | Phase |
 |---|---|---|
-| **Migration/import from Shopify & WooCommerce** | Removes switching cost — this is acquisition oxygen; without it, adoption stalls | **V2.1** |
-| **Visual storefront builder** (sections/blocks, live preview) | Merchants expect to *see & rearrange* their store; closes our #1 UX gap vs Shopify | **V2.1** |
-| **WhatsApp commerce** (catalog, order updates, abandoned-cart nudges, broadcast) | *The* Indian channel; Shopify is weak/paid here — a genuine wedge | **V2.1** |
-| **Indian courier aggregator** (Shiprocket / Delhivery / NimbusPost) | Live rates, label printing, tracking — table-stakes for Indian fulfilment | **V2.1** |
-| **Abandoned-cart recovery** (email + WhatsApp flows) | Direct revenue lift; standard elsewhere, paid-app on Shopify | **V2.1** |
+| **Migration/import from Shopify & WooCommerce** | Removes switching cost — this is acquisition oxygen; without it, adoption stalls | **V2-6** |
+| **Visual storefront builder** (sections/blocks, live preview) | Merchants expect to *see & rearrange* their store; closes our #1 UX gap vs Shopify | **V2-6** |
+| **WhatsApp commerce** (catalog, order updates, abandoned-cart nudges, broadcast) | *The* Indian channel; Shopify is weak/paid here — a genuine wedge | **V2-6** |
+| **Indian courier aggregator** (Shiprocket / Delhivery / NimbusPost) | Live rates, label printing, tracking — table-stakes for Indian fulfilment | **V2-6** |
+| **Abandoned-cart recovery** (email + WhatsApp flows) | Direct revenue lift; standard elsewhere, paid-app on Shopify | **V2-6** |
 | **AI Growth Engine** (copy/image/video, credits) | No competitor bundles it — see [design-v3.md](design-v3.md) | **V3** |
-| **Multi-channel** (Instagram/Facebook shops, Google Shopping feed) | Reach buyers where they browse | **V2.2** |
+| **Multi-channel** (Instagram/Facebook shops, Google Shopping feed) | Reach buyers where they browse | **Future** |
 | **Regional languages + Hinglish** (storefront + AI copy) | India moat; ties to the AI engine | **V3** |
-| **Staff accounts + roles/permissions** (per merchant) | Any real merchant has staff with scoped access | **V2.2** |
+| **Staff accounts + roles/permissions** (per merchant) | Any real merchant has staff with scoped access | **Future** |
 | **Gift cards, multi-currency, subscriptions-for-shoppers** | Nice-to-have breadth | Later |
-| **App / extension platform** (public API + webhooks for 3rd parties) | Shopify's real long-term moat — **park it**; not needed to win the wedge | **V2.2+** |
+| **App / extension platform** (public API + webhooks for 3rd parties) | Shopify's real long-term moat; not needed to win the wedge, but the entry point for integrations | **V2-8** |
 
-> **Sequencing rule:** V2 core (§10 stages) makes multi-tenancy safe; **V2.1 is the "win a merchant" release** (migration + visual builder + WhatsApp + couriers + abandoned cart). Do not market against Shopify until V2.1 ships — clean multi-tenancy alone won't convert anyone.
+> **Phase legend:** the **Phase** column above uses the build-stage numbers from [`v2-stages/`](v2-stages/). **"Future"** = intended scope with **no stage doc yet** (multi-channel, staff accounts) — planned in principle, not yet decomposed or scheduled.
+
+> **Sequencing rule:** V2 core (§10, stages V2-0…V2-5) makes multi-tenancy safe; **V2-6 is the "win a merchant" release** (migration + visual builder + WhatsApp + couriers + abandoned cart). Do not market against Shopify until V2-6 ships — clean multi-tenancy alone won't convert anyone.
 
 ---
 
