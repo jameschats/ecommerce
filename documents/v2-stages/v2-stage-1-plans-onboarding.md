@@ -24,6 +24,6 @@ Migrations `110–119`: `Plans`, `TenantSubscriptions`, `TenantBillingHistory`, 
 A test tenant can sign up → land on its subdomain → complete the checklist → be charged end-to-end in Razorpay test mode → `TenantBillingHistory` row written. Trial→paid and a failed-payment→suspend cycle both verified.
 
 ## Dependencies
-V2-0 (tenancy). Hangfire (new). Razorpay Subscriptions keys.
+V2-0 (tenancy). Razorpay Subscriptions keys (for real billing). *Hangfire deferred to V2-6* — a lightweight `SubscriptionLifecycleService` (periodic sweep) covers grace/suspend for now.
 
-**Status:** ⬜ Not started.
+**Status:** ✅ **Core complete on `main`.** Plans + subscription/billing schema (migrations 110–111) + seed; `GET /api/plans`; **merchant self-serve onboarding** (`POST /api/onboarding/signup` → Tenant + admin + Trial + per-tenant defaults + auto-login); subscription state machine (Trial/Active/PastDue/Suspended/Cancelled); **idempotent billing webhook**; lifecycle sweep (trial→grace→suspend, sets `Tenant.SuspendedAt` so the store 404s). Verified end-to-end on localhost (signup→trial→charge→active, isolation, JWT-host 403) + 31 unit tests. *Deferred:* real Razorpay Subscriptions API call in `select-plan` (currently records the plan; charge activates via webhook — swap the webhook's shared-secret guard for Razorpay HMAC in prod) and the onboarding **UX wizard** (frontend, needs V2-2).
