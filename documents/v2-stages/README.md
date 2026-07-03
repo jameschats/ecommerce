@@ -17,6 +17,7 @@ Sequential, dependency-ordered build plan for **V2** (see [`../design-v2.md`](..
 | [V2-10](v2-stage-10-observability-diagnostics.md) | Observability & Diagnostics — per-tenant logs (Seq), transaction inspector, remediation | 200–209 | ⬜ |
 | [V2-11](v2-stage-11-notifications.md) | Unified Multi-Channel Notifications — in-app/email/SMS/WhatsApp dispatcher, per-tenant, compliance | 210–219 | ⬜ |
 | [V2-12](v2-stage-12-merchant-engagement.md) | Merchant Engagement & Lifecycle — super-admin scheduler: anniversaries, festival wishes, quarterly NPS, health score | 220–229 | ⬜ |
+| [V2-13](v2-stage-13-reporting.md) | Reporting & Analytics — full merchant report suite (incl. GST) + platform-wide super-admin reports; export + scheduled | 230–239 | ⬜ |
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 

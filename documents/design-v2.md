@@ -276,7 +276,7 @@ Its full design (provider abstraction, feature modules, credit ledger, connector
 | **V2-0 — Tenant infrastructure** | Activate/extend `Tenants`, `TenantResolutionMiddleware`, `CurrentTenantService`, `HasQueryFilter` on all entities | **Cross-tenant isolation integration tests must pass before any other stage starts** |
 | **V2-1 — Plans & onboarding** | Seed Plans (Starter/Growth/Pro), merchant signup, auto-subdomain, Razorpay Subscriptions, trial→paid, billing webhook | Test tenant can sign up + be charged end-to-end |
 | **V2-2 — Merchant Admin portal** | New Angular app; merchant JWT carries `TenantId`; all V1 admin screens ported; billing portal | Merchant can only see own data |
-| **V2-3 — Super Admin panel** | Separate Angular app; unfiltered queries w/ explicit scope; tenant mgmt; impersonation; revenue dashboard | Every cross-tenant action audit-logged |
+| **V2-3 — Super Admin panel** | Store directory + contacts; standing/watchlist/blacklist + periodic review; two-mode impersonation; proactive assist; plans; revenue dashboard | Directory+contacts; audited view-as/impersonate; blacklist blocks re-signup |
 | **V2-4 — Per-tenant storefront** | Storefront reads subdomain on bootstrap; `/api/tenant/resolve`; per-tenant SEO + theme | Two subdomains render two brands |
 | **V2-5 — Per-merchant payments** | Razorpay Route; merchant connect flow; platform commission at source | Split settlement verified in Razorpay test |
 | **V2-6 — Win-a-Merchant** | Migration import (Shopify/Woo/CSV), visual storefront builder, WhatsApp commerce, Indian courier aggregator, abandoned-cart recovery | Import → live in <15 min; builder publishes |
@@ -286,6 +286,7 @@ Its full design (provider abstraction, feature modules, credit ledger, connector
 | **V2-10 — Observability & Diagnostics** | `CorrelationId` + `TenantId` log enricher; per-tenant logs (Seq); transaction inspector; remediation toolkit; `PlatformAccessLog` | Trace an error by correlation id; retry webhook / replay job from the pane |
 | **V2-11 — Unified Multi-Channel Notifications** | One dispatcher → in-app / email / SMS / WhatsApp; per-tenant branding + templates; preferences + DPDP/DLT compliance; delivery log | Event fans to right channels under tenant brand; opt-out honoured |
 | **V2-12 — Merchant Engagement & Lifecycle** | Super-admin scheduler: anniversaries, festival wishes, milestones, quarterly/annual NPS; merchant health score; frequency caps | Anniversary/festival auto-send; NPS → health score; opt-out honoured |
+| **V2-13 — Reporting & Analytics** | Per-merchant report suite (sales, orders, customers, inventory, GST, settlements) + platform-wide reports (MRR, GMV, cohorts, support); export + scheduled | Merchant sees own reports + GST export; super-admin sees platform MRR/GMV/churn |
 
 > These build stages are the source of truth — see [`v2-stages/`](v2-stages/). The dotted "V2.1 / V2.2" labels elsewhere in this doc are older release-milestone names; they map onto the stages above (§13/§14 now reference stage numbers).
 

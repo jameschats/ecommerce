@@ -12,6 +12,7 @@
 - [ ] **Lifecycle** — `Open → In Progress → Waiting on Merchant → Resolved → Closed` (+ `Reopened`); assign to a platform admin.
 - [ ] **Priority + SLA** — Low/Normal/High/Urgent; **plan-tiered SLA** (Pro/Enterprise get faster first-response targets, ties to `Plans`); `SlaFirstResponseDueAt`; overdue flags in the queue.
 - [ ] **Correlation-id link** — a ticket can carry the `CorrelationId` from the error the merchant saw (see V2-10), so the super-admin jumps straight to the diagnostic trace.
+- [ ] **Super-admin-initiated tickets (proactive support)** — the platform can open a ticket *to* a merchant, not just merchant→platform. Triggered manually from the store directory (V2-3) or automatically from a diagnostics (V2-10) / health (V2-12) signal — "we noticed X, need a hand?".
 - [ ] **CSAT** — optional satisfaction rating on close.
 - [ ] **Notifications** — new ticket + each reply/status change ping the recipient via the unified dispatcher (V2-11): in-app bell + email, WhatsApp for urgent.
 
