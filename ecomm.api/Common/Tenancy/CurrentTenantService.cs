@@ -35,14 +35,17 @@ public sealed class CurrentTenantService : ICurrentTenantService
     {
         get
         {
+            // Explicit BeginScope override wins (onboarding, super-admin, jobs act "as" a tenant
+            // even inside a request resolved to a different tenant), then the request, then default.
+            if (_ambient.Value is long ambientId) return ambientId;
             if (_http.HttpContext?.Items.TryGetValue(HttpContextItemKey, out var v) == true && v is long id)
                 return id;
-            return _ambient.Value ?? _defaultTenantId;
+            return _defaultTenantId;
         }
     }
 
     public bool IsResolved =>
-        _http.HttpContext?.Items.ContainsKey(HttpContextItemKey) == true || _ambient.Value.HasValue;
+        _ambient.Value.HasValue || _http.HttpContext?.Items.ContainsKey(HttpContextItemKey) == true;
 
     public IDisposable BeginScope(long tenantId)
     {

@@ -67,6 +67,7 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddScoped<IAuthProviderService, AuthProviderService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ecomm.api.Features.Onboarding.IOnboardingService, ecomm.api.Features.Onboarding.OnboardingService>();
 builder.Services.AddHostedService<AdminUserSeeder>();
 
 // Catalog

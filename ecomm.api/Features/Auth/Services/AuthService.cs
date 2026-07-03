@@ -19,6 +19,8 @@ public interface IAuthService
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default);
     Task RequestEmailVerificationAsync(long userId, CancellationToken ct = default);
     Task<bool> ConfirmEmailVerificationAsync(long userId, string code, CancellationToken ct = default);
+    /// <summary>Issue access + refresh tokens for an already-provisioned user (e.g. auto-login after onboarding).</summary>
+    Task<AuthResponse> IssueTokensForUserAsync(User user, string? ip, CancellationToken ct = default);
 }
 
 public sealed class AuthService : IAuthService
@@ -353,6 +355,9 @@ public sealed class AuthService : IAuthService
             await _db.SaveChangesAsync(ct);
         }
     }
+
+    public Task<AuthResponse> IssueTokensForUserAsync(User user, string? ip, CancellationToken ct = default)
+        => IssueTokensAsync(user, ip, ct);
 
     private async Task<AuthResponse> IssueTokensAsync(User user, string? ip, CancellationToken ct)
     {
