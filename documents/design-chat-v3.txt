@@ -1,0 +1,144 @@
+AI Growth Engine — Design Document
+1. What Is It?
+A standalone SaaS add-on that gives e-commerce businesses AI-powered marketing — product descriptions, social media content, email campaigns, promotional images, and video reels — generated in seconds from their product data.
+The key point: it is not tied to your own commerce platform. It connects to Shopify, WooCommerce, Magento, or your own platform via a connector. That multiplies your market without building multiple products.
+ProductIncludesPriceCommerce OnlyYour e-commerce platform₹499–₹1,999AI Growth Engine OnlyAI marketing — connects to any platform₹799–₹1,999Commerce + AI BundleFull stack₹1,199–₹2,999
+Why this wins in India specifically: most global AI marketing tools (Jasper, Copy.ai, AdCreative.ai) don't understand Hinglish content, Indian festivals (Diwali, Navratri, Eid, Pongal), WhatsApp-first marketing, or GST-aware copy. You do.
+
+2. Architecture — Provider Abstraction
+You never call OpenAI, Gemini, or any provider directly from business logic. Every capability goes through an interface. The implementation behind it can change without touching feature code.
+csharppublic interface ITextAIProvider {
+    Task<string> GenerateAsync(TextGenerationRequest request);
+}
+
+// Registered implementations:
+// "gemini"   → GeminiTextProvider   (Flash — cheapest for high volume)
+// "openai"   → OpenAITextProvider   (GPT-4o-mini for bulk, GPT-4o for quality)
+// "claude"   → ClaudeTextProvider   (Haiku for bulk, Sonnet for quality)
+// "deepseek" → DeepSeekTextProvider (ultra-cheap option)
+// "local"    → LocalLlamaProvider   (self-hosted, zero API cost)
+
+public interface IImageAIProvider {
+    Task<ImageGenerationResult> GenerateAsync(ImageGenerationRequest request);
+}
+// "flux"      → FluxProvider        (best quality-to-cost)
+// "stability" → StabilityAIProvider (SDXL)
+// "openai"    → OpenAIImageProvider (DALL-E 3 — premium)
+
+public interface IVideoAIProvider {
+    Task<VideoGenerationResult> GenerateAsync(VideoGenerationRequest request);
+}
+// "invideo"  → InVideoAIProvider   (slideshow → video, India-based, affordable)
+// "kling"    → KlingAIProvider     (good quality, lower cost)
+// "runway"   → RunwayMLProvider    (Gen-3 — premium)
+Provider selection by use case:
+Use CaseDefault ProviderReasonProduct descriptions, captionsGemini 1.5 FlashCheapest per token; good for marketing copyBlog articles, long-formGPT-4o-mini or Claude HaikuBetter coherence for longer contentHigh-quality copy (Pro tier)GPT-4o or Claude SonnetBest quality; meteredImage posters, bannersFlux.1 or Stable Diffusion 3Good quality-to-cost ratioVideo reelsInVideo AI or KlingAffordable; slideshow pipelinePremium videoRunway Gen-3Highest quality; heavily metered
+
+3. Feature Modules
+Module 1 — AI Text Marketing
+Content TypeWhat It GeneratesCreditsProduct DescriptionSEO-optimised description with features, benefits, keywords5Instagram CaptionEngaging caption + CTA + 30 hashtag options3Facebook PostStory-driven copy; organic or ad variant3WhatsApp CampaignShort punchy message with offer; bulk-send ready2Email CampaignSubject + preview text + body; personalisation tokens8Blog Article800–1,500 word SEO article with headings20Google Ads CopyHeadlines (30 chars) + descriptions (90 chars)5Festival Offer PostDiwali, Navratri, Eid, Pongal, Onam themed copy3SEO Meta TagsTitle tag + meta description for target keyword4
+Your cost: ₹30–₹100/customer/month. Suggested price: ₹299–₹499/month. Healthy margin even at Starter.
+Module 2 — AI Image Marketing
+Content TypeWhat It GeneratesCreditsProduct PosterBranded poster with product image, price, offer, logo20Social StoryVertical 9:16 for Instagram/WhatsApp Stories20Square Post1:1 for Instagram/Facebook feed20Banner Ad16:9 for website header, email header20Festival CreativeFestival-themed background with product overlaid25Background RemovalRemove product background; replace with white or branded bg10Product MockupPlace product on lifestyle scene30
+Your cost: ₹150–₹300/customer/month for ~20–30 images. Suggested price: ₹599–₹999/month.
+Module 3 — AI Video Marketing
+Content TypeCreditsProduct Reel (15s) — images + AI voiceover + music + captions100Product Reel (30s)180Slideshow Video — images + text overlays + transitions + music60Festival Video — animated greeting with brand and offer80
+
+⚠️ Video is the margin killer. A merchant who generates 20 reels/month burns 2,000 credits costing you ₹1,000–₹2,500 against a ₹1,999 plan. Always enforce credit caps on video. No plan includes unlimited video, ever.
+
+Module 4 — Campaign Builder
+Pick a goal (product launch, flash sale, festival offer) → AI generates all channels simultaneously: Instagram caption + Facebook post + WhatsApp message + email subject + product description update. Review each, schedule or publish immediately.
+
+4. Credit System
+No plan offers unlimited AI. Credits are the unit of consumption. When they run out, merchants buy top-ups or upgrade.
+AI PlanMonthly Credits~Text Items~Images~VideosPriceText Only300~6000₹299Text + Image Starter800~80~200₹599Text + Image Growth2,000~200~500₹999Pro (Text + Image + Video)5,000~300~80~20₹1,999
+Top-up packs:
+PackCreditsPriceSmall500₹199Medium1,500₹499Large5,000₹1,299
+Credit ledger design — append-only, never update rows:
+sqlAiCreditLedger
+  LedgerId       BIGINT PK AUTO_INCREMENT
+  TenantId       CHAR(36) FK
+  TransactionType  ENUM('Allocation','Debit','TopUp','Refund','Expiry')
+  Credits        INT          -- positive = add, negative = deduct
+  BalanceAfter   INT          -- running balance (denormalised for speed)
+  ReferenceId    VARCHAR(100) -- GeneratedContentId, TopUpOrderId, etc.
+  CreatedAt      DATETIME
+-- Balance = latest BalanceAfter row for this TenantId
+-- Credits expire at end of billing period; no rollover on base plan
+
+5. Platform Connectors — The Market Multiplier
+This is what makes the engine bigger than an add-on to your own platform.
+csharppublic interface IPlatformConnector {
+    Task<IEnumerable<SyncedProduct>> FetchProductsAsync(ConnectorConfig config);
+    Task PublishContentAsync(ContentPublishRequest request);  // future
+}
+// OwnPlatformConnector  → direct internal API call to ecomm.api
+// ShopifyConnector       → Shopify Admin REST API via OAuth
+// WooCommerceConnector   → WooCommerce REST API via API key
+// CSVConnector           → manual CSV upload fallback
+FeatureOwn PlatformShopifyWooCommerceCSVPull products✔ Automatic✔ OAuth✔ API Key✔ ManualSync inventory✔ Real-time✔ Webhook✔ Webhook✗Push descriptions back✔ AutoV2.1V2.1✗Auto-publish social postsV2V2.1V2.1✗
+
+6. Data Model — AI Schema
+Separate database (ai_engine) or dedicated schema — keeps AI concerns cleanly separated from commerce data.
+sqlAiSubscriptions
+  TenantId, PlanId, Status, CurrentPeriodStart, CurrentPeriodEnd,
+  MonthlyCredits, TopUpCredits, CreditsUsedThisPeriod
+
+AiCreditLedger
+  (see above)
+
+AiUsageLogs
+  TenantId, Provider, ContentType,
+  CreditsUsed, ProviderCostInPaise, DurationMs,
+  PromptTokens, CompletionTokens,
+  GeneratedContentId, CreatedAt
+
+AiGeneratedContent
+  ContentId (GUID), TenantId, ContentType,
+  SourceProductId, SourcePlatform,
+  PromptUsed, GeneratedText, MediaUrl,
+  Provider, ModelUsed, CreditsUsed,
+  Status (Draft|Published|Archived),
+  PublishedAt, PublishedChannel, CreatedAt
+
+AiPromptTemplates
+  TemplateId, TenantId (NULL = global default),
+  ContentType, Name, PromptTemplate,
+  Variables (JSON), Language, IsActive
+
+AiCampaigns
+  CampaignId, TenantId, Name, Goal,
+  ScheduledAt, Status, Channels (JSON),
+  ContentIds (JSON array)
+
+SyncedProducts
+  TenantId, SourcePlatform, ExternalProductId,
+  Name, Description, ImageUrls (JSON),
+  Price, Category, Tags, LastSyncedAt
+
+ConnectedPlatforms
+  TenantId, Platform, CredentialsJson (encrypted),
+  IsActive, LastSyncAt, ProductsSynced, ConnectedAt
+
+7. Build Stages — AI Engine
+
+Build AI Growth Engine after Commerce Platform V2 is stable. The own-platform connector depends on V2 tenant infrastructure.
+
+AI-0 — Foundation
+New ecomm.ai project, provider abstraction interfaces, credit system tables, first text provider (Gemini Flash), cost tracking, AI plan management in Super Admin.
+AI-1 — Text Generation (Ship First, Prove the Model)
+Product description generator, social captions, WhatsApp copy, email copy, hashtag generator, language selector (English / Hindi / Tamil / Telugu). This is the MVP — ship it, charge for it, validate demand before building images or video.
+AI-2 — Platform Connectors (The Market Multiplier)
+OwnPlatformConnector (internal), ShopifyConnector (OAuth), WooCommerceConnector (API key), CSV upload fallback. The moment Shopify merchants can use your engine, your addressable market multiplies.
+AI-3 — Image Generation
+Poster and banner generator, 20+ starting templates, background removal, social size presets (1:1, 9:16, 16:9).
+AI-4 — Campaign Builder
+Multi-channel wizard, schedule per channel, basic analytics.
+AI-5 — Video Generation
+Slideshow-to-video, short Reels, festival videos. Hard credit gates — maximum 50 videos/month on highest plan, no exceptions.
+AI-6 — Indian Market Differentiators
+Festival calendar (30+ Indian festivals, auto-suggest campaigns), Hinglish mode, regional languages (Tamil, Telugu, Kannada, Marathi), WhatsApp broadcast format, GST-aware pricing copy.
+
+8. Cost vs Pricing
+PlanYour CostPrice to MerchantGross MarginText Only (₹299)₹30–₹80₹29973–90%Text + Image Starter (₹599)₹190–₹300₹59950–68%Text + Image Growth (₹999)₹250–₹400₹99960–75%Pro with Video Credits (₹1,999)₹500–₹1,800₹1,99910–75%
+Text and image margins are solid and predictable. The Pro plan with video has high variance — a merchant generating 50 videos costs you ₹1,500–₹2,500 against a ₹1,999 plan. The credit system is what keeps this profitable. Sell additional video credit packs at ₹100–₹150 per 10 videos.

@@ -1,0 +1,143 @@
+Commerce Platform — V1 → V2 Design
+1. What Changes from V1 to V2
+V1 is a single-store app — one business, one catalog, one set of customers. V2 transforms it into a platform where many independent merchants each run their own fully isolated store on your infrastructure, like Shopify.
+DimensionV1 — Single StoreV2 — Commerce PlatformWho sells?You (one seller)Many merchants, each independentCustomers belong toYour platformEach merchant's storeProducts belong toYour catalogEach merchant's own catalogStorefrontOne Angular appOne storefront per merchant (subdomain)PaymentsYour Razorpay accountEach merchant's own Razorpay accountYour revenueProduct salesMonthly subscription fees from merchantsAdmin panelManages your storeSuper-admin + per-merchant adminThemesOne global themeEach merchant sets their own brandingEmail / SMSYour brand nameSent under each merchant's brand
+The single most important engineering principle: every database query must be scoped to a TenantId. One data leak between tenants is a catastrophic trust failure. EF Core's Global Query Filter pattern enforces this automatically so no developer has to remember to add it manually.
+
+2. Versioning Strategy
+VersionShapeStatusV1Single Seller, Single StoreComplete — stable branchV2Multi-Tenant SaaS — many merchants, each isolatedDesign approved — build nowV3Full MarketplaceParked
+What V1 already got right — nothing is wasted:
+
+Tenants table already created in V1 schema but unused. V2 activates it.
+TenantId foreign key columns already on all major tables — the upgrade is additive, not a rewrite.
+Vertical slice architecture (Features/Auth, Features/Catalog, …) — tenant scoping added per slice without restructuring.
+Theme Engine (CSS variables) — already per-setting; V2 just makes it per-tenant.
+Settings Engine and Audit Logs — tenant-aware by design, just needed activation.
+
+
+3. Scale Targets
+MetricV1 (complete)V2 (build for this)Merchant tenants1500Registered users (total)100,0005,000,000Products (all tenants)100,00010,000,000Orders / day (platform-wide)2,000100,000Concurrent users50025,000
+V2 infrastructure additions: Redis (mandatory, per-tenant namespaced keys), CDN, MySQL read replica, background job runner (Hangfire) for async tasks.
+
+4. Tech Stack Changes
+LayerV1V2 ChangeBackendASP.NET Core .NET 9 Modular MonolithAdd tenant resolution middleware + CurrentTenantServiceORMEF Core 9 + PomeloAdd HasQueryFilter per entity for tenant isolationCacheRedis (basic)Redis with tenant:{id}:... namespaced keysPaymentsSingle Razorpay accountRazorpay Route — each merchant's own accountEmailSingle sender identityPer-tenant sender name + reply-toLoggingSerilogAdd TenantId enricher to every log entryBilling (new)—Razorpay Subscriptions — you charge merchants monthlyFrontendOne Angular appAdd merchant admin portal + super-admin app
+Repository layout change:
+ecommerce/
+├── ecomm.api/
+│   ├── Common/
+│   │   └── Tenancy/            ← NEW: ITenantContext, CurrentTenantService, TenantMiddleware
+│   ├── Features/
+│   │   ├── [all V1 features]   ← unchanged; EF filters + tenant context injected
+│   │   ├── Tenants/            ← NEW: merchant onboarding, CRUD
+│   │   ├── Subscriptions/      ← NEW: plans, billing, trial management
+│   │   └── SuperAdmin/         ← NEW: platform-wide management APIs
+├── ecomm.web/
+│   ├── storefront/             ← existing (now tenant-aware via subdomain)
+│   └── merchant-admin/         ← NEW: per-merchant admin portal
+├── ecomm.superadmin/           ← NEW: platform super-admin Angular app
+├── database/migrations/
+│   ├── v1/  [001–099]          ← frozen, never modified
+│   └── v2/  [100–199]          ← new tables + indexes
+
+5. The 7 Major Engineering Changes
+5.1 Multi-Tenant Data Isolation
+Every EF Core entity with a TenantId gets a Global Query Filter. Every LINQ query automatically adds WHERE TenantId = @currentTenant without any developer remembering to do it manually.
+csharp// In EcommerceDbContext.OnModelCreating:
+modelBuilder.Entity<Product>()
+    .HasQueryFilter(p => p.TenantId == _tenantContext.CurrentTenantId);
+
+// CurrentTenantService resolves tenant from the HTTP request:
+public class CurrentTenantService : ICurrentTenantService {
+    public Guid CurrentTenantId => _httpContext.Items["TenantId"] as Guid?
+                                   ?? throw new UnauthorizedAccessException();
+}
+
+⚠️ Any raw SQL (Dapper, ADO.NET) must manually add AND TenantId = @tenantId. Every raw SQL call in the codebase must be audited and tagged as // TENANT-SCOPED.
+
+5.2 Tenant Resolution Middleware
+Every incoming HTTP request resolves the tenant from the subdomain before any controller runs.
+csharpvar host = context.Request.Host.Host;  // sarahs-boutique.yourplatform.com
+var slug = host.Split('.')[0];          // sarahs-boutique
+var tenant = await _tenantRepo.GetBySlugAsync(slug);
+if (tenant == null || !tenant.IsActive) { context.Response.StatusCode = 404; return; }
+context.Items["TenantId"] = tenant.TenantId;
+5.3 Merchant Onboarding & Subscription Billing
+A completely new domain — you collecting money from merchants, separate from merchants collecting money from their customers.
+Flow StepWhat HappensMerchant signs upTenant record created; 14-day trial starts; subdomain auto-provisionedTrial endsBilling prompt; plan selection; Razorpay Subscriptions activatedMonthly billingRazorpay charges merchant; TenantBillingHistory record createdPayment fails3-day grace period → store suspended → data retained 30 daysMerchant cancelsStore deactivated at end of billing period; data export available 30 days
+5.4 Subdomain Storefront Per Merchant
+
+merchant-slug.yourplatform.com — Angular storefront reads subdomain, resolves tenant, loads that tenant's theme and products.
+Custom domain support (V2.1) — merchant points www.theirbrand.com via DNS CNAME; you resolve from a domain lookup table.
+One Angular app deployment; tenant context drives all data fetching.
+
+5.5 Per-Merchant Payment Accounts
+ApproachHow It WorksVerdictRazorpay RouteSingle checkout; Razorpay splits to merchant's account; your fee deducted at sourceRecommendedPer-merchant OAuthMerchant connects their own Razorpay via OAuth; you charge subscription separatelyGood for controlPlatform collects, remitsYou collect; remit minus commission; own reconciliationAvoid — regulatory complexity
+5.6 Two Admin Panels
+PanelWhoWhat They Can DoSuper AdminYou — platform ownerAll tenants, suspend/activate, manage plans, impersonate for support, platform revenue dashboardMerchant AdminEach merchant's staffTheir own products, orders, customers, inventory, themes, coupons, reports — nothing outside their tenant
+5.7 Per-Tenant Branding, Email & Notifications
+
+Theme Engine (already built in V1) — colors, logo, font stored per TenantId instead of globally.
+Transactional emails sent as "Your order from Sarah's Boutique" — TenantSettings.SenderName per tenant.
+Notification templates stored per tenant; merchants can customise order confirmation, shipping updates, etc.
+
+
+6. Data Model — V2 Changes
+All V1 tables are unchanged. V2 activates Tenants (already created) and adds new tables via migrations 100+.
+sql-- Tenants (activated from V1 — was empty)
+Tenants
+  TenantId        CHAR(36) PK
+  Slug            VARCHAR(80) UNIQUE      -- subdomain: sarahs-boutique
+  DisplayName     VARCHAR(200)
+  CustomDomain    VARCHAR(255) NULL        -- V2.1
+  PlanId          INT FK → Plans
+  TrialEndsAt     DATETIME NULL
+  IsActive        BOOL DEFAULT TRUE
+  SuspendedAt     DATETIME NULL
+
+-- NEW V2 Tables
+Plans                    -- Starter / Growth / Pro
+  PlanId, Name, MonthlyPrice,
+  MaxProducts, MaxOrders, AiCredits, Features (JSON)
+
+TenantSubscriptions
+  TenantId, PlanId,
+  Status (Trial|Active|Suspended|Cancelled),
+  CurrentPeriodStart, CurrentPeriodEnd,
+  RazorpaySubscriptionId
+
+TenantBillingHistory
+  TenantId, Amount, Status,
+  RazorpayPaymentId, BilledAt, PeriodStart, PeriodEnd
+
+TenantSettings           -- per-tenant config
+  TenantId, Key, Value   -- StoreName, SenderEmail, CurrencyCode, TimeZone...
+
+TenantPaymentAccounts
+  TenantId, Provider (Razorpay|Stripe),
+  AccountId, IsVerified, ConnectedAt
+All V1 tables (Products, Orders, Cart, Users, etc.) already have TenantId — the Global Query Filter in V2 activates and enforces them.
+
+7. V2 Priorities
+P0 — Without these, nothing works:
+#Item1Tenant Resolution Middleware2EF Core Global Query Filters on every tenant-scoped entity3CurrentTenantService4Plans & Subscriptions + Razorpay billing5Merchant self-serve onboarding + auto-subdomain provisioning6Super Admin panel7Merchant Admin portal (V1 admin experience, scoped to their tenant)8Per-tenant Razorpay Route integration9Per-tenant Theme Engine10Subdomain storefront routing
+P1 — After P0:
+Custom domain support, per-tenant email identity, merchant billing portal, plan usage limits enforcement, platform revenue dashboard (MRR, churn), tenant data export (GDPR).
+
+8. V2 Build Stages
+V2-0 — Tenant Infrastructure (gate: integration tests must prove cross-tenant isolation before any other stage starts)
+Activate Tenants table, TenantResolutionMiddleware, CurrentTenantService, HasQueryFilter on all entities, cross-tenant isolation tests.
+V2-1 — Plans & Merchant Onboarding
+Plans table seeded (Starter/Growth/Pro), merchant signup flow, auto-subdomain provisioning, Razorpay Subscriptions integration, trial-to-paid conversion, billing webhook handler.
+V2-2 — Merchant Admin Portal
+New Angular app, merchant JWT carries TenantId claim, all V1 admin screens ported, merchant billing portal.
+V2-3 — Super Admin Panel
+Separate Angular app, unfiltered queries with explicit TenantId scope, tenant management, impersonation, platform revenue dashboard.
+V2-4 — Per-Tenant Storefront
+Angular shell reads subdomain on bootstrap, calls /api/tenant/resolve, per-tenant SEO meta and theme.
+V2-5 — Per-Merchant Payments
+Razorpay Route setup, merchant OAuth connection flow, platform commission deducted at source.
+V2-6 — Hardening
+Plan limit enforcement, Redis with tenant-namespaced keys, per-tenant rate limiting, load testing with 50 simulated tenants, tenant data export.
+
+9. Platform Pricing (What You Charge Merchants)
+PlanPriceProductsOrders/monthAI CreditsStarter₹4995002000Growth₹9995,0002,000500Pro₹1,999UnlimitedUnlimited2,000EnterpriseCustomUnlimitedUnlimitedCustom
