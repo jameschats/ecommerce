@@ -99,6 +99,13 @@ public class EcommerceDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<ProductSupplier> ProductSuppliers => Set<ProductSupplier>();
 
+    // --- V2: Plans & Subscriptions ---
+    public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<TenantBillingHistory> TenantBillingHistory => Set<TenantBillingHistory>();
+    public DbSet<TenantSetting> TenantSettings => Set<TenantSetting>();
+    public DbSet<TenantPaymentAccount> TenantPaymentAccounts => Set<TenantPaymentAccount>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Tenant>(e => { e.ToTable("Tenants"); e.HasKey(x => x.TenantId); });
@@ -337,6 +344,28 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.ProductSupplierId);
             e.Property(x => x.CostPrice).HasPrecision(12, 2);
         });
+
+        // --- V2: Plans & Subscriptions ---
+        b.Entity<Plan>(e =>
+        {
+            e.ToTable("Plans");
+            e.HasKey(x => x.PlanId);
+            e.Property(x => x.MonthlyPrice).HasPrecision(10, 2);
+        });
+        b.Entity<TenantSubscription>(e =>
+        {
+            e.ToTable("TenantSubscriptions");
+            e.HasKey(x => x.TenantSubscriptionId);
+            e.HasOne(x => x.Plan).WithMany().HasForeignKey(x => x.PlanId);
+        });
+        b.Entity<TenantBillingHistory>(e =>
+        {
+            e.ToTable("TenantBillingHistory");
+            e.HasKey(x => x.TenantBillingHistoryId);
+            e.Property(x => x.Amount).HasPrecision(10, 2);
+        });
+        b.Entity<TenantSetting>(e => { e.ToTable("TenantSettings"); e.HasKey(x => x.TenantSettingId); });
+        b.Entity<TenantPaymentAccount>(e => { e.ToTable("TenantPaymentAccounts"); e.HasKey(x => x.TenantPaymentAccountId); });
 
         // --- Multi-tenant global query filters (V2-0) ---
         // Every ITenantScoped entity is auto-scoped to the current tenant. Read live
