@@ -9,6 +9,7 @@ public class TenantSubscription : ITenantScoped
     public string Status { get; set; } = "Trial";
     public DateTime? CurrentPeriodStart { get; set; }
     public DateTime? CurrentPeriodEnd { get; set; }
+    public DateTime? GraceEndsAt { get; set; }
     public string? RazorpaySubscriptionId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
