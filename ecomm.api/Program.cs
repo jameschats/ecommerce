@@ -37,12 +37,21 @@ builder.Services.Configure<TenancyOptions>(builder.Configuration.GetSection(Tena
 builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
 builder.Services.AddSingleton<ILogEventEnricher, HttpContextLogEnricher>();   // CorrelationId + TenantId on every log
 
-// CORS for the Angular dev server (ecomm.web)
+// CORS for the Angular app (ecomm.web). Multi-tenant: allow the configured apex
+// origin AND any subdomain of the base domain (so {slug}.<domain> can call the API).
 const string AngularCors = "AngularCors";
 var angularOrigin = builder.Configuration["Cors:AngularOrigin"] ?? "http://localhost:4200";
+var corsBaseDomain = builder.Configuration["Tenancy:BaseDomain"] ?? "";
 builder.Services.AddCors(options =>
     options.AddPolicy(AngularCors, policy =>
-        policy.WithOrigins(angularOrigin).AllowAnyHeader().AllowAnyMethod()));
+        policy.SetIsOriginAllowed(origin =>
+              {
+                  if (string.Equals(origin, angularOrigin, StringComparison.OrdinalIgnoreCase)) return true;
+                  if (string.IsNullOrEmpty(corsBaseDomain) || !Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                  return uri.Host.Equals(corsBaseDomain, StringComparison.OrdinalIgnoreCase)
+                      || uri.Host.EndsWith("." + corsBaseDomain, StringComparison.OrdinalIgnoreCase);
+              })
+              .AllowAnyHeader().AllowAnyMethod()));
 
 // EF Core (MySQL, database-first via Pomelo)
 var connectionString = builder.Configuration.GetConnectionString("Default");
