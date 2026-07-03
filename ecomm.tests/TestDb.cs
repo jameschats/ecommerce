@@ -18,13 +18,17 @@ public static class TestDb
     }
 
     /// <summary>Shares one in-memory database across contexts (for cross-tenant isolation tests).</summary>
-    public static EcommerceDbContext ForDatabase(string dbName, long tenantId)
+    public static EcommerceDbContext ForDatabase(string dbName, long tenantId) =>
+        ForDatabase(dbName, new FixedTenant(tenantId));
+
+    /// <summary>Shared in-memory database with a caller-supplied tenant context (for BeginScope tests).</summary>
+    public static EcommerceDbContext ForDatabase(string dbName, ICurrentTenantService tenant)
     {
         var options = new DbContextOptionsBuilder<EcommerceDbContext>()
             .UseInMemoryDatabase(databaseName: dbName)
             .EnableSensitiveDataLogging()
             .Options;
-        return new EcommerceDbContext(options, new FixedTenant(tenantId));
+        return new EcommerceDbContext(options, tenant);
     }
 }
 
