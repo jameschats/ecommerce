@@ -14,7 +14,7 @@ public interface IProductAttributeService
 
 public sealed class ProductAttributeService : IProductAttributeService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public ProductAttributeService(EcommerceDbContext db) => _db = db;

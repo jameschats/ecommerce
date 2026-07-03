@@ -15,7 +15,7 @@ public interface IThemeService
 
 public sealed class ThemeService : IThemeService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public ThemeService(EcommerceDbContext db) => _db = db;

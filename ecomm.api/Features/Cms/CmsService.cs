@@ -15,7 +15,7 @@ public interface ICmsService
 
 public sealed class CmsService : ICmsService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public CmsService(EcommerceDbContext db) => _db = db;

@@ -18,7 +18,7 @@ public interface IInvoiceService
 
 public sealed class InvoiceService : IInvoiceService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly ITaxService _tax;
 

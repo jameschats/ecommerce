@@ -22,6 +22,9 @@ public class EcommerceDbContext : DbContext
         _tenant = tenant;
     }
 
+    /// <summary>The tenant in effect for this context. Services use this instead of a hardcoded id.</summary>
+    public long CurrentTenantId => _tenant.CurrentTenantId;
+
     // --- Core / Identity ---
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<User> Users => Set<User>();

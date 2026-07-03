@@ -36,7 +36,7 @@ public interface IInventoryService
 
 public sealed class InventoryService : IInventoryService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly INotificationFeedService _feed;
 

@@ -24,7 +24,7 @@ public interface ICartService
 
 public sealed class CartService : ICartService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly ecomm.api.Features.Checkout.ITaxService _tax;
     public CartService(EcommerceDbContext db, ecomm.api.Features.Checkout.ITaxService tax)

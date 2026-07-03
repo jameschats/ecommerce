@@ -23,7 +23,7 @@ public interface IAuthService
 
 public sealed class AuthService : IAuthService
 {
-    private const long DefaultTenantId = 1;
+    private long DefaultTenantId => _db.CurrentTenantId;
     private const string CustomerRole = "CUSTOMER";
     private const int MaxFailedLogins = 5;
     private static readonly TimeSpan LockoutWindow = TimeSpan.FromMinutes(15);

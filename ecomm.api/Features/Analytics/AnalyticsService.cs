@@ -25,7 +25,7 @@ public interface IAnalyticsService
 
 public sealed class AnalyticsService : IAnalyticsService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private static readonly string[] SoldStatuses = { "Paid", "Confirmed", "Packed", "Shipped", "Delivered" };
     private static readonly string[] LostStatuses = { "Cancelled", "Returned" };
 

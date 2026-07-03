@@ -15,7 +15,7 @@ public interface IMediaService
 
 public sealed class MediaService : IMediaService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private static readonly string[] AllowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
     private readonly IMediaStorage _storage;

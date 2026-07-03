@@ -23,7 +23,7 @@ public interface INotificationFeedService
 
 public sealed class NotificationFeedService : INotificationFeedService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly IHubContext<NotificationHub> _hub;
     private readonly ILogger<NotificationFeedService> _logger;

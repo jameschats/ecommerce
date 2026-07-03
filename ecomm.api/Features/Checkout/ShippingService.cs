@@ -15,7 +15,7 @@ public interface IShippingService
 
 public sealed class ShippingService : IShippingService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     public ShippingService(EcommerceDbContext db) => _db = db;
 

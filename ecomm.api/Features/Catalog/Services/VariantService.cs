@@ -16,7 +16,7 @@ public interface IVariantService
 
 public sealed class VariantService : IVariantService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public VariantService(EcommerceDbContext db) => _db = db;

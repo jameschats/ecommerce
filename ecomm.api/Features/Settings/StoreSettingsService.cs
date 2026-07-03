@@ -17,7 +17,7 @@ public interface IStoreSettingsService
 
 public sealed class StoreSettingsService : IStoreSettingsService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private static readonly string[] Keys = { "TaxMode", "StoreState", "StoreGstin", "StoreLegalName", "CodEnabled" };
     private static readonly string[] Modes = { TaxMode.Exclusive, TaxMode.Inclusive, TaxMode.None };
 

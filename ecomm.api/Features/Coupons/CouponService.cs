@@ -31,7 +31,7 @@ public interface ICouponService
 
 public sealed class CouponService : ICouponService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public CouponService(EcommerceDbContext db) => _db = db;

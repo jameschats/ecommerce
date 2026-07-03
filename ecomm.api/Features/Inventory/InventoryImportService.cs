@@ -17,7 +17,7 @@ public interface IInventoryImportService
 /// <summary>Excel import/export for stock levels (upsert by SKU). Reuses the inventory service.</summary>
 public sealed class InventoryImportService : IInventoryImportService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private static readonly string[] Headers = ["SKU", "Name", "Available", "Reserved", "ReorderLevel"];
 
     private readonly EcommerceDbContext _db;

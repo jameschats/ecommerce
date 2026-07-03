@@ -22,7 +22,7 @@ public interface IProductImportService
 /// </summary>
 public sealed class ProductImportService : IProductImportService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
 
     private static readonly string[] Headers =
         ["SKU", "Name", "Category", "Brand", "Price", "CompareAtPrice", "CostPrice", "HsnCode", "Status", "ShortDescription", "ImageUrl"];

@@ -27,7 +27,7 @@ public interface ISupplierService
 
 public sealed class SupplierService : ISupplierService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     public SupplierService(EcommerceDbContext db) => _db = db;
 

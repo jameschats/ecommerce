@@ -18,7 +18,7 @@ public interface IBrandService
 
 public sealed class BrandService : IBrandService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public BrandService(EcommerceDbContext db) => _db = db;

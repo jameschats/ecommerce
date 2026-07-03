@@ -18,7 +18,7 @@ public interface ICategoryService
 
 public sealed class CategoryService : ICategoryService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public CategoryService(EcommerceDbContext db) => _db = db;

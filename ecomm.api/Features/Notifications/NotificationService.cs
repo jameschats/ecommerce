@@ -19,7 +19,7 @@ public interface INotificationService
 
 public sealed class NotificationService : INotificationService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly IEmailSender _email;
     private readonly ISmsSender _sms;

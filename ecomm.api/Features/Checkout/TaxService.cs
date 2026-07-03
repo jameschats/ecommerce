@@ -21,7 +21,7 @@ public interface ITaxService
 
 public sealed class TaxService : ITaxService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly Dictionary<string, decimal> _rateCache = new();
     private string? _storeState;

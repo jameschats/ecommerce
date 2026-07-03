@@ -29,7 +29,7 @@ public interface IBannerService
 
 public sealed class BannerService : IBannerService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public BannerService(EcommerceDbContext db) => _db = db;

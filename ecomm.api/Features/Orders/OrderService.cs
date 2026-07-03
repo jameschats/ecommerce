@@ -27,7 +27,7 @@ public interface IOrderService
 
 public sealed class OrderService : IOrderService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
 
     private readonly EcommerceDbContext _db;
     private readonly IInventoryService _inventory;

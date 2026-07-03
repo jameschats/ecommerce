@@ -20,7 +20,7 @@ public interface IAttributeService
 
 public sealed class AttributeService : IAttributeService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public AttributeService(EcommerceDbContext db) => _db = db;

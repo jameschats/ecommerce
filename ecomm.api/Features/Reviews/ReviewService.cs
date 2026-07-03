@@ -26,7 +26,7 @@ public interface IReviewService
 
 public sealed class ReviewService : IReviewService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private static readonly string[] PurchasedStatuses = { "Paid", "Packed", "Shipped", "Delivered" };
     private readonly EcommerceDbContext _db;
     private readonly INotificationFeedService _feed;

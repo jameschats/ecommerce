@@ -10,7 +10,7 @@ namespace ecomm.api.Features.Seo;
 [ApiController]
 public sealed class SitemapController : ControllerBase
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly IConfiguration _config;
 

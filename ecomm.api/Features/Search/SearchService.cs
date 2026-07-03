@@ -15,7 +15,7 @@ public interface ISearchService
 
 public sealed class SearchService : ISearchService
 {
-    private const long Tenant = 1;
+    private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
 
     public SearchService(EcommerceDbContext db) => _db = db;

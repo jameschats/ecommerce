@@ -12,11 +12,15 @@ namespace ecomm.api.Features.Auth;
 [Authorize(Roles = "Admin")]
 public sealed class AuthProvidersAdminController : ControllerBase
 {
-    private const long TenantId = 1;
-
     private readonly IAuthProviderService _providers;
+    private readonly ICurrentTenantService _tenant;
+    private long TenantId => _tenant.CurrentTenantId;
 
-    public AuthProvidersAdminController(IAuthProviderService providers) => _providers = providers;
+    public AuthProvidersAdminController(IAuthProviderService providers, ICurrentTenantService tenant)
+    {
+        _providers = providers;
+        _tenant = tenant;
+    }
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
