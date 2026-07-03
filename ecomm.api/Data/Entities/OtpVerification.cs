@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class OtpVerification
+public class OtpVerification : ITenantScoped
 {
     public long OtpVerificationId { get; set; }
     public long TenantId { get; set; } = 1;

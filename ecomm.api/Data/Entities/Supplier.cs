@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>A supplier/vendor a product can be sourced from (migration 021).</summary>
-public class Supplier
+public class Supplier : ITenantScoped
 {
     public long SupplierId { get; set; }
     public long TenantId { get; set; } = 1;

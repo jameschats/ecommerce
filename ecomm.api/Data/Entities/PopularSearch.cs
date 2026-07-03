@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class PopularSearch
+public class PopularSearch : ITenantScoped
 {
     public long PopularSearchId { get; set; }
     public long TenantId { get; set; } = 1;

@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>A customer product review + star rating. Moderated (IsApproved) before it shows publicly.</summary>
-public class Review
+public class Review : ITenantScoped
 {
     public long ReviewId { get; set; }
     public long TenantId { get; set; } = 1;

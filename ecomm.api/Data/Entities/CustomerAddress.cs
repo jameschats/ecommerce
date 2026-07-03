@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class CustomerAddress
+public class CustomerAddress : ITenantScoped
 {
     public long CustomerAddressId { get; set; }
     public long TenantId { get; set; } = 1;

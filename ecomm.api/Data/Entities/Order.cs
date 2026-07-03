@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Order
+public class Order : ITenantScoped
 {
     public long OrderId { get; set; }
     public long TenantId { get; set; } = 1;

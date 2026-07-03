@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>An audit row for every notification we attempted to send (Email/SMS).</summary>
-public class NotificationHistory
+public class NotificationHistory : ITenantScoped
 {
     public long NotificationHistoryId { get; set; }
     public long TenantId { get; set; } = 1;

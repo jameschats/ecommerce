@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class AuthProvider
+public class AuthProvider : ITenantScoped
 {
     public long AuthProviderId { get; set; }
     public long TenantId { get; set; } = 1;

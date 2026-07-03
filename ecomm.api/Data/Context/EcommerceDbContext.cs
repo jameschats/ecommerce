@@ -1,3 +1,5 @@
+using System.Reflection;
+using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,10 +9,18 @@ namespace ecomm.api.Data.Context;
 /// Database-first context: the SQL migrations in /database/migrations are the
 /// source of truth. Entities are hand-mapped to existing tables here (we do NOT
 /// generate EF migrations). DbSets/entities grow per feature slice.
+///
+/// V2 multi-tenancy: every <see cref="ITenantScoped"/> entity gets an automatic
+/// query filter (WHERE TenantId = current tenant) and is auto-stamped on insert.
 /// </summary>
 public class EcommerceDbContext : DbContext
 {
-    public EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : base(options) { }
+    private readonly ICurrentTenantService _tenant;
+
+    public EcommerceDbContext(DbContextOptions<EcommerceDbContext> options, ICurrentTenantService tenant) : base(options)
+    {
+        _tenant = tenant;
+    }
 
     // --- Core / Identity ---
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -324,5 +334,44 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.ProductSupplierId);
             e.Property(x => x.CostPrice).HasPrecision(12, 2);
         });
+
+        // --- Multi-tenant global query filters (V2-0) ---
+        // Every ITenantScoped entity is auto-scoped to the current tenant. Read live
+        // (_tenant.CurrentTenantId is evaluated per query), so it reflects the tenant
+        // the middleware resolved for the request. Tenant/Role are NOT ITenantScoped.
+        foreach (var et in b.Model.GetEntityTypes())
+        {
+            if (typeof(ITenantScoped).IsAssignableFrom(et.ClrType))
+                ApplyTenantFilterMethod.MakeGenericMethod(et.ClrType).Invoke(this, new object[] { b });
+        }
+    }
+
+    private static readonly MethodInfo ApplyTenantFilterMethod =
+        typeof(EcommerceDbContext).GetMethod(nameof(ApplyTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+    private void ApplyTenantFilter<T>(ModelBuilder b) where T : class, ITenantScoped
+        => b.Entity<T>().HasQueryFilter(e => e.TenantId == _tenant.CurrentTenantId);
+
+    // Auto-stamp TenantId on every inserted tenant-scoped row so a write can never
+    // land in the wrong (or a forgotten) tenant. Cross-tenant writes must go through
+    // ICurrentTenantService.BeginScope (jobs/seeders/super-admin).
+    private void StampTenant()
+    {
+        var tenantId = _tenant.CurrentTenantId;
+        foreach (var entry in ChangeTracker.Entries<ITenantScoped>())
+            if (entry.State == EntityState.Added)
+                entry.Entity.TenantId = tenantId;
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampTenant();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampTenant();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 }

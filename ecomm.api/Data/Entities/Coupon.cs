@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>A discount code (Flat amount or Percentage), with optional caps, window and usage limits.</summary>
-public class Coupon
+public class Coupon : ITenantScoped
 {
     public long CouponId { get; set; }
     public long TenantId { get; set; } = 1;

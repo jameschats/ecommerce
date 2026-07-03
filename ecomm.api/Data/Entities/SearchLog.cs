@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class SearchLog
+public class SearchLog : ITenantScoped
 {
     public long SearchLogId { get; set; }
     public long TenantId { get; set; } = 1;

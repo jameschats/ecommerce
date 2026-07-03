@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Setting
+public class Setting : ITenantScoped
 {
     public long SettingId { get; set; }
     public long TenantId { get; set; } = 1;

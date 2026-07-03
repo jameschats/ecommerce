@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Cart
+public class Cart : ITenantScoped
 {
     public long CartId { get; set; }
     public long TenantId { get; set; } = 1;

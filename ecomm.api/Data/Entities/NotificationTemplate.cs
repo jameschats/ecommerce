@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>An admin-editable message template (Email/SMS/WhatsApp) with {{token}} placeholders.</summary>
-public class NotificationTemplate
+public class NotificationTemplate : ITenantScoped
 {
     public long NotificationTemplateId { get; set; }
     public long TenantId { get; set; } = 1;

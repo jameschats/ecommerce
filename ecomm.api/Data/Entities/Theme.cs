@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Theme
+public class Theme : ITenantScoped
 {
     public long ThemeId { get; set; }
     public long TenantId { get; set; } = 1;

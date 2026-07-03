@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>An in-app notification (bell feed). Per-user for customers; shared for admins (UserId null).</summary>
-public class Notification
+public class Notification : ITenantScoped
 {
     public long NotificationId { get; set; }
     public long TenantId { get; set; } = 1;

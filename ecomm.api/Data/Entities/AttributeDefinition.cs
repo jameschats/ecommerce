@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>Maps to the `Attributes` table. Named to avoid clashing with System.Attribute.</summary>
-public class AttributeDefinition
+public class AttributeDefinition : ITenantScoped
 {
     public long AttributeId { get; set; }
     public long TenantId { get; set; } = 1;

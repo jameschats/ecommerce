@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>A dispatch of an order: courier + tracking number + delivery lifecycle.</summary>
-public class Shipment
+public class Shipment : ITenantScoped
 {
     public long ShipmentId { get; set; }
     public long TenantId { get; set; } = 1;

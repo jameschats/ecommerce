@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Category
+public class Category : ITenantScoped
 {
     public long CategoryId { get; set; }
     public long TenantId { get; set; } = 1;

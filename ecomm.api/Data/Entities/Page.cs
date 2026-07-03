@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Page
+public class Page : ITenantScoped
 {
     public long PageId { get; set; }
     public long TenantId { get; set; } = 1;

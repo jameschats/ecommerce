@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class Payment
+public class Payment : ITenantScoped
 {
     public long PaymentId { get; set; }
     public long TenantId { get; set; } = 1;

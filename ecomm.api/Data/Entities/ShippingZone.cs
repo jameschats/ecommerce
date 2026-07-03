@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class ShippingZone
+public class ShippingZone : ITenantScoped
 {
     public long ShippingZoneId { get; set; }
     public long TenantId { get; set; } = 1;

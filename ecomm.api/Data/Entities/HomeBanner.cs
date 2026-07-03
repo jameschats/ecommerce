@@ -1,7 +1,7 @@
 namespace ecomm.api.Data.Entities;
 
 /// <summary>A hero banner shown in the storefront home carousel. Admin-managed.</summary>
-public class HomeBanner
+public class HomeBanner : ITenantScoped
 {
     public long HomeBannerId { get; set; }
     public long TenantId { get; set; } = 1;

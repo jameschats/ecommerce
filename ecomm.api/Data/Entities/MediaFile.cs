@@ -2,7 +2,7 @@ namespace ecomm.api.Data.Entities;
 
 /// <summary>A record of an uploaded media file (image). The bytes live on disk (or a CDN);
 /// this row holds the metadata + public URL. See <c>IMediaStorage</c>.</summary>
-public class MediaFile
+public class MediaFile : ITenantScoped
 {
     public long MediaFileId { get; set; }
     public long TenantId { get; set; } = 1;

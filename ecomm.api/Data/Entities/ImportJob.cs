@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class ImportJob
+public class ImportJob : ITenantScoped
 {
     public long ImportJobId { get; set; }
     public long TenantId { get; set; } = 1;

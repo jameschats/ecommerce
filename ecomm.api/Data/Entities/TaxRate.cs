@@ -1,6 +1,6 @@
 namespace ecomm.api.Data.Entities;
 
-public class TaxRate
+public class TaxRate : ITenantScoped
 {
     public long TaxRateId { get; set; }
     public long TenantId { get; set; } = 1;
