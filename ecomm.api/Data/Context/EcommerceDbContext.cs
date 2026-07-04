@@ -230,7 +230,13 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.PageId);
             e.HasMany(x => x.Sections).WithOne(s => s.Page!).HasForeignKey(s => s.PageId);
         });
-        b.Entity<PageSection>(e => { e.ToTable("PageSections"); e.HasKey(x => x.PageSectionId); });
+        b.Entity<PageSection>(e =>
+        {
+            e.ToTable("PageSections");
+            e.HasKey(x => x.PageSectionId);
+            e.Property(x => x.Settings).HasColumnType("json");
+            e.Property(x => x.Blocks).HasColumnType("json");
+        });
 
         // --- Inventory & Search ---
         b.Entity<Inventory>(e =>
