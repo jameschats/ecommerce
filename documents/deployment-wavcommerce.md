@@ -273,7 +273,7 @@ systemctl restart wavcomm-api wavcomm-ssr
 | Symptom | Fix |
 |---|---|
 | Subdomain shows apex/tenant-1 content | `Tenancy__BaseDomain` not set to `wavcommerce.online`, or Nginx not forwarding `Host`/`X-Forwarded-Host`. |
-| Blank shell / "Invalid host" on a subdomain | `.wavcommerce.online` missing from `angular.json` allowedHosts (step 5) — rebuild. |
+| "Header host … is not allowed" on a subdomain | Angular SSR host validation. Set `NG_ALLOWED_HOSTS=wavcommerce.online,*.wavcommerce.online,localhost,127.0.0.1` on the `wavcomm-ssr` service (the deploy script does this; wildcard is `*.domain`, NOT `.domain`), then `systemctl daemon-reload && systemctl restart wavcomm-ssr`. No rebuild needed. |
 | Wildcard cert fails | Cloudflare token lacks **Edit zone DNS**, or nameservers not yet on Cloudflare. |
 | `502` on a subdomain | `wavcomm-api`/`wavcomm-ssr` down — `journalctl -u wavcomm-api -e`. |
 | WebSocket/notifications fail | `/hubs/` block missing the `Upgrade`/`Connection` headers, or Cloudflare proxy (orange cloud) on — set DNS-only. |

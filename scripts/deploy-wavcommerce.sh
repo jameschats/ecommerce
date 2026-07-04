@@ -126,6 +126,7 @@ WorkingDirectory=${WEB}/web
 ExecStart=/usr/bin/node ${WEB}/web/server/server.mjs
 Environment=PORT=${SSR_PORT}
 Environment=HOST=127.0.0.1
+Environment=NG_ALLOWED_HOSTS=${DOMAIN},*.${DOMAIN},localhost,127.0.0.1
 User=www-data
 Restart=always
 RestartSec=5
