@@ -16,6 +16,9 @@ public class Tenant
     public DateTime? TrialEndsAt { get; set; }
     public DateTime? SuspendedAt { get; set; }
     public bool IsActive { get; set; } = true;
+    public string Standing { get; set; } = "Good";   // Good | Trusted | Watch | Flagged | Blacklisted
+    public string? StandingReason { get; set; }
+    public DateTime? StandingUpdatedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

@@ -105,6 +105,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<TenantBillingHistory> TenantBillingHistory => Set<TenantBillingHistory>();
     public DbSet<TenantSetting> TenantSettings => Set<TenantSetting>();
     public DbSet<TenantPaymentAccount> TenantPaymentAccounts => Set<TenantPaymentAccount>();
+    public DbSet<PlatformAccessLog> PlatformAccessLog => Set<PlatformAccessLog>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -366,6 +367,7 @@ public class EcommerceDbContext : DbContext
         });
         b.Entity<TenantSetting>(e => { e.ToTable("TenantSettings"); e.HasKey(x => x.TenantSettingId); });
         b.Entity<TenantPaymentAccount>(e => { e.ToTable("TenantPaymentAccounts"); e.HasKey(x => x.TenantPaymentAccountId); });
+        b.Entity<PlatformAccessLog>(e => { e.ToTable("PlatformAccessLog"); e.HasKey(x => x.PlatformAccessLogId); });
 
         // --- Multi-tenant global query filters (V2-0) ---
         // Every ITenantScoped entity is auto-scoped to the current tenant. Read live

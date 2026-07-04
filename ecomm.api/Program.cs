@@ -78,6 +78,7 @@ builder.Services.AddScoped<IAuthProviderService, AuthProviderService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ecomm.api.Features.Onboarding.IOnboardingService, ecomm.api.Features.Onboarding.OnboardingService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.ISubscriptionService, ecomm.api.Features.Subscriptions.SubscriptionService>();
+builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.ISuperAdminService, ecomm.api.Features.SuperAdmin.SuperAdminService>();
 builder.Services.AddHostedService<ecomm.api.Features.Subscriptions.SubscriptionLifecycleService>();
 builder.Services.AddHostedService<AdminUserSeeder>();
 
