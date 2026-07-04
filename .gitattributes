@@ -1,0 +1,4 @@
+# Shell scripts must be LF so they run on the Linux VPS (CRLF breaks bash).
+*.sh text eol=lf
+# SQL migrations run on Linux MySQL too — keep LF.
+*.sql text eol=lf
