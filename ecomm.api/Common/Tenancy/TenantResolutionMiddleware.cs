@@ -23,7 +23,14 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next, IOptions<Te
 
     public async Task InvokeAsync(HttpContext context, EcommerceDbContext db, IMemoryCache cache)
     {
-        var host = context.Request.Host.Host.ToLowerInvariant();
+        // Prefer X-Forwarded-Host: the SSR server sets it to the tenant host (fetch forbids
+        // overriding Host). In prod, Nginx must set `proxy_set_header X-Forwarded-Host $host`
+        // so a client can't spoof it (only public catalog is at risk anyway — auth is guarded
+        // by the JWT↔host check). Otherwise use the real Host.
+        var forwarded = context.Request.Headers["X-Forwarded-Host"].ToString();
+        var host = (!string.IsNullOrEmpty(forwarded) ? forwarded.Split(',')[0].Trim() : context.Request.Host.Host).ToLowerInvariant();
+        var portIdx = host.IndexOf(':');
+        if (portIdx >= 0) host = host[..portIdx];
         var slug = ExtractSlug(host);
         long tenantId;
 

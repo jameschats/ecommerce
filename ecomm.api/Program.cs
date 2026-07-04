@@ -183,6 +183,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
 });
 
 // Output caching for anonymous storefront reads (authenticated requests bypass automatically).
+// Output caching registration is kept so the [OutputCache(PolicyName="public")] attributes
+// still resolve, BUT the middleware is DISABLED below (see app.UseOutputCache).
+// Reason: the in-memory OutputCache does not reliably vary its key by tenant here, so a
+// cached anonymous storefront page could leak across stores. Correctness > the perf win.
+// V2-7 re-introduces caching properly as tenant-namespaced Redis (design-v2.md §6.2 / V2-7).
 builder.Services.AddOutputCache(options =>
 {
     options.AddPolicy("public", b => b.Expire(TimeSpan.FromSeconds(60)).SetVaryByQuery("*"));
@@ -253,7 +258,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseCors(AngularCors);
-app.UseOutputCache();
+// app.UseOutputCache();  // DISABLED for multi-tenant safety — re-enable with tenant-namespaced Redis in V2-7.
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
