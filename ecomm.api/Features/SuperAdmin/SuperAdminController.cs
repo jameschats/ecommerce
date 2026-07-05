@@ -49,6 +49,34 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
         await svc.SetActiveAsync(id, true, AdminUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Tenant activated."));
     }
+
+    /// <summary>Act as a store: mode=view (read-only, default) or full. Returns a short-lived token + the store URL.</summary>
+    [HttpPost("tenants/{id:long}/impersonate")]
+    public async Task<IActionResult> Impersonate(long id, [FromQuery] string mode = "view", CancellationToken ct = default)
+        => Ok(ApiResponse<ImpersonationResult>.Ok(await svc.ImpersonateAsync(id, mode, AdminUserId, ct)));
+
+    [HttpGet("blocklist")]
+    public async Task<IActionResult> Blocklist(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<BlocklistDto>>.Ok(await svc.ListBlocklistAsync(ct)));
+
+    [HttpPost("blocklist")]
+    public async Task<IActionResult> AddBlock([FromBody] AddBlockRequest req, CancellationToken ct)
+    {
+        await svc.AddBlockAsync(req.Type, req.Value, req.Reason, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Added to blocklist."));
+    }
+
+    [HttpDelete("blocklist/{id:long}")]
+    public async Task<IActionResult> RemoveBlock(long id, CancellationToken ct)
+    {
+        await svc.RemoveBlockAsync(id, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Removed from blocklist."));
+    }
+
+    [HttpGet("audit")]
+    public async Task<IActionResult> Audit([FromQuery] long? tenantId, [FromQuery] int limit = 100, CancellationToken ct = default)
+        => Ok(ApiResponse<IReadOnlyList<AuditDto>>.Ok(await svc.GetAuditAsync(tenantId, limit, ct)));
 }
 
 public sealed record SetStandingRequest(string Standing, string? Reason);
+public sealed record AddBlockRequest(string Type, string Value, string? Reason);

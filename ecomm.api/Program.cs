@@ -264,6 +264,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantResolutionMiddleware>();   // resolve store from subdomain (apex → default tenant)
+app.UseMiddleware<ImpersonationGuardMiddleware>(); // block writes during read-only impersonation
 app.MapControllers();
 app.MapHealthChecks("/api/health/ready");   // 200 Healthy / 503 if DB unreachable
 app.MapHub<ecomm.api.Features.Notifications.NotificationHub>("/hubs/notifications");

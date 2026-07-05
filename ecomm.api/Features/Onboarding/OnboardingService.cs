@@ -62,6 +62,8 @@ public sealed partial class OnboardingService(
             throw new AppException("That store address is reserved. Please choose another.", StatusCodes.Status409Conflict);
         if (await db.Tenants.AnyAsync(t => t.Slug == slug, ct))
             throw new AppException("That store address is already taken.", StatusCodes.Status409Conflict);
+        if (await db.SignupBlocklist.AnyAsync(b => b.Type == "Email" && b.Value == email.ToLowerInvariant(), ct))
+            throw new AppException("Signup isn't available for this account. Contact support.", StatusCodes.Status403Forbidden);
 
         var plan = await db.Plans.FirstOrDefaultAsync(p => p.Slug == (req.PlanSlug ?? DefaultPlanSlug) && p.IsActive, ct)
                    ?? await db.Plans.FirstOrDefaultAsync(p => p.Slug == DefaultPlanSlug, ct)

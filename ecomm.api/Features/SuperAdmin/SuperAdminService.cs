@@ -1,8 +1,11 @@
 using ecomm.api.Common.Exceptions;
+using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Auth.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ecomm.api.Features.SuperAdmin;
 
@@ -19,6 +22,10 @@ public sealed record PlatformRevenueDto(
     decimal Mrr, int TotalTenants, int Active, int Trial, int PastDue, int Suspended, int Cancelled,
     IReadOnlyList<PlanRevenueRow> ByPlan);
 
+public sealed record ImpersonationResult(string AccessToken, string StoreUrl, string Mode, DateTime ExpiresAt);
+public sealed record BlocklistDto(long SignupBlocklistId, string Type, string Value, string? Reason, DateTime CreatedAt);
+public sealed record AuditDto(long PlatformAccessLogId, long AdminUserId, long? TenantId, string Action, string? Detail, DateTime CreatedAt);
+
 public interface ISuperAdminService
 {
     Task<IReadOnlyList<TenantSummaryDto>> ListTenantsAsync(string? search, CancellationToken ct);
@@ -26,6 +33,11 @@ public interface ISuperAdminService
     Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
     Task SetActiveAsync(long tenantId, bool active, long adminUserId, CancellationToken ct);
+    Task<ImpersonationResult> ImpersonateAsync(long tenantId, string mode, long adminUserId, CancellationToken ct);
+    Task<IReadOnlyList<BlocklistDto>> ListBlocklistAsync(CancellationToken ct);
+    Task AddBlockAsync(string type, string value, string? reason, long adminUserId, CancellationToken ct);
+    Task RemoveBlockAsync(long id, long adminUserId, CancellationToken ct);
+    Task<IReadOnlyList<AuditDto>> GetAuditAsync(long? tenantId, int limit, CancellationToken ct);
 }
 
 /// <summary>
@@ -33,10 +45,11 @@ public interface ISuperAdminService
 /// IgnoreQueryFilters() — this is the one place cross-tenant access is allowed
 /// (design-v2 §6.1). Mutations are written to PlatformAccessLog.
 /// </summary>
-public sealed class SuperAdminService(EcommerceDbContext db) : ISuperAdminService
+public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy) : ISuperAdminService
 {
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
         { "Good", "Trusted", "Watch", "Flagged", "Blacklisted" };
+    private static readonly HashSet<string> BlockTypes = new(StringComparer.OrdinalIgnoreCase) { "Email", "Gstin", "Phone" };
 
     public async Task<IReadOnlyList<TenantSummaryDto>> ListTenantsAsync(string? search, CancellationToken ct)
     {
@@ -120,6 +133,67 @@ public sealed class SuperAdminService(EcommerceDbContext db) : ISuperAdminServic
         t.UpdatedAt = DateTime.UtcNow;
         await LogAsync(adminUserId, tenantId, active ? "Activate" : "Suspend", null, ct);
         await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<ImpersonationResult> ImpersonateAsync(long tenantId, string mode, long adminUserId, CancellationToken ct)
+    {
+        mode = string.Equals(mode, "full", StringComparison.OrdinalIgnoreCase) ? "full" : "view";
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.TenantId == tenantId, ct)
+                     ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+
+        var adminUser = await (
+            from u in db.Users.IgnoreQueryFilters()
+            join ur in db.UserRoles on u.UserId equals ur.UserId
+            join r in db.Roles on ur.RoleId equals r.RoleId
+            where u.TenantId == tenantId && !u.IsDeleted && r.NormalizedName == "ADMIN"
+            select u).FirstOrDefaultAsync(ct)
+            ?? throw new AppException("That store has no admin user to act as.", StatusCodes.Status400BadRequest);
+
+        var roles = await db.UserRoles.Where(ur => ur.UserId == adminUser.UserId)
+            .Join(db.Roles, ur => ur.RoleId, r => r.RoleId, (ur, r) => r.Name).ToListAsync(ct);
+
+        var (token, expires) = jwt.CreateImpersonationToken(adminUser, roles, mode, adminUserId);
+        await LogAsync(adminUserId, tenantId, "Impersonate", $"mode={mode}, as user {adminUser.UserId}", ct);
+        await db.SaveChangesAsync(ct);
+        return new ImpersonationResult(token, BuildStoreUrl(tenant.Slug), mode, expires);
+    }
+
+    public async Task<IReadOnlyList<BlocklistDto>> ListBlocklistAsync(CancellationToken ct) =>
+        await db.SignupBlocklist.OrderByDescending(b => b.SignupBlocklistId)
+            .Select(b => new BlocklistDto(b.SignupBlocklistId, b.Type, b.Value, b.Reason, b.CreatedAt)).ToListAsync(ct);
+
+    public async Task AddBlockAsync(string type, string value, string? reason, long adminUserId, CancellationToken ct)
+    {
+        if (!BlockTypes.Contains(type)) throw new AppException("Type must be Email, Gstin or Phone.", StatusCodes.Status400BadRequest);
+        value = (value ?? "").Trim();
+        if (type.Equals("Email", StringComparison.OrdinalIgnoreCase)) value = value.ToLowerInvariant();
+        if (value.Length == 0) throw new AppException("Value is required.", StatusCodes.Status400BadRequest);
+        if (await db.SignupBlocklist.AnyAsync(b => b.Type == type && b.Value == value, ct)) return;
+        db.SignupBlocklist.Add(new SignupBlocklist { Type = type, Value = value, Reason = reason, CreatedByAdminId = adminUserId, CreatedAt = DateTime.UtcNow });
+        await LogAsync(adminUserId, null, "AddBlock", $"{type}:{value}", ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task RemoveBlockAsync(long id, long adminUserId, CancellationToken ct)
+    {
+        var b = await db.SignupBlocklist.FirstOrDefaultAsync(x => x.SignupBlocklistId == id, ct);
+        if (b is null) return;
+        db.SignupBlocklist.Remove(b);
+        await LogAsync(adminUserId, null, "RemoveBlock", $"{b.Type}:{b.Value}", ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<AuditDto>> GetAuditAsync(long? tenantId, int limit, CancellationToken ct) =>
+        await db.PlatformAccessLog
+            .Where(a => tenantId == null || a.TenantId == tenantId)
+            .OrderByDescending(a => a.PlatformAccessLogId).Take(Math.Clamp(limit, 1, 500))
+            .Select(a => new AuditDto(a.PlatformAccessLogId, a.AdminUserId, a.TenantId, a.Action, a.Detail, a.CreatedAt)).ToListAsync(ct);
+
+    private string BuildStoreUrl(string? slug)
+    {
+        var baseDomain = tenancy.Value.BaseDomain;
+        return string.IsNullOrEmpty(baseDomain) || string.IsNullOrEmpty(slug)
+            ? "/" : $"https://{slug}.{baseDomain}";
     }
 
     private async Task LogAsync(long adminUserId, long? tenantId, string action, string? detail, CancellationToken ct)
