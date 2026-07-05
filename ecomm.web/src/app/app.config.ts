@@ -1,6 +1,7 @@
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withInMemoryScrolling, withViewTransitions } from '@angular/router';
+import { AuthService } from './core/services/auth.service';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -20,5 +21,15 @@ export const appConfig: ApplicationConfig = {
     ),
     provideHttpClient(withFetch(), withInterceptors([tenantSsrInterceptor, authInterceptor])),
     provideClientHydration(withEventReplay()),
+    // Super-admin impersonation hand-off: adopt a token passed via URL fragment BEFORE routing,
+    // so the /admin guard sees the impersonated (Admin) user. Browser-only.
+    provideAppInitializer(() => {
+      if (typeof window !== 'undefined' && window.location.hash.startsWith('#imp=')) {
+        const token = decodeURIComponent(window.location.hash.slice(5));
+        if (inject(AuthService).applyImpersonationToken(token)) {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    }),
   ],
 };

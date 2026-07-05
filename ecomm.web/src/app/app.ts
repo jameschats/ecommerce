@@ -27,6 +27,7 @@ export class App implements OnInit {
   readonly user = this.auth.currentUser;
   readonly isAuthenticated = this.auth.isAuthenticated;
   readonly isAdmin = this.auth.isAdmin;
+  readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly cartCount = this.cart.itemCount;
   readonly displayName = computed(() => {
     const u = this.user();

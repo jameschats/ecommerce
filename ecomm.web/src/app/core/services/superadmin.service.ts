@@ -1,0 +1,44 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { API_BASE_URL } from '../api.config';
+import { ApiResponse } from '../models/api-response.model';
+import {
+  AuditEntry, BlocklistEntry, ImpersonationResult, PlatformRevenue, TenantDetail, TenantSummary,
+} from '../models/superadmin.model';
+
+@Injectable({ providedIn: 'root' })
+export class SuperAdminService {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${API_BASE_URL}/superadmin`;
+
+  tenants(search?: string): Observable<TenantSummary[]> {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.http.get<ApiResponse<TenantSummary[]>>(`${this.base}/tenants${q}`).pipe(map((r) => r.data ?? []));
+  }
+  tenant(id: number): Observable<TenantDetail> {
+    return this.http.get<ApiResponse<TenantDetail>>(`${this.base}/tenants/${id}`).pipe(map((r) => r.data as TenantDetail));
+  }
+  revenue(): Observable<PlatformRevenue> {
+    return this.http.get<ApiResponse<PlatformRevenue>>(`${this.base}/revenue`).pipe(map((r) => r.data as PlatformRevenue));
+  }
+  setStanding(id: number, standing: string, reason: string | null): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/standing`, { standing, reason });
+  }
+  suspend(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/suspend`, {}); }
+  activate(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/activate`, {}); }
+  impersonate(id: number, mode: 'view' | 'full'): Observable<ImpersonationResult> {
+    return this.http.post<ApiResponse<ImpersonationResult>>(`${this.base}/tenants/${id}/impersonate?mode=${mode}`, {}).pipe(map((r) => r.data as ImpersonationResult));
+  }
+  blocklist(): Observable<BlocklistEntry[]> {
+    return this.http.get<ApiResponse<BlocklistEntry[]>>(`${this.base}/blocklist`).pipe(map((r) => r.data ?? []));
+  }
+  addBlock(type: string, value: string, reason: string | null): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/blocklist`, { type, value, reason });
+  }
+  removeBlock(id: number): Observable<unknown> { return this.http.delete<ApiResponse<unknown>>(`${this.base}/blocklist/${id}`); }
+  audit(tenantId?: number, limit = 100): Observable<AuditEntry[]> {
+    const q = tenantId ? `?tenantId=${tenantId}&limit=${limit}` : `?limit=${limit}`;
+    return this.http.get<ApiResponse<AuditEntry[]>>(`${this.base}/audit${q}`).pipe(map((r) => r.data ?? []));
+  }
+}

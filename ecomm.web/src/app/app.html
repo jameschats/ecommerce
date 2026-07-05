@@ -48,6 +48,7 @@
                 <a routerLink="/account/wishlist" (click)="menuOpen.set(false)" class="menu-item">My wishlist</a>
                 <a routerLink="/account/addresses" (click)="menuOpen.set(false)" class="menu-item">My addresses</a>
                 @if (isAdmin()) { <a routerLink="/admin" (click)="menuOpen.set(false)" class="menu-item">Admin dashboard</a> }
+                @if (isSuperAdmin()) { <a routerLink="/superadmin" (click)="menuOpen.set(false)" class="menu-item">Platform admin</a> }
                 <button type="button" (click)="logout()" class="menu-item">Logout</button>
               </div>
             }

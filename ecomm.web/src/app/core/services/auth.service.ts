@@ -15,6 +15,7 @@ export class AuthService {
   readonly currentUser = signal<AuthUser | null>(this.storage.getUser());
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
   readonly isAdmin = computed(() => this.currentUser()?.roles?.includes('Admin') ?? false);
+  readonly isSuperAdmin = computed(() => this.currentUser()?.roles?.includes('SuperAdmin') ?? false);
 
   getConfig(): Observable<AuthConfig> {
     return this.http.get<ApiResponse<AuthConfig>>(`${this.base}/config`).pipe(map((r) => r.data!));
@@ -65,6 +66,26 @@ export class AuthService {
   logout(): void {
     this.storage.clear();
     this.currentUser.set(null);
+  }
+
+  /** Adopt a super-admin impersonation token (handed off via URL fragment). Decodes the JWT for the user. */
+  applyImpersonationToken(token: string): boolean {
+    const user = this.decodeUser(token);
+    if (!user) return false;
+    this.storage.setSession(token, '', user);
+    this.currentUser.set(user);
+    return true;
+  }
+
+  private decodeUser(token: string): AuthUser | null {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const rc = p['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ?? p['role'];
+      const roles = Array.isArray(rc) ? rc : rc ? [rc] : [];
+      return { userId: +p.sub, email: p.email ?? null, fullName: p.name ?? null, phoneNumber: p.phone ?? null, roles };
+    } catch {
+      return null;
+    }
   }
 
   private post(path: string, body: unknown): Observable<AuthResponse> {
