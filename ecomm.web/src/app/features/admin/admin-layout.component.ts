@@ -50,6 +50,7 @@ export class AdminLayoutComponent {
     { path: '/admin/coupons', label: 'Coupons' },
     { path: '/admin/store-settings', label: 'Store settings' },
     { path: '/admin/theme', label: 'Theme' },
+    { path: '/admin/pages', label: 'Pages' },
     { path: '/admin/home-page', label: 'Home page' },
     { path: '/admin/banners', label: 'Banners' },
     { path: '/admin/import', label: 'Import / Export' },

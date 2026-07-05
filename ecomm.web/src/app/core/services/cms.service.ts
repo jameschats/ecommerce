@@ -46,6 +46,16 @@ export interface BuilderPage {
 
 export interface PageDetail { page: BuilderPage; sections: BuilderSection[]; }
 
+export interface FieldSchema { key: string; label: string; type: string; default?: unknown; options?: string[]; help?: string; }
+export interface BlockTypeSchema { key: string; label: string; fields: FieldSchema[]; }
+export interface SectionTypeSchema {
+  key: string; label: string; icon: string; description?: string;
+  settings: FieldSchema[]; blockTypes: BlockTypeSchema[]; maxBlocks?: number | null;
+}
+
+export interface SavePageRequest { title: string; slug: string; isPublished: boolean; metaTitle: string | null; metaDescription: string | null; }
+export interface SaveSectionRequest { title: string | null; settings: string | null; blocks: string | null; isVisible: boolean; startsAt: string | null; endsAt: string | null; }
+
 @Injectable({ providedIn: 'root' })
 export class CmsService {
   private readonly http = inject(HttpClient);
@@ -73,5 +83,36 @@ export class CmsService {
     return this.http
       .put<ApiResponse<HomeSection[]>>(`${this.base}/admin/cms/home`, { sections })
       .pipe(map((r) => r.data ?? []));
+  }
+
+  // --- Builder (admin) ---
+  sectionTypes(): Observable<SectionTypeSchema[]> {
+    return this.http.get<ApiResponse<SectionTypeSchema[]>>(`${this.base}/cms/section-types`).pipe(map((r) => r.data ?? []));
+  }
+  listPages(): Observable<BuilderPage[]> {
+    return this.http.get<ApiResponse<BuilderPage[]>>(`${this.base}/admin/cms/pages`).pipe(map((r) => r.data ?? []));
+  }
+  getPageAdmin(id: number): Observable<PageDetail> {
+    return this.http.get<ApiResponse<PageDetail>>(`${this.base}/admin/cms/pages/${id}`).pipe(map((r) => r.data as PageDetail));
+  }
+  createPage(req: SavePageRequest): Observable<BuilderPage> {
+    return this.http.post<ApiResponse<BuilderPage>>(`${this.base}/admin/cms/pages`, req).pipe(map((r) => r.data as BuilderPage));
+  }
+  updatePage(id: number, req: SavePageRequest): Observable<BuilderPage> {
+    return this.http.put<ApiResponse<BuilderPage>>(`${this.base}/admin/cms/pages/${id}`, req).pipe(map((r) => r.data as BuilderPage));
+  }
+  deletePage(id: number): Observable<unknown> { return this.http.delete<ApiResponse<unknown>>(`${this.base}/admin/cms/pages/${id}`); }
+  addSection(pageId: number, sectionType: string): Observable<BuilderSection> {
+    return this.http.post<ApiResponse<BuilderSection>>(`${this.base}/admin/cms/sections`, { pageId, sectionType }).pipe(map((r) => r.data as BuilderSection));
+  }
+  updateSection(id: number, req: SaveSectionRequest): Observable<BuilderSection> {
+    return this.http.put<ApiResponse<BuilderSection>>(`${this.base}/admin/cms/sections/${id}`, req).pipe(map((r) => r.data as BuilderSection));
+  }
+  duplicateSection(id: number): Observable<BuilderSection> {
+    return this.http.post<ApiResponse<BuilderSection>>(`${this.base}/admin/cms/sections/${id}/duplicate`, {}).pipe(map((r) => r.data as BuilderSection));
+  }
+  deleteSection(id: number): Observable<unknown> { return this.http.delete<ApiResponse<unknown>>(`${this.base}/admin/cms/sections/${id}`); }
+  reorderSections(pageId: number, orderedSectionIds: number[]): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/admin/cms/pages/${pageId}/reorder`, { orderedSectionIds });
   }
 }

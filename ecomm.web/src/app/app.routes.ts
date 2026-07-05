@@ -61,6 +61,7 @@ export const routes: Routes = [
     path: 'register',
     loadComponent: () => import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
   },
+  { path: 'admin/pages/:id/build', canActivate: [adminGuard], loadComponent: () => import('./features/admin/builder/admin-builder.component').then((m) => m.AdminBuilderComponent) },
   {
     path: 'admin',
     canActivate: [adminGuard],
@@ -82,6 +83,7 @@ export const routes: Routes = [
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
+      { path: 'pages', loadComponent: () => import('./features/admin/builder/admin-pages.component').then((m) => m.AdminPagesComponent) },
       { path: 'home-page', loadComponent: () => import('./features/admin/cms/admin-cms.component').then((m) => m.AdminCmsComponent) },
       { path: 'banners', loadComponent: () => import('./features/admin/cms/admin-banners.component').then((m) => m.AdminBannersComponent) },
       { path: 'import', loadComponent: () => import('./features/admin/catalog/admin-import.component').then((m) => m.AdminImportComponent) },
