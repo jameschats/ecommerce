@@ -3,7 +3,13 @@
   <header class="bg-white shadow-sm sticky top-0 z-30">
     <!-- Row 1: logo · search · account · cart -->
     <div class="page-container flex items-center gap-4 h-14">
-      <a routerLink="/" class="font-bold text-xl shrink-0">Calendar<span class="text-primary">Shop</span></a>
+      <a routerLink="/" class="shrink-0 flex items-center">
+        @if (logo()) {
+          <img [src]="logo()" [alt]="storeName() || 'Store'" class="h-8 w-auto max-w-[160px] object-contain" />
+        } @else {
+          <span class="font-bold text-xl">{{ storeName() || 'CalendarShop' }}</span>
+        }
+      </a>
 
       <form (ngSubmit)="search()" class="flex-1 max-w-3xl">
         <div class="relative">

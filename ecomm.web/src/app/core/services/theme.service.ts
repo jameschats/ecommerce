@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
@@ -21,6 +21,10 @@ export class ThemeService {
   private readonly http = inject(HttpClient);
   private readonly doc = inject(DOCUMENT);
 
+  /** The store's logo URL (empty = show the text mark). Set from the theme. */
+  readonly logo = signal<string | null>(null);
+  readonly storeName = signal<string>('');
+
   load(): Observable<void> {
     return this.http.get<ApiResponse<ThemeDto>>(`${API_BASE_URL}/theme`).pipe(
       tap((r) => this.apply(r.data?.settings ?? {})),
@@ -30,6 +34,8 @@ export class ThemeService {
   }
 
   apply(settings: Record<string, string>): void {
+    this.logo.set(settings['Logo'] || null);
+    if (settings['StoreName']) this.storeName.set(settings['StoreName']);
     const root = this.doc.documentElement;
     const primary = settings['PrimaryColor'] || '#2563eb';
     root.style.setProperty('--color-primary', primary);

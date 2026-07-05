@@ -45,6 +45,7 @@ export const routes: Routes = [
   },
   { path: 'signup', loadComponent: () => import('./features/onboarding/signup.component').then((m) => m.SignupComponent) },
   { path: 'superadmin', canActivate: [superAdminGuard], loadComponent: () => import('./features/superadmin/superadmin-dashboard.component').then((m) => m.SuperAdminDashboardComponent) },
+  { path: 'pages/:slug', loadComponent: () => import('./features/pages/page.component').then((m) => m.PageComponent) },
   { path: 'about', loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent) },
   { path: 'contact', loadComponent: () => import('./features/pages/contact/contact.component').then((m) => m.ContactComponent) },
   { path: 'faq', loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent) },

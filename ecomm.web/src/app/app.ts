@@ -28,6 +28,8 @@ export class App implements OnInit {
   readonly isAuthenticated = this.auth.isAuthenticated;
   readonly isAdmin = this.auth.isAdmin;
   readonly isSuperAdmin = this.auth.isSuperAdmin;
+  readonly logo = this.theme.logo;
+  readonly storeName = this.theme.storeName;
   readonly cartCount = this.cart.itemCount;
   readonly displayName = computed(() => {
     const u = this.user();

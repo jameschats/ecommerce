@@ -23,10 +23,40 @@ export interface UpdateSectionItem {
   endsAt: string | null;
 }
 
+export interface BuilderSection {
+  pageSectionId: number;
+  pageId: number;
+  sectionType: string;
+  title: string | null;
+  settings: string | null;   // JSON
+  blocks: string | null;     // JSON
+  displayOrder: number;
+  isVisible: boolean;
+}
+
+export interface BuilderPage {
+  pageId: number;
+  title: string;
+  slug: string;
+  type: string;
+  isPublished: boolean;
+  metaTitle: string | null;
+  metaDescription: string | null;
+}
+
+export interface PageDetail { page: BuilderPage; sections: BuilderSection[]; }
+
 @Injectable({ providedIn: 'root' })
 export class CmsService {
   private readonly http = inject(HttpClient);
   private readonly base = `${API_BASE_URL}`;
+
+  getPage(slug: string): Observable<PageDetail | null> {
+    return this.http.get<ApiResponse<PageDetail>>(`${this.base}/cms/pages/${encodeURIComponent(slug)}`).pipe(
+      map((r) => r.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
 
   getHomeSections(): Observable<HomeSection[]> {
     return this.http.get<ApiResponse<HomeSection[]>>(`${this.base}/cms/home`).pipe(
