@@ -12,6 +12,11 @@ export interface HomeSection {
   isVisible: boolean;
   startsAt: string | null;
   endsAt: string | null;
+  // Present when the page was built with the visual builder (the public /cms/home
+  // endpoint returns full SectionDto; the curated home ignores these, the builder uses them).
+  pageId?: number;
+  settings?: string | null;
+  blocks?: string | null;
 }
 
 export interface UpdateSectionItem {
@@ -53,6 +58,7 @@ export interface SectionTypeSchema {
   settings: FieldSchema[]; blockTypes: BlockTypeSchema[]; maxBlocks?: number | null;
 }
 
+export interface PresetSummary { key: string; label: string; description: string; }
 export interface SavePageRequest { title: string; slug: string; isPublished: boolean; metaTitle: string | null; metaDescription: string | null; }
 export interface SaveSectionRequest { title: string | null; settings: string | null; blocks: string | null; isVisible: boolean; startsAt: string | null; endsAt: string | null; }
 
@@ -114,5 +120,11 @@ export class CmsService {
   deleteSection(id: number): Observable<unknown> { return this.http.delete<ApiResponse<unknown>>(`${this.base}/admin/cms/sections/${id}`); }
   reorderSections(pageId: number, orderedSectionIds: number[]): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/admin/cms/pages/${pageId}/reorder`, { orderedSectionIds });
+  }
+  presets(): Observable<PresetSummary[]> {
+    return this.http.get<ApiResponse<PresetSummary[]>>(`${this.base}/cms/presets`).pipe(map((r) => r.data ?? []));
+  }
+  applyPreset(pageId: number, presetKey: string): Observable<PageDetail> {
+    return this.http.post<ApiResponse<PageDetail>>(`${this.base}/admin/cms/pages/${pageId}/apply-preset`, { presetKey }).pipe(map((r) => r.data as PageDetail));
   }
 }

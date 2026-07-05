@@ -1,4 +1,9 @@
-@if (sections().length) {
+@if (useBuilder()) {
+  <!-- Builder-driven home: render each section from its settings/blocks (same renderer as /pages/:slug). -->
+  @for (s of builderSections(); track s.pageSectionId) {
+    <app-storefront-section [section]="s" />
+  }
+} @else if (sections().length) {
   @for (s of sections(); track s.pageSectionId) {
 
     @if (s.sectionType === 'Banner') {

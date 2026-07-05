@@ -42,6 +42,11 @@ export class ThemeService {
     root.style.setProperty('--color-primary-dark', this.darken(primary, 0.85));
     if (settings['SecondaryColor']) root.style.setProperty('--color-secondary', settings['SecondaryColor']);
     if (settings['Font']) root.style.setProperty('--app-font', `${settings['Font']}, system-ui, sans-serif`);
+    root.style.setProperty('--btn-radius', this.buttonRadius(settings['ButtonStyle']));
+  }
+
+  private buttonRadius(style: string | undefined): string {
+    return style === 'pill' ? '9999px' : style === 'square' ? '0' : '0.5rem';
   }
 
   private darken(hex: string, factor: number): string {

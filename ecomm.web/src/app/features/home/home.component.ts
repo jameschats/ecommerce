@@ -1,20 +1,24 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, ElementRef, OnDestroy, OnInit, PLATFORM_ID, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SITE_URL } from '../../core/api.config';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { AuthService } from '../../core/services/auth.service';
-import { HomeSection } from '../../core/services/cms.service';
+import { BuilderSection, HomeSection } from '../../core/services/cms.service';
 import { SeoService } from '../../core/services/seo.service';
 import { ProductCardComponent } from '../../shared/product-card/product-card.component';
+import { StorefrontSectionComponent } from '../storefront/storefront-section.component';
 import { HomeData } from './home.resolver';
 
 interface HeroSlide { image: string; title: string; subtitle: string; cta: string; link: string; }
 interface Testimonial { name: string; company: string; rating: number; text: string; }
 
+/** Section types the visual builder owns but the curated home doesn't render itself. */
+const BUILDER_NATIVE = new Set(['Hero', 'RichText', 'ImageWithText', 'CtaNewsletter']);
+
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, ProductCardComponent],
+  imports: [RouterLink, ProductCardComponent, StorefrontSectionComponent],
   templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit, OnDestroy {
@@ -29,6 +33,18 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly categories = signal<Category[]>([]);
   readonly featured = signal<ProductListItem[]>([]);
   readonly newest = signal<ProductListItem[]>([]);
+
+  /**
+   * Render the home from the visual builder when the merchant has configured builder-native
+   * sections (Hero/RichText/…) or added real content. Otherwise keep the curated storefront
+   * home (its slides/testimonials are content-managed below). This keeps existing stores
+   * untouched while new stores get their own builder-driven home.
+   */
+  readonly useBuilder = computed(() => this.sections().some((s) => BUILDER_NATIVE.has(s.sectionType) || this.hasContent(s)));
+  readonly builderSections = computed<BuilderSection[]>(() => this.sections().map((s) => ({
+    pageSectionId: s.pageSectionId, pageId: s.pageId ?? 0, sectionType: s.sectionType, title: s.title,
+    settings: s.settings ?? null, blocks: s.blocks ?? null, displayOrder: s.displayOrder, isVisible: s.isVisible,
+  })));
 
   // Fallback banners — shown only if the admin has configured none.
   private readonly defaultSlides: HeroSlide[] = [
@@ -106,6 +122,16 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   railItems(type: string): ProductListItem[] {
     return type === 'NewArrivals' ? this.newest() : this.featured();
+  }
+
+  /** True if the section carries real builder content (settings keys with a value, or any blocks). */
+  private hasContent(s: HomeSection): boolean {
+    try {
+      const blocks = s.blocks ? JSON.parse(s.blocks) : [];
+      if (Array.isArray(blocks) && blocks.length) return true;
+      const settings = s.settings ? JSON.parse(s.settings) : {};
+      return Object.values(settings).some((v) => v !== null && v !== '' && v !== undefined);
+    } catch { return false; }
   }
 
   star(n: number): string {

@@ -41,4 +41,30 @@ public class CmsBuilderTests
         await Assert.ThrowsAsync<ecomm.api.Common.Exceptions.AppException>(
             () => svc.AddSectionAsync(new AddSectionRequest(1, "NotARealType"), default));
     }
+
+    [Fact]
+    public async Task ApplyPreset_replaces_sections_with_valid_types()
+    {
+        var (db, svc) = await SeedRichTextAsync();   // page 1 starts with one RichText section
+        using var _ = db;
+
+        var detail = await svc.ApplyPresetAsync(1, "fashion", default);
+
+        Assert.NotEmpty(detail.Sections);
+        // Old section is gone; only preset sections remain.
+        Assert.Equal(detail.Sections.Count, await db.PageSections.IgnoreQueryFilters().CountAsync(s => s.PageId == 1));
+        // Every section is a valid catalog type, ordered 1..n.
+        Assert.All(detail.Sections, s => Assert.True(
+            ecomm.api.Features.Cms.SectionTypes.SectionTypeRegistry.IsValidType(s.SectionType)));
+        Assert.Equal(Enumerable.Range(1, detail.Sections.Count), detail.Sections.Select(s => s.DisplayOrder));
+    }
+
+    [Fact]
+    public async Task ApplyPreset_unknown_key_is_rejected()
+    {
+        var (db, svc) = await SeedRichTextAsync();
+        using var _ = db;
+        await Assert.ThrowsAsync<ecomm.api.Common.Exceptions.AppException>(
+            () => svc.ApplyPresetAsync(1, "not-an-industry", default));
+    }
 }

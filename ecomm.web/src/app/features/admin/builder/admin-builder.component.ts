@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import {
-  BlockTypeSchema, BuilderPage, BuilderSection, CmsService, PageDetail, SectionTypeSchema,
+  BlockTypeSchema, BuilderPage, BuilderSection, CmsService, PageDetail, PresetSummary, SectionTypeSchema,
 } from '../../../core/services/cms.service';
 
 @Component({
@@ -44,6 +44,16 @@ import {
               @for (t of types(); track t.key) { <option [value]="t.key">{{ t.label }}</option> }
             </select>
             <button type="button" (click)="addSection(picker.value); picker.value=''" class="btn-primary w-full mt-2 text-sm">Add</button>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-200">
+            <label class="lbl">Start from a template</label>
+            <select #preset class="input w-full text-sm">
+              <option value="">Choose an industry…</option>
+              @for (p of presets(); track p.key) { <option [value]="p.key">{{ p.label }}</option> }
+            </select>
+            <button type="button" (click)="applyPreset(preset.value); preset.value=''" class="w-full mt-2 text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Apply template</button>
+            <p class="text-[11px] text-slate-400 mt-1">Replaces all sections on this page.</p>
           </div>
         </aside>
 
@@ -119,6 +129,7 @@ export class AdminBuilderComponent implements OnInit {
   readonly page = signal<BuilderPage | null>(null);
   readonly sections = signal<BuilderSection[]>([]);
   readonly types = signal<SectionTypeSchema[]>([]);
+  readonly presets = signal<PresetSummary[]>([]);
   readonly selectedId = signal<number | null>(null);
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
@@ -131,6 +142,7 @@ export class AdminBuilderComponent implements OnInit {
   ngOnInit(): void {
     this.pageId = Number(this.route.snapshot.paramMap.get('id'));
     this.svc.sectionTypes().subscribe((t) => this.types.set(t));
+    this.svc.presets().subscribe((p) => this.presets.set(p));
     this.load();
   }
 
@@ -156,6 +168,13 @@ export class AdminBuilderComponent implements OnInit {
   addSection(type: string): void {
     if (!type) return;
     this.svc.addSection(this.pageId, type).subscribe((sec) => { this.load(); setTimeout(() => this.select(sec), 200); });
+  }
+
+  applyPreset(key: string): void {
+    if (!key) return;
+    if (!confirm('Apply this template? It replaces all sections currently on this page.')) return;
+    this.selectedId.set(null);
+    this.svc.applyPreset(this.pageId, key).subscribe(() => { this.toast('Template applied.'); this.load(); this.reloadPreview(); });
   }
 
   drop(e: CdkDragDrop<BuilderSection[]>): void {

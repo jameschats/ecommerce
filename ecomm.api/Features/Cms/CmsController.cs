@@ -25,6 +25,11 @@ public sealed class CmsController(ICmsService cms) : ControllerBase
     [HttpGet("section-types")]
     public IActionResult SectionTypes()
         => Ok(ApiResponse<IReadOnlyList<SectionTypeSchema>>.Ok(SectionTypeRegistry.All));
+
+    /// <summary>Industry starter layouts a merchant can apply to a page.</summary>
+    [HttpGet("presets")]
+    public IActionResult Presets()
+        => Ok(ApiResponse<IReadOnlyList<PresetSummary>>.Ok(cms.ListPresets()));
 }
 
 /// <summary>Admin: the visual page builder — pages + sections CRUD.</summary>
@@ -69,6 +74,10 @@ public sealed class CmsAdminController(ICmsService cms) : ControllerBase
     [HttpPut("pages/{id:long}/reorder")]
     public async Task<IActionResult> Reorder(long id, ReorderRequest req, CancellationToken ct)
     { await cms.ReorderSectionsAsync(id, req.OrderedSectionIds ?? [], ct); return Ok(ApiResponse<object>.Ok(new { }, "Reordered.")); }
+
+    [HttpPost("pages/{id:long}/apply-preset")]
+    public async Task<IActionResult> ApplyPreset(long id, ApplyPresetRequest req, CancellationToken ct)
+        => Ok(ApiResponse<PageDetailDto>.Ok(await cms.ApplyPresetAsync(id, req.PresetKey ?? "", ct), "Template applied."));
 
     // --- sections ---
     [HttpPost("sections")]

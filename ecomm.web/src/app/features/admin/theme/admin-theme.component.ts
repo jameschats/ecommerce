@@ -1,6 +1,8 @@
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { API_BASE_URL } from '../../../core/api.config';
 import { ApiResponse } from '../../../core/models/api-response.model';
 import { MediaService } from '../../../core/services/media.service';
@@ -35,14 +37,14 @@ import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
             </div>
             <div>
               <label class="lbl">Font</label>
-              <select [(ngModel)]="settings.Font" class="input">
+              <select [(ngModel)]="settings.Font" (ngModelChange)="preview()" class="input">
                 <option value="Inter">Inter</option><option value="Roboto">Roboto</option>
                 <option value="Poppins">Poppins</option><option value="system-ui">System</option>
               </select>
             </div>
             <div>
               <label class="lbl">Button style</label>
-              <select [(ngModel)]="settings.ButtonStyle" class="input">
+              <select [(ngModel)]="settings.ButtonStyle" (ngModelChange)="preview()" class="input">
                 <option value="rounded">Rounded</option><option value="pill">Pill</option><option value="square">Square</option>
               </select>
             </div>
@@ -54,7 +56,7 @@ import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
                 @if (settings.Logo) { <img [src]="settings.Logo" alt="logo" class="max-w-full max-h-full object-contain" /> }
                 @else { <span class="text-[10px] text-slate-400">No logo</span> }
               </div>
-              <input type="text" [(ngModel)]="settings.Logo" placeholder="Paste a URL or upload →" class="input flex-1" />
+              <input type="text" [(ngModel)]="settings.Logo" (ngModelChange)="preview()" placeholder="Paste a URL or upload →" class="input flex-1" />
               <label class="text-sm text-blue-600 hover:underline cursor-pointer whitespace-nowrap">
                 {{ uploading() ? 'Uploading…' : 'Upload' }}
                 <input type="file" accept="image/*" class="hidden" (change)="uploadLogo($event)" />
@@ -62,10 +64,35 @@ import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
             </div>
           </div>
 
+          <!-- live sample: reflects unsaved edits instantly (theme vars applied to this document) -->
+          <div class="border border-slate-200 rounded-xl p-4" [style.font-family]="'var(--app-font)'">
+            <div class="text-xs text-slate-400 mb-2">Live preview</div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                @if (settings.Logo) { <img [src]="settings.Logo" alt="" class="h-6 object-contain" /> }
+                @else { <span class="font-bold" [style.color]="settings.PrimaryColor">Your store</span> }
+              </div>
+              <div class="flex gap-2">
+                <button type="button" class="btn-primary text-xs">Add to cart</button>
+                <span class="text-xs px-3 py-1.5 rounded-lg border" [style.color]="settings.SecondaryColor" [style.border-color]="settings.SecondaryColor">Wishlist</span>
+              </div>
+            </div>
+          </div>
+
           <div class="flex items-center gap-3 pt-1">
             <button type="button" (click)="save()" [disabled]="saving()" class="btn-primary">{{ saving() ? 'Saving…' : 'Save theme' }}</button>
-            <span class="text-sm text-slate-500">Preview:</span>
-            <button type="button" class="btn-primary">Sample button</button>
+            <span class="text-sm text-slate-400">Live sample updates as you edit; save to apply to your storefront.</span>
+          </div>
+        </div>
+
+        <!-- the real storefront (reflects the last saved theme) -->
+        <div class="mt-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="lbl mb-0">Your storefront</span>
+            <button type="button" (click)="reloadStore()" class="text-sm text-blue-600 hover:underline">↻ Refresh</button>
+          </div>
+          <div class="rounded-xl border border-slate-200 overflow-hidden bg-white">
+            <iframe [src]="storeUrl()" class="w-full h-[520px] border-0" title="storefront preview"></iframe>
           </div>
         </div>
       }
@@ -76,12 +103,15 @@ export class AdminThemeComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly theme = inject(ThemeService);
   private readonly media = inject(MediaService);
+  private readonly sanitizer = inject(DomSanitizer);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly base = `${API_BASE_URL}/admin/theme`;
 
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly uploading = signal(false);
   readonly message = signal<string | null>(null);
+  readonly storeUrl = signal<SafeResourceUrl>(this.sanitizer.bypassSecurityTrustResourceUrl('/'));
 
   settings = { PrimaryColor: '#2563eb', SecondaryColor: '#1e293b', Font: 'Inter', ButtonStyle: 'rounded', Logo: '' };
 
@@ -106,6 +136,10 @@ export class AdminThemeComponent implements OnInit {
     this.theme.apply(this.settings);
   }
 
+  reloadStore(): void {
+    if (this.isBrowser) this.storeUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(`/?_=${Math.floor(performance.now())}`));
+  }
+
   uploadLogo(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -127,6 +161,7 @@ export class AdminThemeComponent implements OnInit {
         this.theme.apply(r.data?.settings ?? this.settings);
         this.saving.set(false);
         this.message.set('Theme saved.');
+        this.reloadStore();
       },
       error: () => { this.saving.set(false); this.message.set('Save failed.'); },
     });

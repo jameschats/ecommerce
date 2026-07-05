@@ -22,6 +22,7 @@ public sealed record SavePageRequest(string Title, string Slug, bool IsPublished
 public sealed record AddSectionRequest(long PageId, string SectionType);
 public sealed record SaveSectionRequest(string? Title, string? Settings, string? Blocks, bool IsVisible, DateTime? StartsAt, DateTime? EndsAt);
 public sealed record ReorderRequest(List<long> OrderedSectionIds);
+public sealed record ApplyPresetRequest(string? PresetKey);
 
 // Back-compat with the current storefront home endpoint.
 public sealed record UpdateSectionItem(long PageSectionId, int DisplayOrder, bool IsVisible, string? Title, DateTime? StartsAt, DateTime? EndsAt);
@@ -45,6 +46,9 @@ public interface ICmsService
     Task DeleteSectionAsync(long sectionId, CancellationToken ct = default);
     Task ReorderSectionsAsync(long pageId, List<long> orderedIds, CancellationToken ct = default);
     Task<List<SectionDto>> UpdateHomeSectionsAsync(List<UpdateSectionItem> items, CancellationToken ct = default);
+    // Presets
+    IReadOnlyList<PresetSummary> ListPresets();
+    Task<PageDetailDto> ApplyPresetAsync(long pageId, string presetKey, CancellationToken ct = default);
 }
 
 public sealed class CmsService(EcommerceDbContext db) : ICmsService
@@ -200,6 +204,35 @@ public sealed class CmsService(EcommerceDbContext db) : ICmsService
         }
         await db.SaveChangesAsync(ct);
         return await SectionsForPageAsync(page.PageId, false, ct);
+    }
+
+    // ---- presets ----
+    public IReadOnlyList<PresetSummary> ListPresets() => StorefrontPresets.Summaries;
+
+    /// <summary>Replace a page's sections with an industry starter layout.</summary>
+    public async Task<PageDetailDto> ApplyPresetAsync(long pageId, string presetKey, CancellationToken ct = default)
+    {
+        var page = await db.Pages.FirstOrDefaultAsync(p => p.PageId == pageId, ct) ?? throw NotFound();
+        var preset = StorefrontPresets.Get(presetKey)
+            ?? throw new AppException("Unknown preset.", StatusCodes.Status400BadRequest);
+
+        var existing = await db.PageSections.Where(s => s.PageId == pageId).ToListAsync(ct);
+        db.PageSections.RemoveRange(existing);
+
+        var order = 1;
+        foreach (var ps in preset.Sections)
+        {
+            var schema = SectionTypeRegistry.Get(ps.Type);
+            if (schema is null) continue;   // defensive: skip anything not in the catalog
+            db.PageSections.Add(new PageSection
+            {
+                PageId = pageId, SectionType = schema.Key, Title = schema.Label,
+                Settings = Sanitize(schema.Key, ps.Settings), Blocks = ps.Blocks,
+                DisplayOrder = order++, IsVisible = true, CreatedAt = DateTime.UtcNow,
+            });
+        }
+        await db.SaveChangesAsync(ct);
+        return (await GetPageAsync(pageId, ct))!;
     }
 
     // ---- helpers ----
