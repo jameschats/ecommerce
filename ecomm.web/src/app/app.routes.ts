@@ -87,6 +87,7 @@ export const routes: Routes = [
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'staff', loadComponent: () => import('./features/admin/staff/admin-staff.component').then((m) => m.AdminStaffComponent) },
       { path: 'payments', loadComponent: () => import('./features/admin/settings/admin-payments.component').then((m) => m.AdminPaymentsComponent) },
+      { path: 'shipping', loadComponent: () => import('./features/admin/settings/admin-shipping.component').then((m) => m.AdminShippingComponent) },
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
       { path: 'pages', loadComponent: () => import('./features/admin/builder/admin-pages.component').then((m) => m.AdminPagesComponent) },
       { path: 'home-page', loadComponent: () => import('./features/admin/cms/admin-cms.component').then((m) => m.AdminCmsComponent) },

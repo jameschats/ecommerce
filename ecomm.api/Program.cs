@@ -139,6 +139,7 @@ builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm
 builder.Services.AddScoped<ecomm.api.Features.Customers.ICustomerAdminService, ecomm.api.Features.Customers.CustomerAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Staff.IStaffAdminService, ecomm.api.Features.Staff.StaffAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Payments.IPaymentSettingsService, ecomm.api.Features.Payments.PaymentSettingsService>();
+builder.Services.AddScoped<ecomm.api.Features.Shipping.IShippingAdminService, ecomm.api.Features.Shipping.ShippingAdminService>();
 builder.Services.AddDataProtection();   // encrypts per-tenant payment secrets at rest
 // Tenant-aware payment gateway: prefer the current tenant's own Razorpay config
 // (TenantPaymentAccounts, secret decrypted), else fall back to the app-wide Payments config, else Mock.
