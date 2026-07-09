@@ -1,4 +1,5 @@
 using ecomm.api.Common.Models;
+using ecomm.api.Features.Shipping.Shiprocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,8 +9,13 @@ namespace ecomm.api.Features.Shipping;
 [ApiController]
 [Authorize(Roles = "Admin")]
 [Route("api/admin/shipping")]
-public sealed class ShippingAdminController(IShippingAdminService shipping) : ControllerBase
+public sealed class ShippingAdminController(IShippingAdminService shipping, IShiprocketClient shiprocket) : ControllerBase
 {
+    /// <summary>Whether live courier rates (Shiprocket) are wired up on the platform.</summary>
+    [HttpGet("integration")]
+    public IActionResult Integration()
+        => Ok(ApiResponse<object>.Ok(new { shiprocketEnabled = shiprocket.Enabled }));
+
     // ---- methods ----
     [HttpGet("methods")]
     public async Task<IActionResult> Methods(CancellationToken ct)

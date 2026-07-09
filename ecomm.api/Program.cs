@@ -140,6 +140,18 @@ builder.Services.AddScoped<ecomm.api.Features.Customers.ICustomerAdminService, e
 builder.Services.AddScoped<ecomm.api.Features.Staff.IStaffAdminService, ecomm.api.Features.Staff.StaffAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Payments.IPaymentSettingsService, ecomm.api.Features.Payments.PaymentSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Shipping.IShippingAdminService, ecomm.api.Features.Shipping.ShippingAdminService>();
+// Shiprocket courier rates — config-gated (mirrors the SMS/Razorpay pattern). Disabled by default.
+builder.Services.Configure<ecomm.api.Features.Shipping.Shiprocket.ShiprocketOptions>(
+    builder.Configuration.GetSection(ecomm.api.Features.Shipping.Shiprocket.ShiprocketOptions.SectionName));
+if ((builder.Configuration["Shiprocket:Provider"] ?? "None").Equals("Shiprocket", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddSingleton<ecomm.api.Features.Shipping.Shiprocket.IShiprocketClient>(sp =>
+        new ecomm.api.Features.Shipping.Shiprocket.ShiprocketClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("shiprocket"),
+            sp.GetRequiredService<IOptions<ecomm.api.Features.Shipping.Shiprocket.ShiprocketOptions>>(),
+            sp.GetRequiredService<ILogger<ecomm.api.Features.Shipping.Shiprocket.ShiprocketClient>>()));
+else
+    builder.Services.AddSingleton<ecomm.api.Features.Shipping.Shiprocket.IShiprocketClient,
+        ecomm.api.Features.Shipping.Shiprocket.NullShiprocketClient>();
 builder.Services.AddDataProtection();   // encrypts per-tenant payment secrets at rest
 // Tenant-aware payment gateway: prefer the current tenant's own Razorpay config
 // (TenantPaymentAccounts, secret decrypted), else fall back to the app-wide Payments config, else Mock.

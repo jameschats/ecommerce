@@ -43,6 +43,9 @@ export class ShippingAdminService {
   private readonly base = `${API_BASE_URL}/admin/shipping`;
   private unwrap<T>(o: Observable<ApiResponse<T>>): Observable<T> { return o.pipe(map((r) => r.data as T)); }
 
+  integration(): Observable<{ shiprocketEnabled: boolean }> {
+    return this.unwrap(this.http.get<ApiResponse<{ shiprocketEnabled: boolean }>>(`${this.base}/integration`));
+  }
   listMethods(): Observable<ShippingMethod[]> { return this.unwrap(this.http.get<ApiResponse<ShippingMethod[]>>(`${this.base}/methods`)); }
   createMethod(b: SaveShippingMethod): Observable<ShippingMethod> { return this.unwrap(this.http.post<ApiResponse<ShippingMethod>>(`${this.base}/methods`, b)); }
   updateMethod(id: number, b: SaveShippingMethod): Observable<ShippingMethod> { return this.unwrap(this.http.put<ApiResponse<ShippingMethod>>(`${this.base}/methods/${id}`, b)); }

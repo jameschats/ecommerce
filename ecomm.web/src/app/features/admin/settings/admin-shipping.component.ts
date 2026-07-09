@@ -16,6 +16,17 @@ import {
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
+      <!-- Live courier rates (Shiprocket) -->
+      <div class="mb-6 rounded-xl border px-4 py-3 text-sm flex items-center gap-2"
+           [class]="shiprocket() ? 'border-green-200 bg-green-50 text-green-700' : 'border-slate-200 bg-slate-50 text-slate-500'">
+        <span>🚚</span>
+        @if (shiprocket()) {
+          <span><span class="font-medium">Live courier rates on.</span> Shiprocket is providing real-time rates and delivery estimates at checkout.</span>
+        } @else {
+          <span><span class="font-medium">Live courier rates off.</span> Checkout uses your manual rates below. Shiprocket can be enabled by the platform to fetch live courier rates automatically.</span>
+        }
+      </div>
+
       <!-- Methods -->
       <div class="bg-white border border-slate-200 rounded-xl p-5 mb-6">
         <div class="flex items-center justify-between mb-3">
@@ -107,13 +118,17 @@ export class AdminShippingComponent implements OnInit {
 
   readonly methods = signal<ShippingMethod[]>([]);
   readonly zones = signal<ShippingZone[]>([]);
+  readonly shiprocket = signal(false);
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
 
   readonly mForm = signal<(SaveShippingMethod & { id?: number }) | null>(null);
   readonly zForm = signal<(SaveShippingZone & { id?: number }) | null>(null);
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.api.integration().subscribe((i) => this.shiprocket.set(i.shiprocketEnabled));
+    this.load();
+  }
   private load(): void {
     this.api.listMethods().subscribe((m) => this.methods.set(m));
     this.api.listZones().subscribe((z) => this.zones.set(z));
