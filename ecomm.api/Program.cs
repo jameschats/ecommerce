@@ -136,6 +136,7 @@ builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderService, ecomm.api.Fe
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();
 builder.Services.AddScoped<ecomm.api.Features.Customers.ICustomerAdminService, ecomm.api.Features.Customers.CustomerAdminService>();
+builder.Services.AddScoped<ecomm.api.Features.Staff.IStaffAdminService, ecomm.api.Features.Staff.StaffAdminService>();
 builder.Services.AddScoped<IPaymentGateway>(sp =>
 {
     var opt = sp.GetRequiredService<IOptions<PaymentOptions>>().Value;
@@ -267,6 +268,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantResolutionMiddleware>();   // resolve store from subdomain (apex → default tenant)
 app.UseMiddleware<ImpersonationGuardMiddleware>(); // block writes during read-only impersonation
+app.UseMiddleware<StaffAccessGuardMiddleware>();   // enforce staff access levels (Viewer read-only, Disabled blocked)
 app.MapControllers();
 app.MapHealthChecks("/api/health/ready");   // 200 Healthy / 503 if DB unreachable
 app.MapHub<ecomm.api.Features.Notifications.NotificationHub>("/hubs/notifications");
