@@ -69,7 +69,8 @@ public sealed class DraftOrderService(
         var ship = await shipping.QuoteAsync(address?.Pincode, subtotal, ct);
         var charge = ship.Serviceable ? ship.Charge : 0m;
 
-        var coupon = await coupons.EvaluateAsync(req.CouponCode, customer.UserId, subtotal, ct);
+        var discountLines = lines.Select(l => new DiscountLine(l.ProductId, l.LineSub)).ToList();
+        var coupon = await coupons.EvaluateAsync(req.CouponCode, customer.UserId, discountLines, ct);
         if (!string.IsNullOrWhiteSpace(req.CouponCode) && !coupon.Ok)
             throw new AppException(coupon.Error ?? "That discount can't be applied.");
         if (coupon.Ok && coupon.FreeShipping) charge = 0m;

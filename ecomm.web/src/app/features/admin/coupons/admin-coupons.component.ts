@@ -1,8 +1,12 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { AdminCoupon, SaveCouponRequest } from '../../../core/models/coupon.model';
 import { CouponService } from '../../../core/services/coupon.service';
+import { CatalogService } from '../../../core/services/catalog.service';
+import { CollectionAdminService, AdminCollection } from '../../../core/services/collection-admin.service';
+import { ProductListItem } from '../../../core/models/catalog.model';
 
 @Component({
   selector: 'app-admin-coupons',
@@ -52,6 +56,43 @@ import { CouponService } from '../../../core/services/coupon.service';
             <label class="block"><span class="lbl">Ends (optional)</span>
               <input type="date" [(ngModel)]="form.endsAt" name="ea" class="input w-full" /></label>
           </div>
+          <!-- Applies to -->
+          <div class="border-t border-slate-100 mt-3 pt-3">
+            <label class="lbl">Applies to</label>
+            <select [(ngModel)]="form.appliesTo" name="appliesTo" class="input w-full sm:w-64" (ngModelChange)="onAppliesToChange()">
+              <option value="Order">Entire order</option>
+              <option value="Products">Specific products</option>
+              <option value="Collections">Specific collections</option>
+            </select>
+
+            @if (form.appliesTo === 'Products') {
+              <div class="relative mt-2">
+                <input [(ngModel)]="productQuery" name="pq" (ngModelChange)="productSearch$.next($event)" placeholder="Search products…" class="input w-full" />
+                @if (productResults().length) {
+                  <div class="absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                    @for (p of productResults(); track p.productId) {
+                      <button type="button" (click)="addTarget(p.productId, p.name)" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">{{ p.name }}</button>
+                    }
+                  </div>
+                }
+              </div>
+              <div class="flex flex-wrap gap-2 mt-2">
+                @for (t of targetLabels(); track t.id) {
+                  <span class="text-xs bg-slate-100 text-slate-600 rounded px-2 py-1">{{ t.label }} <button type="button" (click)="removeTarget(t.id)" class="text-red-500 ml-1">×</button></span>
+                }
+              </div>
+            } @else if (form.appliesTo === 'Collections') {
+              <div class="mt-2 grid sm:grid-cols-2 gap-1">
+                @for (c of collections(); track c.collectionId) {
+                  <label class="flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" [checked]="form.targetIds.includes(c.collectionId)" (change)="toggleTarget(c.collectionId)" /> {{ c.name }}
+                  </label>
+                }
+                @if (!collections().length) { <p class="text-xs text-slate-400">No collections yet.</p> }
+              </div>
+            }
+          </div>
+
           <div class="flex flex-wrap gap-x-6 gap-y-2 mt-3">
             <label class="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" [(ngModel)]="form.freeShipping" name="freeship" /> Also give free shipping
@@ -104,6 +145,8 @@ import { CouponService } from '../../../core/services/coupon.service';
 })
 export class AdminCouponsComponent implements OnInit {
   private readonly svc = inject(CouponService);
+  private readonly catalog = inject(CatalogService);
+  private readonly collectionsApi = inject(CollectionAdminService);
 
   readonly coupons = signal<AdminCoupon[]>([]);
   readonly loading = signal(true);
@@ -112,13 +155,36 @@ export class AdminCouponsComponent implements OnInit {
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
 
+  readonly productResults = signal<ProductListItem[]>([]);
+  readonly collections = signal<AdminCollection[]>([]);
+  readonly targetLabels = signal<{ id: number; label: string }[]>([]);
+  productQuery = '';
+  readonly productSearch$ = new Subject<string>();
+
   form: SaveCouponRequest & { couponId?: number } = this.blank();
 
-  ngOnInit(): void { this.load(); }
+  constructor() {
+    this.productSearch$.pipe(debounceTime(250), distinctUntilChanged(),
+      switchMap((q) => this.catalog.getProducts({ search: q.trim(), pageSize: 8 })))
+      .subscribe((r) => this.productResults.set(r.items));
+  }
+
+  ngOnInit(): void {
+    this.load();
+    this.collectionsApi.list().subscribe((c) => this.collections.set(c));
+  }
+
+  onAppliesToChange(): void { this.form.targetIds = []; this.targetLabels.set([]); }
+  addTarget(id: number, label: string): void {
+    if (!this.form.targetIds.includes(id)) { this.form.targetIds = [...this.form.targetIds, id]; this.targetLabels.set([...this.targetLabels(), { id, label }]); }
+    this.productResults.set([]); this.productQuery = '';
+  }
+  removeTarget(id: number): void { this.form.targetIds = this.form.targetIds.filter((x) => x !== id); this.targetLabels.set(this.targetLabels().filter((t) => t.id !== id)); }
+  toggleTarget(id: number): void { this.form.targetIds = this.form.targetIds.includes(id) ? this.form.targetIds.filter((x) => x !== id) : [...this.form.targetIds, id]; }
 
   private blank(): SaveCouponRequest & { couponId?: number } {
     return { code: '', method: 'Code', description: null, discountType: 'Flat', discountValue: 0, freeShipping: false,
-      maxDiscountAmount: null, minOrderAmount: null, usageLimit: null, perUserLimit: null, startsAt: null, endsAt: null, isActive: true };
+      appliesTo: 'Order', targetIds: [], maxDiscountAmount: null, minOrderAmount: null, usageLimit: null, perUserLimit: null, startsAt: null, endsAt: null, isActive: true };
   }
 
   private load(): void {
@@ -129,10 +195,12 @@ export class AdminCouponsComponent implements OnInit {
     });
   }
 
-  startNew(): void { this.form = this.blank(); this.editing.set(true); this.message.set(null); this.error.set(null); }
+  startNew(): void { this.form = this.blank(); this.targetLabels.set([]); this.editing.set(true); this.message.set(null); this.error.set(null); }
 
   edit(c: AdminCoupon): void {
-    this.form = { ...c, startsAt: c.startsAt?.slice(0, 10) ?? null, endsAt: c.endsAt?.slice(0, 10) ?? null };
+    this.form = { ...c, targetIds: [...(c.targetIds ?? [])], startsAt: c.startsAt?.slice(0, 10) ?? null, endsAt: c.endsAt?.slice(0, 10) ?? null };
+    // Product targets show as chips; we only have ids, so label by id (re-search to rename). Collections use checkboxes.
+    this.targetLabels.set(c.appliesTo === 'Products' ? (c.targetIds ?? []).map((id) => ({ id, label: `Product #${id}` })) : []);
     this.editing.set(true);
     this.message.set(null);
     this.error.set(null);

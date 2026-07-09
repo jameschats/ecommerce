@@ -20,7 +20,7 @@ public sealed class CouponServiceTests
         var db = TestDb.New();
         db.Coupons.Add(c);
         await db.SaveChangesAsync();
-        return (new CouponService(db), db);
+        return (new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), db);
     }
 
     [Fact]

@@ -119,8 +119,9 @@ public sealed class OrderService : IOrderService
         var message = address is null ? "Select a delivery address." : ship.Message;
         var charge = serviceable ? ship.Charge : 0m;
 
-        // Discount: a typed code, else the best automatic offer. Off the subtotal; tax is computed pre-discount for V1.
-        var coupon = await _coupons.EvaluateAsync(couponCode, userId, subtotal, ct);
+        // Discount: a typed code, else the best automatic offer. Line-aware so product/collection targeting works.
+        var discountLines = lines.Select(l => new DiscountLine(l.ProductId, l.UnitPrice * l.Quantity)).ToList();
+        var coupon = await _coupons.EvaluateAsync(couponCode, userId, discountLines, ct);
         if (coupon.Ok && coupon.FreeShipping) charge = 0m;   // free-shipping offer
 
         // Exclusive adds tax on top; Inclusive/None already have it in the listed price.
@@ -171,8 +172,9 @@ public sealed class OrderService : IOrderService
         if (!ship.Serviceable) throw new AppException(ship.Message ?? "This address is not serviceable.");
 
         // Discount: re-validate server-side (never trust a client-computed discount). A typed code that
-        // fails is an error; a blank code still applies the best automatic offer.
-        var coupon = await _coupons.EvaluateAsync(req.CouponCode, userId, subtotal, ct);
+        // fails is an error; a blank code still applies the best automatic offer. Line-aware for targeting.
+        var discountLines = lines.Select(l => new DiscountLine(l.ProductId, l.LineSub)).ToList();
+        var coupon = await _coupons.EvaluateAsync(req.CouponCode, userId, discountLines, ct);
         if (!string.IsNullOrWhiteSpace(req.CouponCode) && !coupon.Ok)
             throw new AppException(coupon.Error ?? "That coupon can't be applied.");
         var discount = coupon.Discount;

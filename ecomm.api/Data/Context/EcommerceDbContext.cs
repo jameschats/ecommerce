@@ -97,6 +97,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<CouponUsage> CouponUsages => Set<CouponUsage>();
+    public DbSet<CouponTarget> CouponTargets => Set<CouponTarget>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -356,6 +357,7 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.CouponUsageId);
             e.Property(x => x.DiscountAmount).HasPrecision(12, 2);
         });
+        b.Entity<CouponTarget>(e => { e.ToTable("CouponTargets"); e.HasKey(x => x.CouponTargetId); });
         b.Entity<Shipment>(e => { e.ToTable("Shipments"); e.HasKey(x => x.ShipmentId); });
         b.Entity<WishlistItem>(e => { e.ToTable("WishlistItems"); e.HasKey(x => x.WishlistItemId); });
         b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });

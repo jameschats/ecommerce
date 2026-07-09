@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Collections;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Coupons;
@@ -9,19 +10,25 @@ namespace ecomm.api.Features.Coupons;
 /// <summary>Outcome of evaluating a code against a cart. <see cref="Ok"/> false ⇒ <see cref="Error"/> explains why.</summary>
 public sealed record CouponResult(bool Ok, string? Error, decimal Discount, bool FreeShipping, long? CouponId, string? Code, string? Description);
 
+/// <summary>A cart line for targeted-discount evaluation.</summary>
+public sealed record DiscountLine(long ProductId, decimal LineAmount);
+
 public sealed record AdminCouponDto(
     long CouponId, string Code, string Method, string? Description, string DiscountType, decimal DiscountValue, bool FreeShipping,
+    string AppliesTo, IReadOnlyList<long> TargetIds,
     decimal? MaxDiscountAmount, decimal? MinOrderAmount, int? UsageLimit, int? PerUserLimit, int UsedCount,
     DateTime? StartsAt, DateTime? EndsAt, bool IsActive);
 
 public sealed record SaveCouponRequest(
     string Code, string Method, string? Description, string DiscountType, decimal DiscountValue, bool FreeShipping,
+    string AppliesTo, IReadOnlyList<long>? TargetIds,
     decimal? MaxDiscountAmount, decimal? MinOrderAmount, int? UsageLimit, int? PerUserLimit,
     DateTime? StartsAt, DateTime? EndsAt, bool IsActive);
 
 public interface ICouponService
 {
     Task<CouponResult> EvaluateAsync(string? code, long userId, decimal subtotal, CancellationToken ct = default);
+    Task<CouponResult> EvaluateAsync(string? code, long userId, IReadOnlyList<DiscountLine> lines, CancellationToken ct = default);
     Task RecordUsageAsync(long couponId, long userId, long orderId, decimal discount, CancellationToken ct = default);
     Task<List<AdminCouponDto>> ListAsync(CancellationToken ct = default);
     Task<AdminCouponDto> CreateAsync(SaveCouponRequest req, CancellationToken ct = default);
@@ -33,24 +40,37 @@ public sealed class CouponService : ICouponService
 {
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
+    private readonly ICollectionService _collections;
 
-    public CouponService(EcommerceDbContext db) => _db = db;
+    public CouponService(EcommerceDbContext db, ICollectionService collections)
+    {
+        _db = db;
+        _collections = collections;
+    }
 
-    public async Task<CouponResult> EvaluateAsync(string? code, long userId, decimal subtotal, CancellationToken ct = default)
+    // Order-level entry point (no line detail) — treats the whole subtotal as eligible.
+    public Task<CouponResult> EvaluateAsync(string? code, long userId, decimal subtotal, CancellationToken ct = default) =>
+        EvaluateCoreAsync(code, userId, subtotal, lines: null, ct);
+
+    // Line-aware entry point — enables product/collection targeting (eligible = matching lines).
+    public Task<CouponResult> EvaluateAsync(string? code, long userId, IReadOnlyList<DiscountLine> lines, CancellationToken ct = default) =>
+        EvaluateCoreAsync(code, userId, lines.Sum(l => l.LineAmount), lines, ct);
+
+    private async Task<CouponResult> EvaluateCoreAsync(string? code, long userId, decimal subtotal, IReadOnlyList<DiscountLine>? lines, CancellationToken ct)
     {
         // A typed code takes precedence and reports why it fails; blank code → best applicable automatic discount.
         if (!string.IsNullOrWhiteSpace(code))
         {
             var normalized = code.Trim();
             var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.TenantId == Tenant && c.Code == normalized, ct);
-            return coupon is null ? Fail("That coupon code isn't valid.") : await EvaluateCouponAsync(coupon, userId, subtotal, ct);
+            return coupon is null ? Fail("That coupon code isn't valid.") : await EvaluateCouponAsync(coupon, userId, subtotal, lines, ct);
         }
 
         var automatics = await _db.Coupons.Where(c => c.TenantId == Tenant && c.Method == "Automatic" && c.IsActive).ToListAsync(ct);
         CouponResult? best = null;
         foreach (var c in automatics)
         {
-            var r = await EvaluateCouponAsync(c, userId, subtotal, ct);
+            var r = await EvaluateCouponAsync(c, userId, subtotal, lines, ct);
             if (!r.Ok) continue;
             // Prefer the bigger amount off; tie-break to the one that also gives free shipping.
             if (best is null || r.Discount > best.Discount || (r.Discount == best.Discount && r.FreeShipping && !best.FreeShipping))
@@ -59,8 +79,8 @@ public sealed class CouponService : ICouponService
         return best ?? new CouponResult(false, null, 0m, false, null, null, null);
     }
 
-    /// <summary>Validate a single coupon against the cart and compute its discount + free-shipping.</summary>
-    private async Task<CouponResult> EvaluateCouponAsync(Coupon coupon, long userId, decimal subtotal, CancellationToken ct)
+    /// <summary>Validate a single coupon against the cart and compute its discount (off the eligible amount) + free-shipping.</summary>
+    private async Task<CouponResult> EvaluateCouponAsync(Coupon coupon, long userId, decimal subtotal, IReadOnlyList<DiscountLine>? lines, CancellationToken ct)
     {
         if (!coupon.IsActive) return Fail("This coupon is no longer active.");
         var now = DateTime.UtcNow;
@@ -76,16 +96,39 @@ public sealed class CouponService : ICouponService
             if (used >= perUser) return Fail("You've already used this offer.");
         }
 
+        // Targeted discounts apply to the matching lines only; order-level uses the whole subtotal.
+        var eligible = await EligibleAmountAsync(coupon, subtotal, lines, ct);
+
         var discount = coupon.DiscountValue <= 0m ? 0m
-            : coupon.DiscountType == "Percentage" ? Math.Round(subtotal * coupon.DiscountValue / 100m, 2)
-            : coupon.DiscountValue;
+            : coupon.DiscountType == "Percentage" ? Math.Round(eligible * coupon.DiscountValue / 100m, 2)
+            : Math.Min(coupon.DiscountValue, eligible);
         if (coupon.MaxDiscountAmount is { } cap && discount > cap) discount = cap;
-        if (discount > subtotal) discount = subtotal; // never below zero
+        if (discount > eligible) discount = eligible; // never exceed what it applies to
 
         // Applicable if it takes money off OR grants free shipping.
         if (discount <= 0m && !coupon.FreeShipping) return Fail("This offer doesn't apply to your cart.");
 
         return new CouponResult(true, null, discount, coupon.FreeShipping, coupon.CouponId, coupon.Code, coupon.Description);
+    }
+
+    private async Task<decimal> EligibleAmountAsync(Coupon coupon, decimal subtotal, IReadOnlyList<DiscountLine>? lines, CancellationToken ct)
+    {
+        if (coupon.AppliesTo == "Order" || lines is null) return subtotal;
+        var targetProducts = await TargetProductIdsAsync(coupon, ct);
+        return lines.Where(l => targetProducts.Contains(l.ProductId)).Sum(l => l.LineAmount);
+    }
+
+    private async Task<HashSet<long>> TargetProductIdsAsync(Coupon coupon, CancellationToken ct)
+    {
+        var targets = await _db.CouponTargets.Where(t => t.CouponId == coupon.CouponId).ToListAsync(ct);
+        if (coupon.AppliesTo == "Products")
+            return targets.Where(t => t.TargetType == "Product").Select(t => t.TargetId).ToHashSet();
+
+        var set = new HashSet<long>();
+        foreach (var t in targets.Where(t => t.TargetType == "Collection"))
+            foreach (var m in await _collections.MembersAsync(t.TargetId, activeOnly: true, ct))
+                set.Add(m.ProductId);
+        return set;
     }
 
     private static CouponResult Fail(string msg) => new(false, msg, 0m, false, null, null, null);
@@ -101,11 +144,13 @@ public sealed class CouponService : ICouponService
         await _db.SaveChangesAsync(ct);
     }
 
-    public Task<List<AdminCouponDto>> ListAsync(CancellationToken ct = default) =>
-        _db.Coupons.AsNoTracking().Where(c => c.TenantId == Tenant).OrderByDescending(c => c.CouponId)
-            .Select(c => new AdminCouponDto(c.CouponId, c.Code, c.Method, c.Description, c.DiscountType, c.DiscountValue,
-                c.FreeShipping, c.MaxDiscountAmount, c.MinOrderAmount, c.UsageLimit, c.PerUserLimit, c.UsedCount,
-                c.StartsAt, c.EndsAt, c.IsActive)).ToListAsync(ct);
+    public async Task<List<AdminCouponDto>> ListAsync(CancellationToken ct = default)
+    {
+        var coupons = await _db.Coupons.AsNoTracking().Where(c => c.TenantId == Tenant).OrderByDescending(c => c.CouponId).ToListAsync(ct);
+        var ids = coupons.Select(c => c.CouponId).ToList();
+        var targets = await _db.CouponTargets.AsNoTracking().Where(t => ids.Contains(t.CouponId)).ToListAsync(ct);
+        return coupons.Select(c => ToDto(c, targets.Where(t => t.CouponId == c.CouponId).Select(t => t.TargetId).ToList())).ToList();
+    }
 
     public async Task<AdminCouponDto> CreateAsync(SaveCouponRequest req, CancellationToken ct = default)
     {
@@ -118,7 +163,8 @@ public sealed class CouponService : ICouponService
         Apply(c, req);
         _db.Coupons.Add(c);
         await _db.SaveChangesAsync(ct);
-        return ToDto(c);
+        await SaveTargetsAsync(c, req, ct);
+        return ToDto(c, (req.TargetIds ?? []).ToList());
     }
 
     public async Task<AdminCouponDto> UpdateAsync(long id, SaveCouponRequest req, CancellationToken ct = default)
@@ -132,15 +178,29 @@ public sealed class CouponService : ICouponService
         c.Code = code;
         Apply(c, req);
         c.UpdatedAt = DateTime.UtcNow;
+        await SaveTargetsAsync(c, req, ct);
         await _db.SaveChangesAsync(ct);
-        return ToDto(c);
+        return ToDto(c, (req.TargetIds ?? []).ToList());
     }
 
     public async Task DeleteAsync(long id, CancellationToken ct = default)
     {
         var c = await _db.Coupons.FirstOrDefaultAsync(x => x.TenantId == Tenant && x.CouponId == id, ct)
             ?? throw new AppException("Coupon not found.", 404);
+        _db.CouponTargets.RemoveRange(await _db.CouponTargets.Where(t => t.CouponId == id).ToListAsync(ct));
         _db.Coupons.Remove(c);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task SaveTargetsAsync(Coupon c, SaveCouponRequest req, CancellationToken ct)
+    {
+        _db.CouponTargets.RemoveRange(await _db.CouponTargets.Where(t => t.CouponId == c.CouponId).ToListAsync(ct));
+        if (c.AppliesTo is "Products" or "Collections")
+        {
+            var type = c.AppliesTo == "Products" ? "Product" : "Collection";
+            foreach (var tid in (req.TargetIds ?? []).Distinct())
+                _db.CouponTargets.Add(new CouponTarget { CouponId = c.CouponId, TargetType = type, TargetId = tid });
+        }
         await _db.SaveChangesAsync(ct);
     }
 
@@ -155,6 +215,8 @@ public sealed class CouponService : ICouponService
         if (req.DiscountType == "Percentage" && req.DiscountValue > 100) throw new AppException("Percentage discount can't exceed 100.");
     }
 
+    private static readonly string[] AppliesToValues = { "Order", "Products", "Collections" };
+
     private static void Apply(Coupon c, SaveCouponRequest req)
     {
         c.Method = req.Method;
@@ -162,6 +224,7 @@ public sealed class CouponService : ICouponService
         c.DiscountType = req.DiscountType;
         c.DiscountValue = req.DiscountValue;
         c.FreeShipping = req.FreeShipping;
+        c.AppliesTo = AppliesToValues.FirstOrDefault(a => a.Equals(req.AppliesTo, StringComparison.OrdinalIgnoreCase)) ?? "Order";
         c.MaxDiscountAmount = req.MaxDiscountAmount;
         c.MinOrderAmount = req.MinOrderAmount;
         c.UsageLimit = req.UsageLimit;
@@ -171,6 +234,6 @@ public sealed class CouponService : ICouponService
         c.IsActive = req.IsActive;
     }
 
-    private static AdminCouponDto ToDto(Coupon c) => new(c.CouponId, c.Code, c.Method, c.Description, c.DiscountType, c.DiscountValue,
-        c.FreeShipping, c.MaxDiscountAmount, c.MinOrderAmount, c.UsageLimit, c.PerUserLimit, c.UsedCount, c.StartsAt, c.EndsAt, c.IsActive);
+    private static AdminCouponDto ToDto(Coupon c, IReadOnlyList<long> targetIds) => new(c.CouponId, c.Code, c.Method, c.Description, c.DiscountType, c.DiscountValue,
+        c.FreeShipping, c.AppliesTo, targetIds, c.MaxDiscountAmount, c.MinOrderAmount, c.UsageLimit, c.PerUserLimit, c.UsedCount, c.StartsAt, c.EndsAt, c.IsActive);
 }

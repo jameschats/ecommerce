@@ -19,7 +19,7 @@ public class CouponDiscountTests
         using var db = TestDb.New(tenantId: 1);
         db.Coupons.Add(Coupon("SAVE10", "Code", "Percentage", 10m));
         await db.SaveChangesAsync();
-        var svc = new CouponService(db);
+        var svc = new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db));
 
         var r = await svc.EvaluateAsync("SAVE10", userId: 1, subtotal: 1000m);
 
@@ -36,7 +36,7 @@ public class CouponDiscountTests
         db.Coupons.Add(Coupon("AUTO80", "Automatic", "Flat", 80m));
         db.Coupons.Add(Coupon("CODEONLY", "Code", "Flat", 200m));   // code discounts never auto-apply
         await db.SaveChangesAsync();
-        var svc = new CouponService(db);
+        var svc = new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db));
 
         var r = await svc.EvaluateAsync(code: null, userId: 1, subtotal: 1000m);
 
@@ -50,7 +50,7 @@ public class CouponDiscountTests
         using var db = TestDb.New(tenantId: 1);
         db.Coupons.Add(Coupon("FREESHIP", "Automatic", "Flat", 0m, freeShip: true));
         await db.SaveChangesAsync();
-        var svc = new CouponService(db);
+        var svc = new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db));
 
         var r = await svc.EvaluateAsync(code: null, userId: 1, subtotal: 1000m);
 
@@ -65,7 +65,7 @@ public class CouponDiscountTests
         using var db = TestDb.New(tenantId: 1);
         db.Coupons.Add(Coupon("AUTO", "Automatic", "Flat", 100m, min: 2000m));
         await db.SaveChangesAsync();
-        var svc = new CouponService(db);
+        var svc = new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db));
 
         var r = await svc.EvaluateAsync(code: null, userId: 1, subtotal: 1000m);
 
@@ -77,11 +77,30 @@ public class CouponDiscountTests
     public async Task Invalid_code_reports_error()
     {
         using var db = TestDb.New(tenantId: 1);
-        var svc = new CouponService(db);
+        var svc = new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db));
 
         var r = await svc.EvaluateAsync("NOPE", userId: 1, subtotal: 1000m);
 
         Assert.False(r.Ok);
         Assert.NotNull(r.Error);
+    }
+
+    [Fact]
+    public async Task Product_targeted_discount_applies_to_matching_lines_only()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var c = new Coupon { Code = "P10", Method = "Code", DiscountType = "Percentage", DiscountValue = 10m, AppliesTo = "Products", IsActive = true, CreatedAt = DateTime.UtcNow };
+        db.Coupons.Add(c);
+        await db.SaveChangesAsync();
+        db.CouponTargets.Add(new CouponTarget { CouponId = c.CouponId, TargetType = "Product", TargetId = 1 });
+        await db.SaveChangesAsync();
+        var svc = new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db));
+
+        // Two lines; only product 1 is targeted → eligible = 100, 10% = 10 (not 30 on the full 300).
+        var lines = new List<DiscountLine> { new(1, 100m), new(2, 200m) };
+        var r = await svc.EvaluateAsync("P10", userId: 1, lines);
+
+        Assert.True(r.Ok);
+        Assert.Equal(10m, r.Discount);
     }
 }

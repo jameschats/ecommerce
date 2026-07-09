@@ -6,6 +6,8 @@ export interface AdminCoupon {
   discountType: string; // Flat | Percentage
   discountValue: number;
   freeShipping: boolean;
+  appliesTo: string;    // Order | Products | Collections
+  targetIds: number[];
   maxDiscountAmount: number | null;
   minOrderAmount: number | null;
   usageLimit: number | null;
@@ -23,6 +25,8 @@ export interface SaveCouponRequest {
   discountType: string;
   discountValue: number;
   freeShipping: boolean;
+  appliesTo: string;
+  targetIds: number[];
   maxDiscountAmount: number | null;
   minOrderAmount: number | null;
   usageLimit: number | null;
