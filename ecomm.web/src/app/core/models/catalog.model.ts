@@ -87,6 +87,10 @@ export interface ProductDetail {
   images: ProductImage[];
   variants: ProductVariant[];
   attributes: ProductAttributeValue[];
+  productType: string | null;
+  tags: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
 }
 
 export interface ProductQuery {

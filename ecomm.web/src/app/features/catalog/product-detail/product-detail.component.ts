@@ -187,7 +187,7 @@ export class ProductDetailComponent implements OnInit {
   private applySeo(p: ProductDetail): void {
     const url = `${SITE_URL}/product/${p.slug}`;
     const image = p.images.find((i) => i.isPrimary)?.url ?? p.images[0]?.url;
-    this.seo.setMeta({ title: `${p.name} — CalendarShop`, description: p.shortDescription ?? p.name, image, url, type: 'product' });
+    this.seo.setMeta({ title: p.metaTitle?.trim() || `${p.name} — CalendarShop`, description: p.metaDescription?.trim() || p.shortDescription || p.name, image, url, type: 'product' });
     this.seo.setJsonLd([
       {
         '@context': 'https://schema.org/', '@type': 'Product', name: p.name, image: p.images.map((i) => i.url),

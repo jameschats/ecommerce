@@ -40,6 +40,10 @@ export interface SaveProductRequest {
   hsnCode?: string | null;
   status: string;
   isFeatured: boolean;
+  productType?: string | null;
+  tags?: string | null;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
   images?: ProductImageInput[];
 }
 

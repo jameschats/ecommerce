@@ -11,8 +11,12 @@ public class Product : ITenantScoped
     public string Sku { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
+    public string? ProductType { get; set; }
+    public string? Tags { get; set; }                // comma-separated
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
+    public string? MetaTitle { get; set; }
+    public string? MetaDescription { get; set; }
     public string? HsnCode { get; set; }
     public decimal Price { get; set; }
     public decimal? CompareAtPrice { get; set; }

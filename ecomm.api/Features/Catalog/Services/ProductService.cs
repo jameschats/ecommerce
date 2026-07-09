@@ -120,8 +120,12 @@ public sealed class ProductService : IProductService
             Slug = await UniqueSlugAsync(req.Slug ?? req.Name, null, ct),
             CategoryId = req.CategoryId,
             BrandId = req.BrandId,
+            ProductType = req.ProductType?.Trim(),
+            Tags = NormalizeTags(req.Tags),
             ShortDescription = req.ShortDescription,
             Description = req.Description,
+            MetaTitle = req.MetaTitle?.Trim(),
+            MetaDescription = req.MetaDescription?.Trim(),
             HsnCode = req.HsnCode,
             Price = req.Price,
             CompareAtPrice = req.CompareAtPrice,
@@ -156,8 +160,12 @@ public sealed class ProductService : IProductService
         product.Slug = await UniqueSlugAsync(req.Slug ?? req.Name, id, ct);
         product.CategoryId = req.CategoryId;
         product.BrandId = req.BrandId;
+        product.ProductType = req.ProductType?.Trim();
+        product.Tags = NormalizeTags(req.Tags);
         product.ShortDescription = req.ShortDescription;
         product.Description = req.Description;
+        product.MetaTitle = req.MetaTitle?.Trim();
+        product.MetaDescription = req.MetaDescription?.Trim();
         product.HsnCode = req.HsnCode;
         product.Price = req.Price;
         product.CompareAtPrice = req.CompareAtPrice;
@@ -208,8 +216,13 @@ public sealed class ProductService : IProductService
             p.AttributeValues
                 .Select(a => new ProductAttributeValueDto(a.ProductAttributeValueId, a.AttributeId, a.Attribute!.Name,
                     a.AttributeValueId, a.Value != null ? a.Value.Value : null, a.ValueText))
-                .ToList()))
+                .ToList(),
+            p.ProductType, p.Tags, p.MetaTitle, p.MetaDescription))
         .FirstOrDefaultAsync(ct);
+
+    private static string? NormalizeTags(string? tags) =>
+        string.IsNullOrWhiteSpace(tags) ? null
+        : string.Join(",", tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct());
 
     private static void Validate(SaveProductRequest req)
     {

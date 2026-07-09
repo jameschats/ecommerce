@@ -50,6 +50,16 @@
       <div><label class="lbl">Description</label><textarea [(ngModel)]="form.description" rows="4" class="input"></textarea></div>
       <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.isFeatured" /> Featured</label>
 
+      <div class="grid sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+        <div><label class="lbl">Product type</label><input [(ngModel)]="form.productType" class="input" placeholder="e.g. T-Shirt" /></div>
+        <div><label class="lbl">Tags (comma-separated)</label><input [(ngModel)]="form.tags" class="input" placeholder="summer, sale" /></div>
+      </div>
+      <div>
+        <label class="lbl">Search engine listing (SEO)</label>
+        <input [(ngModel)]="form.metaTitle" class="input mb-2" placeholder="Meta title (defaults to product name)" />
+        <textarea [(ngModel)]="form.metaDescription" rows="2" class="input" placeholder="Meta description for Google"></textarea>
+      </div>
+
       <!-- Images -->
       <div>
         <div class="flex items-center justify-between mb-2">

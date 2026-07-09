@@ -61,7 +61,8 @@ export class AdminProductFormComponent implements OnInit {
   private blank(): SaveProductRequest {
     return {
       sku: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
-      shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false, images: [],
+      shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false,
+      productType: '', tags: '', metaTitle: '', metaDescription: '', images: [],
     };
   }
 
@@ -78,6 +79,7 @@ export class AdminProductFormComponent implements OnInit {
           price: p.price, compareAtPrice: p.compareAtPrice, costPrice: p.costPrice,
           shortDescription: p.shortDescription, description: p.description, hsnCode: p.hsnCode,
           status: p.status, isFeatured: p.isFeatured,
+          productType: p.productType, tags: p.tags, metaTitle: p.metaTitle, metaDescription: p.metaDescription,
           images: p.images.map((i) => ({ url: i.url, altText: i.altText, displayOrder: i.displayOrder, isPrimary: i.isPrimary })),
         };
         this.variants.set(p.variants);
