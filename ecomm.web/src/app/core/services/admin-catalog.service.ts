@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
   AttributeDef,
+  Dashboard,
   ImportJobResult,
   InventoryImportResult,
   InventoryRow,
@@ -165,5 +166,10 @@ export class AdminCatalogService {
   }
   updateStoreSettings(body: StoreSettings): Observable<StoreSettings> {
     return this.unwrap(this.http.put<ApiResponse<StoreSettings>>(`${this.base}/store/settings`, body));
+  }
+
+  // ----- Admin home dashboard -----
+  getDashboard(): Observable<Dashboard> {
+    return this.unwrap(this.http.get<ApiResponse<Dashboard>>(`${this.base}/dashboard`));
   }
 }

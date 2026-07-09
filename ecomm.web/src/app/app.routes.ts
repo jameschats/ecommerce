@@ -67,7 +67,7 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadComponent: () => import('./features/admin/admin-layout.component').then((m) => m.AdminLayoutComponent),
     children: [
-      { path: '', redirectTo: 'products', pathMatch: 'full' },
+      { path: '', loadComponent: () => import('./features/admin/home/admin-home.component').then((m) => m.AdminHomeComponent) },
       { path: 'products', loadComponent: () => import('./features/admin/catalog/admin-products.component').then((m) => m.AdminProductsComponent) },
       { path: 'products/new', loadComponent: () => import('./features/admin/catalog/admin-product-form.component').then((m) => m.AdminProductFormComponent) },
       { path: 'products/:id', loadComponent: () => import('./features/admin/catalog/admin-product-form.component').then((m) => m.AdminProductFormComponent) },

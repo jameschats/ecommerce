@@ -9,12 +9,32 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
   template: `
     <div class="max-w-2xl mx-auto p-6">
       <h1 class="text-xl font-bold text-slate-900 mb-1">Store settings</h1>
-      <p class="text-sm text-slate-500 mb-5">Tax display and store identity used on invoices.</p>
+      <p class="text-sm text-slate-500 mb-5">Your store profile, tax display and checkout options.</p>
 
       @if (loading()) {
         <p class="text-slate-400 text-sm">Loading…</p>
       } @else {
         <form (ngSubmit)="save()" class="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+          <!-- Store profile -->
+          <div>
+            <h2 class="text-sm font-semibold text-slate-800 mb-2">Store profile</h2>
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div><label class="lbl">Contact email</label><input class="input" type="email" [(ngModel)]="form.storeEmail" name="email" placeholder="hello@yourstore.com" /></div>
+              <div><label class="lbl">Contact phone</label><input class="input" [(ngModel)]="form.storePhone" name="phone" placeholder="+91…" /></div>
+              <div class="sm:col-span-2"><label class="lbl">Store address</label><textarea class="input" rows="2" [(ngModel)]="form.storeAddress" name="address" placeholder="Street, city, state, PIN"></textarea></div>
+              <div>
+                <label class="lbl">Timezone</label>
+                <select class="input" [(ngModel)]="form.timezone" name="timezone">
+                  <option value="">Select…</option>
+                  @for (tz of timezones; track tz) { <option [value]="tz">{{ tz }}</option> }
+                </select>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Used on invoices, notifications and your contact page.</p>
+          </div>
+
+          <div class="border-t border-slate-100 pt-4"></div>
+
           <!-- Tax mode -->
           <div>
             <label class="lbl">GST / Tax mode</label>
@@ -70,11 +90,18 @@ export class AdminStoreSettingsComponent implements OnInit {
     { value: 'None', label: 'None (no GST)', hint: 'Unregistered/composition seller — invoice is a Bill of Supply.' },
   ];
 
+  readonly timezones = [
+    'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'UTC',
+  ];
+
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly saved = signal(false);
   readonly error = signal<string | null>(null);
-  form: StoreSettings = { taxMode: 'Exclusive', storeState: '', storeGstin: '', storeLegalName: '', codEnabled: false };
+  form: StoreSettings = {
+    taxMode: 'Exclusive', storeState: '', storeGstin: '', storeLegalName: '', codEnabled: false,
+    storeEmail: '', storePhone: '', storeAddress: '', timezone: '',
+  };
 
   ngOnInit(): void {
     this.api.getStoreSettings().subscribe({

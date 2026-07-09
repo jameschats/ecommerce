@@ -6,8 +6,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Settings;
 
-public sealed record StoreSettingsDto(string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled);
-public sealed record UpdateStoreSettingsRequest(string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled);
+public sealed record StoreSettingsDto(
+    string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled,
+    string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone);
+public sealed record UpdateStoreSettingsRequest(
+    string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled,
+    string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone);
 
 public interface IStoreSettingsService
 {
@@ -18,7 +22,11 @@ public interface IStoreSettingsService
 public sealed class StoreSettingsService : IStoreSettingsService
 {
     private long Tenant => _db.CurrentTenantId;
-    private static readonly string[] Keys = { "TaxMode", "StoreState", "StoreGstin", "StoreLegalName", "CodEnabled" };
+    private static readonly string[] Keys =
+    {
+        "TaxMode", "StoreState", "StoreGstin", "StoreLegalName", "CodEnabled",
+        "StoreEmail", "StorePhone", "StoreAddress", "Timezone",
+    };
     private static readonly string[] Modes = { TaxMode.Exclusive, TaxMode.Inclusive, TaxMode.None };
 
     private readonly EcommerceDbContext _db;
@@ -33,7 +41,11 @@ public sealed class StoreSettingsService : IStoreSettingsService
             s.GetValueOrDefault("StoreState"),
             s.GetValueOrDefault("StoreGstin"),
             s.GetValueOrDefault("StoreLegalName"),
-            string.Equals(s.GetValueOrDefault("CodEnabled"), "true", StringComparison.OrdinalIgnoreCase));
+            string.Equals(s.GetValueOrDefault("CodEnabled"), "true", StringComparison.OrdinalIgnoreCase),
+            s.GetValueOrDefault("StoreEmail"),
+            s.GetValueOrDefault("StorePhone"),
+            s.GetValueOrDefault("StoreAddress"),
+            s.GetValueOrDefault("Timezone"));
     }
 
     public async Task<StoreSettingsDto> UpdateAsync(UpdateStoreSettingsRequest req, CancellationToken ct = default)
@@ -46,6 +58,10 @@ public sealed class StoreSettingsService : IStoreSettingsService
         await UpsertAsync("StoreGstin", req.StoreGstin?.Trim(), ct);
         await UpsertAsync("StoreLegalName", req.StoreLegalName?.Trim(), ct);
         await UpsertAsync("CodEnabled", req.CodEnabled ? "true" : "false", ct);
+        await UpsertAsync("StoreEmail", req.StoreEmail?.Trim(), ct);
+        await UpsertAsync("StorePhone", req.StorePhone?.Trim(), ct);
+        await UpsertAsync("StoreAddress", req.StoreAddress?.Trim(), ct);
+        await UpsertAsync("Timezone", req.Timezone?.Trim(), ct);
         await _db.SaveChangesAsync(ct);
         return await GetAsync(ct);
     }

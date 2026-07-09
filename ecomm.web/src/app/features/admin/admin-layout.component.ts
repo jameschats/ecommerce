@@ -13,6 +13,7 @@ import { AuthService } from '../../core/services/auth.service';
         <nav class="flex-1 p-3 space-y-1 text-sm">
           @for (l of links; track l.path) {
             <a [routerLink]="l.path" routerLinkActive="bg-blue-50 text-blue-700 font-medium"
+               [routerLinkActiveOptions]="{ exact: l.exact ?? false }"
                class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">{{ l.label }}</a>
           }
         </nav>
@@ -36,7 +37,8 @@ export class AdminLayoutComponent {
 
   readonly umamiUrl = UMAMI_DASHBOARD_URL;
 
-  readonly links = [
+  readonly links: { path: string; label: string; exact?: boolean }[] = [
+    { path: '/admin', label: 'Home', exact: true },
     { path: '/admin/analytics', label: 'Analytics' },
     { path: '/admin/products', label: 'Products' },
     { path: '/admin/categories', label: 'Categories' },
