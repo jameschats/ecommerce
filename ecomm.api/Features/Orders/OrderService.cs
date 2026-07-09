@@ -420,7 +420,7 @@ public sealed class OrderService : IOrderService
 
     // ---------------- Reads ----------------
     public Task<List<OrderListItem>> ListMineAsync(long userId, CancellationToken ct = default) =>
-        _db.Orders.Where(o => o.UserId == userId && o.TenantId == Tenant)
+        _db.Orders.Where(o => o.UserId == userId && o.TenantId == Tenant && o.Status != "Draft")
             .OrderByDescending(o => o.OrderId)
             .Select(o => new OrderListItem(
                 o.OrderId, o.OrderNumber, o.Status, o.TotalAmount,
@@ -467,7 +467,7 @@ public sealed class OrderService : IOrderService
     public async Task<PagedResult<OrderListItem>> ListAllAsync(string? status, int page, int pageSize, CancellationToken ct = default)
     {
         page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
-        var q = _db.Orders.Where(o => o.TenantId == Tenant);
+        var q = _db.Orders.Where(o => o.TenantId == Tenant && o.Status != "Draft");   // drafts live in their own screen
         if (!string.IsNullOrWhiteSpace(status)) q = q.Where(o => o.Status == status);
         var total = await q.LongCountAsync(ct);
         var items = await q.OrderByDescending(o => o.OrderId).Skip((page - 1) * pageSize).Take(pageSize)
