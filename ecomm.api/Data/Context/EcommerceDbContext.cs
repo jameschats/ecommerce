@@ -51,6 +51,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<ProductCollection> ProductCollections => Set<ProductCollection>();
+    public DbSet<Menu> Menus => Set<Menu>();
+    public DbSet<UrlRedirect> UrlRedirects => Set<UrlRedirect>();
 
     // --- Import jobs ---
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
@@ -223,6 +225,8 @@ public class EcommerceDbContext : DbContext
             e.Property(x => x.RulesJson).HasColumnType("json");
         });
         b.Entity<ProductCollection>(e => { e.ToTable("ProductCollections"); e.HasKey(x => x.ProductCollectionId); });
+        b.Entity<Menu>(e => { e.ToTable("Menus"); e.HasKey(x => x.MenuId); e.Property(x => x.ItemsJson).HasColumnType("json"); });
+        b.Entity<UrlRedirect>(e => { e.ToTable("UrlRedirects"); e.HasKey(x => x.UrlRedirectId); });
 
         // --- Import jobs ---
         b.Entity<ImportJob>(e => { e.ToTable("ImportJobs"); e.HasKey(x => x.ImportJobId); });

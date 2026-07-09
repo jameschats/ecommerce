@@ -59,6 +59,7 @@ export class AdminLayoutComponent {
     { path: '/admin/staff', label: 'Staff' },
     { path: '/admin/theme', label: 'Theme' },
     { path: '/admin/pages', label: 'Pages' },
+    { path: '/admin/navigation', label: 'Navigation' },
     { path: '/admin/home-page', label: 'Home page' },
     { path: '/admin/banners', label: 'Banners' },
     { path: '/admin/import', label: 'Import / Export' },
