@@ -95,7 +95,7 @@ This single decision keeps V2 additive.
 | Email/SMS | Single sender identity | Per-tenant sender name + reply-to |
 | Logging | Serilog | Add a **`TenantId` enricher** to every log entry |
 | Billing (new) | — | **Razorpay Subscriptions** — you charge merchants monthly |
-| Frontend | One Angular app | Split into **storefront** + **merchant-admin** + **super-admin** |
+| Frontend | One Angular app | **Stays one app**, host-aware (storefront · merchant-admin · super-admin) — see [ADR-001](v2-stages/v2-stage-3-super-admin.md#adr-001) |
 
 ### Repository layout (target)
 ```
@@ -109,9 +109,8 @@ ecommerce/
 │   │   ├── Subscriptions/      ← NEW: plans, billing, trials, webhooks
 │   │   └── SuperAdmin/         ← NEW: platform-wide management APIs
 │   └── ecomm.api.csproj
-├── ecomm.web/                  ← existing storefront (now tenant-aware via subdomain)
-├── ecomm.merchant-admin/       ← NEW: per-merchant admin portal (Angular)
-├── ecomm.superadmin/           ← NEW: platform super-admin app (Angular)
+├── ecomm.web/                  ← ONE Angular app, host-aware: storefront + merchant-admin (/admin)
+│                                 + super-admin (/superadmin). NOT split into separate apps — see ADR-001.
 └── database/migrations/
     ├── 001–099  ← V1, frozen (currently at 029; never modify applied scripts)
     └── 100–199  ← V2 tables + indexes

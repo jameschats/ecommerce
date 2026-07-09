@@ -2,6 +2,26 @@
 
 **Goal:** you, the platform owner, manage all tenants — their people, standing, plans, and platform revenue — and govern quality/trust across the platform. The **only** place cross-tenant queries are allowed.
 
+---
+
+## ADR-001 — Super admin lives in the same app + same API (not a separate app)  *(decided 2026-07-09)*
+
+**Decision.** The platform/super-admin console ships as part of the **existing single API (`ecomm.api`) and single Angular app (`ecomm.web`)** — **not** as a separate `ecomm.superadmin` (or `ecomm.merchant-admin`) application. This **supersedes** the earlier draft in [design-v2.md §5](../design-v2.md) that listed `ecomm.merchant-admin/` and `ecomm.superadmin/` as separate Angular apps.
+
+**Context.** There are three surfaces: **storefront** (per-tenant, public), **merchant admin** (per-tenant), and **platform/super admin** (cross-tenant, platform owner only). Only the last is cross-tenant, which is what tempts a separate app.
+
+**Rationale.**
+- **One backend is already correct** — the multi-tenant schema, EF Core global query filters, and the `Features/SuperAdmin` slice (with `IgnoreQueryFilters()` *confined* to that slice) all live cleanly in `ecomm.api`. Splitting the API duplicates entities/tables and invites drift.
+- **A second SPA is over-engineering today** — the console is ~one dashboard; a separate app duplicates auth, the HTTP/API client, interceptors, models, theming, and the build+deploy pipeline.
+- **Extraction stays cheap later** — keep the `SuperAdmin` backend slice cohesive and the `/superadmin` frontend routes isolated, so pulling it into its own app remains a lazy option if it ever grows into a product.
+
+**The clean seam (planned refinement).** Give the console a **dedicated host** — `admin.wavcommerce.online` — that `TenantResolutionMiddleware` resolves to a **"platform context" (no tenant)** rather than a tenant:
+- On the `admin.` host, the Angular app boots straight into the super-admin shell (no storefront chrome; no "Platform admin" link leaking into merchant stores).
+- Super-admin endpoints require the **`SuperAdmin` role AND platform context**.
+- This also sidesteps the **JWT tenant-claim/host-check conflict** — the platform host is explicitly "no tenant", so its token doesn't need to match a tenant.
+
+**Current state.** Implemented in the same app at **`/superadmin`** (guarded by `superAdminGuard`); `admin@ecommerce.local` holds both `Admin` + `SuperAdmin` roles (migration 120). The **dedicated-host seam above is the planned refinement** — not yet built; today the console rides the apex/tenant-1 context.
+
 ## Scope & checklist
 
 ### 3a. Store directory + contacts
