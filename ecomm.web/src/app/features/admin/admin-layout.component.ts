@@ -42,6 +42,7 @@ export class AdminLayoutComponent {
     { path: '/admin/analytics', label: 'Analytics' },
     { path: '/admin/products', label: 'Products' },
     { path: '/admin/categories', label: 'Categories' },
+    { path: '/admin/collections', label: 'Collections' },
     { path: '/admin/brands', label: 'Brands' },
     { path: '/admin/attributes', label: 'Attributes' },
     { path: '/admin/inventory', label: 'Inventory' },

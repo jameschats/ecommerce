@@ -49,6 +49,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<AttributeDefinition> Attributes => Set<AttributeDefinition>();
     public DbSet<AttributeValue> AttributeValues => Set<AttributeValue>();
     public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
+    public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<ProductCollection> ProductCollections => Set<ProductCollection>();
 
     // --- Import jobs ---
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
@@ -212,6 +214,14 @@ public class EcommerceDbContext : DbContext
 
         b.Entity<Product>().HasMany(p => p.Variants).WithOne(v => v.Product!).HasForeignKey(v => v.ProductId);
         b.Entity<Product>().HasMany(p => p.AttributeValues).WithOne(a => a.Product!).HasForeignKey(a => a.ProductId);
+
+        b.Entity<Collection>(e =>
+        {
+            e.ToTable("Collections");
+            e.HasKey(x => x.CollectionId);
+            e.Property(x => x.RulesJson).HasColumnType("json");
+        });
+        b.Entity<ProductCollection>(e => { e.ToTable("ProductCollections"); e.HasKey(x => x.ProductCollectionId); });
 
         // --- Import jobs ---
         b.Entity<ImportJob>(e => { e.ToTable("ImportJobs"); e.HasKey(x => x.ImportJobId); });

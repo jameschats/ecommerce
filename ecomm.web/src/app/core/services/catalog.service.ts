@@ -5,6 +5,12 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
 import { Brand, Category, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
 
+export interface PublicCollectionProduct { productId: number; name: string; slug: string; price: number; primaryImageUrl: string | null; }
+export interface PublicCollection {
+  collectionId: number; name: string; slug: string; description: string | null; imageUrl: string | null;
+  metaTitle: string | null; metaDescription: string | null; products: PublicCollectionProduct[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
   private readonly http = inject(HttpClient);
@@ -27,6 +33,13 @@ export class CatalogService {
     return this.http.get<ApiResponse<Brand[]>>(`${this.base}/brands`).pipe(
       map((r) => r.data ?? []),
       catchError(() => of([])),
+    );
+  }
+
+  getCollection(slug: string): Observable<PublicCollection | null> {
+    return this.http.get<ApiResponse<PublicCollection>>(`${this.base}/collections/${encodeURIComponent(slug)}`).pipe(
+      map((r) => r.data ?? null),
+      catchError(() => of(null)),
     );
   }
 
