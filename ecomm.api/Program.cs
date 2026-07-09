@@ -9,6 +9,7 @@ using ecomm.api.Features.Auth;
 using ecomm.api.Features.Auth.Services;
 using ecomm.api.Features.Payments;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -137,15 +138,33 @@ builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ec
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();
 builder.Services.AddScoped<ecomm.api.Features.Customers.ICustomerAdminService, ecomm.api.Features.Customers.CustomerAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Staff.IStaffAdminService, ecomm.api.Features.Staff.StaffAdminService>();
+builder.Services.AddScoped<ecomm.api.Features.Payments.IPaymentSettingsService, ecomm.api.Features.Payments.PaymentSettingsService>();
+builder.Services.AddDataProtection();   // encrypts per-tenant payment secrets at rest
+// Tenant-aware payment gateway: prefer the current tenant's own Razorpay config
+// (TenantPaymentAccounts, secret decrypted), else fall back to the app-wide Payments config, else Mock.
 builder.Services.AddScoped<IPaymentGateway>(sp =>
 {
+    var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var db = sp.GetRequiredService<ecomm.api.Data.Context.EcommerceDbContext>();
+    var acct = db.TenantPaymentAccounts.AsNoTracking().FirstOrDefault();   // tenant-scoped by global filter
+    if (acct is { IsEnabled: true } && acct.Provider.Equals("Razorpay", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(acct.RazorpayKeyId) && !string.IsNullOrEmpty(acct.RazorpayKeySecret))
+    {
+        try
+        {
+            var protector = sp.GetRequiredService<IDataProtectionProvider>()
+                .CreateProtector(ecomm.api.Features.Payments.PaymentSettingsService.ProtectorPurpose);
+            var secret = protector.Unprotect(acct.RazorpayKeySecret!);
+            return new RazorpayPaymentGateway(httpFactory.CreateClient("razorpay"), acct.RazorpayKeyId!, secret);
+        }
+        catch { /* corrupt/rotated key material → fall through to app default */ }
+    }
+
     var opt = sp.GetRequiredService<IOptions<PaymentOptions>>().Value;
     if (opt.Provider.Equals("Razorpay", StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(opt.RazorpayKeyId) && !string.IsNullOrWhiteSpace(opt.RazorpayKeySecret))
-    {
-        var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("razorpay");
-        return new RazorpayPaymentGateway(http, opt.RazorpayKeyId!, opt.RazorpayKeySecret!);
-    }
+        return new RazorpayPaymentGateway(httpFactory.CreateClient("razorpay"), opt.RazorpayKeyId!, opt.RazorpayKeySecret!);
+
     return new MockPaymentGateway();
 });
 
