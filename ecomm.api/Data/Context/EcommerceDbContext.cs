@@ -70,6 +70,7 @@ public class EcommerceDbContext : DbContext
 
     // --- Shopping ---
     public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
+    public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
 
@@ -252,6 +253,7 @@ public class EcommerceDbContext : DbContext
 
         // --- Shopping ---
         b.Entity<CustomerAddress>(e => { e.ToTable("CustomerAddresses"); e.HasKey(x => x.CustomerAddressId); });
+        b.Entity<CustomerProfile>(e => { e.ToTable("CustomerProfiles"); e.HasKey(x => x.CustomerProfileId); });
         b.Entity<Cart>(e =>
         {
             e.ToTable("Cart");

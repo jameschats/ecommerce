@@ -47,6 +47,7 @@ export class AdminLayoutComponent {
     { path: '/admin/inventory', label: 'Inventory' },
     { path: '/admin/suppliers', label: 'Suppliers' },
     { path: '/admin/orders', label: 'Orders' },
+    { path: '/admin/customers', label: 'Customers' },
     { path: '/admin/notifications', label: 'Notifications' },
     { path: '/admin/reviews', label: 'Reviews' },
     { path: '/admin/coupons', label: 'Coupons' },
