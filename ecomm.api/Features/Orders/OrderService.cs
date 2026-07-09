@@ -119,8 +119,9 @@ public sealed class OrderService : IOrderService
         var message = address is null ? "Select a delivery address." : ship.Message;
         var charge = serviceable ? ship.Charge : 0m;
 
-        // Coupon (order-level discount off the subtotal; tax is computed pre-discount for V1).
+        // Discount: a typed code, else the best automatic offer. Off the subtotal; tax is computed pre-discount for V1.
         var coupon = await _coupons.EvaluateAsync(couponCode, userId, subtotal, ct);
+        if (coupon.Ok && coupon.FreeShipping) charge = 0m;   // free-shipping offer
 
         // Exclusive adds tax on top; Inclusive/None already have it in the listed price.
         var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + charge - coupon.Discount;
@@ -168,14 +169,15 @@ public sealed class OrderService : IOrderService
         }
         var ship = await _shipping.QuoteAsync(shipAddr.Pincode, subtotal, ct);
         if (!ship.Serviceable) throw new AppException(ship.Message ?? "This address is not serviceable.");
-        var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + ship.Charge;
 
-        // Coupon: re-validate server-side (never trust a client-computed discount).
+        // Discount: re-validate server-side (never trust a client-computed discount). A typed code that
+        // fails is an error; a blank code still applies the best automatic offer.
         var coupon = await _coupons.EvaluateAsync(req.CouponCode, userId, subtotal, ct);
         if (!string.IsNullOrWhiteSpace(req.CouponCode) && !coupon.Ok)
             throw new AppException(coupon.Error ?? "That coupon can't be applied.");
         var discount = coupon.Discount;
-        total -= discount;
+        var shippingCharge = coupon is { Ok: true, FreeShipping: true } ? 0m : ship.Charge;
+        var total = subtotal + (mode == TaxMode.Exclusive ? taxTotal : 0m) + shippingCharge - discount;
         if (total < 0m) total = 0m;
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
@@ -191,10 +193,11 @@ public sealed class OrderService : IOrderService
                 ShippingAddressId = shipAddr.CustomerAddressId,
                 ShippingMethodId = ship.MethodId,
                 Currency = "INR",
+                CouponId = coupon.Ok ? coupon.CouponId : null,
                 Subtotal = subtotal,
                 DiscountAmount = discount,
                 TaxAmount = taxTotal,
-                ShippingAmount = ship.Charge,
+                ShippingAmount = shippingCharge,
                 TotalAmount = total,
                 Notes = req.Notes,
                 CreatedAt = DateTime.UtcNow,

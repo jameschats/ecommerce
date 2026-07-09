@@ -6,9 +6,11 @@ public class Coupon : ITenantScoped
     public long CouponId { get; set; }
     public long TenantId { get; set; } = 1;
     public string Code { get; set; } = string.Empty;
+    public string Method { get; set; } = "Code";       // Code | Automatic (applies at checkout with no code)
     public string? Description { get; set; }
     public string DiscountType { get; set; } = "Flat"; // Flat | Percentage
     public decimal DiscountValue { get; set; }
+    public bool FreeShipping { get; set; }             // also/instead grants free shipping
     public decimal? MaxDiscountAmount { get; set; }     // cap for percentage coupons
     public decimal? MinOrderAmount { get; set; }
     public int? UsageLimit { get; set; }                // total redemptions allowed

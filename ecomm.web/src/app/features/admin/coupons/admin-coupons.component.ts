@@ -10,19 +10,24 @@ import { CouponService } from '../../../core/services/coupon.service';
   template: `
     <div class="max-w-4xl mx-auto p-6">
       <div class="flex items-center justify-between mb-1">
-        <h1 class="text-xl font-bold text-slate-900">Coupons</h1>
-        <button type="button" (click)="startNew()" class="btn-primary">+ New coupon</button>
+        <h1 class="text-xl font-bold text-slate-900">Discounts</h1>
+        <button type="button" (click)="startNew()" class="btn-primary">+ New discount</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Discount codes customers apply at checkout.</p>
+      <p class="text-sm text-slate-500 mb-4">Discount codes customers enter, or automatic offers applied at checkout.</p>
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
       @if (editing()) {
         <div class="bg-white border border-slate-200 rounded-xl p-4 mb-5">
-          <h2 class="font-semibold text-slate-800 mb-3">{{ form.couponId ? 'Edit coupon' : 'New coupon' }}</h2>
+          <h2 class="font-semibold text-slate-800 mb-3">{{ form.couponId ? 'Edit discount' : 'New discount' }}</h2>
           <div class="grid sm:grid-cols-2 gap-3">
-            <label class="block"><span class="lbl">Code</span>
-              <input [(ngModel)]="form.code" name="code" placeholder="SAVE10" class="input w-full uppercase" /></label>
+            <label class="block"><span class="lbl">Method</span>
+              <select [(ngModel)]="form.method" name="method" class="input w-full">
+                <option value="Code">Discount code (customer types it)</option>
+                <option value="Automatic">Automatic (applied at checkout)</option>
+              </select></label>
+            <label class="block"><span class="lbl">{{ form.method === 'Automatic' ? 'Name' : 'Code' }}</span>
+              <input [(ngModel)]="form.code" name="code" [placeholder]="form.method === 'Automatic' ? 'AUTUMN-SALE' : 'SAVE10'" class="input w-full uppercase" /></label>
             <label class="block"><span class="lbl">Description</span>
               <input [(ngModel)]="form.description" name="desc" placeholder="10% off" class="input w-full" /></label>
             <label class="block"><span class="lbl">Type</span>
@@ -30,7 +35,7 @@ import { CouponService } from '../../../core/services/coupon.service';
                 <option value="Flat">Flat (₹)</option>
                 <option value="Percentage">Percentage (%)</option>
               </select></label>
-            <label class="block"><span class="lbl">Value</span>
+            <label class="block"><span class="lbl">Value {{ form.freeShipping ? '(optional)' : '' }}</span>
               <input type="number" [(ngModel)]="form.discountValue" name="val" class="input w-full" /></label>
             @if (form.discountType === 'Percentage') {
               <label class="block"><span class="lbl">Max discount (₹, optional)</span>
@@ -47,9 +52,14 @@ import { CouponService } from '../../../core/services/coupon.service';
             <label class="block"><span class="lbl">Ends (optional)</span>
               <input type="date" [(ngModel)]="form.endsAt" name="ea" class="input w-full" /></label>
           </div>
-          <label class="flex items-center gap-2 text-sm text-slate-600 mt-3">
-            <input type="checkbox" [(ngModel)]="form.isActive" name="active" /> Active
-          </label>
+          <div class="flex flex-wrap gap-x-6 gap-y-2 mt-3">
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" [(ngModel)]="form.freeShipping" name="freeship" /> Also give free shipping
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" [(ngModel)]="form.isActive" name="active" /> Active
+            </label>
+          </div>
           <div class="flex gap-2 mt-4">
             <button type="button" (click)="save()" [disabled]="saving()" class="btn-primary">{{ saving() ? 'Saving…' : 'Save' }}</button>
             <button type="button" (click)="editing.set(false)" class="px-4 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50">Cancel</button>
@@ -63,13 +73,18 @@ import { CouponService } from '../../../core/services/coupon.service';
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-left text-slate-400 border-b border-slate-200">
-              <tr><th class="py-2">Code</th><th>Discount</th><th>Min order</th><th>Used</th><th>Window</th><th>Status</th><th></th></tr>
+              <tr><th class="py-2">Code / name</th><th>Discount</th><th>Min order</th><th>Used</th><th>Window</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
               @for (c of coupons(); track c.couponId) {
                 <tr class="border-b border-slate-100">
-                  <td class="py-2 font-medium text-slate-800">{{ c.code }}<div class="text-xs text-slate-400 font-normal">{{ c.description }}</div></td>
-                  <td>{{ c.discountType === 'Percentage' ? c.discountValue + '%' : ('₹' + c.discountValue) }}<span class="text-xs text-slate-400">{{ c.discountType === 'Percentage' && c.maxDiscountAmount ? ' (max ₹' + c.maxDiscountAmount + ')' : '' }}</span></td>
+                  <td class="py-2 font-medium text-slate-800">{{ c.code }}
+                    @if (c.method === 'Automatic') { <span class="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1 py-0.5 rounded ml-1 align-middle">auto</span> }
+                    <div class="text-xs text-slate-400 font-normal">{{ c.description }}</div></td>
+                  <td>
+                    @if (c.discountValue > 0) { {{ c.discountType === 'Percentage' ? c.discountValue + '%' : ('₹' + c.discountValue) }}<span class="text-xs text-slate-400">{{ c.discountType === 'Percentage' && c.maxDiscountAmount ? ' (max ₹' + c.maxDiscountAmount + ')' : '' }}</span> }
+                    @if (c.freeShipping) { <span class="text-xs text-green-600">{{ c.discountValue > 0 ? ' + ' : '' }}free ship</span> }
+                  </td>
                   <td>{{ c.minOrderAmount ? ('₹' + c.minOrderAmount) : '—' }}</td>
                   <td>{{ c.usedCount }}{{ c.usageLimit ? ' / ' + c.usageLimit : '' }}</td>
                   <td class="text-xs text-slate-500">{{ c.startsAt ? (c.startsAt | date:'dd MMM') : '—' }} → {{ c.endsAt ? (c.endsAt | date:'dd MMM') : '—' }}</td>
@@ -102,8 +117,8 @@ export class AdminCouponsComponent implements OnInit {
   ngOnInit(): void { this.load(); }
 
   private blank(): SaveCouponRequest & { couponId?: number } {
-    return { code: '', description: null, discountType: 'Flat', discountValue: 0, maxDiscountAmount: null,
-      minOrderAmount: null, usageLimit: null, perUserLimit: null, startsAt: null, endsAt: null, isActive: true };
+    return { code: '', method: 'Code', description: null, discountType: 'Flat', discountValue: 0, freeShipping: false,
+      maxDiscountAmount: null, minOrderAmount: null, usageLimit: null, perUserLimit: null, startsAt: null, endsAt: null, isActive: true };
   }
 
   private load(): void {
