@@ -74,9 +74,12 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly colB = this.testimonials.filter((_, i) => i % 2 === 1);
 
   ngOnInit(): void {
+    // Merchant-configured store SEO (Preferences) overrides the defaults when present.
+    const storeSeo = (this.route.snapshot.data['home'] as HomeData | undefined)?.seo;
     this.seo.setMeta({
-      title: 'CalendarShop — Custom 2026 Calendars: Wall, Desk, Pocket & More',
-      description: 'Personalized 2026 calendars — wall, desk, tent, pocket, magnet & mouse-pad. Add your photos, brand name and logo. Fast delivery, great prices.',
+      title: storeSeo?.title || 'CalendarShop — Custom 2026 Calendars: Wall, Desk, Pocket & More',
+      description: storeSeo?.description || 'Personalized 2026 calendars — wall, desk, tent, pocket, magnet & mouse-pad. Add your photos, brand name and logo. Fast delivery, great prices.',
+      image: storeSeo?.image || undefined,
       url: `${SITE_URL}/`,
     });
     this.seo.setJsonLd([

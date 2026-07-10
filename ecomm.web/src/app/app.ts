@@ -1,6 +1,8 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { STORE_UNLOCK_KEY, isGateExempt } from './core/services/store-gate';
 import { Subject, debounceTime, distinctUntilChanged, filter, of, switchMap } from 'rxjs';
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
@@ -23,6 +25,7 @@ export class App implements OnInit {
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
   private readonly webAnalytics = inject(WebAnalyticsService);
+  private readonly platformId = inject(PLATFORM_ID);
 
   readonly user = this.auth.currentUser;
   readonly isAuthenticated = this.auth.isAuthenticated;
@@ -58,6 +61,8 @@ export class App implements OnInit {
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => this.isAdminRoute.set(e.urlAfterRedirects.startsWith('/admin')));
 
+    this.enforceStoreGate();
+
     this.searchInput$
       .pipe(
         debounceTime(180),
@@ -68,6 +73,30 @@ export class App implements OnInit {
         this.suggestions.set(s);
         this.showSuggest.set(s.length > 0);
       });
+  }
+
+  /**
+   * Pre-launch password gate. Browser-only (SSR renders normally to keep it crawlable/simple);
+   * if the store is gated and the visitor hasn't unlocked it, redirect storefront routes to /password.
+   * Admin/auth routes are exempt so the merchant can still sign in.
+   */
+  private enforceStoreGate(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (localStorage.getItem(STORE_UNLOCK_KEY) === '1') return;
+
+    this.catalog.getStoreGate().subscribe((g) => {
+      if (!g.passwordProtected) return;
+      const redirect = () => {
+        if (!isGateExempt(this.router.url)) this.router.navigateByUrl('/password');
+      };
+      redirect();
+      this.router.events
+        .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+        .subscribe((e) => {
+          if (localStorage.getItem(STORE_UNLOCK_KEY) === '1') return;
+          if (!isGateExempt(e.urlAfterRedirects)) this.router.navigateByUrl('/password');
+        });
+    });
   }
 
   onSearchInput(value: string): void {

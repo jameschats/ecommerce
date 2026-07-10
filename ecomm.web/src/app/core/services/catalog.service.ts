@@ -12,6 +12,8 @@ export interface PublicCollection {
 }
 export interface StorePolicy { handle: string; title: string; bodyHtml: string | null; hasContent: boolean; }
 export interface PolicyLink { handle: string; title: string; }
+export interface StoreSeo { title: string | null; description: string | null; image: string | null; }
+export interface StoreGate { passwordProtected: boolean; message: string | null; }
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
@@ -55,6 +57,25 @@ export class CatalogService {
     return this.http.get<ApiResponse<PolicyLink[]>>(`${this.base}/policies`).pipe(
       map((r) => r.data ?? []),
       catchError(() => of([])),
+    );
+  }
+
+  getStoreSeo(): Observable<StoreSeo> {
+    return this.http.get<ApiResponse<StoreSeo>>(`${this.base}/storefront/seo`).pipe(
+      map((r) => r.data ?? { title: null, description: null, image: null }),
+      catchError(() => of({ title: null, description: null, image: null } as StoreSeo)),
+    );
+  }
+  getStoreGate(): Observable<StoreGate> {
+    return this.http.get<ApiResponse<StoreGate>>(`${this.base}/storefront/gate`).pipe(
+      map((r) => r.data ?? { passwordProtected: false, message: null }),
+      catchError(() => of({ passwordProtected: false, message: null } as StoreGate)),
+    );
+  }
+  checkStoreGate(password: string): Observable<boolean> {
+    return this.http.post<ApiResponse<{ ok: boolean }>>(`${this.base}/storefront/gate`, { password }).pipe(
+      map((r) => r.data?.ok ?? false),
+      catchError(() => of(false)),
     );
   }
 

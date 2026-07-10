@@ -4,7 +4,7 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { HomeBanner } from '../../core/models/banner.model';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { BannerService } from '../../core/services/banner.service';
-import { CatalogService } from '../../core/services/catalog.service';
+import { CatalogService, StoreSeo } from '../../core/services/catalog.service';
 import { CmsService, HomeSection } from '../../core/services/cms.service';
 
 export interface HomeData {
@@ -13,6 +13,7 @@ export interface HomeData {
   categories: Category[];
   featured: ProductListItem[];
   newest: ProductListItem[];
+  seo: StoreSeo;
 }
 
 /**
@@ -37,5 +38,6 @@ export const homeResolver: ResolveFn<HomeData> = () => {
       map((r) => r.items),
       catchError(() => of([] as ProductListItem[])),
     ),
+    seo: catalog.getStoreSeo(),
   });
 };
