@@ -8,7 +8,8 @@ using Microsoft.Extensions.Options;
 namespace ecomm.api.Features.Hosting;
 
 public sealed record HostInfoDto(
-    string? Slug, string PlatformHost, bool IsCustomDomain, string HostType, string AdminUrl, string SuperAdminUrl);
+    string? Slug, string PlatformHost, bool IsCustomDomain, string HostType,
+    string StoreUrl, string AdminUrl, string SuperAdminUrl);
 
 /// <summary>
 /// Public: tells the storefront app which host it's on so it can keep the merchant/super-admin
@@ -25,7 +26,7 @@ public sealed class TenantHostController(
     {
         var t = await db.Tenants.AsNoTracking()
             .Where(x => x.TenantId == tenant.CurrentTenantId)
-            .Select(x => new { x.Slug, x.CustomDomain })
+            .Select(x => new { x.Slug, x.CustomDomain, x.CustomDomainVerified })
             .FirstOrDefaultAsync(ct);
 
         var baseDomain = (tenancy.Value.BaseDomain ?? "").ToLowerInvariant();
@@ -50,8 +51,15 @@ public sealed class TenantHostController(
             : host == baseDomain || host == $"www.{baseDomain}";
         var hostType = isCustomDomain ? "custom" : isApex ? "apex" : "store";
 
+        // The store's canonical primary URL: its verified custom domain if connected, else the platform
+        // subdomain. Storefront SEO (canonical + OG) uses this so each store indexes on its own domain.
+        var storeHost = t?.CustomDomainVerified == true && !string.IsNullOrEmpty(t.CustomDomain)
+            ? t.CustomDomain!
+            : platformHost;
+
         return Ok(ApiResponse<HostInfoDto>.Ok(new HostInfoDto(
             t?.Slug, platformHost, isCustomDomain, hostType,
+            StoreUrl: $"{scheme}://{storeHost}",
             AdminUrl: $"{scheme}://{platformHost}/admin",
             SuperAdminUrl: $"{scheme}://{apex}/superadmin")));
     }

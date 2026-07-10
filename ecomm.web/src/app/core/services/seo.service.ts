@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
+import { PlatformInfoService } from './platform-info.service';
 
 export interface SeoData {
   title: string;
@@ -20,6 +21,7 @@ export class SeoService {
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly doc = inject(DOCUMENT);
+  private readonly platform = inject(PlatformInfoService);
 
   setMeta(data: SeoData): void {
     const desc = data.description ?? '';
@@ -40,9 +42,23 @@ export class SeoService {
       this.meta.removeTag("name='twitter:image'");
     }
     if (data.url) {
-      this.meta.updateTag({ property: 'og:url', content: data.url });
-      this.setCanonical(data.url);
+      // Canonical/OG point at THIS store's primary domain (its verified custom domain, else its
+      // {slug} subdomain) — not the hardcoded platform SITE_URL. Set the incoming url immediately,
+      // then refine to the store's primary host once host-info resolves (SSR awaits the request).
+      const path = this.pathOf(data.url);
+      this.applyUrl(data.url);
+      this.platform.hostInfo().subscribe((info) => { if (info.storeUrl) this.applyUrl(info.storeUrl + path); });
     }
+  }
+
+  private applyUrl(url: string): void {
+    this.meta.updateTag({ property: 'og:url', content: url });
+    this.setCanonical(url);
+  }
+
+  /** Path + query of an absolute (or relative) URL. */
+  private pathOf(url: string): string {
+    try { const u = new URL(url); return u.pathname + u.search; } catch { return url.startsWith('/') ? url : `/${url}`; }
   }
 
   setCanonical(url: string): void {

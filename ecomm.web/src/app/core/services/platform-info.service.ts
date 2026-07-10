@@ -9,11 +9,12 @@ export interface HostInfo {
   platformHost: string;
   isCustomDomain: boolean;
   hostType: 'apex' | 'store' | 'custom';
+  storeUrl: string;
   adminUrl: string;
   superAdminUrl: string;
 }
 
-const SAFE_DEFAULT: HostInfo = { slug: null, platformHost: '', isCustomDomain: false, hostType: 'store', adminUrl: '/admin', superAdminUrl: '/superadmin' };
+const SAFE_DEFAULT: HostInfo = { slug: null, platformHost: '', isCustomDomain: false, hostType: 'store', storeUrl: '', adminUrl: '/admin', superAdminUrl: '/superadmin' };
 
 /**
  * Tells the app which host it's on. Used to keep the admin consoles off a merchant's
