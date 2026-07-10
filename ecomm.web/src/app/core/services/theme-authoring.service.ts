@@ -25,6 +25,10 @@ export class ThemeAuthoringService {
   private readonly base = `${API_BASE_URL}/admin/theme`;
   private unwrap<T>(o: Observable<ApiResponse<T>>): Observable<T> { return o.pipe(map((r) => r.data as T)); }
 
+  getSettings(themeId: number): Observable<Record<string, string>> { return this.unwrap(this.http.get<ApiResponse<Record<string, string>>>(`${this.base}/${themeId}/settings`)); }
+  saveSettings(themeId: number, settings: Record<string, string>): Observable<Record<string, string>> {
+    return this.unwrap(this.http.put<ApiResponse<Record<string, string>>>(`${this.base}/${themeId}/settings`, { settings }));
+  }
   templates(themeId: number): Observable<ThemeTemplateSummary[]> { return this.unwrap(this.http.get<ApiResponse<ThemeTemplateSummary[]>>(`${this.base}/${themeId}/templates`)); }
   sections(themeId: number, key: string): Observable<ThemeSectionAdmin[]> { return this.unwrap(this.http.get<ApiResponse<ThemeSectionAdmin[]>>(`${this.base}/${themeId}/templates/${key}/sections`)); }
   addSection(themeId: number, key: string, sectionType: string): Observable<ThemeSectionAdmin> {

@@ -115,5 +115,5 @@ export const routes: Routes = [
       { path: 'auth-providers', loadComponent: () => import('./features/admin/auth-providers/auth-providers.component').then((m) => m.AuthProvidersComponent) },
     ],
   },
-  { path: '**', redirectTo: '' },
+  { path: '**', loadComponent: () => import('./features/storefront/not-found.component').then((m) => m.NotFoundComponent) },
 ];

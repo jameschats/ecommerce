@@ -110,6 +110,25 @@ public class ThemeAuthoringTests
     }
 
     [Fact]
+    public async Task Theme_settings_upsert_and_round_trip()
+    {
+        var (db, svc, id) = await SeedAsync();
+        using var _ = db;
+
+        await svc.UpdateSettingsAsync(id, new() { ["PrimaryColor"] = "#123456", ["Font"] = "Poppins" });
+        var s1 = await svc.GetSettingsAsync(id);
+        Assert.Equal("#123456", s1["PrimaryColor"]);
+        Assert.Equal("Poppins", s1["Font"]);
+
+        // Update one key, add another; existing untouched key stays.
+        await svc.UpdateSettingsAsync(id, new() { ["PrimaryColor"] = "#000000", ["ButtonStyle"] = "pill" });
+        var s2 = await svc.GetSettingsAsync(id);
+        Assert.Equal("#000000", s2["PrimaryColor"]);
+        Assert.Equal("Poppins", s2["Font"]);
+        Assert.Equal("pill", s2["ButtonStyle"]);
+    }
+
+    [Fact]
     public async Task Authoring_a_missing_theme_is_rejected()
     {
         var (db, svc, _) = await SeedAsync();

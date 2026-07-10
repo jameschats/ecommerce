@@ -10,6 +10,14 @@ namespace ecomm.api.Features.Storefront;
 [Route("api/admin/theme")]
 public sealed class ThemeAuthoringController(IThemeAuthoringService authoring) : ControllerBase
 {
+    [HttpGet("{themeId:long}/settings")]
+    public async Task<IActionResult> Settings(long themeId, CancellationToken ct)
+        => Ok(ApiResponse<Dictionary<string, string>>.Ok(await authoring.GetSettingsAsync(themeId, ct)));
+
+    [HttpPut("{themeId:long}/settings")]
+    public async Task<IActionResult> UpdateSettings(long themeId, UpdateThemeSettingsRequest req, CancellationToken ct)
+        => Ok(ApiResponse<Dictionary<string, string>>.Ok(await authoring.UpdateSettingsAsync(themeId, req.Settings ?? new(), ct), "Theme settings saved."));
+
     [HttpGet("{themeId:long}/templates")]
     public async Task<IActionResult> Templates(long themeId, CancellationToken ct)
         => Ok(ApiResponse<IReadOnlyList<ThemeTemplateSummaryDto>>.Ok(await authoring.ListTemplatesAsync(themeId, ct)));

@@ -37,6 +37,8 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
         </div>
         <div class="flex items-center gap-2">
           @if (message()) { <span class="text-xs text-green-600">{{ message() }}</span> }
+          <button type="button" (click)="toggleSettings()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50"
+                  [class.bg-slate-100]="settingsMode()">⚙ Theme settings</button>
           <button type="button" (click)="reloadPreview()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">↻ Preview</button>
         </div>
       </header>
@@ -72,9 +74,36 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
           @if (previewUrl()) { <iframe [src]="previewUrl()" class="w-full h-full border-0" title="preview"></iframe> }
         </main>
 
-        <!-- right: settings for selected section -->
+        <!-- right: theme settings, or settings for the selected section -->
         <aside class="w-80 bg-white border-l border-slate-200 overflow-auto p-4 shrink-0">
-          @if (selected(); as sec) {
+          @if (settingsMode()) {
+            <h2 class="font-semibold text-slate-800 mb-3">Theme settings</h2>
+            <label class="block mb-3"><span class="lbl">Store name</span><input [(ngModel)]="themeSettings['StoreName']" class="input w-full" /></label>
+            <label class="block mb-3"><span class="lbl">Logo URL</span><input [(ngModel)]="themeSettings['Logo']" class="input w-full" placeholder="https://…/logo.png" /></label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block mb-3"><span class="lbl">Primary colour</span><input type="color" [(ngModel)]="themeSettings['PrimaryColor']" class="input h-9 w-full" /></label>
+              <label class="block mb-3"><span class="lbl">Secondary colour</span><input type="color" [(ngModel)]="themeSettings['SecondaryColor']" class="input h-9 w-full" /></label>
+            </div>
+            <label class="block mb-3"><span class="lbl">Body font</span>
+              <select [(ngModel)]="themeSettings['Font']" class="input w-full">
+                @for (f of fonts; track f) { <option [value]="f">{{ f }}</option> }
+              </select></label>
+            <label class="block mb-3"><span class="lbl">Heading font</span>
+              <select [(ngModel)]="themeSettings['HeadingFont']" class="input w-full">
+                <option value="">Same as body</option>
+                @for (f of fonts; track f) { <option [value]="f">{{ f }}</option> }
+              </select></label>
+            <label class="block mb-3"><span class="lbl">Button style</span>
+              <select [(ngModel)]="themeSettings['ButtonStyle']" class="input w-full">
+                <option value="rounded">Rounded</option><option value="pill">Pill</option><option value="square">Square</option>
+              </select></label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block mb-3"><span class="lbl">Base font size (px)</span><input type="number" [(ngModel)]="themeSettings['BaseFontSize']" class="input w-full" placeholder="16" /></label>
+              <label class="block mb-3"><span class="lbl">Max width (px)</span><input type="number" [(ngModel)]="themeSettings['ContainerWidth']" class="input w-full" placeholder="1480" /></label>
+            </div>
+            <label class="block mb-3"><span class="lbl">Favicon URL</span><input [(ngModel)]="themeSettings['Favicon']" class="input w-full" placeholder="https://…/favicon.png" /></label>
+            <button type="button" (click)="saveSettings()" [disabled]="saving()" class="btn-primary w-full mt-2">{{ saving() ? 'Saving…' : 'Save theme settings' }}</button>
+          } @else if (selected(); as sec) {
             <div class="flex items-center justify-between mb-3">
               <h2 class="font-semibold text-slate-800">{{ schema()?.label ?? sec.sectionType }}</h2>
               <div class="flex gap-2 text-xs">
@@ -145,9 +174,12 @@ export class AdminThemeEditorComponent implements OnInit {
   readonly message = signal<string | null>(null);
   readonly previewUrl = signal<SafeResourceUrl | null>(null);
   readonly themeName = signal<string>('');
+  readonly settingsMode = signal(false);
 
   settingsObj: Record<string, any> = {};
   blocksArr: Record<string, any>[] = [];
+  themeSettings: Record<string, string> = {};
+  readonly fonts = ['Inter', 'Poppins', 'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'Playfair Display'];
   private sampleProductSlug = '';
   private themeId = 0;
   private previewToken: string | null = null;
@@ -165,7 +197,18 @@ export class AdminThemeEditorComponent implements OnInit {
     this.catalog.getProducts({ pageSize: 1 }).subscribe((r) => { this.sampleProductSlug = r.items[0]?.slug ?? ''; });
     this.library.get(this.themeId).subscribe((t) => { this.themeName.set(t.name); this.previewToken = t.previewToken; this.setPreview(); });
     this.svc.templates(this.themeId).subscribe((t) => this.templates.set(t));
+    this.svc.getSettings(this.themeId).subscribe((s) => this.themeSettings = { ...s });
     this.selectTemplate('index');
+  }
+
+  toggleSettings(): void { this.settingsMode.update((v) => !v); }
+
+  saveSettings(): void {
+    this.saving.set(true);
+    this.svc.saveSettings(this.themeId, this.themeSettings).subscribe({
+      next: (s) => { this.themeSettings = { ...s }; this.saving.set(false); this.toast('Theme settings saved.'); this.reloadPreview(); },
+      error: () => this.saving.set(false),
+    });
   }
 
   selectTemplate(key: string): void {

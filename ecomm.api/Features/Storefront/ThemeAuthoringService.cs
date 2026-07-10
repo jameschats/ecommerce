@@ -21,8 +21,12 @@ public sealed record AddThemeSectionRequest(string SectionType);
 public sealed record SaveThemeSectionRequest(string? Title, string? Settings, string? Blocks, bool IsVisible, DateTime? StartsAt, DateTime? EndsAt);
 public sealed record ReorderThemeSectionsRequest(List<long> OrderedSectionIds);
 
+public sealed record UpdateThemeSettingsRequest(Dictionary<string, string> Settings);
+
 public interface IThemeAuthoringService
 {
+    Task<Dictionary<string, string>> GetSettingsAsync(long themeId, CancellationToken ct = default);
+    Task<Dictionary<string, string>> UpdateSettingsAsync(long themeId, Dictionary<string, string> settings, CancellationToken ct = default);
     Task<IReadOnlyList<ThemeTemplateSummaryDto>> ListTemplatesAsync(long themeId, CancellationToken ct = default);
     Task<IReadOnlyList<ThemeSectionAdminDto>> GetSectionsAsync(long themeId, string templateKey, CancellationToken ct = default);
     Task<ThemeSectionAdminDto> AddSectionAsync(long themeId, string templateKey, string sectionType, CancellationToken ct = default);
@@ -59,6 +63,29 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
         ["account"] = ("Account", "Templates"),
         ["footer"] = ("Footer", "Footer"),
     };
+
+    public async Task<Dictionary<string, string>> GetSettingsAsync(long themeId, CancellationToken ct = default)
+    {
+        var theme = await GetThemeAsync(themeId, ct);
+        return await db.ThemeSettings.AsNoTracking().Where(s => s.ThemeId == theme.ThemeId)
+            .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? string.Empty, ct);
+    }
+
+    public async Task<Dictionary<string, string>> UpdateSettingsAsync(long themeId, Dictionary<string, string> settings, CancellationToken ct = default)
+    {
+        var theme = await GetThemeAsync(themeId, ct);
+        var existing = await db.ThemeSettings.Where(s => s.ThemeId == theme.ThemeId).ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        foreach (var (key, value) in settings)
+        {
+            var row = existing.FirstOrDefault(s => s.SettingKey == key);
+            if (row is null)
+                db.ThemeSettings.Add(new ThemeSetting { ThemeId = theme.ThemeId, SettingKey = key, SettingValue = value, CreatedAt = now });
+            else { row.SettingValue = value; row.UpdatedAt = now; }
+        }
+        await db.SaveChangesAsync(ct);
+        return await GetSettingsAsync(themeId, ct);
+    }
 
     public async Task<IReadOnlyList<ThemeTemplateSummaryDto>> ListTemplatesAsync(long themeId, CancellationToken ct = default)
     {
