@@ -1,14 +1,22 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { OnboardingResult, PlanOption, SignupRequest } from '../../core/models/onboarding.model';
 import { OnboardingService } from '../../core/services/onboarding.service';
 
 @Component({
   selector: 'app-signup',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, RouterLink],
   template: `
+    <!-- Minimal platform header (this is the SaaS signup, not a storefront) -->
+    <header class="border-b border-slate-100">
+      <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <a routerLink="/welcome" class="font-extrabold text-xl tracking-tight">Wav<span class="text-indigo-600">Commerce</span></a>
+        <a routerLink="/login" class="text-sm text-slate-600 hover:text-slate-900">Log in</a>
+      </div>
+    </header>
+
     <div class="max-w-3xl mx-auto p-6">
       <h1 class="text-2xl font-bold text-slate-900">Start your own store</h1>
       <p class="text-slate-500 mb-6">Launch a store in minutes — 14-day free trial, no card required.</p>

@@ -8,6 +8,7 @@ import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
 import { CatalogService } from './core/services/catalog.service';
+import { PlatformInfoService } from './core/services/platform-info.service';
 import { ThemeService } from './core/services/theme.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
@@ -27,6 +28,7 @@ export class App implements OnInit {
   private readonly router = inject(Router);
   private readonly webAnalytics = inject(WebAnalyticsService);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly platform = inject(PlatformInfoService);
 
   readonly user = this.auth.currentUser;
   readonly isAuthenticated = this.auth.isAuthenticated;
@@ -44,8 +46,11 @@ export class App implements OnInit {
   readonly policyLinks = signal<{ handle: string; title: string }[]>([]);
   readonly menuOpen = signal(false);
   readonly isAdminRoute = signal(false);
-  /** Surfaces that bring their own chrome — no storefront header/footer: admin, super-admin, apex landing. */
-  readonly hideStorefrontChrome = signal(false);
+  // Storefront chrome is hidden on platform surfaces that bring their own: admin/super-admin/landing/signup
+  // (route-based), and on the apex host entirely (the platform is never a store).
+  private readonly chromelessRoute = signal(false);
+  private readonly isApexHost = signal(false);
+  readonly hideStorefrontChrome = computed(() => this.chromelessRoute() || this.isApexHost());
   readonly year = 2026;
   searchText = '';
 
@@ -68,6 +73,8 @@ export class App implements OnInit {
     this.theme.load().subscribe();
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
     this.catalog.getPolicyLinks().subscribe((p) => this.policyLinks.set(p));
+    // The apex host is the platform, never a store → never show storefront chrome there.
+    this.platform.hostInfo().subscribe((info) => this.isApexHost.set(info.hostType === 'apex'));
 
     this.applyChrome(this.router.url);
     this.router.events
@@ -128,12 +135,12 @@ export class App implements OnInit {
     this.router.navigate(['/products'], { queryParams: q ? { search: q } : {} });
   }
 
-  /** Storefront chrome is hidden on admin, super-admin and the apex landing (each brings its own). */
+  /** Route-based chrome suppression (admin, super-admin, landing, signup — all bring their own chrome). */
   private applyChrome(url: string): void {
     const path = url.split('?')[0];
     this.isAdminRoute.set(path.startsWith('/admin'));
-    this.hideStorefrontChrome.set(
-      path.startsWith('/admin') || path.startsWith('/superadmin') || path.startsWith('/welcome'));
+    this.chromelessRoute.set(
+      path.startsWith('/admin') || path.startsWith('/superadmin') || path.startsWith('/welcome') || path.startsWith('/signup'));
   }
 
   /** Settings JSON of the first section of the given type in a theme zone (empty when absent). */
