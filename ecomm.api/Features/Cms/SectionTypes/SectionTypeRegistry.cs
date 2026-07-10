@@ -34,6 +34,7 @@ public static class SectionTypeRegistry
         new("Hero", "Hero / Slideshow", "image", "A big banner or auto-playing slideshow.",
             Settings:
             [
+                new("style", "Layout", "select", "boxed", ["boxed", "split", "banner"]),
                 new("autoplay", "Auto-play slides", "boolean", true),
                 new("intervalSec", "Seconds per slide", "number", 5),
             ],
@@ -60,17 +61,30 @@ public static class SectionTypeRegistry
             Settings:
             [
                 new("heading", "Heading", "text", "Featured"),
+                new("layout", "Layout", "select", "grid", ["grid", "carousel"]),
                 new("source", "Source", "select", "featured", ["featured", "newest", "bestsellers", "category"]),
                 new("categoryId", "Category (if source = category)", "category"),
                 new("count", "How many", "number", 8),
                 new("columns", "Columns", "number", 4),
             ], BlockTypes: []),
 
+        new("Multicolumn", "Feature columns", "grid", "A row of icon + heading + text tiles (USPs, how-it-works).",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Column", "Column",
+                [
+                    new("icon", "Icon (emoji)", "text"),
+                    new("heading", "Heading", "text"),
+                    new("text", "Text", "textarea"),
+                ]),
+            ], MaxBlocks: 6),
+
         new("Categories", "Category strip", "tag", "Shop-by-category tiles.",
             Settings:
             [
                 new("heading", "Heading", "text", "Shop by category"),
-                new("style", "Style", "select", "grid", ["grid", "strip"]),
+                new("style", "Style", "select", "grid", ["grid", "cards", "strip"]),
             ], BlockTypes: []),
 
         new("ImageWithText", "Image with text", "image", "An image beside a heading + copy + button.",

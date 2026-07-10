@@ -67,10 +67,15 @@ export class ThemeService {
   }
 
   getTemplate(key: string): Observable<ThemeSection[]> {
-    return this.http.get<ApiResponse<{ templateKey: string; sections: ThemeSection[] }>>(
+    return this.getTemplateInfo(key).pipe(map((t) => t.sections));
+  }
+
+  /** Template sections + whether they're authored (theme-driven) vs the transitional Home fallback. */
+  getTemplateInfo(key: string): Observable<{ sections: ThemeSection[]; authored: boolean }> {
+    return this.http.get<ApiResponse<{ templateKey: string; authored: boolean; sections: ThemeSection[] }>>(
       `${API_BASE_URL}/storefront/template/${key}`, { params: this.previewParams() }).pipe(
-      map((r) => (r.data?.sections ?? []).filter((s) => s.isVisible)),
-      catchError(() => of([] as ThemeSection[])),
+      map((r) => ({ sections: (r.data?.sections ?? []).filter((s) => s.isVisible), authored: r.data?.authored ?? false })),
+      catchError(() => of({ sections: [] as ThemeSection[], authored: false })),
     );
   }
 

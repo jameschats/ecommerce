@@ -6,6 +6,7 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { BannerService } from '../../core/services/banner.service';
 import { CatalogService, StoreSeo } from '../../core/services/catalog.service';
 import { CmsService, HomeSection } from '../../core/services/cms.service';
+import { ThemeSection, ThemeService } from '../../core/services/theme.service';
 
 export interface HomeData {
   sections: HomeSection[];
@@ -14,6 +15,7 @@ export interface HomeData {
   featured: ProductListItem[];
   newest: ProductListItem[];
   seo: StoreSeo;
+  themeIndex: ThemeSection[];   // the published theme's `index` sections (empty unless authored)
 }
 
 /**
@@ -26,7 +28,10 @@ export const homeResolver: ResolveFn<HomeData> = () => {
   const catalog = inject(CatalogService);
   const cms = inject(CmsService);
   const banners = inject(BannerService);
+  const theme = inject(ThemeService);
   return forkJoin({
+    // Theme-driven home when the published theme's index is authored; else the legacy home below.
+    themeIndex: theme.getTemplateInfo('index').pipe(map((t) => (t.authored ? t.sections : [])), catchError(() => of([] as ThemeSection[]))),
     sections: cms.getHomeSections().pipe(catchError(() => of([] as HomeSection[]))),
     banners: banners.getBanners().pipe(catchError(() => of([] as HomeBanner[]))),
     categories: catalog.getCategories().pipe(catchError(() => of([] as Category[]))),

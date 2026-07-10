@@ -9,6 +9,7 @@ import { SeoService } from '../../core/services/seo.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ProductCardComponent } from '../../shared/product-card/product-card.component';
 import { StorefrontSectionComponent } from '../storefront/storefront-section.component';
+import { toBuilderSection } from '../storefront/section-slot';
 import { HomeData } from './home.resolver';
 
 interface HeroSlide { image: string; title: string; subtitle: string; cta: string; link: string; }
@@ -34,6 +35,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly storeName = computed(() => this.theme.storeName() || 'our store');
 
   readonly sections = signal<HomeSection[]>([]);
+  /** The published theme's `index` sections (rendered via the section engine) — empty unless the theme authored one. */
+  readonly themeSections = signal<BuilderSection[]>([]);
   readonly categories = signal<Category[]>([]);
   readonly featured = signal<ProductListItem[]>([]);
   readonly newest = signal<ProductListItem[]>([]);
@@ -96,6 +99,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     // Data is preloaded by homeResolver → present on first render (no reflow).
     const data = this.route.snapshot.data['home'] as HomeData | undefined;
     if (data) {
+      this.themeSections.set((data.themeIndex ?? []).map(toBuilderSection));
       this.sections.set(data.sections);
       this.categories.set(data.categories);
       this.featured.set(data.featured);

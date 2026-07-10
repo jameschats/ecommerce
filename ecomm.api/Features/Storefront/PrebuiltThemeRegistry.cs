@@ -38,6 +38,25 @@ public static class PrebuiltThemeRegistry
                 Testimonials(),
             ], headingFont: "Inter", radius: "soft", card: "shadow", density: "cozy"),
 
+        // Flagship electronics theme (Phase B) — image banner + USP row + category cards + bestseller carousel.
+        Theme("ignition", "Ignition", "Electronics", "Bold, deal-led electronics store — image banner, USP row, category cards and a bestseller carousel.",
+            palette: ("#2563eb", "#0b1220", "Inter", "square"),
+            announce: "Free shipping over ₹499 · Members get early access to every launch",
+            index:
+            [
+                HeroBanner("Upgrade your tech", "The latest gear at prices that make sense — with fast, free delivery.", "Shop deals",
+                    "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1600&q=80"),
+                Multicolumn("Why shop with us",
+                    ("🚚", "Free shipping", "On orders over ₹499"),
+                    ("🛡️", "2-year warranty", "On all devices"),
+                    ("↩️", "30-day returns", "No questions asked"),
+                    ("💬", "24/7 support", "We're here to help")),
+                Categories("Shop by category", "cards"),
+                Featured("Best sellers", "bestsellers", "carousel"),
+                Cta("Members save more", "Early access to launches and member-only deals.", "Become a member", "#0b1220"),
+                Featured("New arrivals", "newest"),
+            ], headingFont: "Space Grotesk", radius: "sharp", card: "elevated", density: "compact"),
+
         Theme("boutique", "Boutique", "Fashion", "Bold hero and editorial feel for apparel and accessories.",
             palette: ("#d6336c", "#212529", "Poppins", "pill"),
             announce: "New season drops every week ✨",
@@ -140,11 +159,23 @@ public static class PrebuiltThemeRegistry
         "Hero", "Hero", """{"autoplay":true,"intervalSec":5}""",
         $$"""[{"image":"","heading":{{J(heading)}},"subheading":{{J(sub)}},"buttonText":{{J(cta)}},"buttonLink":"/products"}]""");
 
-    private static PrebuiltSection Categories(string heading) => new(
-        "Categories", "Category strip", $$"""{"heading":{{J(heading)}},"style":"grid"}""", "[]");
+    /// <summary>A full-width image banner hero (style=banner) with a background image.</summary>
+    private static PrebuiltSection HeroBanner(string heading, string sub, string cta, string image) => new(
+        "Hero", "Hero", """{"style":"banner","autoplay":false}""",
+        $$"""[{"image":{{J(image)}},"heading":{{J(heading)}},"subheading":{{J(sub)}},"buttonText":{{J(cta)}},"buttonLink":"/products"}]""");
 
-    private static PrebuiltSection Featured(string heading, string source) => new(
-        "FeaturedProducts", "Featured products", $$"""{"heading":{{J(heading)}},"source":{{J(source)}},"count":8,"columns":4}""", "[]");
+    /// <summary>A row of icon + heading + text tiles (USPs / how-it-works).</summary>
+    private static PrebuiltSection Multicolumn(string? heading, params (string icon, string heading, string text)[] cols)
+    {
+        var blocks = string.Join(",", cols.Select(c => $$"""{"icon":{{J(c.icon)}},"heading":{{J(c.heading)}},"text":{{J(c.text)}}}"""));
+        return new("Multicolumn", "Feature columns", $$"""{"heading":{{J(heading ?? "")}}}""", $"[{blocks}]");
+    }
+
+    private static PrebuiltSection Categories(string heading, string style = "grid") => new(
+        "Categories", "Category strip", $$"""{"heading":{{J(heading)}},"style":{{J(style)}}}""", "[]");
+
+    private static PrebuiltSection Featured(string heading, string source, string layout = "grid") => new(
+        "FeaturedProducts", "Featured products", $$"""{"heading":{{J(heading)}},"layout":{{J(layout)}},"source":{{J(source)}},"count":8,"columns":4}""", "[]");
 
     private static PrebuiltSection ImageWithText(string heading, string body) => new(
         "ImageWithText", "Image with text",

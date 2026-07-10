@@ -13,8 +13,12 @@ public sealed record ThemeBundleDto(
     long ThemeId, string Status, Dictionary<string, string> Settings,
     IReadOnlyList<ThemeSectionDto> Header, IReadOnlyList<ThemeSectionDto> Footer, IReadOnlyList<ThemeSectionDto> Announcement);
 
-/// <summary>A page-type template = its ordered section list (layout is type-level; entity data comes from catalog/cart endpoints).</summary>
-public sealed record ThemeTemplateDto(string TemplateKey, IReadOnlyList<ThemeSectionDto> Sections);
+/// <summary>
+/// A page-type template = its ordered section list (layout is type-level; entity data comes from catalog/cart
+/// endpoints). <c>Authored</c> is true when the sections come from the theme's own template (vs the transitional
+/// Home-page fallback) — the home only switches to theme-driven rendering when its index is actually authored.
+/// </summary>
+public sealed record ThemeTemplateDto(string TemplateKey, bool Authored, IReadOnlyList<ThemeSectionDto> Sections);
 
 public interface IStorefrontThemeService
 {
@@ -62,16 +66,18 @@ public sealed class StorefrontThemeService(EcommerceDbContext db) : IStorefrontT
     public async Task<ThemeTemplateDto> GetTemplateAsync(string templateKey, string? previewToken = null, CancellationToken ct = default)
     {
         var key = templateKey.ToLowerInvariant();
-        if (!SectionTypeRegistry.IsValidTemplateKey(key)) return new ThemeTemplateDto(key, []);
+        if (!SectionTypeRegistry.IsValidTemplateKey(key)) return new ThemeTemplateDto(key, false, []);
 
         var theme = await ThemeForRequestAsync(previewToken, ct);
         var sections = theme is null ? [] : await TemplateSectionsAsync(theme.ThemeId, key, ct);
+        var authored = sections.Count > 0;
 
         // Transitional fallback: an un-populated `index` renders today's Home layout (read-only, no writes).
+        // This is NOT "authored" — the home keeps its legacy rendering until a real theme index exists.
         if (sections.Count == 0 && key == "index")
             sections = await HomeAsThemeSectionsAsync(ct);
 
-        return new ThemeTemplateDto(key, sections);
+        return new ThemeTemplateDto(key, authored, sections);
     }
 
     public async Task<int> BackfillIndexFromHomeAsync(CancellationToken ct = default)
