@@ -63,7 +63,7 @@
     @else if ((s.sectionType === 'FeaturedProducts' || s.sectionType === 'NewArrivals' || s.sectionType === 'BestSellers') && railItems(s.sectionType).length) {
       <section class="page-container py-4">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-slate-900">{{ s.title || (s.sectionType === 'NewArrivals' ? 'New arrivals' : 'Featured calendars') }}</h2>
+          <h2 class="text-lg font-semibold text-slate-900">{{ s.title || (s.sectionType === 'NewArrivals' ? 'New arrivals' : 'Featured products') }}</h2>
           <a routerLink="/products" class="text-sm text-primary hover:underline">View all</a>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -127,7 +127,8 @@
 } @else {
   <section class="page-container pt-8">
     <div class="bg-gradient-to-br from-primary to-primary-dark rounded-2xl px-8 py-12 text-center text-white shadow-sm">
-      <h1 class="text-3xl sm:text-4xl font-bold">Custom 2026 Calendars</h1>
+      <h1 class="text-3xl sm:text-4xl font-bold">Welcome to {{ storeName() }}</h1>
+      <p class="mt-2 text-white/85">Great products at great prices, delivered fast.</p>
       <div class="mt-6"><a routerLink="/products" class="bg-white text-primary-dark font-medium px-5 py-2.5 rounded-lg">Shop now</a></div>
     </div>
   </section>

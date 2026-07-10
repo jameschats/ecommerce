@@ -8,6 +8,7 @@ import { CartService } from '../../../core/services/cart.service';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 /**
  * All state + behaviour for one product page. Provided at the ProductPageComponent
@@ -23,6 +24,7 @@ export class ProductPageStore {
   private readonly router = inject(Router);
   private readonly reviewSvc = inject(ReviewService);
   private readonly auth = inject(AuthService);
+  private readonly theme = inject(ThemeService);
 
   readonly isAuthenticated = this.auth.isAuthenticated;
 
@@ -74,7 +76,7 @@ export class ProductPageStore {
         this.loading.set(false);
         if (!product) {
           this.notFound.set(true);
-          this.seo.setMeta({ title: 'Product not found — CalendarShop' });
+          this.seo.setMeta({ title: `Product not found — ${this.theme.storeName() || 'our store'}` });
           return;
         }
         this.product.set(product);
@@ -171,7 +173,7 @@ export class ProductPageStore {
   private applySeo(p: ProductDetail): void {
     const url = `${SITE_URL}/product/${p.slug}`;
     const image = p.images.find((i) => i.isPrimary)?.url ?? p.images[0]?.url;
-    this.seo.setMeta({ title: p.metaTitle?.trim() || `${p.name} — CalendarShop`, description: p.metaDescription?.trim() || p.shortDescription || p.name, image, url, type: 'product' });
+    this.seo.setMeta({ title: p.metaTitle?.trim() || `${p.name} — ${this.theme.storeName() || 'our store'}`, description: p.metaDescription?.trim() || p.shortDescription || p.name, image, url, type: 'product' });
     this.seo.setJsonLd([
       {
         '@context': 'https://schema.org/', '@type': 'Product', name: p.name, image: p.images.map((i) => i.url),

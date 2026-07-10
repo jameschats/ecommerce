@@ -30,7 +30,7 @@ const DEFAULT_PRODUCT_SECTIONS = ['Breadcrumbs', 'ProductInfo', 'ProductDescript
     } @else if (store.notFound()) {
       <div class="py-24 text-center">
         <p class="text-slate-500">Sorry, we couldn't find that product.</p>
-        <a routerLink="/products" class="text-primary hover:underline font-medium">Back to all calendars</a>
+        <a routerLink="/products" class="text-primary hover:underline font-medium">Back to all products</a>
       </div>
     } @else if (store.product()) {
       <section class="page-container py-8">

@@ -6,6 +6,7 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { AuthService } from '../../core/services/auth.service';
 import { BuilderSection, HomeSection } from '../../core/services/cms.service';
 import { SeoService } from '../../core/services/seo.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { ProductCardComponent } from '../../shared/product-card/product-card.component';
 import { StorefrontSectionComponent } from '../storefront/storefront-section.component';
 import { HomeData } from './home.resolver';
@@ -25,9 +26,12 @@ export class HomeComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly auth = inject(AuthService);
+  private readonly theme = inject(ThemeService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly isAdmin = this.auth.isAdmin;
+  /** This store's name (from the theme/tenant) — for headings + SEO, no hardcoded brand. */
+  readonly storeName = computed(() => this.theme.storeName() || 'our store');
 
   readonly sections = signal<HomeSection[]>([]);
   readonly categories = signal<Category[]>([]);
@@ -46,14 +50,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     settings: s.settings ?? null, blocks: s.blocks ?? null, displayOrder: s.displayOrder, isVisible: s.isVisible,
   })));
 
-  // Fallback banners — shown only if the admin has configured none.
+  // Fallback banners — shown only if the admin has configured none. Generic (brand-agnostic).
   private readonly defaultSlides: HeroSlide[] = [
-    { image: 'https://picsum.photos/seed/calbanner1/900/300', title: 'Customizable 2026 Calendars', subtitle: 'Wall, desk & pocket — with your photos, brand & logo.', cta: 'Shop calendars', link: '/products' },
-    { image: 'https://picsum.photos/seed/calbanner2/900/300', title: 'Corporate Gifting', subtitle: 'Branded calendars in bulk.', cta: 'Order in bulk', link: '/products' },
-    { image: 'https://picsum.photos/seed/calbanner3/900/300', title: 'Desk Calendars', subtitle: 'Elegant picks for any workspace.', cta: 'Browse', link: '/category/desk-calendars' },
-    { image: 'https://picsum.photos/seed/calbanner4/900/300', title: 'Photo Calendars', subtitle: 'Turn your memories into a year.', cta: 'Create yours', link: '/products' },
-    { image: 'https://picsum.photos/seed/calbanner5/900/300', title: 'New-Year Offers', subtitle: 'Up to 30% off select ranges.', cta: 'Grab deals', link: '/products' },
-    { image: 'https://picsum.photos/seed/calbanner6/900/300', title: 'Pocket & Tent Calendars', subtitle: 'Handy formats for every desk.', cta: 'Explore', link: '/products' },
+    { image: 'https://picsum.photos/seed/wcbanner1/900/300', title: 'Welcome to our store', subtitle: 'Great products at great prices, delivered fast.', cta: 'Shop now', link: '/products' },
+    { image: 'https://picsum.photos/seed/wcbanner2/900/300', title: 'New arrivals', subtitle: 'Fresh picks added regularly.', cta: 'Browse', link: '/products' },
+    { image: 'https://picsum.photos/seed/wcbanner3/900/300', title: 'Shop by category', subtitle: 'Find exactly what you need.', cta: 'Explore', link: '/products' },
   ];
   readonly slides = signal<HeroSlide[]>(this.defaultSlides);
   readonly currentSlide = signal(0);
@@ -62,13 +63,14 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   readonly googleRating = 4.5;
   readonly reviewCount = '100+';
+  // Generic placeholder testimonials (brand-agnostic) — only rendered by a curated Testimonials section.
   readonly testimonials: Testimonial[] = [
-    { name: 'Rathish Radhakrishnan', company: 'Cognizant', rating: 5, text: 'Great job for on-time delivery & all assignments with quality before promised slots. Much appreciated.' },
-    { name: 'Suraj Ahamed', company: '', rating: 4, text: 'Supportive team. Handout quality was good and shared with senior management.' },
-    { name: 'ONCOSPARK INDIA PVT LTD', company: '', rating: 5, text: 'Excellent print quality. Dedicated services. Thanks for the wonderful job. Keep it up guys.' },
-    { name: 'Joy Bose', company: '', rating: 5, text: 'It looks amazing! The photos printed really clear.' },
-    { name: 'Priya Menon', company: '', rating: 5, text: 'Loved the desk calendar with photo frame — premium feel and quick delivery.' },
-    { name: 'Aakash Gupta', company: 'Innovaegis', rating: 5, text: 'Perpetual desk calendar is a hit in our office. Will reorder next year.' },
+    { name: 'Ananya R.', company: '', rating: 5, text: 'Great quality and quick delivery. Exactly as described — will order again!' },
+    { name: 'Suraj A.', company: '', rating: 4, text: 'Smooth experience from order to doorstep. Friendly support too.' },
+    { name: 'Meera K.', company: '', rating: 5, text: 'Loved the packaging and the product. Highly recommend.' },
+    { name: 'Joy B.', company: '', rating: 5, text: 'Fair prices and it arrived faster than I expected.' },
+    { name: 'Priya M.', company: '', rating: 5, text: 'Premium feel and quick delivery. Very happy with my purchase.' },
+    { name: 'Aakash G.', company: '', rating: 5, text: 'A hit in our office. Will reorder next time.' },
   ];
   readonly colA = this.testimonials.filter((_, i) => i % 2 === 0);
   readonly colB = this.testimonials.filter((_, i) => i % 2 === 1);
@@ -76,18 +78,19 @@ export class HomeComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Merchant-configured store SEO (Preferences) overrides the defaults when present.
     const storeSeo = (this.route.snapshot.data['home'] as HomeData | undefined)?.seo;
+    const name = this.theme.storeName() || 'Online store';
     this.seo.setMeta({
-      title: storeSeo?.title || 'CalendarShop — Custom 2026 Calendars: Wall, Desk, Pocket & More',
-      description: storeSeo?.description || 'Personalized 2026 calendars — wall, desk, tent, pocket, magnet & mouse-pad. Add your photos, brand name and logo. Fast delivery, great prices.',
+      title: storeSeo?.title || `${name} — Shop online`,
+      description: storeSeo?.description || `Shop ${name} — great products, fair prices and fast delivery.`,
       image: storeSeo?.image || undefined,
       url: `${SITE_URL}/`,
     });
     this.seo.setJsonLd([
       {
-        '@context': 'https://schema.org', '@type': 'WebSite', name: 'CalendarShop', url: SITE_URL,
+        '@context': 'https://schema.org', '@type': 'WebSite', name, url: SITE_URL,
         potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
       },
-      { '@context': 'https://schema.org', '@type': 'Organization', name: 'CalendarShop', url: SITE_URL },
+      { '@context': 'https://schema.org', '@type': 'Organization', name, url: SITE_URL },
     ]);
 
     // Data is preloaded by homeResolver → present on first render (no reflow).

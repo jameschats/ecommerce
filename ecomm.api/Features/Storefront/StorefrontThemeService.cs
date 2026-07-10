@@ -43,6 +43,15 @@ public sealed class StorefrontThemeService(EcommerceDbContext db) : IStorefrontT
             .Where(s => s.ThemeId == theme.ThemeId)
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? string.Empty, ct);
 
+        // Default the storefront name to the store's own name (so a fresh store shows its brand,
+        // not a hardcoded fallback) unless the merchant set a StoreName in theme settings.
+        if (string.IsNullOrWhiteSpace(settings.GetValueOrDefault("StoreName")))
+        {
+            var name = await db.Tenants.AsNoTracking()
+                .Where(t => t.TenantId == Tenant).Select(t => t.DisplayName ?? t.Name).FirstOrDefaultAsync(ct);
+            if (!string.IsNullOrWhiteSpace(name)) settings["StoreName"] = name!;
+        }
+
         return new ThemeBundleDto(
             theme.ThemeId, theme.Status, settings,
             await GroupSectionsAsync(theme.ThemeId, "header", ct),

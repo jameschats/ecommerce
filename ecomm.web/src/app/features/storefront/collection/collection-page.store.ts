@@ -6,6 +6,7 @@ import { PagedResult } from '../../../core/models/api-response.model';
 import { Brand, Category, ProductListItem, ProductQuery } from '../../../core/models/catalog.model';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 /**
  * All state + behaviour for the collection/listing page (also serves search via
@@ -18,6 +19,7 @@ export class CollectionPageStore {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly seo = inject(SeoService);
+  private readonly theme = inject(ThemeService);
 
   readonly result = signal<PagedResult<ProductListItem> | null>(null);
   readonly categories = signal<Category[]>([]);
@@ -75,8 +77,9 @@ export class CollectionPageStore {
 
   private applySeo(): void {
     const cat = this.activeCategory();
-    const title = cat ? `${cat.name} — CalendarShop` : 'Shop all products — CalendarShop';
-    const description = cat?.description ?? `Browse ${cat?.name ?? 'our catalog'} at CalendarShop. Great prices, fast delivery.`;
+    const brand = this.theme.storeName() || 'our store';
+    const title = cat ? `${cat.name} — ${brand}` : `Shop all products — ${brand}`;
+    const description = cat?.description ?? `Browse ${cat?.name ?? 'our catalog'} at ${brand}. Great prices, fast delivery.`;
     this.seo.setMeta({ title, description, url: SITE_URL + this.router.url });
   }
 

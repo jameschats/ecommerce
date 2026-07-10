@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CatalogService, PublicCollection } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import { SITE_URL } from '../../../core/api.config';
 
 @Component({
@@ -35,6 +36,7 @@ export class CollectionComponent implements OnInit {
   private readonly catalog = inject(CatalogService);
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
+  private readonly theme = inject(ThemeService);
 
   readonly collection = signal<PublicCollection | null>(null);
   readonly loading = signal(true);
@@ -46,7 +48,7 @@ export class CollectionComponent implements OnInit {
       this.catalog.getCollection(slug).subscribe((c) => {
         this.collection.set(c);
         this.loading.set(false);
-        if (c) this.seo.setMeta({ title: c.metaTitle?.trim() || `${c.name} — CalendarShop`, description: c.metaDescription?.trim() || c.description || c.name, url: `${SITE_URL}/collection/${c.slug}` });
+        if (c) this.seo.setMeta({ title: c.metaTitle?.trim() || `${c.name} — ${this.theme.storeName() || 'our store'}`, description: c.metaDescription?.trim() || c.description || c.name, url: `${SITE_URL}/collection/${c.slug}` });
       });
     });
   }
