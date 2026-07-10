@@ -21,11 +21,60 @@
   --color-primary-dark: #1d4ed8;
 }
 
+/* ============================================================================
+   Theme design tokens (Phase A). The Theme Engine (ThemeService.apply) overrides
+   these on :root from theme settings; the defaults below reproduce the current
+   look so nothing changes until a theme sets them. Storefront components consume
+   these via var(), so switching theme restyles typography, shape, cards, buttons,
+   density and accents everywhere (home, product, collection…), not just colours.
+   ============================================================================ */
+:root {
+  /* accents (secondary/accent default to sensible values; primary lives in @theme) */
+  --color-secondary: #0f172a;
+  --color-accent: var(--color-primary);
+
+  /* typography */
+  --app-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --app-heading-font: var(--app-font);
+  --app-font-size: 1rem;
+  --app-line-height: 1.5;
+  --app-heading-weight: 700;
+  --app-heading-spacing: normal;   /* letter-spacing */
+  --app-heading-transform: none;   /* e.g. uppercase for bold themes */
+
+  /* layout & density */
+  --app-container: 1480px;
+  --app-section-pad: 2rem;         /* storefront section vertical rhythm */
+
+  /* shape (radius scale) */
+  --radius-btn: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-input: 0.5rem;
+  --radius-img: 0.75rem;
+
+  /* surface / card style */
+  --card-bg: #ffffff;
+  --card-border: 1px solid rgb(226 232 240);
+  --card-shadow: none;
+  --card-hover-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+}
+
+/* A themeable storefront card — product cards, tiles, panels use this so the
+   theme's radius / border / shadow style flows through consistently. */
+.sf-card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.sf-card:hover { box-shadow: var(--card-hover-shadow); }
+
 /* Shared admin form controls */
 .input {
   width: 100%;
   border: 1px solid rgb(203 213 225);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-input, 0.5rem);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   background: #fff;
@@ -40,7 +89,7 @@
   color: #fff;
   font-weight: 500;
   padding: 0.5rem 1rem;
-  border-radius: var(--btn-radius, 0.5rem);
+  border-radius: var(--radius-btn, var(--btn-radius, 0.5rem));
   font-size: 0.875rem;
 }
 .btn-primary:hover { background: var(--color-primary-dark); }
@@ -66,10 +115,16 @@
 body {
   font-family: var(--app-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
   font-size: var(--app-font-size, 1rem);
+  line-height: var(--app-line-height, 1.5);
 }
 h1, h2, h3, h4, h5 {
   font-family: var(--app-heading-font, var(--app-font, inherit));
+  font-weight: var(--app-heading-weight, 700);
+  letter-spacing: var(--app-heading-spacing, normal);
+  text-transform: var(--app-heading-transform, none);
 }
+/* Storefront section vertical rhythm (theme density). Opt-in class so admin is unaffected. */
+.sf-section { padding-block: var(--app-section-pad, 2rem); }
 
 /* Wide page container (Flipkart-style: use more of the viewport) */
 .page-container {

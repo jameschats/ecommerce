@@ -93,10 +93,33 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                 <option value="">Same as body</option>
                 @for (f of fonts; track f) { <option [value]="f">{{ f }}</option> }
               </select></label>
-            <label class="block mb-3"><span class="lbl">Button style</span>
-              <select [(ngModel)]="themeSettings['ButtonStyle']" class="input w-full">
-                <option value="rounded">Rounded</option><option value="pill">Pill</option><option value="square">Square</option>
-              </select></label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block mb-3"><span class="lbl">Accent colour</span><input type="color" [(ngModel)]="themeSettings['AccentColor']" class="input h-9 w-full" /></label>
+              <label class="block mb-3"><span class="lbl">Button style</span>
+                <select [(ngModel)]="themeSettings['ButtonStyle']" class="input w-full">
+                  <option value="rounded">Rounded</option><option value="pill">Pill</option><option value="square">Square</option>
+                </select></label>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block mb-3"><span class="lbl">Corners</span>
+                <select [(ngModel)]="themeSettings['Radius']" class="input w-full">
+                  <option value="soft">Soft</option><option value="sharp">Sharp</option><option value="round">Rounded</option>
+                </select></label>
+              <label class="block mb-3"><span class="lbl">Card style</span>
+                <select [(ngModel)]="themeSettings['CardStyle']" class="input w-full">
+                  <option value="bordered">Bordered</option><option value="shadow">Shadow</option><option value="elevated">Elevated</option><option value="flat">Flat</option>
+                </select></label>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block mb-3"><span class="lbl">Density</span>
+                <select [(ngModel)]="themeSettings['Density']" class="input w-full">
+                  <option value="cozy">Cozy</option><option value="compact">Compact</option><option value="spacious">Spacious</option>
+                </select></label>
+              <label class="block mb-3"><span class="lbl">Heading case</span>
+                <select [(ngModel)]="themeSettings['HeadingTransform']" class="input w-full">
+                  <option value="none">Normal</option><option value="uppercase">UPPERCASE</option>
+                </select></label>
+            </div>
             <div class="grid grid-cols-2 gap-3">
               <label class="block mb-3"><span class="lbl">Base font size (px)</span><input type="number" [(ngModel)]="themeSettings['BaseFontSize']" class="input w-full" placeholder="16" /></label>
               <label class="block mb-3"><span class="lbl">Max width (px)</span><input type="number" [(ngModel)]="themeSettings['ContainerWidth']" class="input w-full" placeholder="1480" /></label>
@@ -179,7 +202,10 @@ export class AdminThemeEditorComponent implements OnInit {
   settingsObj: Record<string, any> = {};
   blocksArr: Record<string, any>[] = [];
   themeSettings: Record<string, string> = {};
-  readonly fonts = ['Inter', 'Poppins', 'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'Playfair Display'];
+  readonly fonts = [
+    'Inter', 'Poppins', 'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'DM Sans', 'Work Sans', 'Nunito',
+    'Space Grotesk', 'Archivo', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Cormorant Garamond', 'Lora',
+  ];
   private sampleProductSlug = '';
   private themeId = 0;
   private previewToken: string | null = null;

@@ -92,17 +92,83 @@ export class ThemeService {
     this.logo.set(settings['Logo'] || null);
     if (settings['StoreName']) this.storeName.set(settings['StoreName']);
     const root = this.doc.documentElement;
+    const set = (k: string, v: string | null | undefined) => { if (v) root.style.setProperty(k, v); };
+
+    // --- Colour ---
     const primary = settings['PrimaryColor'] || '#2563eb';
     root.style.setProperty('--color-primary', primary);
     root.style.setProperty('--color-primary-dark', this.darken(primary, 0.85));
-    if (settings['SecondaryColor']) root.style.setProperty('--color-secondary', settings['SecondaryColor']);
-    if (settings['Font']) root.style.setProperty('--app-font', `${settings['Font']}, system-ui, sans-serif`);
-    // Typography + layout — set only when the theme provides them (additive for the S4 editor).
-    if (settings['HeadingFont']) root.style.setProperty('--app-heading-font', `${settings['HeadingFont']}, system-ui, sans-serif`);
-    if (settings['BaseFontSize']) root.style.setProperty('--app-font-size', this.cssLen(settings['BaseFontSize']));
-    if (settings['ContainerWidth']) root.style.setProperty('--app-container', this.cssLen(settings['ContainerWidth']));
-    root.style.setProperty('--btn-radius', this.buttonRadius(settings['ButtonStyle']));
+    set('--color-secondary', settings['SecondaryColor']);
+    set('--color-accent', settings['AccentColor'] || settings['PrimaryColor']);
+
+    // --- Typography (families are also web-font-loaded below) ---
+    if (settings['Font']) set('--app-font', `'${settings['Font']}', system-ui, sans-serif`);
+    if (settings['HeadingFont']) set('--app-heading-font', `'${settings['HeadingFont']}', system-ui, sans-serif`);
+    set('--app-font-size', settings['BaseFontSize'] ? this.cssLen(settings['BaseFontSize']) : null);
+    set('--app-line-height', settings['LineHeight']);
+    set('--app-heading-weight', settings['HeadingWeight']);
+    set('--app-heading-spacing', settings['HeadingSpacing']);
+    set('--app-heading-transform', settings['HeadingTransform']);
+    this.loadFonts([settings['Font'], settings['HeadingFont']]);
+
+    // --- Layout & density ---
+    set('--app-container', settings['ContainerWidth'] ? this.cssLen(settings['ContainerWidth']) : null);
+    set('--app-section-pad', this.density(settings['Density']));
+
+    // --- Shape (radius scale) + button/card style ---
+    const r = this.radiusScale(settings['Radius']);
+    root.style.setProperty('--radius-card', r.card);
+    root.style.setProperty('--radius-input', r.input);
+    root.style.setProperty('--radius-img', r.img);
+    root.style.setProperty('--radius-btn', this.buttonRadius(settings['ButtonStyle'], r.btn));
+    root.style.setProperty('--btn-radius', this.buttonRadius(settings['ButtonStyle'], r.btn));   // back-compat
+    const card = this.cardStyle(settings['CardStyle']);
+    root.style.setProperty('--card-border', card.border);
+    root.style.setProperty('--card-shadow', card.shadow);
+    root.style.setProperty('--card-hover-shadow', card.hover);
+
     if (settings['Favicon']) this.setFavicon(settings['Favicon']);
+  }
+
+  // ---- token mappers ----
+  private density(v: string | undefined): string | null {
+    return v === 'compact' ? '1.5rem' : v === 'spacious' ? '4rem' : v === 'cozy' ? '2.75rem' : null;
+  }
+  private radiusScale(v: string | undefined): { card: string; btn: string; input: string; img: string } {
+    switch (v) {
+      case 'sharp': return { card: '0', btn: '0', input: '0', img: '0' };
+      case 'round': return { card: '1.25rem', btn: '0.9rem', input: '0.9rem', img: '1.25rem' };
+      default: return { card: '0.75rem', btn: '0.5rem', input: '0.5rem', img: '0.75rem' };   // soft
+    }
+  }
+  private cardStyle(v: string | undefined): { border: string; shadow: string; hover: string } {
+    switch (v) {
+      case 'shadow': return { border: 'none', shadow: '0 1px 3px rgb(0 0 0 / 0.08)', hover: '0 10px 28px rgb(0 0 0 / 0.12)' };
+      case 'elevated': return { border: '1px solid rgb(241 245 249)', shadow: '0 4px 16px rgb(0 0 0 / 0.06)', hover: '0 14px 32px rgb(0 0 0 / 0.12)' };
+      case 'flat': return { border: 'none', shadow: 'none', hover: 'none' };
+      default: return { border: '1px solid rgb(226 232 240)', shadow: 'none', hover: '0 8px 24px rgb(0 0 0 / 0.08)' };   // bordered
+    }
+  }
+
+  /** Web fonts a theme may use (allowlisted — we only inject known Google Fonts). */
+  private static readonly KNOWN_FONTS = new Set([
+    'Inter', 'Poppins', 'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'DM Sans', 'Work Sans', 'Nunito',
+    'Playfair Display', 'Cormorant Garamond', 'Lora', 'Oswald', 'Bebas Neue', 'Archivo', 'Space Grotesk',
+  ]);
+  private readonly loadedFonts = new Set<string>();
+
+  /** Inject a Google-Fonts stylesheet for the theme's fonts (once each). Without this the CSS var alone falls back to system fonts. */
+  private loadFonts(families: (string | undefined)[]): void {
+    const toLoad = families.filter((f): f is string => !!f && ThemeService.KNOWN_FONTS.has(f) && !this.loadedFonts.has(f));
+    if (!toLoad.length) return;
+    for (const f of toLoad) this.loadedFonts.add(f);
+    const query = toLoad.map((f) => `family=${encodeURIComponent(f)}:wght@400;500;600;700`).join('&');
+    const href = `https://fonts.googleapis.com/css2?${query}&display=swap`;
+    if (this.doc.querySelector(`link[href="${href}"]`)) return;
+    const link = this.doc.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    this.doc.head.appendChild(link);
   }
 
   /** Accepts "16", "16px" or "62rem" → a valid CSS length (bare numbers become px). */
@@ -121,8 +187,8 @@ export class ThemeService {
     link.setAttribute('href', href);
   }
 
-  private buttonRadius(style: string | undefined): string {
-    return style === 'pill' ? '9999px' : style === 'square' ? '0' : '0.5rem';
+  private buttonRadius(style: string | undefined, fallback = '0.5rem'): string {
+    return style === 'pill' ? '9999px' : style === 'square' ? '0' : fallback;
   }
 
   private darken(hex: string, factor: number): string {

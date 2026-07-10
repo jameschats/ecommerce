@@ -36,7 +36,7 @@ public static class PrebuiltThemeRegistry
                 Featured("Featured", "featured"),
                 Categories("Shop by category"),
                 Testimonials(),
-            ]),
+            ], headingFont: "Inter", radius: "soft", card: "shadow", density: "cozy"),
 
         Theme("boutique", "Boutique", "Fashion", "Bold hero and editorial feel for apparel and accessories.",
             palette: ("#d6336c", "#212529", "Poppins", "pill"),
@@ -49,7 +49,7 @@ public static class PrebuiltThemeRegistry
                 ImageWithText("Made to last", "Thoughtfully designed, ethically made. Quality you can feel in every stitch."),
                 Testimonials(),
                 Cta("Join our list", "Get 10% off your first order.", "Sign up", "#212529"),
-            ]),
+            ], headingFont: "Playfair Display", radius: "round", card: "shadow", density: "spacious"),
 
         Theme("circuit", "Circuit", "Electronics", "Sharp, techy layout that leads with deals and best-sellers.",
             palette: ("#2563eb", "#0f172a", "Inter", "square"),
@@ -60,7 +60,7 @@ public static class PrebuiltThemeRegistry
                 Categories("Browse categories"),
                 Featured("Best sellers", "bestsellers"),
                 Cta("Save on bundles", "Members get early access to launches and offers.", "Become a member", "#0f172a"),
-            ]),
+            ], headingFont: "Space Grotesk", radius: "sharp", card: "elevated", density: "compact"),
 
         Theme("fresh", "Fresh", "Grocery", "Aisle-first layout with a delivery promo for everyday essentials.",
             palette: ("#16a34a", "#166534", "Inter", "rounded"),
@@ -70,7 +70,7 @@ public static class PrebuiltThemeRegistry
                 Categories("Shop by aisle"),
                 Featured("Today's picks", "featured"),
                 Cta("Free delivery over ₹499", "Fresh to your door, fast.", "Start shopping", "#166534"),
-            ]),
+            ], headingFont: "Nunito", radius: "round", card: "shadow", density: "cozy"),
 
         Theme("bloom", "Bloom", "Beauty", "Soft, elegant look for beauty, skincare and wellness.",
             palette: ("#db2777", "#7c3aed", "Poppins", "pill"),
@@ -82,7 +82,7 @@ public static class PrebuiltThemeRegistry
                 Featured("Bestsellers", "bestsellers"),
                 ImageWithText("Kind to you and the planet", "Cruelty-free, dermatologically tested, thoughtfully packaged."),
                 Cta("Get 10% off", "Join for tips, launches and a welcome treat.", "Join Bloom", "#7c3aed"),
-            ]),
+            ], headingFont: "Cormorant Garamond", radius: "round", card: "flat", density: "spacious"),
 
         Theme("haven", "Haven", "Home & Living", "Warm, homely layout for furniture, decor and living.",
             palette: ("#a16207", "#44403c", "Inter", "rounded"),
@@ -94,7 +94,7 @@ public static class PrebuiltThemeRegistry
                 Featured("New in", "newest"),
                 ImageWithText("Built to last", "Solid materials, timeless design — furniture that grows with you."),
                 Testimonials(),
-            ]),
+            ], headingFont: "Lora", radius: "soft", card: "bordered", density: "spacious"),
     ];
 
     public static IReadOnlyList<PrebuiltThemeSummary> Summaries =>
@@ -111,14 +111,22 @@ public static class PrebuiltThemeRegistry
     private static PrebuiltTheme Theme(
         string key, string name, string category, string description,
         (string primary, string secondary, string font, string button) palette,
-        string announce, IReadOnlyList<PrebuiltSection> index) =>
+        string announce, IReadOnlyList<PrebuiltSection> index,
+        string? headingFont = null, string radius = "soft", string card = "bordered",
+        string density = "cozy", string headingCase = "none") =>
         new(key, name, category, description,
             new Dictionary<string, string>
             {
                 ["PrimaryColor"] = palette.primary,
                 ["SecondaryColor"] = palette.secondary,
+                ["AccentColor"] = palette.primary,
                 ["Font"] = palette.font,
+                ["HeadingFont"] = headingFont ?? palette.font,
                 ["ButtonStyle"] = palette.button,
+                ["Radius"] = radius,
+                ["CardStyle"] = card,
+                ["Density"] = density,
+                ["HeadingTransform"] = headingCase,
             },
             [
                 new("index", index),

@@ -9,7 +9,7 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
   imports: [RouterLink, CurrencyPipe, WishlistButtonComponent],
   template: `
     <a [routerLink]="['/product', product().slug]"
-       class="group block bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition">
+       class="group block overflow-hidden sf-card">
       <div class="relative aspect-square bg-slate-50 overflow-hidden">
         @if (product().primaryImageUrl) {
           <img [src]="product().primaryImageUrl" [alt]="product().name"
@@ -38,7 +38,6 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
             <span class="text-xs text-slate-400 line-through">{{ product().compareAtPrice | currency:'INR':'symbol':'1.0-0' }}</span>
           }
         </div>
-        <p class="text-[11px] text-slate-400 mt-0.5">Customizable</p>
       </div>
     </a>
   `,
