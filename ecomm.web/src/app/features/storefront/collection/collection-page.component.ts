@@ -1,5 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ThemeService } from '../../../core/services/theme.service';
+import { StorefrontSectionComponent } from '../storefront-section.component';
+import { SectionSlot, slotsFrom } from '../section-slot';
 import { CollectionPageStore } from './collection-page.store';
 import { CollectionGridComponent, CollectionHeaderComponent } from './collection-sections.component';
 
@@ -13,14 +15,15 @@ const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionGrid'];
  */
 @Component({
   selector: 'app-collection-page',
-  imports: [CollectionHeaderComponent, CollectionGridComponent],
+  imports: [StorefrontSectionComponent, CollectionHeaderComponent, CollectionGridComponent],
   providers: [CollectionPageStore],
   template: `
     <section class="page-container py-8">
-      @for (type of sectionTypes(); track $index) {
-        @switch (type) {
+      @for (slot of slots(); track $index) {
+        @switch (slot.type) {
           @case ('CollectionHeader') { <app-collection-header /> }
           @case ('CollectionGrid') { <app-collection-grid /> }
+          @default { @if (slot.data) { <app-storefront-section [section]="slot.data" /> } }
         }
       }
     </section>
@@ -30,12 +33,10 @@ export class CollectionPageComponent implements OnInit {
   readonly store = inject(CollectionPageStore);
   private readonly theme = inject(ThemeService);
 
-  readonly sectionTypes = signal<string[]>(DEFAULT_COLLECTION_SECTIONS);
+  readonly slots = signal<SectionSlot[]>(slotsFrom([], DEFAULT_COLLECTION_SECTIONS));
 
   ngOnInit(): void {
-    this.theme.getTemplate('collection').subscribe((sections) => {
-      if (sections.length) this.sectionTypes.set(sections.map((s) => s.sectionType));
-    });
+    this.theme.getTemplate('collection').subscribe((sections) => this.slots.set(slotsFrom(sections, DEFAULT_COLLECTION_SECTIONS)));
     this.store.init();
   }
 }

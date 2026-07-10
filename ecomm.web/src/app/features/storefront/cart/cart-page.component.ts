@@ -1,6 +1,8 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../core/services/theme.service';
+import { StorefrontSectionComponent } from '../storefront-section.component';
+import { SectionSlot, slotsFrom } from '../section-slot';
 import { CartPageStore } from './cart-page.store';
 import { CartItemsComponent, CartSummaryComponent } from './cart-sections.component';
 
@@ -15,7 +17,7 @@ const DEFAULT_CART_SECTIONS = ['CartItems', 'CartSummary'];
  */
 @Component({
   selector: 'app-cart-page',
-  imports: [RouterLink, CartItemsComponent, CartSummaryComponent],
+  imports: [RouterLink, StorefrontSectionComponent, CartItemsComponent, CartSummaryComponent],
   providers: [CartPageStore],
   template: `
     <section class="page-container py-8">
@@ -31,10 +33,11 @@ const DEFAULT_CART_SECTIONS = ['CartItems', 'CartSummary'];
         </div>
       } @else {
         <div class="grid lg:grid-cols-3 gap-6 items-start">
-          @for (type of sectionTypes(); track $index) {
-            @switch (type) {
+          @for (slot of slots(); track $index) {
+            @switch (slot.type) {
               @case ('CartItems') { <div class="lg:col-span-2"><app-cart-items /></div> }
               @case ('CartSummary') { <app-cart-summary /> }
+              @default { @if (slot.data) { <div class="lg:col-span-3"><app-storefront-section [section]="slot.data" /></div> } }
             }
           }
         </div>
@@ -46,11 +49,9 @@ export class CartPageComponent implements OnInit {
   readonly store = inject(CartPageStore);
   private readonly theme = inject(ThemeService);
 
-  readonly sectionTypes = signal<string[]>(DEFAULT_CART_SECTIONS);
+  readonly slots = signal<SectionSlot[]>(slotsFrom([], DEFAULT_CART_SECTIONS));
 
   ngOnInit(): void {
-    this.theme.getTemplate('cart').subscribe((sections) => {
-      if (sections.length) this.sectionTypes.set(sections.map((s) => s.sectionType));
-    });
+    this.theme.getTemplate('cart').subscribe((sections) => this.slots.set(slotsFrom(sections, DEFAULT_CART_SECTIONS)));
   }
 }

@@ -1,6 +1,8 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ThemeService } from '../../../core/services/theme.service';
+import { StorefrontSectionComponent } from '../storefront-section.component';
+import { SectionSlot, slotsFrom } from '../section-slot';
 import { ProductPageStore } from './product-page.store';
 import {
   ProductBreadcrumbsComponent, ProductDescriptionComponent, ProductInfoComponent, ProductReviewsComponent,
@@ -18,7 +20,8 @@ const DEFAULT_PRODUCT_SECTIONS = ['Breadcrumbs', 'ProductInfo', 'ProductDescript
 @Component({
   selector: 'app-product-page',
   imports: [
-    RouterLink, ProductBreadcrumbsComponent, ProductInfoComponent, ProductDescriptionComponent, ProductReviewsComponent,
+    RouterLink, StorefrontSectionComponent,
+    ProductBreadcrumbsComponent, ProductInfoComponent, ProductDescriptionComponent, ProductReviewsComponent,
   ],
   providers: [ProductPageStore],
   template: `
@@ -31,12 +34,13 @@ const DEFAULT_PRODUCT_SECTIONS = ['Breadcrumbs', 'ProductInfo', 'ProductDescript
       </div>
     } @else if (store.product()) {
       <section class="page-container py-8">
-        @for (type of sectionTypes(); track $index) {
-          @switch (type) {
+        @for (slot of slots(); track $index) {
+          @switch (slot.type) {
             @case ('Breadcrumbs') { <app-product-breadcrumbs /> }
             @case ('ProductInfo') { <app-product-info /> }
             @case ('ProductDescription') { <app-product-description /> }
             @case ('ProductReviews') { <app-product-reviews /> }
+            @default { @if (slot.data) { <app-storefront-section [section]="slot.data" /> } }
           }
         }
       </section>
@@ -48,13 +52,11 @@ export class ProductPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly theme = inject(ThemeService);
 
-  readonly sectionTypes = signal<string[]>(DEFAULT_PRODUCT_SECTIONS);
+  readonly slots = signal<SectionSlot[]>(slotsFrom([], DEFAULT_PRODUCT_SECTIONS));
 
   ngOnInit(): void {
     // Layout is theme-level (same for every product) — load it once.
-    this.theme.getTemplate('product').subscribe((sections) => {
-      if (sections.length) this.sectionTypes.set(sections.map((s) => s.sectionType));
-    });
+    this.theme.getTemplate('product').subscribe((sections) => this.slots.set(slotsFrom(sections, DEFAULT_PRODUCT_SECTIONS)));
     // Entity data is per-route.
     this.route.paramMap.subscribe((params) => this.store.load(params.get('slug') ?? ''));
   }
