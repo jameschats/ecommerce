@@ -56,6 +56,7 @@ export class AdminLayoutComponent {
     { path: '/admin/store-settings', label: 'Store settings' },
     { path: '/admin/policies', label: 'Policies' },
     { path: '/admin/preferences', label: 'Preferences' },
+    { path: '/admin/checkout-settings', label: 'Checkout' },
     { path: '/admin/payments', label: 'Payments' },
     { path: '/admin/shipping', label: 'Shipping' },
     { path: '/admin/staff', label: 'Staff' },

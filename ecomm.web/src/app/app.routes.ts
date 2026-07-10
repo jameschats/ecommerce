@@ -97,6 +97,7 @@ export const routes: Routes = [
       { path: 'staff', loadComponent: () => import('./features/admin/staff/admin-staff.component').then((m) => m.AdminStaffComponent) },
       { path: 'policies', loadComponent: () => import('./features/admin/settings/admin-policies.component').then((m) => m.AdminPoliciesComponent) },
       { path: 'preferences', loadComponent: () => import('./features/admin/settings/admin-preferences.component').then((m) => m.AdminPreferencesComponent) },
+      { path: 'checkout-settings', loadComponent: () => import('./features/admin/settings/admin-checkout-settings.component').then((m) => m.AdminCheckoutSettingsComponent) },
       { path: 'payments', loadComponent: () => import('./features/admin/settings/admin-payments.component').then((m) => m.AdminPaymentsComponent) },
       { path: 'shipping', loadComponent: () => import('./features/admin/settings/admin-shipping.component').then((m) => m.AdminShippingComponent) },
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },

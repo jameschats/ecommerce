@@ -64,6 +64,8 @@ public sealed class CartService : ICartService
 
         var targetQty = (existing?.Quantity ?? 0) + req.Quantity;
         if (targetQty > available) throw new AppException($"Only {available} in stock.");
+        var limit = await ItemLimitAsync(ct);
+        if (limit > 0 && targetQty > limit) throw new AppException($"Limit is {limit} per item.");
 
         if (existing is null)
         {
@@ -103,6 +105,8 @@ public sealed class CartService : ICartService
         {
             var available = await AvailableAsync(item.ProductId, ct);
             if (quantity > available) throw new AppException($"Only {available} in stock.");
+            var limit = await ItemLimitAsync(ct);
+            if (limit > 0 && quantity > limit) throw new AppException($"Limit is {limit} per item.");
             item.Quantity = quantity;
             item.UpdatedAt = DateTime.UtcNow;
         }
@@ -207,6 +211,15 @@ public sealed class CartService : ICartService
     {
         var sum = await _db.Inventory.Where(i => i.ProductId == productId).SumAsync(i => (int?)i.AvailableQty, ct);
         return sum ?? 0;
+    }
+
+    /// <summary>Merchant "max quantity per item" checkout setting (0 = no limit).</summary>
+    private async Task<int> ItemLimitAsync(CancellationToken ct)
+    {
+        var v = await _db.Settings
+            .Where(s => s.TenantId == Tenant && s.SettingKey == ecomm.api.Features.Settings.CheckoutSettingsService.ItemLimitKey)
+            .Select(s => s.SettingValue).FirstOrDefaultAsync(ct);
+        return int.TryParse(v, out var n) && n > 0 ? n : 0;
     }
 
     private async Task<CartDto> BuildDtoAsync(CartEntity? cart, CancellationToken ct)

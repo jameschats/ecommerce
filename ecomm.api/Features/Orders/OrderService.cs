@@ -48,6 +48,15 @@ public sealed class OrderService : IOrderService
         _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons; _log = log;
     }
 
+    /// <summary>Customer self-service cancellation toggle (merchant setting; default on).</summary>
+    private async Task<bool> SelfServeCancelEnabledAsync(CancellationToken ct)
+    {
+        var v = await _db.Settings
+            .Where(s => s.TenantId == Tenant && s.SettingKey == ecomm.api.Features.Settings.CheckoutSettingsService.SelfServeCancelKey)
+            .Select(s => s.SettingValue).FirstOrDefaultAsync(ct);
+        return v is null || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Fire order lifecycle notifications (email always; SMS when smsCode given).
     /// Never throws — notification failure must not break the order flow.</summary>
     private async Task NotifyOrderAsync(long orderId, string emailCode, string? smsCode,
@@ -366,6 +375,9 @@ public sealed class OrderService : IOrderService
     {
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && (isAdmin || o.UserId == userId), ct)
             ?? throw new AppException("Order not found.", 404);
+        // Merchant can disable customer self-service cancellation (default on). Admin is never gated.
+        if (!isAdmin && !await SelfServeCancelEnabledAsync(ct))
+            throw new AppException("Please contact us to cancel this order.");
         if (order.Status is "Shipped" or "Delivered" or "Cancelled" or "Returned")
             throw new AppException($"An order that is {order.Status} cannot be cancelled.");
 
@@ -454,6 +466,8 @@ public sealed class OrderService : IOrderService
             .Select(i => new { i.InvoiceId, i.InvoiceNumber }).FirstOrDefaultAsync(ct);
 
         var canCancel = order.Status is "Pending" or "Paid" or "Packed" or "Confirmed";
+        // Hide the customer's self-cancel affordance when the merchant has disabled self-service cancellation.
+        if (canCancel && !isAdmin) canCancel = await SelfServeCancelEnabledAsync(ct);
 
         var shipment = await _db.Shipments.Where(s => s.OrderId == orderId).OrderByDescending(s => s.ShipmentId)
             .Select(s => new ShipmentDto(s.ShipmentId, s.Courier, s.TrackingNumber, s.Status,
