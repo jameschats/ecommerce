@@ -60,10 +60,21 @@
   margin-bottom: 0.25rem;
 }
 
+/* Typography + layout tokens — overridden at runtime by the Theme Engine when a
+   theme provides them (ThemeService sets --app-font / --app-font-size / etc.).
+   Fallbacks keep the current look when a theme doesn't set them. */
+body {
+  font-family: var(--app-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  font-size: var(--app-font-size, 1rem);
+}
+h1, h2, h3, h4, h5 {
+  font-family: var(--app-heading-font, var(--app-font, inherit));
+}
+
 /* Wide page container (Flipkart-style: use more of the viewport) */
 .page-container {
   width: 100%;
-  max-width: 1480px;
+  max-width: var(--app-container, 1480px);
   margin-inline: auto;
   padding-inline: 1.25rem;
 }

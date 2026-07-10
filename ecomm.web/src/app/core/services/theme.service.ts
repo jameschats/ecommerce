@@ -11,10 +11,35 @@ export interface ThemeDto {
   settings: Record<string, string>;
 }
 
+/** One section from the published theme (a shared zone entry or template section). */
+export interface ThemeSection {
+  id: number;
+  sectionType: string;
+  kind: string;
+  title: string | null;
+  settings: string | null;
+  blocks: string | null;
+  displayOrder: number;
+  isVisible: boolean;
+}
+
+/** The published theme bundle: global settings + the shared header/footer/announcement zones. */
+export interface ThemeBundle {
+  themeId: number;
+  status: string;
+  settings: Record<string, string>;
+  header: ThemeSection[];
+  footer: ThemeSection[];
+  announcement: ThemeSection[];
+}
+
 /**
- * Loads the active theme and applies it as CSS variables on :root.
- * SSR-safe (sets the variables on the server document too → no flash of
- * default colors). Tailwind's `primary` utilities read these variables.
+ * Loads the published theme bundle (settings + shared zones) and applies the
+ * settings as CSS variables on :root. SSR-safe (sets the variables on the server
+ * document too → no flash of default colors). Tailwind's `primary` utilities read
+ * these variables. The zone signals (header/footer/announcement) drive the
+ * data-driven store chrome; when a zone is empty the app falls back to its
+ * built-in chrome, so nothing breaks while themes are being authored.
  */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -25,9 +50,20 @@ export class ThemeService {
   readonly logo = signal<string | null>(null);
   readonly storeName = signal<string>('');
 
+  /** Published-theme shared zones (empty = use the app's built-in chrome). */
+  readonly announcement = signal<ThemeSection[]>([]);
+  readonly header = signal<ThemeSection[]>([]);
+  readonly footer = signal<ThemeSection[]>([]);
+
   load(): Observable<void> {
-    return this.http.get<ApiResponse<ThemeDto>>(`${API_BASE_URL}/theme`).pipe(
-      tap((r) => this.apply(r.data?.settings ?? {})),
+    return this.http.get<ApiResponse<ThemeBundle>>(`${API_BASE_URL}/storefront/theme`).pipe(
+      tap((r) => {
+        const b = r.data;
+        this.apply(b?.settings ?? {});
+        this.announcement.set((b?.announcement ?? []).filter((s) => s.isVisible));
+        this.header.set((b?.header ?? []).filter((s) => s.isVisible));
+        this.footer.set((b?.footer ?? []).filter((s) => s.isVisible));
+      }),
       map(() => void 0),
       catchError(() => of(void 0)),
     );
@@ -42,7 +78,28 @@ export class ThemeService {
     root.style.setProperty('--color-primary-dark', this.darken(primary, 0.85));
     if (settings['SecondaryColor']) root.style.setProperty('--color-secondary', settings['SecondaryColor']);
     if (settings['Font']) root.style.setProperty('--app-font', `${settings['Font']}, system-ui, sans-serif`);
+    // Typography + layout — set only when the theme provides them (additive for the S4 editor).
+    if (settings['HeadingFont']) root.style.setProperty('--app-heading-font', `${settings['HeadingFont']}, system-ui, sans-serif`);
+    if (settings['BaseFontSize']) root.style.setProperty('--app-font-size', this.cssLen(settings['BaseFontSize']));
+    if (settings['ContainerWidth']) root.style.setProperty('--app-container', this.cssLen(settings['ContainerWidth']));
     root.style.setProperty('--btn-radius', this.buttonRadius(settings['ButtonStyle']));
+    if (settings['Favicon']) this.setFavicon(settings['Favicon']);
+  }
+
+  /** Accepts "16", "16px" or "62rem" → a valid CSS length (bare numbers become px). */
+  private cssLen(v: string): string {
+    const t = (v || '').trim();
+    return /^[0-9.]+$/.test(t) ? `${t}px` : t;
+  }
+
+  private setFavicon(href: string): void {
+    let link = this.doc.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (!link) {
+      link = this.doc.createElement('link');
+      link.setAttribute('rel', 'icon');
+      this.doc.head.appendChild(link);
+    }
+    link.setAttribute('href', href);
   }
 
   private buttonRadius(style: string | undefined): string {

@@ -11,10 +11,11 @@ import { CatalogService } from './core/services/catalog.service';
 import { ThemeService } from './core/services/theme.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
+import { AnnouncementBarComponent } from './features/storefront/announcement-bar.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, NotificationBellComponent],
+  imports: [RouterOutlet, RouterLink, FormsModule, NotificationBellComponent, AnnouncementBarComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -45,6 +46,16 @@ export class App implements OnInit {
   readonly isAdminRoute = signal(false);
   readonly year = 2026;
   searchText = '';
+
+  // Store chrome driven by the published theme's Header/Footer zones. Each falls back to the
+  // current default when the theme defines no such section (so nothing changes until authored).
+  private readonly headerCfg = computed(() => this.zoneSettings(this.theme.header(), 'Header'));
+  private readonly footerCfg = computed(() => this.zoneSettings(this.theme.footer(), 'Footer'));
+  readonly showSearch = computed(() => this.headerCfg()['showSearch'] !== false);
+  readonly showCart = computed(() => this.headerCfg()['showCart'] !== false);
+  readonly stickyHeader = computed(() => this.headerCfg()['sticky'] !== false);
+  readonly footerCopyright = computed(() =>
+    this.footerCfg()['copyright'] || `© ${this.year} ${this.storeName() || 'CalendarShop'}. All rights reserved.`);
 
   readonly suggestions = signal<string[]>([]);
   readonly showSuggest = signal(false);
@@ -113,6 +124,12 @@ export class App implements OnInit {
     this.showSuggest.set(false);
     const q = this.searchText.trim();
     this.router.navigate(['/products'], { queryParams: q ? { search: q } : {} });
+  }
+
+  /** Settings JSON of the first section of the given type in a theme zone (empty when absent). */
+  private zoneSettings(zone: { sectionType: string; settings: string | null }[], type: string): Record<string, unknown> {
+    const raw = zone.find((s) => s.sectionType === type)?.settings;
+    try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
   }
 
   /** Maps a category slug to an icon key (presentation only — schema stays generic). */
