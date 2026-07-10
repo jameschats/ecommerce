@@ -65,7 +65,7 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
   },
   { path: 'admin/pages/:id/build', canActivate: [adminGuard], loadComponent: () => import('./features/admin/builder/admin-builder.component').then((m) => m.AdminBuilderComponent) },
-  { path: 'admin/theme-editor', canActivate: [adminGuard], loadComponent: () => import('./features/admin/theme-editor/admin-theme-editor.component').then((m) => m.AdminThemeEditorComponent) },
+  { path: 'admin/theme-editor/:themeId', canActivate: [adminGuard], loadComponent: () => import('./features/admin/theme-editor/admin-theme-editor.component').then((m) => m.AdminThemeEditorComponent) },
   {
     path: 'admin',
     canActivate: [adminGuard],
@@ -105,6 +105,7 @@ export const routes: Routes = [
       { path: 'payments', loadComponent: () => import('./features/admin/settings/admin-payments.component').then((m) => m.AdminPaymentsComponent) },
       { path: 'shipping', loadComponent: () => import('./features/admin/settings/admin-shipping.component').then((m) => m.AdminShippingComponent) },
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
+      { path: 'themes', loadComponent: () => import('./features/admin/theme-editor/admin-theme-library.component').then((m) => m.AdminThemeLibraryComponent) },
       { path: 'pages', loadComponent: () => import('./features/admin/builder/admin-pages.component').then((m) => m.AdminPagesComponent) },
       { path: 'navigation', loadComponent: () => import('./features/admin/navigation/admin-navigation.component').then((m) => m.AdminNavigationComponent) },
       { path: 'files', loadComponent: () => import('./features/admin/files/admin-files.component').then((m) => m.AdminFilesComponent) },

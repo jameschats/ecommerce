@@ -59,15 +59,23 @@ export class ThemeService {
    * The published theme's section list for a page-type template (product/collection/cart/search/…).
    * Empty when the theme defines no such template → the caller renders its built-in layout (fallback).
    */
+  /** Draft-preview token from the URL (?preview=…) — set when an admin previews a theme; '' normally. */
+  private previewParams(): Record<string, string> {
+    const search = this.doc.defaultView?.location?.search ?? '';
+    const m = /[?&]preview=([^&]+)/.exec(search);
+    return m ? { preview: decodeURIComponent(m[1]) } : {};
+  }
+
   getTemplate(key: string): Observable<ThemeSection[]> {
-    return this.http.get<ApiResponse<{ templateKey: string; sections: ThemeSection[] }>>(`${API_BASE_URL}/storefront/template/${key}`).pipe(
+    return this.http.get<ApiResponse<{ templateKey: string; sections: ThemeSection[] }>>(
+      `${API_BASE_URL}/storefront/template/${key}`, { params: this.previewParams() }).pipe(
       map((r) => (r.data?.sections ?? []).filter((s) => s.isVisible)),
       catchError(() => of([] as ThemeSection[])),
     );
   }
 
   load(): Observable<void> {
-    return this.http.get<ApiResponse<ThemeBundle>>(`${API_BASE_URL}/storefront/theme`).pipe(
+    return this.http.get<ApiResponse<ThemeBundle>>(`${API_BASE_URL}/storefront/theme`, { params: this.previewParams() }).pipe(
       tap((r) => {
         const b = r.data;
         this.apply(b?.settings ?? {});

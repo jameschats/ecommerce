@@ -2,8 +2,9 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CatalogService } from '../../../core/services/catalog.service';
+import { ThemeLibraryService } from '../../../core/services/theme-library.service';
 import {
   BlockTypeSchema, SectionTypeSchema, ThemeAuthoringService, ThemeSectionAdmin, ThemeTemplateSummary,
 } from '../../../core/services/theme-authoring.service';
@@ -11,9 +12,9 @@ import {
 interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
 
 /**
- * Theme editor (S4): pick a page-type template (or a Header/Footer/Announcement zone),
- * add/reorder/configure its sections, and see the storefront preview. Edits the tenant's
- * theme directly (draft/publish arrives in S5). Mirrors the page builder's three-pane UX.
+ * Theme editor (S4/S5): edits a specific theme (by route id — usually a Draft). Pick a page-type
+ * template (or a Header/Footer/Announcement zone), add/reorder/configure its sections, and preview
+ * the storefront rendered with THIS theme (via its preview token). Publish is done from the library.
  */
 @Component({
   selector: 'app-admin-theme-editor',
@@ -22,8 +23,8 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
     <div class="h-screen flex flex-col">
       <header class="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
         <div class="flex items-center gap-3">
-          <a routerLink="/admin" class="text-slate-500 hover:text-slate-800 text-sm">← Admin</a>
-          <span class="font-semibold text-slate-800">Theme editor</span>
+          <a routerLink="/admin/themes" class="text-slate-500 hover:text-slate-800 text-sm">← Themes</a>
+          <span class="font-semibold text-slate-800">{{ themeName() || 'Theme editor' }}</span>
           <select [ngModel]="activeKey()" (ngModelChange)="selectTemplate($event)" class="input text-sm py-1">
             @for (g of grouped(); track g.group) {
               <optgroup [label]="g.group">
@@ -130,8 +131,10 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
 })
 export class AdminThemeEditorComponent implements OnInit {
   private readonly svc = inject(ThemeAuthoringService);
+  private readonly library = inject(ThemeLibraryService);
   private readonly catalog = inject(CatalogService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly route = inject(ActivatedRoute);
 
   readonly templates = signal<ThemeTemplateSummary[]>([]);
   readonly sections = signal<ThemeSectionAdmin[]>([]);
@@ -141,10 +144,13 @@ export class AdminThemeEditorComponent implements OnInit {
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
   readonly previewUrl = signal<SafeResourceUrl | null>(null);
+  readonly themeName = signal<string>('');
 
   settingsObj: Record<string, any> = {};
   blocksArr: Record<string, any>[] = [];
   private sampleProductSlug = '';
+  private themeId = 0;
+  private previewToken: string | null = null;
 
   readonly grouped = computed<TemplateGroup[]>(() => {
     const order = ['Header', 'Templates', 'Footer'];
@@ -155,8 +161,10 @@ export class AdminThemeEditorComponent implements OnInit {
   readonly activeLabel = computed(() => this.templates().find((t) => t.templateKey === this.activeKey())?.label ?? this.activeKey());
 
   ngOnInit(): void {
+    this.themeId = Number(this.route.snapshot.paramMap.get('themeId'));
     this.catalog.getProducts({ pageSize: 1 }).subscribe((r) => { this.sampleProductSlug = r.items[0]?.slug ?? ''; });
-    this.svc.templates().subscribe((t) => this.templates.set(t));
+    this.library.get(this.themeId).subscribe((t) => { this.themeName.set(t.name); this.previewToken = t.previewToken; this.setPreview(); });
+    this.svc.templates(this.themeId).subscribe((t) => this.templates.set(t));
     this.selectTemplate('index');
   }
 
@@ -169,10 +177,10 @@ export class AdminThemeEditorComponent implements OnInit {
   }
 
   private loadSections(): void {
-    this.svc.sections(this.activeKey()).subscribe((s) => {
+    this.svc.sections(this.themeId, this.activeKey()).subscribe((s) => {
       this.sections.set(s);
       if (this.selectedId() && !s.some((x) => x.id === this.selectedId())) this.selectedId.set(null);
-      this.svc.templates().subscribe((t) => this.templates.set(t));   // refresh section counts
+      this.svc.templates(this.themeId).subscribe((t) => this.templates.set(t));   // refresh section counts
     });
   }
 
@@ -188,14 +196,14 @@ export class AdminThemeEditorComponent implements OnInit {
 
   addSection(type: string): void {
     if (!type) return;
-    this.svc.addSection(this.activeKey(), type).subscribe((sec) => { this.loadSections(); setTimeout(() => this.select(sec), 200); this.reloadPreview(); });
+    this.svc.addSection(this.themeId, this.activeKey(), type).subscribe((sec) => { this.loadSections(); setTimeout(() => this.select(sec), 200); this.reloadPreview(); });
   }
 
   drop(e: CdkDragDrop<ThemeSectionAdmin[]>): void {
     const arr = [...this.sections()];
     moveItemInArray(arr, e.previousIndex, e.currentIndex);
     this.sections.set(arr);
-    this.svc.reorder(this.activeKey(), arr.map((s) => s.id)).subscribe(() => this.reloadPreview());
+    this.svc.reorder(this.themeId, this.activeKey(), arr.map((s) => s.id)).subscribe(() => this.reloadPreview());
   }
 
   save(sec: ThemeSectionAdmin): void {
@@ -225,9 +233,10 @@ export class AdminThemeEditorComponent implements OnInit {
 
   reloadPreview(): void { this.setPreview(true); }
   private setPreview(bust = false): void {
-    const path = this.previewPath(this.activeKey());
-    const sep = path.includes('?') ? '&' : '?';
-    const url = bust ? `${path}${sep}_=${Math.floor(performance.now())}` : path;
+    let url = this.previewPath(this.activeKey());
+    // Render the storefront with THIS theme (draft or published) via its preview token.
+    if (this.previewToken) url += `${url.includes('?') ? '&' : '?'}preview=${this.previewToken}`;
+    if (bust) url += `${url.includes('?') ? '&' : '?'}_=${Math.floor(performance.now())}`;
     this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
   }
 

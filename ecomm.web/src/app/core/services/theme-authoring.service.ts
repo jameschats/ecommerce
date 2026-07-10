@@ -25,13 +25,13 @@ export class ThemeAuthoringService {
   private readonly base = `${API_BASE_URL}/admin/theme`;
   private unwrap<T>(o: Observable<ApiResponse<T>>): Observable<T> { return o.pipe(map((r) => r.data as T)); }
 
-  templates(): Observable<ThemeTemplateSummary[]> { return this.unwrap(this.http.get<ApiResponse<ThemeTemplateSummary[]>>(`${this.base}/templates`)); }
-  sections(key: string): Observable<ThemeSectionAdmin[]> { return this.unwrap(this.http.get<ApiResponse<ThemeSectionAdmin[]>>(`${this.base}/templates/${key}/sections`)); }
-  addSection(key: string, sectionType: string): Observable<ThemeSectionAdmin> {
-    return this.unwrap(this.http.post<ApiResponse<ThemeSectionAdmin>>(`${this.base}/templates/${key}/sections`, { sectionType }));
+  templates(themeId: number): Observable<ThemeTemplateSummary[]> { return this.unwrap(this.http.get<ApiResponse<ThemeTemplateSummary[]>>(`${this.base}/${themeId}/templates`)); }
+  sections(themeId: number, key: string): Observable<ThemeSectionAdmin[]> { return this.unwrap(this.http.get<ApiResponse<ThemeSectionAdmin[]>>(`${this.base}/${themeId}/templates/${key}/sections`)); }
+  addSection(themeId: number, key: string, sectionType: string): Observable<ThemeSectionAdmin> {
+    return this.unwrap(this.http.post<ApiResponse<ThemeSectionAdmin>>(`${this.base}/${themeId}/templates/${key}/sections`, { sectionType }));
   }
-  reorder(key: string, orderedSectionIds: number[]): Observable<unknown> {
-    return this.http.put<ApiResponse<unknown>>(`${this.base}/templates/${key}/reorder`, { orderedSectionIds });
+  reorder(themeId: number, key: string, orderedSectionIds: number[]): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/${themeId}/templates/${key}/reorder`, { orderedSectionIds });
   }
   updateSection(id: number, body: SaveThemeSection): Observable<ThemeSectionAdmin> {
     return this.unwrap(this.http.put<ApiResponse<ThemeSectionAdmin>>(`${this.base}/sections/${id}`, body));

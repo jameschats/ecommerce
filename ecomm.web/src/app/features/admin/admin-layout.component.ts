@@ -64,7 +64,7 @@ export class AdminLayoutComponent {
     { path: '/admin/billing', label: 'Plan & billing' },
     { path: '/admin/domain', label: 'Custom domain' },
     { path: '/admin/theme', label: 'Theme' },
-    { path: '/admin/theme-editor', label: 'Theme editor' },
+    { path: '/admin/themes', label: 'Theme editor' },
     { path: '/admin/pages', label: 'Pages' },
     { path: '/admin/navigation', label: 'Navigation' },
     { path: '/admin/files', label: 'Files' },
