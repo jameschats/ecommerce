@@ -17,6 +17,10 @@ public sealed class SubscriptionController(ISubscriptionService subscriptions) :
         return Ok(ApiResponse<SubscriptionDto?>.Ok(sub));
     }
 
+    [HttpGet("billing-history")]
+    public async Task<IActionResult> BillingHistory(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<BillingHistoryDto>>.Ok(await subscriptions.GetBillingHistoryAsync(ct)));
+
     [HttpPost("select-plan")]
     public async Task<IActionResult> SelectPlan([FromBody] SelectPlanRequest request, CancellationToken ct)
     {

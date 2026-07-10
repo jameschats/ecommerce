@@ -43,6 +43,23 @@ public class SubscriptionLifecycleTests
     }
 
     [Fact]
+    public async Task Billing_history_is_newest_first_and_maps_fields()
+    {
+        var (db, svc) = NewSvc(tenantId: 1);
+        db.TenantBillingHistory.Add(new TenantBillingHistory { Amount = 500m, Status = "Paid", BilledAt = new DateTime(2026, 1, 1), RazorpayPaymentId = "pay_old", PeriodStart = new DateTime(2026, 1, 1), PeriodEnd = new DateTime(2026, 2, 1) });
+        db.TenantBillingHistory.Add(new TenantBillingHistory { Amount = 750m, Status = "Paid", BilledAt = new DateTime(2026, 2, 1), RazorpayPaymentId = "pay_new" });
+        await db.SaveChangesAsync();
+
+        var history = await svc.GetBillingHistoryAsync(default);
+
+        Assert.Equal(2, history.Count);
+        Assert.Equal("pay_new", history[0].Reference);        // newest first
+        Assert.Equal(750m, history[0].Amount);
+        Assert.Equal("pay_old", history[1].Reference);
+        Assert.Equal(new DateTime(2026, 2, 1), history[1].PeriodEnd);
+    }
+
+    [Fact]
     public async Task Charge_is_idempotent_and_reactivates_a_suspended_store()
     {
         var (db, svc) = NewSvc();

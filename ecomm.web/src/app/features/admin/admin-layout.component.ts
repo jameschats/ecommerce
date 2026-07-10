@@ -60,6 +60,7 @@ export class AdminLayoutComponent {
     { path: '/admin/payments', label: 'Payments' },
     { path: '/admin/shipping', label: 'Shipping' },
     { path: '/admin/staff', label: 'Staff' },
+    { path: '/admin/billing', label: 'Plan & billing' },
     { path: '/admin/theme', label: 'Theme' },
     { path: '/admin/pages', label: 'Pages' },
     { path: '/admin/navigation', label: 'Navigation' },

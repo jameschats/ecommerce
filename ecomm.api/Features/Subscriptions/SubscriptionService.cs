@@ -10,6 +10,9 @@ public sealed record SubscriptionDto(
     string Status, int PlanId, string PlanName, string PlanSlug, decimal MonthlyPrice,
     DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt, bool IsActive, bool IsInTrial);
 
+public sealed record BillingHistoryDto(
+    long Id, decimal Amount, string Status, DateTime BilledAt, DateTime? PeriodStart, DateTime? PeriodEnd, string? Reference);
+
 public sealed record RecordChargeCommand(
     long TenantId, decimal Amount, string RazorpayPaymentId,
     string? RazorpaySubscriptionId, DateTime PeriodStart, DateTime PeriodEnd);
@@ -17,6 +20,7 @@ public sealed record RecordChargeCommand(
 public interface ISubscriptionService
 {
     Task<SubscriptionDto?> GetCurrentAsync(CancellationToken ct);          // merchant (current tenant)
+    Task<IReadOnlyList<BillingHistoryDto>> GetBillingHistoryAsync(CancellationToken ct);   // merchant invoices
     Task<SubscriptionDto> SelectPlanAsync(int planId, CancellationToken ct);
     Task CancelAsync(CancellationToken ct);
     Task<bool> RecordChargeAsync(RecordChargeCommand cmd, CancellationToken ct);   // webhook, idempotent
@@ -33,6 +37,13 @@ public sealed class SubscriptionService(EcommerceDbContext db) : ISubscriptionSe
             .OrderByDescending(x => x.TenantSubscriptionId).FirstOrDefaultAsync(ct);
         return s is null ? null : ToDto(s);
     }
+
+    public async Task<IReadOnlyList<BillingHistoryDto>> GetBillingHistoryAsync(CancellationToken ct) =>
+        await db.TenantBillingHistory.AsNoTracking()
+            .OrderByDescending(b => b.BilledAt)
+            .Select(b => new BillingHistoryDto(
+                b.TenantBillingHistoryId, b.Amount, b.Status, b.BilledAt, b.PeriodStart, b.PeriodEnd, b.RazorpayPaymentId))
+            .ToListAsync(ct);
 
     public async Task<SubscriptionDto> SelectPlanAsync(int planId, CancellationToken ct)
     {
