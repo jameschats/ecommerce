@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
-import { ThemeLibraryService, ThemeSummary } from '../../../core/services/theme-library.service';
+import { PrebuiltThemeSummary, ThemeLibraryService, ThemeSummary } from '../../../core/services/theme-library.service';
 
 /**
  * Theme library (S5): the tenant's themes — exactly one Published (live), the rest Draft.
@@ -54,6 +54,27 @@ import { ThemeLibraryService, ThemeSummary } from '../../../core/services/theme-
             </div>
           }
         </div>
+
+        <!-- Prebuilt starter themes -->
+        <h2 class="text-lg font-bold text-slate-900 mt-10 mb-1">Start from a free theme</h2>
+        <p class="text-sm text-slate-500 mb-4">Install a ready-made theme as a draft, tweak it, then publish.</p>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          @for (p of prebuilt(); track p.key) {
+            <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <!-- Color-swatch thumbnail derived from the theme palette -->
+              <div class="h-24 flex items-end p-3" [style.background]="'linear-gradient(135deg,' + p.primaryColor + ',' + p.secondaryColor + ')'">
+                <span class="text-white font-semibold text-sm drop-shadow">{{ p.name }}</span>
+              </div>
+              <div class="p-4">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ p.category }}</span>
+                </div>
+                <p class="text-sm text-slate-600 mt-2">{{ p.description }}</p>
+                <button type="button" (click)="install(p)" [disabled]="busy()" class="btn-primary w-full mt-3 py-2 text-sm">Install</button>
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   `,
@@ -64,9 +85,15 @@ export class AdminThemeLibraryComponent implements OnInit {
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
   readonly themes = signal<ThemeSummary[]>([]);
+  readonly prebuilt = signal<PrebuiltThemeSummary[]>([]);
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void { this.load(); this.api.prebuilt().subscribe((p) => this.prebuilt.set(p)); }
   private load(): void { this.api.list().subscribe({ next: (t) => { this.themes.set(t); this.loading.set(false); }, error: () => this.loading.set(false) }); }
+
+  install(p: PrebuiltThemeSummary): void {
+    this.busy.set(true);
+    this.api.install(p.key).subscribe({ next: () => { this.busy.set(false); this.flash(`"${p.name}" installed as a draft.`); this.load(); }, error: () => this.busy.set(false) });
+  }
   private flash(m: string): void { this.message.set(m); setTimeout(() => this.message.set(null), 2500); }
 
   /** Storefront URL that renders this (draft) theme via its preview token. */

@@ -11,6 +11,7 @@ public sealed record ThemeSummaryDto(
 public sealed record CreateThemeRequest(string Name);
 public sealed record RenameThemeRequest(string Name);
 public sealed record DuplicateThemeRequest(string? Name);
+public sealed record InstallThemeRequest(string Key);
 
 public interface IThemeLibraryService
 {
@@ -21,6 +22,8 @@ public interface IThemeLibraryService
     Task<ThemeSummaryDto> RenameAsync(long themeId, string name, CancellationToken ct = default);
     Task PublishAsync(long themeId, CancellationToken ct = default);
     Task DeleteAsync(long themeId, CancellationToken ct = default);
+    IReadOnlyList<PrebuiltThemeSummary> ListPrebuilt();
+    Task<ThemeSummaryDto> InstallPrebuiltAsync(string key, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -125,6 +128,43 @@ public sealed class ThemeLibraryService(EcommerceDbContext db) : IThemeLibrarySe
         db.ThemeSettings.RemoveRange(db.ThemeSettings.Where(s => s.ThemeId == themeId));
         db.Themes.Remove(theme);
         await db.SaveChangesAsync(ct);
+    }
+
+    public IReadOnlyList<PrebuiltThemeSummary> ListPrebuilt() => PrebuiltThemeRegistry.Summaries;
+
+    /// <summary>Install a free prebuilt theme into the library as a Draft (settings + templates + sections).</summary>
+    public async Task<ThemeSummaryDto> InstallPrebuiltAsync(string key, CancellationToken ct = default)
+    {
+        var bundle = PrebuiltThemeRegistry.Get(key)
+            ?? throw new AppException("Unknown theme.", StatusCodes.Status404NotFound);
+
+        var theme = new Data.Entities.Theme
+        {
+            Name = bundle.Name, Status = "Draft", IsActive = false,
+            Source = bundle.Key, PreviewToken = NewToken(), CreatedAt = DateTime.UtcNow,
+        };
+        db.Themes.Add(theme);
+        await db.SaveChangesAsync(ct);   // need theme.ThemeId
+
+        foreach (var (k, v) in bundle.Settings)
+            db.ThemeSettings.Add(new ThemeSetting { ThemeId = theme.ThemeId, SettingKey = k, SettingValue = v, CreatedAt = DateTime.UtcNow });
+
+        foreach (var tpl in bundle.Templates)
+        {
+            var template = new ThemeTemplate { ThemeId = theme.ThemeId, TemplateKey = tpl.TemplateKey, Name = "Default", CreatedAt = DateTime.UtcNow };
+            db.ThemeTemplates.Add(template);
+            await db.SaveChangesAsync(ct);   // need template.ThemeTemplateId
+
+            var order = 1;
+            foreach (var sec in tpl.Sections)
+                db.ThemeSections.Add(new ThemeSection
+                {
+                    ThemeTemplateId = template.ThemeTemplateId, SectionType = sec.Type, Title = sec.Title,
+                    Settings = sec.Settings, Blocks = sec.Blocks, DisplayOrder = order++, IsVisible = true, CreatedAt = DateTime.UtcNow,
+                });
+        }
+        await db.SaveChangesAsync(ct);
+        return ToDto(theme);
     }
 
     // ---- helpers ----

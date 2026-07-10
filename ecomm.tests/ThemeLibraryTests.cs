@@ -69,6 +69,38 @@ public class ThemeLibraryTests
     }
 
     [Fact]
+    public async Task Install_prebuilt_creates_a_draft_with_settings_and_sections()
+    {
+        var (db, lib) = await SeedPublishedAsync();
+        using var _ = db;
+
+        var summaries = lib.ListPrebuilt();
+        Assert.NotEmpty(summaries);
+        var key = summaries[0].Key;
+
+        var installed = await lib.InstallPrebuiltAsync(key);
+
+        Assert.Equal("Draft", installed.Status);
+        Assert.Equal(key, installed.Source);
+        Assert.False(string.IsNullOrEmpty(installed.PreviewToken));
+        // Palette settings copied.
+        Assert.True(await db.ThemeSettings.AnyAsync(s => s.ThemeId == installed.ThemeId && s.SettingKey == "PrimaryColor"));
+        // The index template has sections; the announcement zone got its bar.
+        var indexTpl = await db.ThemeTemplates.SingleAsync(t => t.ThemeId == installed.ThemeId && t.TemplateKey == "index");
+        Assert.True(await db.ThemeSections.CountAsync(s => s.ThemeTemplateId == indexTpl.ThemeTemplateId) > 0);
+        var annTpl = await db.ThemeTemplates.SingleAsync(t => t.ThemeId == installed.ThemeId && t.TemplateKey == "announcement");
+        Assert.Equal(1, await db.ThemeSections.CountAsync(s => s.ThemeTemplateId == annTpl.ThemeTemplateId && s.SectionType == "AnnouncementBar"));
+    }
+
+    [Fact]
+    public async Task Install_unknown_theme_is_rejected()
+    {
+        var (db, lib) = await SeedPublishedAsync();
+        using var _ = db;
+        await Assert.ThrowsAsync<AppException>(() => lib.InstallPrebuiltAsync("does-not-exist"));
+    }
+
+    [Fact]
     public async Task Cannot_delete_the_published_theme()
     {
         var (db, lib) = await SeedPublishedAsync();

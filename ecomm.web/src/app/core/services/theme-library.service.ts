@@ -14,6 +14,16 @@ export interface ThemeSummary {
   createdAt: string;
 }
 
+export interface PrebuiltThemeSummary {
+  key: string;
+  name: string;
+  category: string;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  font: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ThemeLibraryService {
   private readonly http = inject(HttpClient);
@@ -27,4 +37,7 @@ export class ThemeLibraryService {
   rename(id: number, name: string): Observable<ThemeSummary> { return this.unwrap(this.http.put<ApiResponse<ThemeSummary>>(`${this.base}/${id}`, { name })); }
   publish(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/${id}/publish`, {}); }
   remove(id: number): Observable<unknown> { return this.http.delete<ApiResponse<unknown>>(`${this.base}/${id}`); }
+
+  prebuilt(): Observable<PrebuiltThemeSummary[]> { return this.unwrap(this.http.get<ApiResponse<PrebuiltThemeSummary[]>>(`${this.base}/prebuilt`)); }
+  install(key: string): Observable<ThemeSummary> { return this.unwrap(this.http.post<ApiResponse<ThemeSummary>>(`${this.base}/install`, { key })); }
 }

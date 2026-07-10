@@ -22,6 +22,14 @@ public sealed class ThemeLibraryController(IThemeLibraryService library) : Contr
     public async Task<IActionResult> Create(CreateThemeRequest req, CancellationToken ct)
         => Ok(ApiResponse<ThemeSummaryDto>.Ok(await library.CreateAsync(req.Name, ct), "Theme created."));
 
+    [HttpGet("prebuilt")]
+    public IActionResult Prebuilt()
+        => Ok(ApiResponse<IReadOnlyList<PrebuiltThemeSummary>>.Ok(library.ListPrebuilt()));
+
+    [HttpPost("install")]
+    public async Task<IActionResult> Install(InstallThemeRequest req, CancellationToken ct)
+        => Ok(ApiResponse<ThemeSummaryDto>.Ok(await library.InstallPrebuiltAsync(req.Key, ct), "Theme installed."));
+
     [HttpPost("{id:long}/duplicate")]
     public async Task<IActionResult> Duplicate(long id, DuplicateThemeRequest req, CancellationToken ct)
         => Ok(ApiResponse<ThemeSummaryDto>.Ok(await library.DuplicateAsync(id, req.Name, ct), "Theme duplicated."));
