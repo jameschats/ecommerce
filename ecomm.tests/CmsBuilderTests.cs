@@ -43,6 +43,21 @@ public class CmsBuilderTests
     }
 
     [Fact]
+    public async Task Add_section_with_default_settings_serializes()
+    {
+        // Regression: adding a section that has default settings (Hero → autoplay/intervalSec)
+        // used to throw at ToJsonString because JsonValue.Create((object)…) needs a TypeInfoResolver.
+        var (db, svc) = await SeedRichTextAsync();
+        using var _ = db;
+
+        var section = await svc.AddSectionAsync(new AddSectionRequest(1, "Hero"), default);
+
+        Assert.Equal("Hero", section.SectionType);
+        Assert.Contains("autoplay", section.Settings);
+        Assert.Contains("intervalSec", section.Settings);
+    }
+
+    [Fact]
     public async Task ApplyPreset_replaces_sections_with_valid_types()
     {
         var (db, svc) = await SeedRichTextAsync();   // page 1 starts with one RichText section

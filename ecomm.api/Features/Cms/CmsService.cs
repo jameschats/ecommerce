@@ -265,9 +265,24 @@ public sealed class CmsService(EcommerceDbContext db) : ICmsService
     {
         var obj = new JsonObject();
         foreach (var f in schema.Settings.Where(f => f.Default is not null))
-            obj[f.Key] = JsonValue.Create(f.Default);
+            obj[f.Key] = ToNode(f.Default!);
         return obj.ToJsonString(JsonOpts);
     }
+
+    /// <summary>
+    /// Typed JSON node from a boxed default. Using <c>JsonValue.Create((object)…)</c> here produces a
+    /// "customized" node that requires a TypeInfoResolver to serialize with custom options, throwing at
+    /// <c>ToJsonString</c>; matching the concrete type keeps the value a natively-serializable primitive.
+    /// </summary>
+    private static JsonNode? ToNode(object v) => v switch
+    {
+        bool b => JsonValue.Create(b),
+        int i => JsonValue.Create(i),
+        long l => JsonValue.Create(l),
+        double d => JsonValue.Create(d),
+        string s => JsonValue.Create(s),
+        _ => JsonValue.Create(v.ToString()),
+    };
 
     private static string NormalizeSlug(string? slug, string title)
     {
