@@ -14,10 +14,13 @@ import { OnboardingService } from '../../core/services/onboarding.service';
 
       @if (created()) {
         <div class="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
-          <h2 class="text-lg font-semibold text-green-800">🎉 Your store is live!</h2>
+          <h2 class="text-lg font-semibold text-green-800">🎉 Your store is ready!</h2>
           <p class="text-slate-600 mt-1">Trial ends {{ created()!.trialEndsAt | date: 'mediumDate' }}.</p>
-          <a [href]="created()!.storeUrl" class="btn-primary inline-block mt-4">Go to my store →</a>
-          <p class="text-xs text-slate-400 mt-3">Sign in there with the email &amp; password you just set.</p>
+          <div class="flex items-center justify-center gap-3 mt-4">
+            <a [href]="created()!.storeUrl + '/admin'" class="btn-primary inline-block">Go to my dashboard →</a>
+            <a [href]="created()!.storeUrl" class="text-sm text-primary hover:underline">View store</a>
+          </div>
+          <p class="text-xs text-slate-400 mt-3">Sign in with the email &amp; password you just set, then add products and pick a theme.</p>
         </div>
       } @else {
         @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
