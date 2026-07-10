@@ -54,12 +54,14 @@ wired end-to-end — `SubscriptionService.SelectPlanAsync` marks the plan but do
 subscription + collect payment** (like Shopify's subscribe screen). Track as **Part D — billing checkout**.
 
 ## Phasing
-- **P1 — Foundation + super-admin shell** *(small, high-impact — fixes the visible chrome bleed):*
-  host-type in host-info · `hideStorefrontChrome` · strip storefront chrome from `/superadmin` · platform left-nav.
-- **P2 — Apex landing + pricing** *(medium):* `LandingComponent` + marketing chrome + pricing from `/api/plans`
-  (trial-first) + host-aware root.
-- **P3 — Super-admin functionality** *(large, separate):* the real platform-admin depth.
-- **P4 — Billing checkout** *(medium, separate):* Razorpay subscription so a trial converts to paid.
+- **P1 — Foundation + super-admin shell** ✅ `9ad83a8`. host-info returns `hostType`; app shell
+  `hideStorefrontChrome` strips storefront chrome from `/admin`, `/superadmin` and the apex landing — the
+  super-admin's own "Platform Admin" bar now stands alone. *(Platform left-nav for super-admin deferred into P3.)*
+- **P2 — Apex landing + pricing** ✅ `9ad83a8`. `LandingComponent` at `/welcome` (self-contained marketing chrome:
+  hero, features, pricing from `/api/plans`, trial-first CTAs). `apexLandingGuard` redirects apex `/` → `/welcome`;
+  `welcomeGuard` keeps it apex-only. Signup honours `?plan=`.
+- **P3 — Super-admin functionality** ⬜ *(large, separate):* the real platform-admin depth (+ platform left-nav).
+- **P4 — Billing checkout** ⬜ *(medium, separate):* Razorpay subscription so a trial converts to paid.
 
 ## Open decisions (confirm before building)
 1. Apex `/` renders the landing directly (lean: **yes**, keep the clean URL) vs redirect to `/welcome`.
