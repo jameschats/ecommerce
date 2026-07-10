@@ -37,6 +37,7 @@ export class App implements OnInit {
   });
 
   readonly categories = signal<Category[]>([]);
+  readonly policyLinks = signal<{ handle: string; title: string }[]>([]);
   readonly menuOpen = signal(false);
   readonly isAdminRoute = signal(false);
   readonly year = 2026;
@@ -50,6 +51,7 @@ export class App implements OnInit {
     this.webAnalytics.init();
     this.theme.load().subscribe();
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
+    this.catalog.getPolicyLinks().subscribe((p) => this.policyLinks.set(p));
 
     this.isAdminRoute.set(this.router.url.startsWith('/admin'));
     this.router.events

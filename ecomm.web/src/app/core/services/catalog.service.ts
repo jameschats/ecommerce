@@ -10,6 +10,8 @@ export interface PublicCollection {
   collectionId: number; name: string; slug: string; description: string | null; imageUrl: string | null;
   metaTitle: string | null; metaDescription: string | null; products: PublicCollectionProduct[];
 }
+export interface StorePolicy { handle: string; title: string; bodyHtml: string | null; hasContent: boolean; }
+export interface PolicyLink { handle: string; title: string; }
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
@@ -40,6 +42,19 @@ export class CatalogService {
     return this.http.get<ApiResponse<PublicCollection>>(`${this.base}/collections/${encodeURIComponent(slug)}`).pipe(
       map((r) => r.data ?? null),
       catchError(() => of(null)),
+    );
+  }
+
+  getPolicy(handle: string): Observable<StorePolicy | null> {
+    return this.http.get<ApiResponse<StorePolicy>>(`${this.base}/policies/${encodeURIComponent(handle)}`).pipe(
+      map((r) => r.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+  getPolicyLinks(): Observable<PolicyLink[]> {
+    return this.http.get<ApiResponse<PolicyLink[]>>(`${this.base}/policies`).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
     );
   }
 
