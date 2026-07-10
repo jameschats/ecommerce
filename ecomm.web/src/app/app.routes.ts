@@ -22,7 +22,7 @@ export const routes: Routes = [
   },
   {
     path: 'cart',
-    loadComponent: () => import('./features/cart/cart.component').then((m) => m.CartComponent),
+    loadComponent: () => import('./features/storefront/cart/cart-page.component').then((m) => m.CartPageComponent),
   },
   {
     path: 'checkout',
