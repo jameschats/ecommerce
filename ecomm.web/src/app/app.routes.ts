@@ -98,6 +98,7 @@ export const routes: Routes = [
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
       { path: 'pages', loadComponent: () => import('./features/admin/builder/admin-pages.component').then((m) => m.AdminPagesComponent) },
       { path: 'navigation', loadComponent: () => import('./features/admin/navigation/admin-navigation.component').then((m) => m.AdminNavigationComponent) },
+      { path: 'files', loadComponent: () => import('./features/admin/files/admin-files.component').then((m) => m.AdminFilesComponent) },
       { path: 'home-page', loadComponent: () => import('./features/admin/cms/admin-cms.component').then((m) => m.AdminCmsComponent) },
       { path: 'banners', loadComponent: () => import('./features/admin/cms/admin-banners.component').then((m) => m.AdminBannersComponent) },
       { path: 'import', loadComponent: () => import('./features/admin/catalog/admin-import.component').then((m) => m.AdminImportComponent) },

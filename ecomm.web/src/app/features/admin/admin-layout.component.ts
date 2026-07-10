@@ -60,6 +60,7 @@ export class AdminLayoutComponent {
     { path: '/admin/theme', label: 'Theme' },
     { path: '/admin/pages', label: 'Pages' },
     { path: '/admin/navigation', label: 'Navigation' },
+    { path: '/admin/files', label: 'Files' },
     { path: '/admin/home-page', label: 'Home page' },
     { path: '/admin/banners', label: 'Banners' },
     { path: '/admin/import', label: 'Import / Export' },

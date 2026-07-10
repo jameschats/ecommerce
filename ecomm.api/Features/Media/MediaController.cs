@@ -22,4 +22,12 @@ public sealed class MediaController : ControllerBase
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> Upload(IFormFile? file, CancellationToken ct)
         => Ok(ApiResponse<MediaDto>.Ok(await _media.UploadAsync(file!, CurrentUserId, ct), "Image uploaded."));
+
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 24, CancellationToken ct = default)
+        => Ok(ApiResponse<PagedResult<MediaFileDto>>.Ok(await _media.ListAsync(page, pageSize, ct)));
+
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
+    { await _media.DeleteAsync(id, ct); return Ok(ApiResponse<object>.Ok(new { }, "File deleted.")); }
 }
