@@ -8,12 +8,19 @@ public sealed record FieldSchema(
 /// <summary>A block kind allowed inside a section (e.g. a hero Slide, a Testimonial item).</summary>
 public sealed record BlockTypeSchema(string Key, string Label, IReadOnlyList<FieldSchema> Fields);
 
-/// <summary>A section type: its settings schema + which block kinds it may contain.</summary>
+/// <summary>
+/// A section type: its settings schema + which block kinds it may contain.
+/// <para><c>Kind</c>: <c>static</c> (settings only) · <c>dynamic</c> (binds live route data:
+/// product/collection/cart/search) · <c>group</c> (shared header/footer/announcement zone).</para>
+/// <para><c>Scope</c>: template keys this section is valid on; <c>null</c> = any template.</para>
+/// </summary>
 public sealed record SectionTypeSchema(
     string Key, string Label, string Icon, string? Description,
     IReadOnlyList<FieldSchema> Settings,
     IReadOnlyList<BlockTypeSchema> BlockTypes,
-    int? MaxBlocks = null);
+    int? MaxBlocks = null,
+    string Kind = "static",
+    IReadOnlyList<string>? Scope = null);
 
 /// <summary>
 /// The platform's catalog of storefront section types. This is the single source of
@@ -98,12 +105,90 @@ public static class SectionTypeRegistry
                 new("buttonLink", "Button link", "url"),
                 new("backgroundColor", "Background colour", "color", "#111827"),
             ], BlockTypes: []),
+
+        // ---- Group sections (shared zones, one per theme) ----
+        new("AnnouncementBar", "Announcement bar", "megaphone", "A thin bar above the header for promos/notices.",
+            Settings: [ new("backgroundColor", "Background colour", "color", "#111827"), new("autoplay", "Rotate messages", "boolean", true) ],
+            BlockTypes: [ new("Message", "Message", [ new("text", "Text", "text"), new("link", "Link", "url") ]) ],
+            MaxBlocks: 5, Kind: "group", Scope: ["announcement"]),
+
+        new("Header", "Header", "layout", "Logo, navigation, search and cart.",
+            Settings:
+            [
+                new("showSearch", "Show search", "boolean", true),
+                new("showCart", "Show cart", "boolean", true),
+                new("sticky", "Stick to top on scroll", "boolean", true),
+                new("menuHandle", "Menu", "text", "main"),
+            ], BlockTypes: [], Kind: "group", Scope: ["header"]),
+
+        new("Footer", "Footer", "layout", "Link columns, socials and legal.",
+            Settings: [ new("showPolicies", "Show policy links", "boolean", true), new("copyright", "Copyright text", "text") ],
+            BlockTypes:
+            [
+                new("Column", "Link column", [ new("heading", "Heading", "text"), new("links", "Links (JSON)", "textarea") ]),
+            ], MaxBlocks: 5, Kind: "group", Scope: ["footer"]),
+
+        // ---- Dynamic sections (bind live route data; valid only on their page-type) ----
+        new("Breadcrumbs", "Breadcrumbs", "chevron", "The trail to the current page.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["product", "collection"]),
+        new("ProductGallery", "Product gallery", "image", "The product's image gallery.",
+            Settings: [ new("zoom", "Enable zoom", "boolean", true) ], BlockTypes: [], Kind: "dynamic", Scope: ["product"]),
+        new("ProductInfo", "Product info", "tag", "Title, price, variants, quantity and add-to-cart.",
+            Settings: [ new("showSku", "Show SKU", "boolean", true), new("showShare", "Show share buttons", "boolean", false) ],
+            BlockTypes: [], Kind: "dynamic", Scope: ["product"]),
+        new("ProductDescription", "Product description", "text", "The full product description.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["product"]),
+        new("ProductReviews", "Product reviews", "star", "Ratings and customer reviews.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["product"]),
+        new("RelatedProducts", "Related products", "grid", "A rail of related products.",
+            Settings: [ new("heading", "Heading", "text", "You may also like"), new("count", "How many", "number", 8) ],
+            BlockTypes: [], Kind: "dynamic", Scope: ["product"]),
+        new("CollectionHeader", "Collection header", "layout", "Collection title, description and image.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["collection"]),
+        new("CollectionGrid", "Collection grid", "grid", "The product grid with filters and sort.",
+            Settings: [ new("columns", "Columns", "number", 4), new("showFilters", "Show filters", "boolean", true), new("showSort", "Show sort", "boolean", true) ],
+            BlockTypes: [], Kind: "dynamic", Scope: ["collection"]),
+        new("CollectionsList", "Collections list", "grid", "A grid of all collections.",
+            Settings: [ new("columns", "Columns", "number", 3) ], BlockTypes: [], Kind: "dynamic", Scope: ["list-collections"]),
+        new("CartItems", "Cart items", "cart", "The line items in the cart.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["cart"]),
+        new("CartSummary", "Cart summary", "tag", "Totals and checkout button.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["cart"]),
+        new("SearchBar", "Search bar", "search", "The storefront search input.",
+            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["search"]),
+        new("SearchResults", "Search results", "grid", "Results for the current query.",
+            Settings: [ new("columns", "Columns", "number", 4) ], BlockTypes: [], Kind: "dynamic", Scope: ["search"]),
+        new("EmptyState", "Empty state", "info", "Shown when there's nothing to display (404 / empty cart / no results).",
+            Settings: [ new("heading", "Heading", "text"), new("body", "Body", "textarea"), new("buttonText", "Button text", "text"), new("buttonLink", "Button link", "url") ],
+            BlockTypes: [], Kind: "dynamic", Scope: ["404", "cart", "search"]),
     };
+
+    /// <summary>Known template (page-type) keys a theme can define.</summary>
+    public static readonly IReadOnlyList<string> TemplateKeys =
+    [
+        "index", "product", "collection", "list-collections", "cart", "search", "404", "password", "account",
+        "header", "footer", "announcement",
+    ];
 
     public static SectionTypeSchema? Get(string key) =>
         All.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
 
     public static bool IsValidType(string key) => Get(key) is not null;
+
+    public static bool IsValidTemplateKey(string key) =>
+        TemplateKeys.Any(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>True if the section type may be placed on the given template (respecting its Scope).</summary>
+    public static bool IsValidOnTemplate(string sectionType, string templateKey)
+    {
+        var schema = Get(sectionType);
+        if (schema is null) return false;
+        return schema.Scope is null || schema.Scope.Any(s => string.Equals(s, templateKey, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Section types valid on a template (for the builder's "add section" list).</summary>
+    public static IEnumerable<SectionTypeSchema> ForTemplate(string templateKey) =>
+        All.Where(s => s.Scope is null || s.Scope.Any(k => string.Equals(k, templateKey, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Keys of settings fields that hold HTML and must be sanitized on save.</summary>
     public static IEnumerable<string> RichTextSettingKeys(string sectionType) =>

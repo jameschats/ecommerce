@@ -62,6 +62,8 @@ public class EcommerceDbContext : DbContext
     // --- Theme ---
     public DbSet<Theme> Themes => Set<Theme>();
     public DbSet<ThemeSetting> ThemeSettings => Set<ThemeSetting>();
+    public DbSet<ThemeTemplate> ThemeTemplates => Set<ThemeTemplate>();
+    public DbSet<ThemeSection> ThemeSections => Set<ThemeSection>();
 
     // --- CMS ---
     public DbSet<Page> Pages => Set<Page>();
@@ -242,6 +244,19 @@ public class EcommerceDbContext : DbContext
             e.HasMany(x => x.Settings).WithOne(s => s.Theme!).HasForeignKey(s => s.ThemeId);
         });
         b.Entity<ThemeSetting>(e => { e.ToTable("ThemeSettings"); e.HasKey(x => x.ThemeSettingId); });
+        b.Entity<ThemeTemplate>(e =>
+        {
+            e.ToTable("ThemeTemplates");
+            e.HasKey(x => x.ThemeTemplateId);
+            e.HasMany(x => x.Sections).WithOne(s => s.Template!).HasForeignKey(s => s.ThemeTemplateId);
+        });
+        b.Entity<ThemeSection>(e =>
+        {
+            e.ToTable("ThemeSections");
+            e.HasKey(x => x.ThemeSectionId);
+            e.Property(x => x.Settings).HasColumnType("json");
+            e.Property(x => x.Blocks).HasColumnType("json");
+        });
 
         // --- CMS ---
         b.Entity<Page>(e =>

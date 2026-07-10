@@ -149,6 +149,7 @@ builder.Services.AddScoped<ecomm.api.Features.Collections.ICollectionService, ec
 builder.Services.AddScoped<ecomm.api.Features.Navigation.INavigationService, ecomm.api.Features.Navigation.NavigationService>();
 builder.Services.AddScoped<ecomm.api.Features.Policies.IPolicyService, ecomm.api.Features.Policies.PolicyService>();
 builder.Services.AddScoped<ecomm.api.Features.Storefront.IStorefrontPreferencesService, ecomm.api.Features.Storefront.StorefrontPreferencesService>();
+builder.Services.AddScoped<ecomm.api.Features.Storefront.IStorefrontThemeService, ecomm.api.Features.Storefront.StorefrontThemeService>();
 builder.Services.AddScoped<ecomm.api.Features.Staff.IStaffAdminService, ecomm.api.Features.Staff.StaffAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Payments.IPaymentSettingsService, ecomm.api.Features.Payments.PaymentSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Shipping.IShippingAdminService, ecomm.api.Features.Shipping.ShippingAdminService>();
