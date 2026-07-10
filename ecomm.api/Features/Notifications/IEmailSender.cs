@@ -11,7 +11,10 @@ namespace ecomm.api.Features.Notifications;
 /// </summary>
 public interface IEmailSender
 {
-    Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default);
+    /// <param name="fromName">Optional per-tenant sender display name (envelope address stays the platform address for SPF/DKIM).</param>
+    /// <param name="replyTo">Optional per-tenant reply-to address, so replies reach the merchant.</param>
+    Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default,
+        string? fromName = null, string? replyTo = null);
 }
 
 /// <summary>Dev/stub email sender — logs the message instead of sending it.</summary>
@@ -21,9 +24,11 @@ public sealed class LoggingEmailSender : IEmailSender
 
     public LoggingEmailSender(ILogger<LoggingEmailSender> logger) => _logger = logger;
 
-    public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default)
+    public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default,
+        string? fromName = null, string? replyTo = null)
     {
-        _logger.LogWarning("[DEV EMAIL] To {To} | Subject: {Subject}\n{Body}", toEmail, subject, htmlBody);
+        _logger.LogWarning("[DEV EMAIL] From {From} (reply-to {ReplyTo}) To {To} | Subject: {Subject}\n{Body}",
+            fromName ?? "(default)", replyTo ?? "(none)", toEmail, subject, htmlBody);
         return Task.CompletedTask;
     }
 }
@@ -35,16 +40,20 @@ public sealed class SmtpEmailSender : IEmailSender
 
     public SmtpEmailSender(IOptions<EmailOptions> opts) => _opts = opts.Value;
 
-    public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default)
+    public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default,
+        string? fromName = null, string? replyTo = null)
     {
         using var message = new MailMessage
         {
-            From = new MailAddress(_opts.FromAddress, _opts.FromName),
+            // Envelope address stays the authenticated platform address (SPF/DKIM); only the
+            // display name is overridden per tenant. Replies are routed to the merchant via Reply-To.
+            From = new MailAddress(_opts.FromAddress, string.IsNullOrWhiteSpace(fromName) ? _opts.FromName : fromName),
             Subject = subject,
             Body = htmlBody,
             IsBodyHtml = true,
         };
         message.To.Add(toEmail);
+        if (!string.IsNullOrWhiteSpace(replyTo)) message.ReplyToList.Add(new MailAddress(replyTo));
 
         using var client = new SmtpClient(_opts.Host, _opts.Port)
         {

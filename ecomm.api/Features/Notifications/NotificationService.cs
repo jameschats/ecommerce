@@ -74,7 +74,10 @@ public sealed class NotificationService : INotificationService
         try
         {
             if (channel == "Email")
-                await _email.SendAsync(recipient, subject ?? "", body, ct);
+            {
+                var (fromName, replyTo) = await SenderIdentityAsync(ct);
+                await _email.SendAsync(recipient, subject ?? "", body, ct, fromName, replyTo);
+            }
             else
                 await _sms.SendAsync(recipient, body, ct);
 
@@ -90,6 +93,15 @@ public sealed class NotificationService : INotificationService
 
         await _db.SaveChangesAsync(ct);
         return history.Status == "Sent";
+    }
+
+    /// <summary>Per-tenant email sender identity (display name + reply-to) from merchant Settings.</summary>
+    private async Task<(string? fromName, string? replyTo)> SenderIdentityAsync(CancellationToken ct)
+    {
+        var rows = await _db.Settings.AsNoTracking()
+            .Where(s => s.TenantId == Tenant && (s.SettingKey == "SenderName" || s.SettingKey == "ReplyToEmail"))
+            .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue, ct);
+        return (rows.GetValueOrDefault("SenderName"), rows.GetValueOrDefault("ReplyToEmail"));
     }
 
     /// <summary>Replaces <c>{{key}}</c> placeholders (case-insensitive, optional surrounding spaces).</summary>

@@ -112,6 +112,7 @@ else
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationFeedService, ecomm.api.Features.Notifications.NotificationFeedService>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationAdminService, ecomm.api.Features.Notifications.NotificationAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Reviews.IReviewService, ecomm.api.Features.Reviews.ReviewService>();
 builder.Services.AddScoped<ecomm.api.Features.Coupons.ICouponService, ecomm.api.Features.Coupons.CouponService>();
 builder.Services.AddScoped<ecomm.api.Features.Wishlist.IWishlistService, ecomm.api.Features.Wishlist.WishlistService>();
