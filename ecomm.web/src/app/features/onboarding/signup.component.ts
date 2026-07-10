@@ -44,11 +44,13 @@ import { OnboardingService } from '../../core/services/onboarding.service';
             <input [(ngModel)]="form.storeName" (ngModelChange)="onNameChange($event)" name="storeName" class="input w-full" placeholder="Acme Crafts" /></label>
           <label class="block"><span class="lbl">Store address</span>
             <div class="flex items-center">
-              <input [(ngModel)]="form.slug" (ngModelChange)="checkSlug()" name="slug" class="input w-full rounded-r-none" placeholder="acme" />
-              <span class="px-2 py-2 text-sm text-slate-400 border border-l-0 border-slate-300 rounded-r-lg bg-slate-50">.{{ baseDomain }}</span>
+              <input [(ngModel)]="form.slug" (ngModelChange)="checkSlug()" name="slug" class="input w-full rounded-r-none" placeholder="acme-store" />
+              <span class="px-2 py-2 text-sm text-slate-400 border border-l-0 border-slate-300 rounded-r-lg bg-slate-50">.{{ baseDomain() }}</span>
             </div>
+            @if (form.slug && slugState() === 'short') { <span class="text-xs text-amber-600">At least 3 characters</span> }
             @if (form.slug && slugState() === 'taken') { <span class="text-xs text-red-500">Taken</span> }
             @if (form.slug && slugState() === 'ok') { <span class="text-xs text-green-600">Available</span> }
+            @if (!form.slug) { <span class="text-xs text-slate-400">Leave blank and we'll create one for you (e.g. acme-a3k9).</span> }
           </label>
           <label class="block"><span class="lbl">Your name</span>
             <input [(ngModel)]="form.ownerName" name="ownerName" class="input w-full" /></label>
@@ -72,27 +74,35 @@ export class SignupComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly created = signal<OnboardingResult | null>(null);
-  readonly slugState = signal<'idle' | 'checking' | 'ok' | 'taken'>('idle');
-  readonly baseDomain = 'calendarshop.online';
+  readonly slugState = signal<'idle' | 'checking' | 'ok' | 'taken' | 'short'>('idle');
+  // The store-address suffix, from the host the signup runs on (wavcommerce.online in prod).
+  readonly baseDomain = signal<string>('your-domain.com');
 
   private slugTouched = false;
   form: SignupRequest = { storeName: '', slug: '', ownerName: '', ownerEmail: '', password: '', planSlug: 'starter' };
 
   ngOnInit(): void {
     this.svc.plans().subscribe((p) => this.plans.set(p));
-  }
-
-  onNameChange(name: string): void {
-    if (!this.slugTouched) {
-      this.form.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-      this.checkSlug();
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      this.baseDomain.set(window.location.hostname.replace(/^www\./, ''));
     }
   }
 
-  checkSlug(): void {
-    this.slugTouched = true;
+  onNameChange(name: string): void {
+    if (this.slugTouched) return;
+    // Suggest a clean base from the name; too short → leave blank so the backend auto-generates
+    // a unique Shopify-style handle (e.g. "cafe24-a3k9"). No more single-letter "c" addresses.
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    this.form.slug = base.length >= 3 ? base : '';
+    if (this.form.slug) this.checkSlugInternal(); else this.slugState.set('idle');
+  }
+
+  checkSlug(): void { this.slugTouched = true; this.checkSlugInternal(); }
+
+  private checkSlugInternal(): void {
     const slug = this.form.slug.trim();
-    if (slug.length < 3) { this.slugState.set('idle'); return; }
+    if (!slug) { this.slugState.set('idle'); return; }
+    if (slug.length < 3) { this.slugState.set('short'); return; }
     this.slugState.set('checking');
     this.svc.slugAvailable(slug).subscribe((ok) => this.slugState.set(ok ? 'ok' : 'taken'));
   }

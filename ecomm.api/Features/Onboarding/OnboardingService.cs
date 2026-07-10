@@ -20,6 +20,8 @@ public interface IOnboardingService
 {
     Task<OnboardingResult> SignupAsync(SignupRequest req, string? ip, CancellationToken ct);
     Task<bool> IsSlugAvailableAsync(string slug, CancellationToken ct);
+    /// <summary>A unique, valid store address derived from the name (Shopify-style, e.g. "cafe24-a3k9").</summary>
+    Task<string> SuggestSlugAsync(string? storeName, CancellationToken ct);
 }
 
 /// <summary>
@@ -56,6 +58,11 @@ public sealed partial class OnboardingService(
         if (storeName.Length < 2) throw new AppException("Store name is required.", StatusCodes.Status400BadRequest);
         if (!email.Contains('@')) throw new AppException("A valid email is required.", StatusCodes.Status400BadRequest);
         if ((req.Password ?? "").Length < 8) throw new AppException("Password must be at least 8 characters.", StatusCodes.Status400BadRequest);
+
+        // No address chosen → auto-generate a unique Shopify-style handle from the store name.
+        if (string.IsNullOrWhiteSpace(slug))
+            slug = await GenerateUniqueSlugAsync(storeName, ct);
+
         if (!SlugPattern().IsMatch(slug))
             throw new AppException("Store address must be 3–40 chars: lowercase letters, numbers, hyphens (not at the ends).", StatusCodes.Status400BadRequest);
         if (ReservedSlugs.Contains(slug))
@@ -132,6 +139,44 @@ public sealed partial class OnboardingService(
         return !await db.Tenants.AnyAsync(t => t.Slug == slug, ct);
     }
 
+    public Task<string> SuggestSlugAsync(string? storeName, CancellationToken ct) => GenerateUniqueSlugAsync(storeName, ct);
+
+    /// <summary>
+    /// A unique, valid store address derived from the name plus a short random suffix (Shopify-style:
+    /// "cafe24-a3k9"). The suffix guarantees uniqueness at scale and stops a one-word name from being a
+    /// squattable single-letter/word subdomain. Falls back to "store-xxxxxx" when the name yields nothing.
+    /// </summary>
+    private async Task<string> GenerateUniqueSlugAsync(string? storeName, CancellationToken ct)
+    {
+        var baseSlug = Slugify(storeName);
+        if (baseSlug.Length < 3) baseSlug = "store";
+
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var candidate = $"{baseSlug}-{RandomToken(attempt < 25 ? 4 : 6)}";
+            if (candidate.Length <= 40 && SlugPattern().IsMatch(candidate)
+                && !ReservedSlugs.Contains(candidate) && !await db.Tenants.AnyAsync(t => t.Slug == candidate, ct))
+                return candidate;
+        }
+        return $"store-{RandomToken(8)}";
+    }
+
+    /// <summary>Lowercase, hyphenate and trim a name into a slug base (max 24 chars, no leading/trailing hyphen).</summary>
+    private static string Slugify(string? name)
+    {
+        var s = SlugStripRegex().Replace((name ?? "").ToLowerInvariant(), "-").Trim('-');
+        if (s.Length > 24) s = s[..24].Trim('-');
+        return s;
+    }
+
+    /// <summary>A base-36 token (0-9a-z) of the given length, from crypto-strong randomness.</summary>
+    private static string RandomToken(int length)
+    {
+        const string alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(length);
+        return string.Create(length, bytes, (span, b) => { for (var i = 0; i < span.Length; i++) span[i] = alphabet[b[i] % alphabet.Length]; });
+    }
+
     private string BuildStoreUrl(string slug)
     {
         var baseDomain = tenancy.Value.BaseDomain;
@@ -140,6 +185,12 @@ public sealed partial class OnboardingService(
             : $"https://{slug}.{baseDomain}";
     }
 
-    [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")]
+    // 3–40 chars: lowercase letters/numbers/hyphens, not at the ends. (The optional group is now
+    // required, so 1–2 char slugs like "c" are rejected — matching the error message.)
+    [GeneratedRegex("^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$")]
     private static partial Regex SlugPattern();
+
+    /// <summary>Anything that isn't a lowercase letter or digit → a hyphen (collapsed).</summary>
+    [GeneratedRegex("[^a-z0-9]+")]
+    private static partial Regex SlugStripRegex();
 }

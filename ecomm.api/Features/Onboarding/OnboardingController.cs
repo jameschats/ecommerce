@@ -23,4 +23,8 @@ public sealed class OnboardingController(IOnboardingService onboarding) : Contro
         var available = await onboarding.IsSlugAvailableAsync(slug, ct);
         return Ok(ApiResponse<bool>.Ok(available));
     }
+
+    [HttpGet("suggest-slug")]
+    public async Task<IActionResult> SuggestSlug([FromQuery] string? name, CancellationToken ct)
+        => Ok(ApiResponse<string>.Ok(await onboarding.SuggestSlugAsync(name, ct)));
 }

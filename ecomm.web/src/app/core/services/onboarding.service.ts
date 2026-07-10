@@ -19,6 +19,13 @@ export class OnboardingService {
       .pipe(map((r) => r.data ?? false));
   }
 
+  /** A unique Shopify-style store address derived from the name (e.g. "cafe24-a3k9"). */
+  suggestSlug(name: string): Observable<string> {
+    return this.http
+      .get<ApiResponse<string>>(`${API_BASE_URL}/onboarding/suggest-slug`, { params: { name } })
+      .pipe(map((r) => r.data ?? ''));
+  }
+
   signup(req: SignupRequest): Observable<OnboardingResult> {
     return this.http
       .post<ApiResponse<OnboardingResult>>(`${API_BASE_URL}/onboarding/signup`, req)
