@@ -17,7 +17,7 @@ subdomain resolution + per-tenant theme/SEO — those foundations are ✅; this 
 | Phase | Title | Status |
 |---|---|---|
 | **P1–P5** | **Storefront Builder** (precursor foundation): sections-and-blocks backend, data-driven `/pages/:slug`, visual drag-drop builder, live preview, data-driven home, industry presets | ✅ `111a151` `bcf7b21` `baeed0a` `84787ed` |
-| **S1** | Model & rendering skeleton (theme library data model, bundle read endpoints, group section types; migrate Home → theme `index`) | ⬜ Not started |
+| **S1** | Model & rendering skeleton (theme library data model, bundle read endpoints, group section types; migrate Home → theme `index`) | ✅ `273d55a` |
 | **S2** | Store layout shell (data-driven Header/Announcement/Footer + theme-settings CSS vars) | ⬜ |
 | **S3** | Dynamic templates (product/collection/search/cart → section-composed) — **the big one** | ⬜ |
 | **S4** | Theme editor authoring (template picker + zones + per-template section CRUD + draft-preview) | ⬜ |
@@ -108,8 +108,12 @@ Draft. Ship as `database/migrations/14x_prebuilt_themes.sql` seed data + a `Preb
 `StorefrontPresets`, but full theme bundles). The current 4 presets fold in as `index`-template starters.
 
 ## Phasing (each phase builds + `dotnet test` green, committed; storefront never breaks — fallback chrome until cutover)
-- **S1 — Model & rendering skeleton.** Migration 141, entities, theme-bundle read endpoints, section-registry
-  Kind/Scope + group section types. Migrate current Home sections → default Published theme `index`. No UI change yet.
+- **S1 — Model & rendering skeleton.** ✅ Done as migration **169** (not 141 — that number was long taken; V2 band
+  is now at 169). `ThemeTemplates`/`ThemeSections` + `Themes.Status/Source/PreviewToken`; `SectionTypeRegistry`
+  Kind/Scope + group + dynamic section types; `StorefrontThemeService` (bundle + per-template reads) at
+  `GET /api/storefront/{theme,template/{key},section-types}`. Home→`index` is a **read-only fallback** plus an
+  idempotent `BackfillIndexFromHome` (rather than a destructive SQL migration) so the storefront never breaks. No UI change.
+  **Global theme settings stay in the existing `ThemeSettings` key/value store** (not duplicated into a `Themes.Settings` JSON column).
 - **S2 — Store layout shell.** Data-driven Header/Announcement/Footer + theme-settings CSS vars. Fallback to current chrome when absent.
 - **S3 — Dynamic templates (the big one).** Refactor product → section-composed (Gallery/Info/AddToCart/Description/
   Reviews/Related); then collection/search; then cart. Behaviour preserved; SSR intact.
