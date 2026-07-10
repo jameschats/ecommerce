@@ -21,7 +21,7 @@ subdomain resolution + per-tenant theme/SEO — those foundations are ✅; this 
 | **S2** | Store layout shell (data-driven Header/Announcement/Footer + theme-settings CSS vars) | ✅ `8e6c23e` (announcement zone + header/footer settings + CSS vars; full section-composed header/footer → S3/S4) |
 | **S3** | Dynamic templates (product/collection/search/cart → section-composed) — **the big one** | ✅ product `d476dd5` · collection/search `fb8218a` · cart `2a89d36` |
 | **S4** | Theme editor authoring (template picker + zones + per-template section CRUD + draft-preview) | ✅ `d04605e` (API) · `d5a6d16` (editor UI) |
-| **S5** | Theme library + publish (multi-theme CRUD, duplicate, preview token, atomic publish/rollback) | ⬜ |
+| **S5** | Theme library + publish (multi-theme CRUD, duplicate, preview token, atomic publish/rollback) | ✅ `849f319` (API) · `0005928` (library UI) |
 | **S6** | Prebuilt themes (author 5–10 free bundles + install flow + thumbnails) | ⬜ |
 | **S7** | Checkout/account branding + polish (announcement bar, 404/password templates) | ⬜ |
 
@@ -135,7 +135,12 @@ Draft. Ship as `database/migrations/14x_prebuilt_themes.sql` seed data + a `Preb
   form, live storefront preview iframe. Backend `ThemeAuthoringService` + `/api/admin/theme/*` enforces section
   `Scope` and sanitizes richtext. Edits the tenant's theme directly — **true draft-preview + publish is S5**. The
   existing theme-settings panel (colors/font/logo at `/admin/theme`) stays as-is for now.
-- **S5 — Theme library + publish.** Multi-theme CRUD, duplicate, preview token, atomic publish/rollback.
+- **S5 — Theme library + publish.** ✅ `/admin/themes` — many themes, exactly one **Published** (live), rest Draft:
+  create / duplicate (deep copy of settings+templates+sections) / rename / publish (atomic swap, one txn) / delete
+  (blocked on the live theme). Each theme has a **PreviewToken**; the editor targets a theme by id and its preview
+  iframe renders that theme via `?preview={token}`, and the storefront (`ThemeService`) reads `?preview=` to serve a
+  Draft before it's live. **Note:** theme *global settings* (colors/font/logo at `/admin/theme`) still target the
+  active theme — per-draft settings editing folds in with the S7 theme-settings panel.
 - **S6 — Prebuilt themes.** Author 5–10 bundles + install flow + thumbnails.
 - **S7 — Checkout/account branding + polish.** Branding settings, announcement bar live, 404/password templates.
 
