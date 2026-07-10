@@ -1,6 +1,9 @@
-import { inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { PLATFORM_ID, inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { map } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { PlatformInfoService } from '../services/platform-info.service';
 
 export const authGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
@@ -8,6 +11,22 @@ export const authGuard: CanActivateFn = (_route, state) => {
   return auth.isAuthenticated()
     ? true
     : router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+};
+
+/**
+ * Keeps the admin/super-admin consoles OFF a merchant's custom domain. On a connected custom
+ * domain (www.brand.com), the console isn't served — the browser is redirected to the platform
+ * host (`{slug}.wavcommerce.online/admin`, or the apex `/superadmin`). Storefront stays put.
+ * On the platform host / apex / dev it's a no-op. Runs before the role guards.
+ */
+export const platformHostGuard: CanActivateFn = (_route, state) => {
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) return true;   // SSR: let the browser guard decide
+  return inject(PlatformInfoService).hostInfo().pipe(map((info) => {
+    if (!info.isCustomDomain) return true;
+    const target = state.url.startsWith('/superadmin') ? info.superAdminUrl : info.adminUrl;
+    window.location.href = target;
+    return false;
+  }));
 };
 
 export const adminGuard: CanActivateFn = (_route, state) => {

@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard, authGuard, superAdminGuard } from './core/guards/auth.guard';
+import { adminGuard, authGuard, platformHostGuard, superAdminGuard } from './core/guards/auth.guard';
 import { homeResolver } from './features/home/home.resolver';
 
 export const routes: Routes = [
@@ -45,7 +45,7 @@ export const routes: Routes = [
   },
   { path: 'signup', loadComponent: () => import('./features/onboarding/signup.component').then((m) => m.SignupComponent) },
   { path: 'password', loadComponent: () => import('./features/pages/password/store-password.component').then((m) => m.StorePasswordComponent) },
-  { path: 'superadmin', canActivate: [superAdminGuard], loadComponent: () => import('./features/superadmin/superadmin-dashboard.component').then((m) => m.SuperAdminDashboardComponent) },
+  { path: 'superadmin', canActivate: [platformHostGuard, superAdminGuard], loadComponent: () => import('./features/superadmin/superadmin-dashboard.component').then((m) => m.SuperAdminDashboardComponent) },
   { path: 'collection/:slug', loadComponent: () => import('./features/catalog/collection/collection.component').then((m) => m.CollectionComponent) },
   { path: 'policies/:handle', loadComponent: () => import('./features/pages/policy/policy.component').then((m) => m.PolicyComponent) },
   { path: 'pages/:slug', loadComponent: () => import('./features/pages/page.component').then((m) => m.PageComponent) },
@@ -64,11 +64,11 @@ export const routes: Routes = [
     path: 'register',
     loadComponent: () => import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
   },
-  { path: 'admin/pages/:id/build', canActivate: [adminGuard], loadComponent: () => import('./features/admin/builder/admin-builder.component').then((m) => m.AdminBuilderComponent) },
-  { path: 'admin/theme-editor/:themeId', canActivate: [adminGuard], loadComponent: () => import('./features/admin/theme-editor/admin-theme-editor.component').then((m) => m.AdminThemeEditorComponent) },
+  { path: 'admin/pages/:id/build', canActivate: [platformHostGuard, adminGuard], loadComponent: () => import('./features/admin/builder/admin-builder.component').then((m) => m.AdminBuilderComponent) },
+  { path: 'admin/theme-editor/:themeId', canActivate: [platformHostGuard, adminGuard], loadComponent: () => import('./features/admin/theme-editor/admin-theme-editor.component').then((m) => m.AdminThemeEditorComponent) },
   {
     path: 'admin',
-    canActivate: [adminGuard],
+    canActivate: [platformHostGuard, adminGuard],
     loadComponent: () => import('./features/admin/admin-layout.component').then((m) => m.AdminLayoutComponent),
     children: [
       { path: '', loadComponent: () => import('./features/admin/home/admin-home.component').then((m) => m.AdminHomeComponent) },
