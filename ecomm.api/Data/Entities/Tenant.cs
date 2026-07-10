@@ -11,7 +11,9 @@ public class Tenant
     public string? DisplayName { get; set; }
     public string Code { get; set; } = string.Empty;
     public string? Slug { get; set; }              // subdomain lookup key (unique)
-    public string? CustomDomain { get; set; }      // post-GA
+    public string? CustomDomain { get; set; }      // merchant's own domain (unique)
+    public bool CustomDomainVerified { get; set; }
+    public string? CustomDomainToken { get; set; } // proven at /.well-known during verification
     public int? PlanId { get; set; }
     public DateTime? TrialEndsAt { get; set; }
     public DateTime? SuspendedAt { get; set; }

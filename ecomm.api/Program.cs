@@ -131,6 +131,11 @@ builder.Services.AddScoped<ecomm.api.Features.Cart.ICartService, ecomm.api.Featu
 // Checkout & Money (Stage 5)
 builder.Services.Configure<PaymentOptions>(builder.Configuration.GetSection(PaymentOptions.SectionName));
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<ecomm.api.Features.Domains.IDomainService, ecomm.api.Features.Domains.DomainService>();
+// Short-timeout client for verifying a merchant's custom domain routes to us.
+// Follow a couple of redirects so an edge http→https upgrade (e.g. Cloudflare) still resolves.
+builder.Services.AddHttpClient("domain-verify", c => c.Timeout = TimeSpan.FromSeconds(5))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = true, MaxAutomaticRedirections = 3 });
 builder.Services.AddScoped<ecomm.api.Features.Checkout.ITaxService, ecomm.api.Features.Checkout.TaxService>();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IShippingService, ecomm.api.Features.Checkout.ShippingService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IInvoiceService, ecomm.api.Features.Orders.InvoiceService>();

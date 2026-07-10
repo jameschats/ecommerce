@@ -36,8 +36,33 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next, IOptions<Te
 
         if (slug is null)
         {
-            // apex / www / localhost / IP / no BaseDomain → default tenant
-            tenantId = _opt.DefaultTenantId;
+            // Not a "{slug}.{BaseDomain}" host. Could still be a merchant's connected custom
+            // domain (www.brand.com) — look it up; otherwise it's apex/www/localhost → default tenant.
+            var custom = IsBaseOrLocal(host) ? null : await cache.GetOrCreateAsync($"tenant:domain:{host}", async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = CacheTtl;
+                return await db.Tenants.AsNoTracking()
+                    .Where(t => t.CustomDomain == host)
+                    .Select(t => new ResolvedTenant(t.TenantId, t.IsActive, t.SuspendedAt))
+                    .FirstOrDefaultAsync();
+            });
+
+            if (custom is not null)
+            {
+                if (!custom.IsActive || custom.SuspendedAt is not null)
+                {
+                    logger.LogWarning("Custom-domain tenant not available for host {Host}", host);
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    await context.Response.WriteAsync("Store not found.");
+                    return;
+                }
+                tenantId = custom.TenantId;
+            }
+            else
+            {
+                // apex / www / localhost / IP / no BaseDomain / unconnected domain → default tenant
+                tenantId = _opt.DefaultTenantId;
+            }
         }
         else
         {
@@ -86,6 +111,15 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next, IOptions<Te
         if (!host.EndsWith(suffix, StringComparison.Ordinal)) return null;   // localhost, IPs, other domains
         var slug = host[..^suffix.Length];
         return string.IsNullOrEmpty(slug) || slug == "www" ? null : slug;
+    }
+
+    /// <summary>Apex/www of the platform, localhost, or a bare IP — never a merchant custom domain.</summary>
+    private bool IsBaseOrLocal(string host)
+    {
+        if (host is "localhost" || System.Net.IPAddress.TryParse(host, out _)) return true;
+        var baseDomain = _opt.BaseDomain?.ToLowerInvariant();
+        if (string.IsNullOrEmpty(baseDomain)) return true;   // no platform domain configured (dev)
+        return host == baseDomain || host == $"www.{baseDomain}" || host.EndsWith($".{baseDomain}", StringComparison.Ordinal);
     }
 
     private sealed record ResolvedTenant(long TenantId, bool IsActive, DateTime? SuspendedAt);
