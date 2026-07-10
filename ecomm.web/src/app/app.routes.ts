@@ -10,11 +10,11 @@ export const routes: Routes = [
   },
   {
     path: 'products',
-    loadComponent: () => import('./features/catalog/product-list/product-list.component').then((m) => m.ProductListComponent),
+    loadComponent: () => import('./features/storefront/collection/collection-page.component').then((m) => m.CollectionPageComponent),
   },
   {
     path: 'category/:slug',
-    loadComponent: () => import('./features/catalog/product-list/product-list.component').then((m) => m.ProductListComponent),
+    loadComponent: () => import('./features/storefront/collection/collection-page.component').then((m) => m.CollectionPageComponent),
   },
   {
     path: 'product/:slug',

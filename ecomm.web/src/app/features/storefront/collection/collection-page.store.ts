@@ -1,20 +1,19 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Injectable, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest, switchMap } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
 import { PagedResult } from '../../../core/models/api-response.model';
 import { Brand, Category, ProductListItem, ProductQuery } from '../../../core/models/catalog.model';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
-import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 
-@Component({
-  selector: 'app-product-list',
-  imports: [FormsModule, RouterLink, ProductCardComponent],
-  templateUrl: './product-list.component.html',
-})
-export class ProductListComponent implements OnInit {
+/**
+ * All state + behaviour for the collection/listing page (also serves search via
+ * ?search=). Provided at the CollectionPageComponent level so the (thin) section
+ * components can inject it. This is the product-list logic re-homed unchanged.
+ */
+@Injectable()
+export class CollectionPageStore {
   private readonly catalog = inject(CatalogService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -32,7 +31,8 @@ export class ProductListComponent implements OnInit {
   sort = '';
   brandId: number | '' = '';
 
-  ngOnInit(): void {
+  /** Wire the route → data pipeline (called once by the host). */
+  init(): void {
     this.catalog.getBrands().subscribe((b) => this.brands.set(b));
 
     combineLatest([this.route.paramMap, this.route.queryParamMap])
