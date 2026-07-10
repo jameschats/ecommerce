@@ -21,9 +21,25 @@ public class SectionRegistryTests
     {
         Assert.True(SectionTypeRegistry.IsValidOnTemplate("ProductGallery", "product"));
         Assert.False(SectionTypeRegistry.IsValidOnTemplate("ProductGallery", "index"));
-        Assert.True(SectionTypeRegistry.IsValidOnTemplate("Hero", "index"));          // scope null → any
+        Assert.True(SectionTypeRegistry.IsValidOnTemplate("Hero", "index"));          // scope null → any page template
         Assert.True(SectionTypeRegistry.IsValidOnTemplate("CartItems", "cart"));
         Assert.False(SectionTypeRegistry.IsValidOnTemplate("CartItems", "product"));
+    }
+
+    [Fact]
+    public void Group_zones_only_accept_their_own_section()
+    {
+        // Open-scope statics are NOT offered on the shared zones…
+        Assert.False(SectionTypeRegistry.IsValidOnTemplate("Hero", "header"));
+        Assert.False(SectionTypeRegistry.IsValidOnTemplate("RichText", "footer"));
+        Assert.False(SectionTypeRegistry.IsValidOnTemplate("RichText", "announcement"));
+        // …only the matching group section is.
+        Assert.True(SectionTypeRegistry.IsValidOnTemplate("Header", "header"));
+        Assert.True(SectionTypeRegistry.IsValidOnTemplate("Footer", "footer"));
+        Assert.True(SectionTypeRegistry.IsValidOnTemplate("AnnouncementBar", "announcement"));
+
+        var header = SectionTypeRegistry.ForTemplate("header").Select(s => s.Key).ToList();
+        Assert.Equal(new[] { "Header" }, header);
     }
 
     [Fact]

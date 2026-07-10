@@ -28,9 +28,13 @@ public class ThemeAuthoringTests
 
         // …but not on the cart template.
         await Assert.ThrowsAsync<AppException>(() => svc.AddSectionAsync("cart", "ProductInfo"));
-        // and a static (any-scope) section is allowed anywhere.
+        // a static (any-scope) section is allowed on a page template…
         var rich = await svc.AddSectionAsync("cart", "RichText");
         Assert.Equal("RichText", rich.SectionType);
+        // …but NOT on a shared group zone (header/footer/announcement).
+        await Assert.ThrowsAsync<AppException>(() => svc.AddSectionAsync("header", "RichText"));
+        var header = await svc.AddSectionAsync("header", "Header");
+        Assert.Equal("Header", header.SectionType);
     }
 
     [Fact]

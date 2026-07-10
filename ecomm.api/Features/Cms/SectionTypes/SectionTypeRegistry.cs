@@ -170,6 +170,9 @@ public static class SectionTypeRegistry
         "header", "footer", "announcement",
     ];
 
+    /// <summary>Shared-zone templates — they accept ONLY their own group section, never any-scope statics.</summary>
+    private static readonly HashSet<string> GroupZones = new(StringComparer.OrdinalIgnoreCase) { "header", "footer", "announcement" };
+
     public static SectionTypeSchema? Get(string key) =>
         All.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
 
@@ -182,13 +185,24 @@ public static class SectionTypeRegistry
     public static bool IsValidOnTemplate(string sectionType, string templateKey)
     {
         var schema = Get(sectionType);
-        if (schema is null) return false;
-        return schema.Scope is null || schema.Scope.Any(s => string.Equals(s, templateKey, StringComparison.OrdinalIgnoreCase));
+        return schema is not null && ScopeAllows(schema, templateKey);
     }
 
     /// <summary>Section types valid on a template (for the builder's "add section" list).</summary>
     public static IEnumerable<SectionTypeSchema> ForTemplate(string templateKey) =>
-        All.Where(s => s.Scope is null || s.Scope.Any(k => string.Equals(k, templateKey, StringComparison.OrdinalIgnoreCase)));
+        All.Where(s => ScopeAllows(s, templateKey));
+
+    /// <summary>
+    /// A section is allowed on a template when its Scope names that template. An open (null) Scope
+    /// means "any page template" — but NOT the shared Header/Footer/Announcement zones, which only
+    /// accept sections explicitly scoped to them (so the editor never offers a Hero on the header).
+    /// </summary>
+    private static bool ScopeAllows(SectionTypeSchema schema, string templateKey)
+    {
+        if (schema.Scope is not null)
+            return schema.Scope.Any(s => string.Equals(s, templateKey, StringComparison.OrdinalIgnoreCase));
+        return !GroupZones.Contains(templateKey);
+    }
 
     /// <summary>Keys of settings fields that hold HTML and must be sanitized on save.</summary>
     public static IEnumerable<string> RichTextSettingKeys(string sectionType) =>
