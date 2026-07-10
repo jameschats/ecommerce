@@ -115,24 +115,36 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
       @case ('Categories') {
         <section class="max-w-6xl mx-auto px-4 py-10">
           @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
-          @if (s().style === 'cards') {
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              @for (c of categories(); track c.categoryId) {
-                <a [routerLink]="['/category', c.slug]" class="group block overflow-hidden sf-card">
-                  <div class="aspect-[4/3] bg-slate-100 overflow-hidden">
-                    @if (c.imageUrl) { <img [src]="c.imageUrl" alt="" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
-                  </div>
-                  <div class="p-3 text-center text-sm font-semibold text-slate-800">{{ c.name }}</div>
-                </a>
-              }
-            </div>
+          @if (categories().length) {
+            @if (s().style === 'cards') {
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                @for (c of categories(); track c.categoryId) {
+                  <a [routerLink]="['/category', c.slug]" class="group block overflow-hidden sf-card">
+                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden">
+                      @if (c.imageUrl) { <img [src]="c.imageUrl" alt="" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
+                    </div>
+                    <div class="p-3 text-center text-sm font-semibold text-slate-800">{{ c.name }}</div>
+                  </a>
+                }
+              </div>
+            } @else {
+              <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                @for (c of categories(); track c.categoryId) {
+                  <a [routerLink]="['/category', c.slug]" class="block p-4 text-center hover:border-primary transition sf-card">
+                    @if (c.imageUrl) { <img [src]="c.imageUrl" alt="" class="w-12 h-12 mx-auto object-contain mb-2" /> }
+                    <div class="text-sm font-medium text-slate-700">{{ c.name }}</div>
+                  </a>
+                }
+              </div>
+            }
           } @else {
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              @for (c of categories(); track c.categoryId) {
-                <a [routerLink]="['/category', c.slug]" class="block p-4 text-center hover:border-primary transition sf-card">
-                  @if (c.imageUrl) { <img [src]="c.imageUrl" alt="" class="w-12 h-12 mx-auto object-contain mb-2" /> }
-                  <div class="text-sm font-medium text-slate-700">{{ c.name }}</div>
-                </a>
+            <!-- No categories yet — placeholder tiles so the layout reads (real ones replace these). -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              @for (i of ph; track i) {
+                <div class="overflow-hidden sf-card">
+                  <div class="aspect-[4/3] bg-slate-100"></div>
+                  <div class="p-3 flex justify-center"><div class="h-3 w-20 bg-slate-100 rounded"></div></div>
+                </div>
               }
             </div>
           }
@@ -142,7 +154,17 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
         <!-- FeaturedProducts / ProductGrid / any product rail -->
         <section class="max-w-6xl mx-auto px-4 py-10">
           @if (s().heading || section().title) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading || section().title }}</h2> }
-          @if (s().layout === 'carousel') {
+          @if (!products().length) {
+            <!-- No products yet — skeleton cards so the layout reads (real ones replace these). -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              @for (i of ph; track i) {
+                <div class="overflow-hidden sf-card">
+                  <div class="aspect-square bg-slate-100"></div>
+                  <div class="p-3 space-y-2"><div class="h-3 w-3/4 bg-slate-100 rounded"></div><div class="h-3 w-1/3 bg-slate-100 rounded"></div></div>
+                </div>
+              }
+            </div>
+          } @else if (s().layout === 'carousel') {
             <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2">
               @for (p of products(); track p.productId) {
                 <a [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
@@ -176,6 +198,8 @@ export class StorefrontSectionComponent implements OnInit {
 
   readonly products = signal<ProductListItem[]>([]);
   readonly categories = signal<Category[]>([]);
+  /** Placeholder tiles shown when a section has no catalog data yet (fresh store / preview). */
+  readonly ph = [0, 1, 2, 3];
 
   readonly s = computed<any>(() => this.parse<any>(this.section().settings, {}));
   readonly blocks = computed<any[]>(() => this.parse<any[]>(this.section().blocks, []));
