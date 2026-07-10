@@ -23,7 +23,7 @@ subdomain resolution + per-tenant theme/SEO — those foundations are ✅; this 
 | **S4** | Theme editor authoring (template picker + zones + per-template section CRUD + draft-preview) | ✅ `d04605e` (API) · `d5a6d16` (editor UI) |
 | **S5** | Theme library + publish (multi-theme CRUD, duplicate, preview token, atomic publish/rollback) | ✅ `849f319` (API) · `0005928` (library UI) |
 | **S6** | Prebuilt themes (author 5–10 free bundles + install flow + thumbnails) | ✅ `9b658a4` (6 themes) |
-| **S7** | Checkout/account branding + polish (announcement bar, 404/password templates) | ⬜ |
+| **S7** | Checkout/account branding + polish (announcement bar, 404/password templates) | ✅ `76c6d88` |
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
@@ -146,7 +146,11 @@ Draft. Ship as `database/migrations/14x_prebuilt_themes.sql` seed data + a `Preb
   zones from the central section catalog. Install (`POST /api/admin/themes/install`) copies a bundle in as a Draft;
   library shows a "Start from a free theme" grid with palette-gradient thumbnails. (Thumbnails are palette gradients,
   not screenshots — real preview is one click via the draft preview token.)
-- **S7 — Checkout/account branding + polish.** Branding settings, announcement bar live, 404/password templates.
+- **S7 — Checkout/account branding + polish.** ✅ Per-theme **settings panel** in the editor (palette/typography/
+  buttons/logo/favicon/width, draft-safe, live preview) — closes the S5 gap. Themed **404** page (`NotFoundComponent`
+  renders the `404` template's EmptyState + static sections; wildcard route serves a real 404 instead of redirecting
+  home). Checkout/account/password inherit theme colours + fonts via the global CSS vars; the **announcement bar**
+  went live in S2. **The theme engine (S1–S7) is complete.**
 
 ## Risks / decisions to watch
 - **Dynamic-section refactor risk (S3)**: product/cart logic is business-critical — extract behind the same services
