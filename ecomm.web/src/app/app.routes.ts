@@ -65,6 +65,7 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
   },
   { path: 'admin/pages/:id/build', canActivate: [adminGuard], loadComponent: () => import('./features/admin/builder/admin-builder.component').then((m) => m.AdminBuilderComponent) },
+  { path: 'admin/theme-editor', canActivate: [adminGuard], loadComponent: () => import('./features/admin/theme-editor/admin-theme-editor.component').then((m) => m.AdminThemeEditorComponent) },
   {
     path: 'admin',
     canActivate: [adminGuard],
