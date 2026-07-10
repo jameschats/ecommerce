@@ -1,12 +1,18 @@
 import { Routes } from '@angular/router';
-import { adminGuard, authGuard, platformHostGuard, superAdminGuard } from './core/guards/auth.guard';
+import { adminGuard, apexLandingGuard, authGuard, platformHostGuard, superAdminGuard, welcomeGuard } from './core/guards/auth.guard';
 import { homeResolver } from './features/home/home.resolver';
 
 export const routes: Routes = [
   {
     path: '',
+    canActivate: [apexLandingGuard],   // apex host → redirect to the marketing landing (/welcome)
     resolve: { home: homeResolver },
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
+  },
+  {
+    path: 'welcome',
+    canActivate: [welcomeGuard],       // landing is apex-only; store hosts → back to their storefront
+    loadComponent: () => import('./features/platform/landing.component').then((m) => m.LandingComponent),
   },
   {
     path: 'products',

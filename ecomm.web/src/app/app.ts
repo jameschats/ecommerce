@@ -44,6 +44,8 @@ export class App implements OnInit {
   readonly policyLinks = signal<{ handle: string; title: string }[]>([]);
   readonly menuOpen = signal(false);
   readonly isAdminRoute = signal(false);
+  /** Surfaces that bring their own chrome — no storefront header/footer: admin, super-admin, apex landing. */
+  readonly hideStorefrontChrome = signal(false);
   readonly year = 2026;
   searchText = '';
 
@@ -55,7 +57,7 @@ export class App implements OnInit {
   readonly showCart = computed(() => this.headerCfg()['showCart'] !== false);
   readonly stickyHeader = computed(() => this.headerCfg()['sticky'] !== false);
   readonly footerCopyright = computed(() =>
-    this.footerCfg()['copyright'] || `© ${this.year} ${this.storeName() || 'CalendarShop'}. All rights reserved.`);
+    this.footerCfg()['copyright'] || `© ${this.year} ${this.storeName() || 'Store'}. All rights reserved.`);
 
   readonly suggestions = signal<string[]>([]);
   readonly showSuggest = signal(false);
@@ -67,10 +69,10 @@ export class App implements OnInit {
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
     this.catalog.getPolicyLinks().subscribe((p) => this.policyLinks.set(p));
 
-    this.isAdminRoute.set(this.router.url.startsWith('/admin'));
+    this.applyChrome(this.router.url);
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.isAdminRoute.set(e.urlAfterRedirects.startsWith('/admin')));
+      .subscribe((e) => this.applyChrome(e.urlAfterRedirects));
 
     this.enforceStoreGate();
 
@@ -124,6 +126,14 @@ export class App implements OnInit {
     this.showSuggest.set(false);
     const q = this.searchText.trim();
     this.router.navigate(['/products'], { queryParams: q ? { search: q } : {} });
+  }
+
+  /** Storefront chrome is hidden on admin, super-admin and the apex landing (each brings its own). */
+  private applyChrome(url: string): void {
+    const path = url.split('?')[0];
+    this.isAdminRoute.set(path.startsWith('/admin'));
+    this.hideStorefrontChrome.set(
+      path.startsWith('/admin') || path.startsWith('/superadmin') || path.startsWith('/welcome'));
   }
 
   /** Settings JSON of the first section of the given type in a theme zone (empty when absent). */

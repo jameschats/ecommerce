@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { OnboardingResult, PlanOption, SignupRequest } from '../../core/models/onboarding.model';
 import { OnboardingService } from '../../core/services/onboarding.service';
 
@@ -69,6 +70,7 @@ import { OnboardingService } from '../../core/services/onboarding.service';
 })
 export class SignupComponent implements OnInit {
   private readonly svc = inject(OnboardingService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly plans = signal<PlanOption[]>([]);
   readonly saving = signal(false);
@@ -83,6 +85,9 @@ export class SignupComponent implements OnInit {
 
   ngOnInit(): void {
     this.svc.plans().subscribe((p) => this.plans.set(p));
+    // Preselect the plan chosen on the landing page's pricing (/signup?plan=…).
+    const plan = this.route.snapshot.queryParamMap.get('plan');
+    if (plan) this.form.planSlug = plan;
     if (typeof window !== 'undefined' && window.location?.hostname) {
       this.baseDomain.set(window.location.hostname.replace(/^www\./, ''));
     }

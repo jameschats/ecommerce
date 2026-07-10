@@ -29,6 +29,20 @@ export const platformHostGuard: CanActivateFn = (_route, state) => {
   }));
 };
 
+/** On the platform apex (wavcommerce.online), the home route shows the marketing landing instead. */
+export const apexLandingGuard: CanActivateFn = () => {
+  const router = inject(Router);
+  return inject(PlatformInfoService).hostInfo().pipe(
+    map((info) => (info.hostType === 'apex' ? router.createUrlTree(['/welcome']) : true)));
+};
+
+/** The landing is apex-only — on a store/custom host, send /welcome back to the storefront home. */
+export const welcomeGuard: CanActivateFn = () => {
+  const router = inject(Router);
+  return inject(PlatformInfoService).hostInfo().pipe(
+    map((info) => (info.hostType === 'apex' ? true : router.createUrlTree(['/']))));
+};
+
 export const adminGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);

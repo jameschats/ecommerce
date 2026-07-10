@@ -1,5 +1,5 @@
 <div class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-  @if (!isAdminRoute()) {
+  @if (!hideStorefrontChrome()) {
   <app-announcement-bar />
   <header class="bg-white shadow-sm z-30" [class.sticky]="stickyHeader()" [class.top-0]="stickyHeader()">
     <!-- Row 1: logo · search · account · cart -->
@@ -112,7 +112,7 @@
     <router-outlet />
   </main>
 
-  @if (!isAdminRoute()) {
+  @if (!hideStorefrontChrome()) {
   <footer class="bg-slate-900 text-slate-300 mt-12">
     <div class="page-container py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
       <div class="col-span-2 md:col-span-1">

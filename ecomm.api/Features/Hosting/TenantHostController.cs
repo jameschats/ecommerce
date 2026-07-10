@@ -7,7 +7,8 @@ using Microsoft.Extensions.Options;
 
 namespace ecomm.api.Features.Hosting;
 
-public sealed record HostInfoDto(string? Slug, string PlatformHost, bool IsCustomDomain, string AdminUrl, string SuperAdminUrl);
+public sealed record HostInfoDto(
+    string? Slug, string PlatformHost, bool IsCustomDomain, string HostType, string AdminUrl, string SuperAdminUrl);
 
 /// <summary>
 /// Public: tells the storefront app which host it's on so it can keep the merchant/super-admin
@@ -42,8 +43,15 @@ public sealed class TenantHostController(
         var scheme = string.IsNullOrEmpty(baseDomain) ? "http" : "https";
         var apex = string.IsNullOrEmpty(baseDomain) ? host : baseDomain;
 
+        // apex = the platform root (wavcommerce.online / www / dev localhost); custom = a connected brand
+        // domain; store = a "{slug}.{baseDomain}" subdomain. Drives landing-vs-storefront + chrome.
+        var isApex = string.IsNullOrEmpty(baseDomain)
+            ? host is "localhost" or "127.0.0.1" or ""
+            : host == baseDomain || host == $"www.{baseDomain}";
+        var hostType = isCustomDomain ? "custom" : isApex ? "apex" : "store";
+
         return Ok(ApiResponse<HostInfoDto>.Ok(new HostInfoDto(
-            t?.Slug, platformHost, isCustomDomain,
+            t?.Slug, platformHost, isCustomDomain, hostType,
             AdminUrl: $"{scheme}://{platformHost}/admin",
             SuperAdminUrl: $"{scheme}://{apex}/superadmin")));
     }
