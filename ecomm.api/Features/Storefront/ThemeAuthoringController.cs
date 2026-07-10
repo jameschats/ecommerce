@@ -10,22 +10,22 @@ namespace ecomm.api.Features.Storefront;
 [Route("api/admin/theme")]
 public sealed class ThemeAuthoringController(IThemeAuthoringService authoring) : ControllerBase
 {
-    [HttpGet("templates")]
-    public async Task<IActionResult> Templates(CancellationToken ct)
-        => Ok(ApiResponse<IReadOnlyList<ThemeTemplateSummaryDto>>.Ok(await authoring.ListTemplatesAsync(ct)));
+    [HttpGet("{themeId:long}/templates")]
+    public async Task<IActionResult> Templates(long themeId, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<ThemeTemplateSummaryDto>>.Ok(await authoring.ListTemplatesAsync(themeId, ct)));
 
-    [HttpGet("templates/{key}/sections")]
-    public async Task<IActionResult> Sections(string key, CancellationToken ct)
-        => Ok(ApiResponse<IReadOnlyList<ThemeSectionAdminDto>>.Ok(await authoring.GetSectionsAsync(key, ct)));
+    [HttpGet("{themeId:long}/templates/{key}/sections")]
+    public async Task<IActionResult> Sections(long themeId, string key, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<ThemeSectionAdminDto>>.Ok(await authoring.GetSectionsAsync(themeId, key, ct)));
 
-    [HttpPost("templates/{key}/sections")]
-    public async Task<IActionResult> Add(string key, AddThemeSectionRequest req, CancellationToken ct)
-        => Ok(ApiResponse<ThemeSectionAdminDto>.Ok(await authoring.AddSectionAsync(key, req.SectionType, ct), "Section added."));
+    [HttpPost("{themeId:long}/templates/{key}/sections")]
+    public async Task<IActionResult> Add(long themeId, string key, AddThemeSectionRequest req, CancellationToken ct)
+        => Ok(ApiResponse<ThemeSectionAdminDto>.Ok(await authoring.AddSectionAsync(themeId, key, req.SectionType, ct), "Section added."));
 
-    [HttpPut("templates/{key}/reorder")]
-    public async Task<IActionResult> Reorder(string key, ReorderThemeSectionsRequest req, CancellationToken ct)
+    [HttpPut("{themeId:long}/templates/{key}/reorder")]
+    public async Task<IActionResult> Reorder(long themeId, string key, ReorderThemeSectionsRequest req, CancellationToken ct)
     {
-        await authoring.ReorderSectionsAsync(key, req.OrderedSectionIds, ct);
+        await authoring.ReorderSectionsAsync(themeId, key, req.OrderedSectionIds, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Reordered."));
     }
 

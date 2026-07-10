@@ -23,13 +23,13 @@ public sealed record ReorderThemeSectionsRequest(List<long> OrderedSectionIds);
 
 public interface IThemeAuthoringService
 {
-    Task<IReadOnlyList<ThemeTemplateSummaryDto>> ListTemplatesAsync(CancellationToken ct = default);
-    Task<IReadOnlyList<ThemeSectionAdminDto>> GetSectionsAsync(string templateKey, CancellationToken ct = default);
-    Task<ThemeSectionAdminDto> AddSectionAsync(string templateKey, string sectionType, CancellationToken ct = default);
+    Task<IReadOnlyList<ThemeTemplateSummaryDto>> ListTemplatesAsync(long themeId, CancellationToken ct = default);
+    Task<IReadOnlyList<ThemeSectionAdminDto>> GetSectionsAsync(long themeId, string templateKey, CancellationToken ct = default);
+    Task<ThemeSectionAdminDto> AddSectionAsync(long themeId, string templateKey, string sectionType, CancellationToken ct = default);
     Task<ThemeSectionAdminDto> UpdateSectionAsync(long sectionId, SaveThemeSectionRequest req, CancellationToken ct = default);
     Task<ThemeSectionAdminDto> DuplicateSectionAsync(long sectionId, CancellationToken ct = default);
     Task DeleteSectionAsync(long sectionId, CancellationToken ct = default);
-    Task ReorderSectionsAsync(string templateKey, List<long> orderedIds, CancellationToken ct = default);
+    Task ReorderSectionsAsync(long themeId, string templateKey, List<long> orderedIds, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -60,9 +60,9 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
         ["footer"] = ("Footer", "Footer"),
     };
 
-    public async Task<IReadOnlyList<ThemeTemplateSummaryDto>> ListTemplatesAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ThemeTemplateSummaryDto>> ListTemplatesAsync(long themeId, CancellationToken ct = default)
     {
-        var theme = await ResolveThemeAsync(ct);
+        var theme = await GetThemeAsync(themeId, ct);
         var counts = await db.ThemeSections
             .Where(s => s.Template!.ThemeId == theme.ThemeId)
             .GroupBy(s => s.Template!.TemplateKey)
@@ -76,10 +76,10 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
         }).ToList();
     }
 
-    public async Task<IReadOnlyList<ThemeSectionAdminDto>> GetSectionsAsync(string templateKey, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ThemeSectionAdminDto>> GetSectionsAsync(long themeId, string templateKey, CancellationToken ct = default)
     {
         var key = Normalize(templateKey);
-        var theme = await ResolveThemeAsync(ct);
+        var theme = await GetThemeAsync(themeId, ct);
         var rows = await db.ThemeSections
             .Where(s => s.Template!.ThemeId == theme.ThemeId && s.Template.TemplateKey == key)
             .OrderBy(s => s.DisplayOrder)
@@ -90,7 +90,7 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
             s.DisplayOrder, s.IsVisible, s.StartsAt, s.EndsAt)).ToList();
     }
 
-    public async Task<ThemeSectionAdminDto> AddSectionAsync(string templateKey, string sectionType, CancellationToken ct = default)
+    public async Task<ThemeSectionAdminDto> AddSectionAsync(long themeId, string templateKey, string sectionType, CancellationToken ct = default)
     {
         var key = Normalize(templateKey);
         var schema = SectionTypeRegistry.Get(sectionType)
@@ -98,7 +98,7 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
         if (!SectionTypeRegistry.IsValidOnTemplate(sectionType, key))
             throw new AppException($"'{schema.Label}' can't be placed on this template.", StatusCodes.Status400BadRequest);
 
-        var template = await EnsureTemplateAsync(key, ct);
+        var template = await EnsureTemplateAsync(themeId, key, ct);
         var maxOrder = await db.ThemeSections.Where(s => s.ThemeTemplateId == template.ThemeTemplateId)
             .Select(s => (int?)s.DisplayOrder).MaxAsync(ct) ?? 0;
 
@@ -149,10 +149,10 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task ReorderSectionsAsync(string templateKey, List<long> orderedIds, CancellationToken ct = default)
+    public async Task ReorderSectionsAsync(long themeId, string templateKey, List<long> orderedIds, CancellationToken ct = default)
     {
         var key = Normalize(templateKey);
-        var theme = await ResolveThemeAsync(ct);
+        var theme = await GetThemeAsync(themeId, ct);
         var sections = await db.ThemeSections
             .Where(s => s.Template!.ThemeId == theme.ThemeId && s.Template.TemplateKey == key).ToListAsync(ct);
         for (var i = 0; i < orderedIds.Count; i++)
@@ -164,23 +164,14 @@ public sealed class ThemeAuthoringService(EcommerceDbContext db) : IThemeAuthori
     }
 
     // ---- helpers ----
-    private async Task<Data.Entities.Theme> ResolveThemeAsync(CancellationToken ct)
-    {
-        var theme = await db.Themes.Where(t => t.TenantId == Tenant)
-            .OrderByDescending(t => t.Status == "Published").ThenByDescending(t => t.IsActive).ThenBy(t => t.ThemeId)
-            .FirstOrDefaultAsync(ct);
-        if (theme is null)
-        {
-            theme = new Data.Entities.Theme { Name = "Default", IsActive = true, Status = "Published", CreatedAt = DateTime.UtcNow };
-            db.Themes.Add(theme);
-            await db.SaveChangesAsync(ct);
-        }
-        return theme;
-    }
+    /// <summary>The tenant's theme by id (the query filter guarantees tenant ownership).</summary>
+    private async Task<Data.Entities.Theme> GetThemeAsync(long themeId, CancellationToken ct) =>
+        await db.Themes.FirstOrDefaultAsync(t => t.ThemeId == themeId, ct)
+            ?? throw new AppException("Theme not found.", StatusCodes.Status404NotFound);
 
-    private async Task<ThemeTemplate> EnsureTemplateAsync(string key, CancellationToken ct)
+    private async Task<ThemeTemplate> EnsureTemplateAsync(long themeId, string key, CancellationToken ct)
     {
-        var theme = await ResolveThemeAsync(ct);
+        var theme = await GetThemeAsync(themeId, ct);
         var template = await db.ThemeTemplates.FirstOrDefaultAsync(t => t.ThemeId == theme.ThemeId && t.TemplateKey == key, ct);
         if (template is null)
         {

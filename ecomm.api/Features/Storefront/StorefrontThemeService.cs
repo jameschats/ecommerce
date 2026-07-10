@@ -18,8 +18,8 @@ public sealed record ThemeTemplateDto(string TemplateKey, IReadOnlyList<ThemeSec
 
 public interface IStorefrontThemeService
 {
-    Task<ThemeBundleDto> GetPublishedBundleAsync(CancellationToken ct = default);
-    Task<ThemeTemplateDto> GetTemplateAsync(string templateKey, CancellationToken ct = default);
+    Task<ThemeBundleDto> GetPublishedBundleAsync(string? previewToken = null, CancellationToken ct = default);
+    Task<ThemeTemplateDto> GetTemplateAsync(string templateKey, string? previewToken = null, CancellationToken ct = default);
     /// <summary>Idempotently copies the current Home page's sections into the published theme's <c>index</c> template.</summary>
     Task<int> BackfillIndexFromHomeAsync(CancellationToken ct = default);
 }
@@ -34,9 +34,9 @@ public sealed class StorefrontThemeService(EcommerceDbContext db) : IStorefrontT
 {
     private long Tenant => db.CurrentTenantId;
 
-    public async Task<ThemeBundleDto> GetPublishedBundleAsync(CancellationToken ct = default)
+    public async Task<ThemeBundleDto> GetPublishedBundleAsync(string? previewToken = null, CancellationToken ct = default)
     {
-        var theme = await PublishedThemeAsync(ct);
+        var theme = await ThemeForRequestAsync(previewToken, ct);
         if (theme is null) return new ThemeBundleDto(0, "None", new(), [], [], []);
 
         var settings = await db.ThemeSettings.AsNoTracking()
@@ -50,12 +50,12 @@ public sealed class StorefrontThemeService(EcommerceDbContext db) : IStorefrontT
             await GroupSectionsAsync(theme.ThemeId, "announcement", ct));
     }
 
-    public async Task<ThemeTemplateDto> GetTemplateAsync(string templateKey, CancellationToken ct = default)
+    public async Task<ThemeTemplateDto> GetTemplateAsync(string templateKey, string? previewToken = null, CancellationToken ct = default)
     {
         var key = templateKey.ToLowerInvariant();
         if (!SectionTypeRegistry.IsValidTemplateKey(key)) return new ThemeTemplateDto(key, []);
 
-        var theme = await PublishedThemeAsync(ct);
+        var theme = await ThemeForRequestAsync(previewToken, ct);
         var sections = theme is null ? [] : await TemplateSectionsAsync(theme.ThemeId, key, ct);
 
         // Transitional fallback: an un-populated `index` renders today's Home layout (read-only, no writes).
@@ -103,6 +103,21 @@ public sealed class StorefrontThemeService(EcommerceDbContext db) : IStorefrontT
         db.Themes.AsNoTracking().Where(t => t.TenantId == Tenant)
             .OrderByDescending(t => t.Status == "Published").ThenByDescending(t => t.IsActive).ThenBy(t => t.ThemeId)
             .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// The theme to render: a Draft matched by <paramref name="previewToken"/> (admin preview of a theme
+    /// before it's live), otherwise the Published theme. An unknown token falls back to Published.
+    /// </summary>
+    private async Task<Data.Entities.Theme?> ThemeForRequestAsync(string? previewToken, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(previewToken))
+        {
+            var preview = await db.Themes.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.TenantId == Tenant && t.PreviewToken == previewToken, ct);
+            if (preview is not null) return preview;
+        }
+        return await PublishedThemeAsync(ct);
+    }
 
     private async Task<IReadOnlyList<ThemeSectionDto>> GroupSectionsAsync(long themeId, string groupKey, CancellationToken ct) =>
         await TemplateSectionsAsync(themeId, groupKey, ct);

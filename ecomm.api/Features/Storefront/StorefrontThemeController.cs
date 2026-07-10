@@ -13,12 +13,12 @@ namespace ecomm.api.Features.Storefront;
 public sealed class StorefrontThemeController(IStorefrontThemeService themes) : ControllerBase
 {
     [HttpGet("theme")]
-    public async Task<IActionResult> Theme(CancellationToken ct)
-        => Ok(ApiResponse<ThemeBundleDto>.Ok(await themes.GetPublishedBundleAsync(ct)));
+    public async Task<IActionResult> Theme([FromQuery] string? preview, CancellationToken ct)
+        => Ok(ApiResponse<ThemeBundleDto>.Ok(await themes.GetPublishedBundleAsync(preview, ct)));
 
     [HttpGet("template/{key}")]
-    public async Task<IActionResult> Template(string key, CancellationToken ct)
-        => Ok(ApiResponse<ThemeTemplateDto>.Ok(await themes.GetTemplateAsync(key, ct)));
+    public async Task<IActionResult> Template(string key, [FromQuery] string? preview, CancellationToken ct)
+        => Ok(ApiResponse<ThemeTemplateDto>.Ok(await themes.GetTemplateAsync(key, preview, ct)));
 
     /// <summary>The platform's section-type catalog (kinds/scope/settings schema) — drives the builder + validation.</summary>
     [HttpGet("section-types")]
