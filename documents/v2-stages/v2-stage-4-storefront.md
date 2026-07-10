@@ -1,5 +1,11 @@
 # V2-4 — Per-Tenant Storefront
 
+> **ℹ️ Foundations done; extended elsewhere.** The subdomain resolution + per-tenant theme/SEO in this doc are
+> **shipped** (`5b5cef7`, `fcc0456`). The full **theme *engine*** that builds on them (theme library, templates-by-
+> page-type, Header/Footer/Announcement section-groups, section-composed product/collection/cart/search) is planned
+> separately in **[v2-storefront-theme-engine.md](v2-storefront-theme-engine.md)** (S1–S7). The precursor
+> **Storefront Builder P1–P5** (Home + custom pages) is also already shipped.
+
 **Goal:** one Angular storefront deployment serves every merchant — each subdomain renders that merchant's own theme, catalog, and SEO. Two subdomains = two brands, same code.
 
 ## Scope & checklist

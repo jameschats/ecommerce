@@ -1,5 +1,13 @@
 # V2-2 — Merchant Admin Portal
 
+> **⚠️ Superseded / updated.** Two decisions changed after this doc was written:
+> 1. Per **ADR-001**, the merchant admin is the **same Angular app + same API** (`ecomm.web` `/admin`), **not** a new
+>    `ecomm.merchant-admin` app. Ignore the "new Angular app" line below.
+> 2. The real, current build plan — from a screen-by-screen Shopify gap analysis — lives in
+>    **[v2-merchant-admin-plan.md](v2-merchant-admin-plan.md)** (Areas 1–10 + phases M1–M9). **M1–M7 are shipped.**
+>
+> This page is kept for historical scope/gate context only.
+
 **Goal:** each merchant's staff manage their own store — products, orders, customers, inventory, themes, coupons, reports — and **nothing outside their tenant**. This is the **V1 admin experience, ported and tenant-scoped**.
 
 ## Scope & checklist
