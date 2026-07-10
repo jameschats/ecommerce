@@ -18,7 +18,7 @@ subdomain resolution + per-tenant theme/SEO — those foundations are ✅; this 
 |---|---|---|
 | **P1–P5** | **Storefront Builder** (precursor foundation): sections-and-blocks backend, data-driven `/pages/:slug`, visual drag-drop builder, live preview, data-driven home, industry presets | ✅ `111a151` `bcf7b21` `baeed0a` `84787ed` |
 | **S1** | Model & rendering skeleton (theme library data model, bundle read endpoints, group section types; migrate Home → theme `index`) | ✅ `273d55a` |
-| **S2** | Store layout shell (data-driven Header/Announcement/Footer + theme-settings CSS vars) | ⬜ |
+| **S2** | Store layout shell (data-driven Header/Announcement/Footer + theme-settings CSS vars) | ✅ `8e6c23e` (announcement zone + header/footer settings + CSS vars; full section-composed header/footer → S3/S4) |
 | **S3** | Dynamic templates (product/collection/search/cart → section-composed) — **the big one** | ⬜ |
 | **S4** | Theme editor authoring (template picker + zones + per-template section CRUD + draft-preview) | ⬜ |
 | **S5** | Theme library + publish (multi-theme CRUD, duplicate, preview token, atomic publish/rollback) | ⬜ |
@@ -114,7 +114,12 @@ Draft. Ship as `database/migrations/14x_prebuilt_themes.sql` seed data + a `Preb
   `GET /api/storefront/{theme,template/{key},section-types}`. Home→`index` is a **read-only fallback** plus an
   idempotent `BackfillIndexFromHome` (rather than a destructive SQL migration) so the storefront never breaks. No UI change.
   **Global theme settings stay in the existing `ThemeSettings` key/value store** (not duplicated into a `Themes.Settings` JSON column).
-- **S2 — Store layout shell.** Data-driven Header/Announcement/Footer + theme-settings CSS vars. Fallback to current chrome when absent.
+- **S2 — Store layout shell.** ✅ Storefront loads the theme bundle (`/api/storefront/theme`) and drives chrome from
+  its zones with a fallback to the built-in chrome: new **announcement bar** (data-driven `announcement` section,
+  SSR-safe rotation); header honours **Header-zone settings** (sticky / show-search / show-cart); footer copyright
+  from the **Footer zone**; richer theme **CSS vars** (font, heading font, base size, container width, favicon) wired
+  into `body`/`.page-container` with current-look fallbacks. *(Full section-composed header/footer markup replacement
+  is deferred to S3/S4 when the editor can author those zones.)*
 - **S3 — Dynamic templates (the big one).** Refactor product → section-composed (Gallery/Info/AddToCart/Description/
   Reviews/Related); then collection/search; then cart. Behaviour preserved; SSR intact.
 - **S4 — Theme editor authoring.** Template picker + Header/Template/Footer zones + per-template section CRUD +
