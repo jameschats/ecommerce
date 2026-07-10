@@ -22,7 +22,7 @@ subdomain resolution + per-tenant theme/SEO — those foundations are ✅; this 
 | **S3** | Dynamic templates (product/collection/search/cart → section-composed) — **the big one** | ✅ product `d476dd5` · collection/search `fb8218a` · cart `2a89d36` |
 | **S4** | Theme editor authoring (template picker + zones + per-template section CRUD + draft-preview) | ✅ `d04605e` (API) · `d5a6d16` (editor UI) |
 | **S5** | Theme library + publish (multi-theme CRUD, duplicate, preview token, atomic publish/rollback) | ✅ `849f319` (API) · `0005928` (library UI) |
-| **S6** | Prebuilt themes (author 5–10 free bundles + install flow + thumbnails) | ⬜ |
+| **S6** | Prebuilt themes (author 5–10 free bundles + install flow + thumbnails) | ✅ `9b658a4` (6 themes) |
 | **S7** | Checkout/account branding + polish (announcement bar, 404/password templates) | ⬜ |
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
@@ -141,7 +141,11 @@ Draft. Ship as `database/migrations/14x_prebuilt_themes.sql` seed data + a `Preb
   iframe renders that theme via `?preview={token}`, and the storefront (`ThemeService`) reads `?preview=` to serve a
   Draft before it's live. **Note:** theme *global settings* (colors/font/logo at `/admin/theme`) still target the
   active theme — per-draft settings editing folds in with the S7 theme-settings panel.
-- **S6 — Prebuilt themes.** Author 5–10 bundles + install flow + thumbnails.
+- **S6 — Prebuilt themes.** ✅ `PrebuiltThemeRegistry` — 6 free bundles (Minimal, Boutique, Circuit, Fresh, Bloom,
+  Haven) across categories; each = palette/typography/button settings + a home layout + Header/Footer/Announcement
+  zones from the central section catalog. Install (`POST /api/admin/themes/install`) copies a bundle in as a Draft;
+  library shows a "Start from a free theme" grid with palette-gradient thumbnails. (Thumbnails are palette gradients,
+  not screenshots — real preview is one click via the draft preview token.)
 - **S7 — Checkout/account branding + polish.** Branding settings, announcement bar live, 404/password templates.
 
 ## Risks / decisions to watch
