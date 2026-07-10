@@ -27,7 +27,7 @@ Attribution / abandoned-cart / email-SMS marketing) is its own later plan.
 | **M5** | Discounts upgrade + Draft/manual orders | ✅ `f827fcc` `3cce899` |
 | **M6** | Merchandising & content (Collections, Menus/redirects, Files, product-editor adds) | ✅ `3c04f5c` `d978ab7` `b8bc403` `e2c51e4` `d8040ef` |
 | **M7** | Legal/compliance + checkout/account settings + store preferences | ✅ `99151a4` `527fcba` `37cf7c5` |
-| **M8** | Plan/Billing (merchant view) + Notifications sender/templates + Domains | ⬜ Not started |
+| **M8** | Plan/Billing (merchant view) + Notifications sender/templates + Domains | ✅ `257047f` `148c8f8` `fed60bb` |
 | **M9** | Purchase orders *(deferred — build after M1–M8)* | ⬜ Deferred |
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
@@ -160,9 +160,11 @@ green, committed. Settings-only features reuse the generic `Settings` key/value 
 - **M7 — Legal/compliance + checkout/account + store preferences.** ✅ Policies + footer links (M7a); store SEO +
   pre-launch password gate (M7b); checkout settings (contact/required-fields/tipping/ATC-limit) + customer-account
   self-serve cancel/return toggles (M7c). `Features/Policies`, `Features/Storefront`, `Features/Settings`.
-- **M8 — Plan/Billing + Notifications + Domains.** ⬜ Merchant-facing Plan (current plan, upgrade) + Billing
-  (upcoming bill + invoices) from tenant subscription data; Notifications (sender email, template management);
-  Domains (connect custom domain → `Tenant.CustomDomain` + resolution). Aligns with the V2-8 webhooks plan.
+- **M8 — Plan/Billing + Notifications + Domains.** ✅ Merchant-facing Plan/Billing (`/admin/billing`: current plan
+  + status, upgrade/downgrade, payment history via `GET /api/subscription/billing-history`); Notifications
+  (`/admin/notification-templates`: per-tenant template editing + sender identity applied to email via
+  `IEmailSender` fromName/reply-to); Domains (`/admin/domain`: connect + `.well-known` token verification +
+  middleware custom-domain resolution; migration 168). *(TLS cert provisioning = edge/infra step.)*
 - **M9 — Purchase orders.** ⬜ DEFERRED. PO workflow (supplier→destination→receive→updates stock) over Suppliers +
   Inventory. Build only after M1–M8.
 
