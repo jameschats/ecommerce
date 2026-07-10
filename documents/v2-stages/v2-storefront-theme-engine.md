@@ -19,7 +19,7 @@ subdomain resolution + per-tenant theme/SEO — those foundations are ✅; this 
 | **P1–P5** | **Storefront Builder** (precursor foundation): sections-and-blocks backend, data-driven `/pages/:slug`, visual drag-drop builder, live preview, data-driven home, industry presets | ✅ `111a151` `bcf7b21` `baeed0a` `84787ed` |
 | **S1** | Model & rendering skeleton (theme library data model, bundle read endpoints, group section types; migrate Home → theme `index`) | ✅ `273d55a` |
 | **S2** | Store layout shell (data-driven Header/Announcement/Footer + theme-settings CSS vars) | ✅ `8e6c23e` (announcement zone + header/footer settings + CSS vars; full section-composed header/footer → S3/S4) |
-| **S3** | Dynamic templates (product/collection/search/cart → section-composed) — **the big one** | 🟡 product ✅ `d476dd5` · collection/search + cart remain |
+| **S3** | Dynamic templates (product/collection/search/cart → section-composed) — **the big one** | ✅ product `d476dd5` · collection/search `fb8218a` · cart `2a89d36` |
 | **S4** | Theme editor authoring (template picker + zones + per-template section CRUD + draft-preview) | ⬜ |
 | **S5** | Theme library + publish (multi-theme CRUD, duplicate, preview token, atomic publish/rollback) | ⬜ |
 | **S6** | Prebuilt themes (author 5–10 free bundles + install flow + thumbnails) | ⬜ |
@@ -120,16 +120,16 @@ Draft. Ship as `database/migrations/14x_prebuilt_themes.sql` seed data + a `Preb
   from the **Footer zone**; richer theme **CSS vars** (font, heading font, base size, container width, favicon) wired
   into `body`/`.page-container` with current-look fallbacks. *(Full section-composed header/footer markup replacement
   is deferred to S3/S4 when the editor can author those zones.)*
-- **S3 — Dynamic templates (the big one).** 🟡 In progress.
-  - **Product ✅** (`d476dd5`): `ProductPageStore` (page-scoped) holds the product-detail logic 1:1; thin section
-    components (Breadcrumbs, **ProductInfo** = combined gallery+info two-column per the chosen Shopify-style model,
-    Description, Reviews) render the `product` template with a built-in default order → identical to the old page.
-    Pattern established: `ThemeService.getTemplate(key)` + a page-scoped store + section components + a host that
-    renders the theme template or falls back to a default section order.
-  - **Collection/search** (remaining): our `product-list` component serves `/products`, `/category/:slug` **and**
-    search (`?search=`), so collection + search collapse into one extraction (CollectionHeader + CollectionGrid).
-  - **Cart** (remaining): business-critical money path — extract CartItems/CartSummary behind the same `CartService`,
-    verify totals/quantity/coupon end-to-end. Do with fresh focus.
+- **S3 — Dynamic templates (the big one).** ✅ Done. Every standard storefront page is section-composed via one
+  pattern: `ThemeService.getTemplate(key)` + a page-scoped store (logic lifted 1:1 from the old component) + thin
+  section components + a host that renders the theme's template or a built-in default section order (so behaviour is
+  identical until a theme authors one). Old page components removed (git history = rollback; prod deploys are manual).
+  - **Product ✅** (`d476dd5`): Breadcrumbs · **ProductInfo** (combined gallery+info two-column, chosen Shopify-style
+    model → preserves the exact layout) · Description · Reviews. `ProductPageStore`.
+  - **Collection/search ✅** (`fb8218a`): our `product-list` serves `/products`, `/category/:slug` and search
+    (`?search=`), so they collapse into one page — CollectionHeader · CollectionGrid. `CollectionPageStore`.
+  - **Cart ✅** (`2a89d36`): CartItems · CartSummary over `CartPageStore`; all mutations/totals stay in `CartService`.
+    Heading, empty state and two-column layout host-owned to preserve the exact look.
 - **S4 — Theme editor authoring.** Template picker + Header/Template/Footer zones + per-template section CRUD +
   draft-preview iframe + theme-settings panel.
 - **S5 — Theme library + publish.** Multi-theme CRUD, duplicate, preview token, atomic publish/rollback.
