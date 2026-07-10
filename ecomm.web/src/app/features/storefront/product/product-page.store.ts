@@ -1,8 +1,5 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
 import { ProductDetail } from '../../../core/models/catalog.model';
 import { ProductReviews } from '../../../core/models/review.model';
@@ -11,16 +8,16 @@ import { CartService } from '../../../core/services/cart.service';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
-import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 
-@Component({
-  selector: 'app-product-detail',
-  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule, WishlistButtonComponent],
-  templateUrl: './product-detail.component.html',
-})
-export class ProductDetailComponent implements OnInit {
+/**
+ * All state + behaviour for one product page. Provided at the ProductPageComponent
+ * level so the (thin) product section components can inject it and read/act on the
+ * shared product state. This is the product-detail logic re-homed unchanged — the
+ * section components are pure presentation over these signals + methods.
+ */
+@Injectable()
+export class ProductPageStore {
   private readonly catalog = inject(CatalogService);
-  private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
@@ -40,13 +37,11 @@ export class ProductDetailComponent implements OnInit {
   readonly qty = signal(1);
   selected: Record<string, string> = {};
 
-  // Reviews (loaded from the API once the product resolves).
   readonly reviewData = signal<ProductReviews | null>(null);
   readonly reviews = computed(() => this.reviewData()?.reviews.items ?? []);
   readonly avgRating = computed(() => this.reviewData()?.summary.average ?? 0);
   readonly reviewCount = computed(() => this.reviewData()?.summary.count ?? 0);
 
-  // Write-a-review form (only purchasers may review)
   readonly canReview = signal(false);
   readonly alreadyReviewed = signal(false);
   readonly reviewForm = signal<{ rating: number; title: string; comment: string }>({ rating: 5, title: '', comment: '' });
@@ -70,45 +65,34 @@ export class ProductDetailComponent implements OnInit {
     return Array.from(map.entries()).map(([name, values]) => ({ name, values }));
   });
 
-  ngOnInit(): void {
-    this.route.paramMap
-      .pipe(
-        switchMap((params) => {
-          this.loading.set(true);
-          this.notFound.set(false);
-          return this.catalog.getProductBySlug(params.get('slug') ?? '');
-        }),
-      )
-      .subscribe({
-        next: (product) => {
-          this.loading.set(false);
-          if (!product) {
-            this.notFound.set(true);
-            this.seo.setMeta({ title: 'Product not found — CalendarShop' });
-            return;
-          }
-          this.product.set(product);
-          this.currentImage.set(0);
-          this.qty.set(1);
-          this.selected = {};
-          for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
-          this.applySeo(product);
-          this.loadReviews(product.productId);
-          if (this.isAuthenticated()) this.loadEligibility(product.productId);
-        },
-        error: () => { this.loading.set(false); this.notFound.set(true); },
-      });
+  /** Load a product by slug (called by the host on route param change). */
+  load(slug: string): void {
+    this.loading.set(true);
+    this.notFound.set(false);
+    this.catalog.getProductBySlug(slug).subscribe({
+      next: (product) => {
+        this.loading.set(false);
+        if (!product) {
+          this.notFound.set(true);
+          this.seo.setMeta({ title: 'Product not found — CalendarShop' });
+          return;
+        }
+        this.product.set(product);
+        this.currentImage.set(0);
+        this.qty.set(1);
+        this.selected = {};
+        for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
+        this.applySeo(product);
+        this.loadReviews(product.productId);
+        if (this.isAuthenticated()) this.loadEligibility(product.productId);
+      },
+      error: () => { this.loading.set(false); this.notFound.set(true); },
+    });
   }
 
   selectImage(i: number): void { this.currentImage.set(i); }
-  prevImage(): void {
-    const n = this.product()?.images.length ?? 0;
-    if (n) this.currentImage.update((i) => (i - 1 + n) % n);
-  }
-  nextImage(): void {
-    const n = this.product()?.images.length ?? 0;
-    if (n) this.currentImage.update((i) => (i + 1) % n);
-  }
+  prevImage(): void { const n = this.product()?.images.length ?? 0; if (n) this.currentImage.update((i) => (i - 1 + n) % n); }
+  nextImage(): void { const n = this.product()?.images.length ?? 0; if (n) this.currentImage.update((i) => (i + 1) % n); }
 
   incQty(): void { this.qty.update((q) => Math.min(999, q + 1)); }
   decQty(): void { this.qty.update((q) => Math.max(1, q - 1)); }

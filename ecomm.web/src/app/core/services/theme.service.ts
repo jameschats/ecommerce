@@ -55,6 +55,17 @@ export class ThemeService {
   readonly header = signal<ThemeSection[]>([]);
   readonly footer = signal<ThemeSection[]>([]);
 
+  /**
+   * The published theme's section list for a page-type template (product/collection/cart/search/…).
+   * Empty when the theme defines no such template → the caller renders its built-in layout (fallback).
+   */
+  getTemplate(key: string): Observable<ThemeSection[]> {
+    return this.http.get<ApiResponse<{ templateKey: string; sections: ThemeSection[] }>>(`${API_BASE_URL}/storefront/template/${key}`).pipe(
+      map((r) => (r.data?.sections ?? []).filter((s) => s.isVisible)),
+      catchError(() => of([] as ThemeSection[])),
+    );
+  }
+
   load(): Observable<void> {
     return this.http.get<ApiResponse<ThemeBundle>>(`${API_BASE_URL}/storefront/theme`).pipe(
       tap((r) => {
