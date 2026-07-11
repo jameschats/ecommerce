@@ -25,7 +25,7 @@ public class DraftOrderTests
         db.Products.Add(product);
         await db.SaveChangesAsync();
 
-        var svc = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new NullShiprocketClient()),
+        var svc = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new FakeShiprocket()),
             new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), new ThrowingInventory(), new ThrowingInvoices());
         return (db, svc, customer.UserId, product.ProductId);
     }
@@ -84,5 +84,13 @@ public class DraftOrderTests
     {
         public Task<(long invoiceId, string invoiceNumber)> GenerateForOrderAsync(long orderId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<InvoicePdf?> RenderPdfAsync(long orderId, long? userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    // Store not on Shiprocket → rates null, so ShippingService uses the manual path.
+    private sealed class FakeShiprocket : ITenantShiprocketService
+    {
+        public Task<bool> IsEnabledAsync(CancellationToken ct = default) => Task.FromResult(false);
+        public Task<ShiprocketRate?> GetCheapestRateAsync(string deliveryPincode, decimal weightKg, bool cod, CancellationToken ct = default) => Task.FromResult<ShiprocketRate?>(null);
+        public Task<ShiprocketShipResult> ShipAsync(ShiprocketOrderInput input, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

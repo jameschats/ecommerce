@@ -3,6 +3,8 @@ using ecomm.api.Data.Entities;
 using ecomm.api.Features.Auth.Dtos;
 using ecomm.api.Features.Auth.Services;
 using ecomm.api.Features.Onboarding;
+using ecomm.api.Features.Storefront;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -29,6 +31,7 @@ public class OnboardingSlugTests
 
     private static OnboardingService NewSvc(ecomm.api.Data.Context.EcommerceDbContext db) =>
         new(db, new FixedTenant(1), new BcryptPasswordHasher(), new StubAuth(),
+            new ThemeLibraryService(db), NullLogger<OnboardingService>.Instance,
             Options.Create(new ecomm.api.Common.Tenancy.TenancyOptions { BaseDomain = "wavcommerce.online" }));
 
     [Fact]

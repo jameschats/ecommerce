@@ -22,6 +22,8 @@ public interface IOrderService
     Task<PagedResult<OrderListItem>> ListAllAsync(string? status, int page, int pageSize, CancellationToken ct = default);
     Task<OrderDto?> UpdateStatusAsync(long orderId, string toStatus, long? userId, CancellationToken ct = default);
     Task<OrderDto?> CreateShipmentAsync(long orderId, CreateShipmentRequest req, long? userId, CancellationToken ct = default);
+    /// <summary>Fulfill via the store's connected Shiprocket account: create order + assign AWB (SR3).</summary>
+    Task<OrderDto?> ShipWithShiprocketAsync(long orderId, long? userId, CancellationToken ct = default);
     Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default);
 }
 
@@ -38,14 +40,17 @@ public sealed class OrderService : IOrderService
     private readonly INotificationService _notify;
     private readonly INotificationFeedService _feed;
     private readonly ICouponService _coupons;
+    private readonly Features.Shipping.Shiprocket.ITenantShiprocketService _shiprocket;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
-        INotificationService notify, INotificationFeedService feed, ICouponService coupons, ILogger<OrderService> log)
+        INotificationService notify, INotificationFeedService feed, ICouponService coupons,
+        Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
-        _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons; _log = log;
+        _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons;
+        _shiprocket = shiprocket; _log = log;
     }
 
     /// <summary>Customer self-service cancellation toggle (merchant setting; default on).</summary>
@@ -69,7 +74,7 @@ public sealed class OrderService : IOrderService
             var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == order.UserId, ct);
             if (user is null) return;
             var storeName = await _db.Settings.Where(s => s.TenantId == Tenant && s.SettingKey == "SiteName")
-                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "CalendarShop";
+                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "our store";
 
             var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -567,6 +572,66 @@ public sealed class OrderService : IOrderService
 
         await NotifyOrderAsync(orderId, "OrderShipped", "OrderShipped",
             new Dictionary<string, string> { ["Courier"] = req.Courier.Trim(), ["TrackingNumber"] = req.TrackingNumber.Trim() }, ct);
+
+        return await GetAsync(orderId, null, true, ct);
+    }
+
+    public async Task<OrderDto?> ShipWithShiprocketAsync(long orderId, long? userId, CancellationToken ct = default)
+    {
+        var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.OrderId == orderId && o.TenantId == Tenant, ct);
+        if (order is null) return null;
+        if (order.Status is not ("Paid" or "Packed" or "Confirmed"))
+            throw new AppException($"An order that is {order.Status} can't be shipped.");
+        if (order.Items.Count == 0) throw new AppException("This order has no items to ship.");
+
+        var addr = order.ShippingAddressId is { } aid
+            ? await _db.CustomerAddresses.AsNoTracking().FirstOrDefaultAsync(a => a.CustomerAddressId == aid, ct)
+            : null;
+        if (addr is null) throw new AppException("This order has no shipping address to ship to.");
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == order.UserId, ct);
+        var isCod = await _db.Payments.AsNoTracking().AnyAsync(p => p.OrderId == orderId && p.Method == "COD", ct);
+
+        var input = new Features.Shipping.Shiprocket.ShiprocketOrderInput(
+            OrderNumber: order.OrderNumber,
+            OrderDateUtc: order.PlacedAt ?? order.CreatedAt,
+            PaymentMethod: isCod ? "COD" : "Prepaid",
+            SubTotal: order.Subtotal,
+            ShipTo: new Features.Shipping.Shiprocket.ShiprocketAddress(
+                Name: addr.RecipientName ?? user?.FullName ?? "Customer", Phone: addr.Phone ?? user?.PhoneNumber,
+                Email: user?.Email, Line1: addr.Line1, Line2: addr.Line2, City: addr.City,
+                State: addr.State, Pincode: addr.Pincode, Country: addr.Country),
+            Items: order.Items.Select(i => new Features.Shipping.Shiprocket.ShiprocketItem(
+                i.ProductName, i.Sku, i.Quantity, i.UnitPrice)).ToList(),
+            WeightKg: 0m);
+
+        var result = await _shiprocket.ShipAsync(input, ct);   // throws with a clear message on failure
+
+        var now = DateTime.UtcNow;
+        _db.Shipments.Add(new Shipment
+        {
+            TenantId = Tenant, OrderId = orderId, ShippingMethodId = order.ShippingMethodId,
+            Provider = "Shiprocket", ProviderShipmentId = result.ProviderShipmentId, ProviderOrderId = result.ProviderOrderId,
+            Courier = result.CourierName, TrackingNumber = result.Awb,
+            Status = "Shipped", ShippedAt = now, CreatedAt = now,
+        });
+        var from = order.Status;
+        order.Status = "Shipped";
+        order.UpdatedAt = now;
+        _db.OrderStatusHistories.Add(new OrderStatusHistory
+        {
+            OrderId = orderId, FromStatus = from, ToStatus = "Shipped",
+            Notes = result.Awb is not null
+                ? $"Shipped via Shiprocket — {result.CourierName} ({result.Awb})"
+                : $"Pushed to Shiprocket (shipment {result.ProviderShipmentId}); AWB assignment pending",
+            ChangedBy = userId, CreatedAt = now,
+        });
+        await _db.SaveChangesAsync(ct);
+
+        // Only notify "shipped" once we actually have a tracking number.
+        if (!string.IsNullOrEmpty(result.Awb))
+            await NotifyOrderAsync(orderId, "OrderShipped", "OrderShipped",
+                new Dictionary<string, string> { ["Courier"] = result.CourierName ?? "Shiprocket", ["TrackingNumber"] = result.Awb! }, ct);
 
         return await GetAsync(orderId, null, true, ct);
     }

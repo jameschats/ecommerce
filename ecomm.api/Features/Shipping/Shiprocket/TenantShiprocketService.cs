@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using Microsoft.AspNetCore.DataProtection;
@@ -18,11 +19,25 @@ namespace ecomm.api.Features.Shipping.Shiprocket;
 /// null/empty so the caller falls back to the store's manual (Self) shipping. Rates live here (SR2);
 /// create-shipment / AWB / pickup / label / tracking are added in SR3–SR5.
 /// </summary>
+public sealed record ShiprocketAddress(
+    string Name, string? Phone, string? Email, string Line1, string? Line2, string City, string State, string Pincode, string? Country);
+
+public sealed record ShiprocketItem(string Name, string? Sku, int Units, decimal SellingPrice);
+
+public sealed record ShiprocketOrderInput(
+    string OrderNumber, DateTime OrderDateUtc, string PaymentMethod, decimal SubTotal,
+    ShiprocketAddress ShipTo, IReadOnlyList<ShiprocketItem> Items, decimal WeightKg);
+
+/// <summary>Outcome of pushing an order to Shiprocket: their ids + (best-effort) the assigned AWB/courier.</summary>
+public sealed record ShiprocketShipResult(string ProviderOrderId, string ProviderShipmentId, string? Awb, string? CourierName);
+
 public interface ITenantShiprocketService
 {
     /// <summary>True when this store has Shiprocket selected as its fulfillment method.</summary>
     Task<bool> IsEnabledAsync(CancellationToken ct = default);
     Task<ShiprocketRate?> GetCheapestRateAsync(string deliveryPincode, decimal weightKg, bool cod, CancellationToken ct = default);
+    /// <summary>Create the order in Shiprocket and assign the cheapest courier's AWB. Throws on failure (SR3).</summary>
+    Task<ShiprocketShipResult> ShipAsync(ShiprocketOrderInput input, CancellationToken ct = default);
 }
 
 public sealed class TenantShiprocketService(
@@ -99,4 +114,83 @@ public sealed class TenantShiprocketService(
         }
         catch (Exception ex) { log.LogWarning(ex, "Shiprocket auth error for tenant {Tenant}", Tenant); return null; }
     }
+
+    public async Task<ShiprocketShipResult> ShipAsync(ShiprocketOrderInput input, CancellationToken ct = default)
+    {
+        var acct = await AccountAsync(ct)
+            ?? throw new AppException("Shiprocket is not the active fulfillment method for this store.");
+        if (string.IsNullOrWhiteSpace(acct.PickupLocation))
+            throw new AppException("Set your Shiprocket pickup location in fulfillment settings before shipping.");
+        var token = await GetTokenAsync(acct, ct)
+            ?? throw new AppException("Could not authenticate with Shiprocket. Re-check your credentials in settings.");
+
+        var weight = input.WeightKg > 0 ? input.WeightKg : Opt.DefaultWeightKg;
+        var orderBody = new
+        {
+            order_id = input.OrderNumber,
+            order_date = input.OrderDateUtc.ToString("yyyy-MM-dd HH:mm"),
+            pickup_location = acct.PickupLocation,
+            billing_customer_name = input.ShipTo.Name,
+            billing_last_name = "",
+            billing_address = input.ShipTo.Line1,
+            billing_address_2 = input.ShipTo.Line2 ?? "",
+            billing_city = input.ShipTo.City,
+            billing_pincode = input.ShipTo.Pincode,
+            billing_state = input.ShipTo.State,
+            billing_country = string.IsNullOrWhiteSpace(input.ShipTo.Country) ? "India" : input.ShipTo.Country,
+            billing_email = input.ShipTo.Email ?? "",
+            billing_phone = input.ShipTo.Phone ?? "",
+            shipping_is_billing = true,
+            order_items = input.Items.Select(i => new { name = i.Name, sku = string.IsNullOrWhiteSpace(i.Sku) ? i.Name : i.Sku, units = i.Units, selling_price = i.SellingPrice }).ToArray(),
+            payment_method = input.PaymentMethod,
+            sub_total = input.SubTotal,
+            length = 10, breadth = 10, height = 5, weight,
+        };
+
+        using var orderDoc = await PostAsync("v1/external/orders/create/adhoc", orderBody, token, ct);
+        var root = orderDoc.RootElement;
+        var srOrderId = GetString(root, "order_id");
+        var shipmentId = GetString(root, "shipment_id");
+        if (string.IsNullOrEmpty(shipmentId))
+            throw new AppException($"Shiprocket did not create a shipment. {GetString(root, "message") ?? "Check the order address/pincode."}", 502);
+
+        // Assign the cheapest courier's AWB — best-effort: if it fails the order still exists in Shiprocket,
+        // and the merchant can assign a courier from the Shiprocket panel or retry.
+        string? awb = null, courier = null;
+        try
+        {
+            using var awbDoc = await PostAsync("v1/external/courier/assign/awb", new { shipment_id = shipmentId }, token, ct);
+            if (awbDoc.RootElement.TryGetProperty("response", out var resp) && resp.TryGetProperty("data", out var data))
+            {
+                awb = GetString(data, "awb_code");
+                courier = GetString(data, "courier_name");
+            }
+        }
+        catch (Exception ex) { log.LogWarning(ex, "Shiprocket AWB assignment failed for order {Order} (shipment {Shipment} created).", input.OrderNumber, shipmentId); }
+
+        return new ShiprocketShipResult(srOrderId ?? "", shipmentId, awb, courier);
+    }
+
+    /// <summary>POST JSON with the tenant's bearer token; throws <see cref="AppException"/> on a non-2xx.</summary>
+    private async Task<JsonDocument> PostAsync(string path, object body, string token, CancellationToken ct)
+    {
+        var http = httpFactory.CreateClient("shiprocket");
+        http.BaseAddress ??= new Uri(Opt.BaseUrl);
+        using var req = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var res = await http.SendAsync(req, ct);
+        var json = await res.Content.ReadAsStringAsync(ct);
+        if (res.StatusCode == HttpStatusCode.Unauthorized) cache.Remove(TokenKey);
+        if (!res.IsSuccessStatusCode)
+            throw new AppException($"Shiprocket request failed ({(int)res.StatusCode}): {Truncate(json)}", 502);
+        return JsonDocument.Parse(json);
+    }
+
+    /// <summary>Read a property as string whether Shiprocket returns it as a JSON number or string.</summary>
+    private static string? GetString(JsonElement el, string prop) =>
+        el.TryGetProperty(prop, out var p)
+            ? p.ValueKind switch { JsonValueKind.String => p.GetString(), JsonValueKind.Number => p.ToString(), _ => null }
+            : null;
+
+    private static string Truncate(string s) => s.Length <= 300 ? s : s[..300];
 }

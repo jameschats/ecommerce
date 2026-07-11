@@ -50,6 +50,13 @@ public class AdminOrdersController : ControllerBase
         return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
     }
 
+    [HttpPost("{id:long}/ship-shiprocket")]
+    public async Task<IActionResult> ShipWithShiprocket(long id, CancellationToken ct)
+    {
+        var dto = await _orders.ShipWithShiprocketAsync(id, CurrentUserId, ct);
+        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Order pushed to Shiprocket."));
+    }
+
     [HttpPost("{id:long}/deliver")]
     public async Task<IActionResult> MarkDelivered(long id, CancellationToken ct)
     {

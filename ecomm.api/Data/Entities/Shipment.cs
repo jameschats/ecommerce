@@ -7,8 +7,12 @@ public class Shipment : ITenantScoped
     public long TenantId { get; set; } = 1;
     public long OrderId { get; set; }
     public long? ShippingMethodId { get; set; }
+    public string Provider { get; set; } = "Manual";   // Manual | Shiprocket
+    public string? ProviderShipmentId { get; set; }     // Shiprocket shipment_id
+    public string? ProviderOrderId { get; set; }        // Shiprocket order_id
+    public string? LabelUrl { get; set; }               // Shiprocket label PDF (SR4)
     public string? Courier { get; set; }
-    public string? TrackingNumber { get; set; }
+    public string? TrackingNumber { get; set; }         // AWB code for Shiprocket
     public string Status { get; set; } = "Pending"; // Pending|Packed|Shipped|InTransit|Delivered|Returned
     public DateTime? EstimatedDeliveryDate { get; set; }
     public DateTime? ShippedAt { get; set; }
