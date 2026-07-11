@@ -78,4 +78,15 @@ export class OrderService {
   adminMarkDelivered(orderId: number): Observable<Order> {
     return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/deliver`, {}).pipe(map((r) => r.data!));
   }
+
+  // --- Shiprocket fulfillment (when the store uses Shiprocket) ---
+  adminShipShiprocket(orderId: number): Observable<Order> {
+    return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/ship-shiprocket`, {}).pipe(map((r) => r.data!));
+  }
+  adminShiprocketPickup(orderId: number): Observable<Order> {
+    return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/shiprocket-pickup`, {}).pipe(map((r) => r.data!));
+  }
+  adminShiprocketLabel(orderId: number): Observable<{ labelUrl: string }> {
+    return this.http.post<ApiResponse<{ labelUrl: string }>>(`${this.adminBase}/${orderId}/shiprocket-label`, {}).pipe(map((r) => r.data!));
+  }
 }

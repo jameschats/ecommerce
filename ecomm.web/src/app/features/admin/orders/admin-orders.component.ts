@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { PagedResult } from '../../../core/models/api-response.model';
 import { Order, OrderListItem } from '../../../core/models/order.model';
 import { OrderService } from '../../../core/services/order.service';
+import { FulfillmentService } from '../../../core/services/fulfillment.service';
 import { orderStatusClass } from '../../orders/order-status';
 
 const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
@@ -78,7 +79,14 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           <!-- Ship form (Confirmed/Packed → dispatch with courier + tracking) -->
           @if (o.status === 'Packed' || o.status === 'Confirmed') {
             <div class="border border-slate-200 rounded-lg p-3 mb-3">
-              <div class="text-sm font-medium text-slate-700 mb-2">Create shipment (notifies the customer)</div>
+              @if (useShiprocket()) {
+                <div class="text-sm font-medium text-slate-700 mb-1">Fulfill with Shiprocket</div>
+                <p class="text-xs text-slate-400 mb-2">Creates the order in Shiprocket, assigns the cheapest courier's AWB, and notifies the customer.</p>
+                <button type="button" (click)="shipShiprocket(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2 disabled:opacity-50">🚚 Ship with Shiprocket</button>
+                <div class="text-xs text-slate-400 my-2">— or enter tracking manually —</div>
+              } @else {
+                <div class="text-sm font-medium text-slate-700 mb-2">Create shipment (notifies the customer)</div>
+              }
               <div class="grid grid-cols-2 gap-2">
                 <input [(ngModel)]="shipCourier" name="courier" placeholder="Courier (e.g. Delhivery)" class="input" />
                 <input [(ngModel)]="shipTracking" name="tracking" placeholder="Tracking number" class="input" />
@@ -95,6 +103,10 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
             }
             @if (o.status === 'Shipped') {
               <button type="button" (click)="markDelivered(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Delivered</button>
+              @if (useShiprocket()) {
+                <button type="button" (click)="shiprocketPickup(o)" [disabled]="busy()" class="btn-ghost border border-slate-300 text-sm">Schedule pickup</button>
+                <button type="button" (click)="shiprocketLabel(o)" [disabled]="busy()" class="btn-ghost border border-slate-300 text-sm">Download label</button>
+              }
             }
             <button type="button" (click)="invoice(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Invoice PDF</button>
             @if (o.status === 'Paid' || o.status === 'Confirmed' || o.status === 'Packed' || o.status === 'Pending') {
@@ -108,7 +120,9 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
 })
 export class AdminOrdersComponent implements OnInit {
   private readonly svc = inject(OrderService);
+  private readonly fulfillment = inject(FulfillmentService);
   readonly statuses = ['Pending', 'Paid', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
+  readonly useShiprocket = signal(false);
 
   readonly result = signal<PagedResult<OrderListItem> | null>(null);
   readonly loading = signal(true);
@@ -121,7 +135,32 @@ export class AdminOrdersComponent implements OnInit {
   shipTracking = '';
   shipEta = '';
 
-  ngOnInit(): void { this.reload(); }
+  ngOnInit(): void {
+    this.reload();
+    this.fulfillment.getSettings().subscribe({ next: (s) => this.useShiprocket.set(s.method === 'Shiprocket'), error: () => {} });
+  }
+
+  shipShiprocket(o: Order): void {
+    this.busy.set(true); this.msg.set(null); this.err.set(null);
+    this.svc.adminShipShiprocket(o.orderId).subscribe({
+      next: (d) => { this.selected.set(d); this.busy.set(false); this.msg.set('Order pushed to Shiprocket.'); this.reload(); },
+      error: (e: unknown) => { this.busy.set(false); this.err.set(this.m(e)); },
+    });
+  }
+  shiprocketPickup(o: Order): void {
+    this.busy.set(true); this.msg.set(null); this.err.set(null);
+    this.svc.adminShiprocketPickup(o.orderId).subscribe({
+      next: (d) => { this.selected.set(d); this.busy.set(false); this.msg.set('Pickup scheduled with Shiprocket.'); },
+      error: (e: unknown) => { this.busy.set(false); this.err.set(this.m(e)); },
+    });
+  }
+  shiprocketLabel(o: Order): void {
+    this.busy.set(true); this.msg.set(null); this.err.set(null);
+    this.svc.adminShiprocketLabel(o.orderId).subscribe({
+      next: (r) => { this.busy.set(false); this.msg.set('Label ready.'); if (r.labelUrl && typeof window !== 'undefined') window.open(r.labelUrl, '_blank'); },
+      error: (e: unknown) => { this.busy.set(false); this.err.set(this.m(e)); },
+    });
+  }
 
   reload(): void {
     this.loading.set(true);

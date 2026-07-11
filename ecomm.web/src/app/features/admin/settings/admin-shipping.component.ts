@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import {
   SaveShippingMethod, SaveShippingZone, ShippingAdminService, ShippingMethod, ShippingZone,
 } from '../../../core/services/shipping-admin.service';
+import { FulfillmentService, ShiprocketSettings } from '../../../core/services/fulfillment.service';
 
 @Component({
   selector: 'app-admin-shipping',
@@ -16,14 +17,36 @@ import {
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
-      <!-- Live courier rates (Shiprocket) -->
-      <div class="mb-6 rounded-xl border px-4 py-3 text-sm flex items-center gap-2"
-           [class]="shiprocket() ? 'border-green-200 bg-green-50 text-green-700' : 'border-slate-200 bg-slate-50 text-slate-500'">
-        <span>🚚</span>
-        @if (shiprocket()) {
-          <span><span class="font-medium">Live courier rates on.</span> Shiprocket is providing real-time rates and delivery estimates at checkout.</span>
-        } @else {
-          <span><span class="font-medium">Live courier rates off.</span> Checkout uses your manual rates below. Shiprocket can be enabled by the platform to fetch live courier rates automatically.</span>
+      <!-- Fulfillment method: Self (manual) vs Shiprocket -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+        <h2 class="font-semibold text-slate-800 mb-1">Fulfillment method</h2>
+        <p class="text-xs text-slate-400 mb-3">Choose how you ship orders. Self = enter courier + tracking yourself with your manual rates below. Shiprocket = live rates at checkout, plus automatic AWB, pickup, label and tracking.</p>
+
+        @if (sr(); as s) {
+          <div class="space-y-2">
+            <label class="flex items-start gap-2 p-3 rounded-lg border cursor-pointer" [class]="method() === 'Self' ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'">
+              <input type="radio" name="ffm" value="Self" [ngModel]="method()" (ngModelChange)="method.set($event)" class="mt-1" />
+              <span><span class="font-medium text-slate-800">Self shipping</span><span class="block text-xs text-slate-500">You arrange the courier and enter the tracking number on each order.</span></span>
+            </label>
+            <label class="flex items-start gap-2 p-3 rounded-lg border cursor-pointer" [class]="method() === 'Shiprocket' ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'">
+              <input type="radio" name="ffm" value="Shiprocket" [ngModel]="method()" (ngModelChange)="method.set($event)" class="mt-1" />
+              <span><span class="font-medium text-slate-800">Shiprocket</span>
+                @if (s.isVerified && s.method === 'Shiprocket') { <span class="text-xs text-green-600 ml-1">● connected</span> }
+                <span class="block text-xs text-slate-500">Live courier rates + auto AWB, pickup, label and tracking.</span></span>
+            </label>
+          </div>
+
+          @if (method() === 'Shiprocket') {
+            <div class="grid sm:grid-cols-2 gap-3 mt-3 border-t border-slate-100 pt-3">
+              <label class="block sm:col-span-2"><span class="lbl">Shiprocket email (API user)</span><input class="input" [(ngModel)]="form.email" placeholder="you@store.com" /></label>
+              <label class="block sm:col-span-2"><span class="lbl">Shiprocket password</span><input class="input" type="password" [(ngModel)]="form.password" [placeholder]="s.hasPassword ? '•••••••• (leave blank to keep)' : 'Your Shiprocket API password'" /></label>
+              <label class="block"><span class="lbl">Pickup pincode</span><input class="input" [(ngModel)]="form.pickupPincode" placeholder="600001" /></label>
+              <label class="block"><span class="lbl">Pickup location name</span><input class="input" [(ngModel)]="form.pickupLocation" placeholder="Primary" /></label>
+              <p class="text-xs text-slate-400 sm:col-span-2">The pickup location must match a registered pickup address in your Shiprocket panel. We verify your credentials when you save.</p>
+            </div>
+          }
+
+          <button type="button" (click)="saveFulfillment()" [disabled]="saving()" class="btn-primary text-sm mt-3 disabled:opacity-50">{{ saving() ? 'Saving…' : 'Save fulfillment method' }}</button>
         }
       </div>
 
@@ -115,10 +138,15 @@ import {
 })
 export class AdminShippingComponent implements OnInit {
   private readonly api = inject(ShippingAdminService);
+  private readonly fulfillment = inject(FulfillmentService);
 
   readonly methods = signal<ShippingMethod[]>([]);
   readonly zones = signal<ShippingZone[]>([]);
-  readonly shiprocket = signal(false);
+  readonly sr = signal<ShiprocketSettings | null>(null);
+  readonly method = signal<'Self' | 'Shiprocket'>('Self');
+  readonly saving = signal(false);
+  form: { email: string | null; password: string | null; pickupPincode: string | null; pickupLocation: string | null } =
+    { email: '', password: '', pickupPincode: '', pickupLocation: '' };
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
 
@@ -126,8 +154,26 @@ export class AdminShippingComponent implements OnInit {
   readonly zForm = signal<(SaveShippingZone & { id?: number }) | null>(null);
 
   ngOnInit(): void {
-    this.api.integration().subscribe((i) => this.shiprocket.set(i.shiprocketEnabled));
+    this.loadFulfillment();
     this.load();
+  }
+  private loadFulfillment(): void {
+    this.fulfillment.getSettings().subscribe((s) => {
+      this.sr.set(s);
+      this.method.set(s.method);
+      this.form = { email: s.email, password: '', pickupPincode: s.pickupPincode, pickupLocation: s.pickupLocation };
+    });
+  }
+  saveFulfillment(): void {
+    this.saving.set(true);
+    this.fulfillment.updateSettings({
+      method: this.method(),
+      email: this.form.email, password: this.form.password || null,
+      pickupPincode: this.form.pickupPincode, pickupLocation: this.form.pickupLocation,
+    }).subscribe({
+      next: (s) => { this.sr.set(s); this.method.set(s.method); this.form.password = ''; this.saving.set(false); this.toast('Fulfillment settings saved.'); },
+      error: (e: unknown) => { this.saving.set(false); this.fail(e); },
+    });
   }
   private load(): void {
     this.api.listMethods().subscribe((m) => this.methods.set(m));
