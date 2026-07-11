@@ -92,5 +92,7 @@ public class DraftOrderTests
         public Task<bool> IsEnabledAsync(CancellationToken ct = default) => Task.FromResult(false);
         public Task<ShiprocketRate?> GetCheapestRateAsync(string deliveryPincode, decimal weightKg, bool cod, CancellationToken ct = default) => Task.FromResult<ShiprocketRate?>(null);
         public Task<ShiprocketShipResult> ShipAsync(ShiprocketOrderInput input, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<string?> SchedulePickupAsync(string providerShipmentId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<string?> GenerateLabelAsync(string providerShipmentId, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

@@ -24,6 +24,10 @@ public interface IOrderService
     Task<OrderDto?> CreateShipmentAsync(long orderId, CreateShipmentRequest req, long? userId, CancellationToken ct = default);
     /// <summary>Fulfill via the store's connected Shiprocket account: create order + assign AWB (SR3).</summary>
     Task<OrderDto?> ShipWithShiprocketAsync(long orderId, long? userId, CancellationToken ct = default);
+    /// <summary>Schedule the Shiprocket pickup for an already-shipped order (SR4).</summary>
+    Task<OrderDto?> SchedulePickupAsync(long orderId, long? userId, CancellationToken ct = default);
+    /// <summary>Generate (and cache) the Shiprocket shipping-label URL for an order (SR4).</summary>
+    Task<string?> GenerateShiprocketLabelAsync(long orderId, CancellationToken ct = default);
     Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default);
 }
 
@@ -634,6 +638,45 @@ public sealed class OrderService : IOrderService
                 new Dictionary<string, string> { ["Courier"] = result.CourierName ?? "Shiprocket", ["TrackingNumber"] = result.Awb! }, ct);
 
         return await GetAsync(orderId, null, true, ct);
+    }
+
+    public async Task<OrderDto?> SchedulePickupAsync(long orderId, long? userId, CancellationToken ct = default)
+    {
+        var (order, shipment) = await ShiprocketShipmentAsync(orderId, ct);
+        var status = await _shiprocket.SchedulePickupAsync(shipment.ProviderShipmentId!, ct);
+        _db.OrderStatusHistories.Add(new OrderStatusHistory
+        {
+            OrderId = orderId, FromStatus = order.Status, ToStatus = order.Status,
+            Notes = $"Shiprocket pickup: {status}", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
+        });
+        await _db.SaveChangesAsync(ct);
+        return await GetAsync(orderId, null, true, ct);
+    }
+
+    public async Task<string?> GenerateShiprocketLabelAsync(long orderId, CancellationToken ct = default)
+    {
+        var (_, shipment) = await ShiprocketShipmentAsync(orderId, ct);
+        if (!string.IsNullOrEmpty(shipment.LabelUrl)) return shipment.LabelUrl;   // already generated
+        var url = await _shiprocket.GenerateLabelAsync(shipment.ProviderShipmentId!, ct);
+        if (!string.IsNullOrEmpty(url))
+        {
+            shipment.LabelUrl = url;
+            shipment.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+        }
+        return url;
+    }
+
+    /// <summary>The order's Shiprocket shipment (must have been shipped via Shiprocket first).</summary>
+    private async Task<(Order order, Shipment shipment)> ShiprocketShipmentAsync(long orderId, CancellationToken ct)
+    {
+        var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && o.TenantId == Tenant, ct)
+            ?? throw new AppException("Order not found.", StatusCodes.Status404NotFound);
+        var shipment = await _db.Shipments
+            .Where(s => s.OrderId == orderId && s.Provider == "Shiprocket" && s.ProviderShipmentId != null)
+            .OrderByDescending(s => s.ShipmentId).FirstOrDefaultAsync(ct)
+            ?? throw new AppException("This order has no Shiprocket shipment yet — ship it with Shiprocket first.");
+        return (order, shipment);
     }
 
     public async Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default)

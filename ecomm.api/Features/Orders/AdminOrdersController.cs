@@ -57,6 +57,22 @@ public class AdminOrdersController : ControllerBase
         return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Order pushed to Shiprocket."));
     }
 
+    [HttpPost("{id:long}/shiprocket-pickup")]
+    public async Task<IActionResult> ShiprocketPickup(long id, CancellationToken ct)
+    {
+        var dto = await _orders.SchedulePickupAsync(id, CurrentUserId, ct);
+        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Pickup scheduled with Shiprocket."));
+    }
+
+    [HttpPost("{id:long}/shiprocket-label")]
+    public async Task<IActionResult> ShiprocketLabel(long id, CancellationToken ct)
+    {
+        var url = await _orders.GenerateShiprocketLabelAsync(id, ct);
+        return string.IsNullOrEmpty(url)
+            ? NotFound(ApiResponse<object>.Fail("Label is not ready yet — try again shortly."))
+            : Ok(ApiResponse<object>.Ok(new { labelUrl = url }, "Label ready."));
+    }
+
     [HttpPost("{id:long}/deliver")]
     public async Task<IActionResult> MarkDelivered(long id, CancellationToken ct)
     {

@@ -38,6 +38,10 @@ public interface ITenantShiprocketService
     Task<ShiprocketRate?> GetCheapestRateAsync(string deliveryPincode, decimal weightKg, bool cod, CancellationToken ct = default);
     /// <summary>Create the order in Shiprocket and assign the cheapest courier's AWB. Throws on failure (SR3).</summary>
     Task<ShiprocketShipResult> ShipAsync(ShiprocketOrderInput input, CancellationToken ct = default);
+    /// <summary>Schedule a pickup for a Shiprocket shipment (SR4). Returns a status/date note.</summary>
+    Task<string?> SchedulePickupAsync(string providerShipmentId, CancellationToken ct = default);
+    /// <summary>Generate the shipping-label PDF for a Shiprocket shipment (SR4). Returns its URL.</summary>
+    Task<string?> GenerateLabelAsync(string providerShipmentId, CancellationToken ct = default);
 }
 
 public sealed class TenantShiprocketService(
@@ -169,6 +173,32 @@ public sealed class TenantShiprocketService(
         catch (Exception ex) { log.LogWarning(ex, "Shiprocket AWB assignment failed for order {Order} (shipment {Shipment} created).", input.OrderNumber, shipmentId); }
 
         return new ShiprocketShipResult(srOrderId ?? "", shipmentId, awb, courier);
+    }
+
+    public async Task<string?> SchedulePickupAsync(string providerShipmentId, CancellationToken ct = default)
+    {
+        var token = await RequireTokenAsync(ct);
+        using var doc = await PostAsync("v1/external/courier/generate/pickup", new { shipment_id = new[] { providerShipmentId } }, token, ct);
+        var root = doc.RootElement;
+        // Shiprocket returns pickup_scheduled_date (at root or under "response"); fall back to a generic note.
+        return GetString(root, "pickup_scheduled_date")
+            ?? (root.TryGetProperty("response", out var r) && r.ValueKind == JsonValueKind.Object ? GetString(r, "pickup_scheduled_date") : null)
+            ?? "Pickup requested";
+    }
+
+    public async Task<string?> GenerateLabelAsync(string providerShipmentId, CancellationToken ct = default)
+    {
+        var token = await RequireTokenAsync(ct);
+        using var doc = await PostAsync("v1/external/courier/generate/label", new { shipment_id = new[] { providerShipmentId } }, token, ct);
+        return GetString(doc.RootElement, "label_url");
+    }
+
+    private async Task<string> RequireTokenAsync(CancellationToken ct)
+    {
+        var acct = await AccountAsync(ct)
+            ?? throw new AppException("Shiprocket is not the active fulfillment method for this store.");
+        return await GetTokenAsync(acct, ct)
+            ?? throw new AppException("Could not authenticate with Shiprocket. Re-check your credentials in settings.");
     }
 
     /// <summary>POST JSON with the tenant's bearer token; throws <see cref="AppException"/> on a non-2xx.</summary>
