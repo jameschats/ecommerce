@@ -115,6 +115,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<TenantBillingHistory> TenantBillingHistory => Set<TenantBillingHistory>();
     public DbSet<TenantSetting> TenantSettings => Set<TenantSetting>();
     public DbSet<TenantPaymentAccount> TenantPaymentAccounts => Set<TenantPaymentAccount>();
+    public DbSet<TenantShippingAccount> TenantShippingAccounts => Set<TenantShippingAccount>();
     public DbSet<PlatformAccessLog> PlatformAccessLog => Set<PlatformAccessLog>();
     public DbSet<SignupBlocklist> SignupBlocklist => Set<SignupBlocklist>();
 
@@ -411,6 +412,7 @@ public class EcommerceDbContext : DbContext
         });
         b.Entity<TenantSetting>(e => { e.ToTable("TenantSettings"); e.HasKey(x => x.TenantSettingId); });
         b.Entity<TenantPaymentAccount>(e => { e.ToTable("TenantPaymentAccounts"); e.HasKey(x => x.TenantPaymentAccountId); });
+        b.Entity<TenantShippingAccount>(e => { e.ToTable("TenantShippingAccounts"); e.HasKey(x => x.TenantShippingAccountId); });
         b.Entity<PlatformAccessLog>(e => { e.ToTable("PlatformAccessLog"); e.HasKey(x => x.PlatformAccessLogId); });
         b.Entity<SignupBlocklist>(e => { e.ToTable("SignupBlocklist"); e.HasKey(x => x.SignupBlocklistId); });
 
