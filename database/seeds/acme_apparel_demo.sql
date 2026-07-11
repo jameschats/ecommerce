@@ -15,6 +15,10 @@
 -- =============================================================================
 
 -- ---- 0. Resolve the tenant (STOP if this prints NULL) -----------------------
+-- Align the session collation with the tables (utf8mb4_unicode_ci). The MySQL 8
+-- client defaults to utf8mb4_0900_ai_ci, which would make `Slug = @slug` throw
+-- "illegal mix of collations" against the unicode_ci columns.
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 SET @slug := 'acme';
 SET @tid  := (SELECT TenantId FROM Tenants WHERE Slug = @slug LIMIT 1);
 SELECT @tid AS resolved_tenant_id, @slug AS slug;   -- must show a real id
