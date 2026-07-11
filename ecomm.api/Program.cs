@@ -157,6 +157,7 @@ builder.Services.AddScoped<ecomm.api.Features.Payments.IPaymentSettingsService, 
 builder.Services.AddScoped<ecomm.api.Features.Shipping.IShippingAdminService, ecomm.api.Features.Shipping.ShippingAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.Shipping.Shiprocket.IShiprocketSettingsService, ecomm.api.Features.Shipping.Shiprocket.ShiprocketSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Shipping.Shiprocket.ITenantShiprocketService, ecomm.api.Features.Shipping.Shiprocket.TenantShiprocketService>();
+builder.Services.AddScoped<ecomm.api.Features.Shipping.Shiprocket.IShiprocketWebhookService, ecomm.api.Features.Shipping.Shiprocket.ShiprocketWebhookService>();
 // Shiprocket courier rates — config-gated (mirrors the SMS/Razorpay pattern). Disabled by default.
 builder.Services.Configure<ecomm.api.Features.Shipping.Shiprocket.ShiprocketOptions>(
     builder.Configuration.GetSection(ecomm.api.Features.Shipping.Shiprocket.ShiprocketOptions.SectionName));
