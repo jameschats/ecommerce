@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { SITE_URL } from '../../../core/api.config';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 interface Faq { q: string; a: string; }
 
@@ -10,7 +11,7 @@ interface Faq { q: string; a: string; }
     <section class="page-container py-12">
       <div class="max-w-3xl mx-auto">
         <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 text-center">Frequently asked questions</h1>
-        <p class="mt-3 text-slate-600 text-center">Everything you need to know about ordering customized calendars.</p>
+        <p class="mt-3 text-slate-600 text-center">Everything you need to know about ordering from {{ store() }}.</p>
 
         <div class="mt-8 divide-y divide-slate-200 border border-slate-200 rounded-2xl bg-white overflow-hidden">
           @for (item of faqs; track item.q; let i = $index) {
@@ -31,24 +32,26 @@ interface Faq { q: string; a: string; }
 })
 export class FaqComponent implements OnInit {
   private readonly seo = inject(SeoService);
+  private readonly theme = inject(ThemeService);
 
+  readonly store = computed(() => this.theme.storeName() || 'our store');
   readonly open = signal<number>(0);
 
   readonly faqs: Faq[] = [
-    { q: 'How do I customize my calendar?', a: 'Open any product and choose "Upload design" to add your own artwork, or pick a template and add your photos, text, brand name and logo.' },
-    { q: 'What sizes and finishes are available?', a: 'It depends on the product — most wall calendars come in A4 and A3 with glossy or matte finishes. The exact options are listed on each product page.' },
-    { q: 'Do you offer bulk / corporate pricing?', a: 'Yes. We specialise in bulk corporate gifting with tiered pricing. Use the Contact page or call us for a quote.' },
-    { q: 'How long does delivery take?', a: 'Standard orders are printed and shipped within a few business days, with pan-India delivery. Same-day delivery is available in select cities.' },
-    { q: 'What are the shipping charges?', a: 'Shipping is calculated at checkout based on your pincode, and many products ship free above a threshold.' },
-    { q: 'Can I return or replace a calendar?', a: 'Personalized products are made to order, but if your item arrives damaged or defective we will replace it — just reach out within 7 days.' },
-    { q: 'What payment methods do you accept?', a: 'We accept all major UPI apps, cards, net-banking and wallets via our secure payment gateway.' },
-    { q: 'Can I see a proof before printing?', a: 'For custom and bulk orders, our team can share a digital proof for approval before we go to print.' },
+    { q: 'How do I place an order?', a: 'Browse our products, add what you like to your cart, then check out with your delivery address and a payment method. You will get an order confirmation right away.' },
+    { q: 'How long does delivery take?', a: 'Most orders are dispatched within a few business days. The exact delivery estimate for your location is shown at checkout and in your order confirmation.' },
+    { q: 'What are the shipping charges?', a: 'Shipping is calculated at checkout based on your pincode, and many orders qualify for free shipping above a threshold.' },
+    { q: 'What payment methods do you accept?', a: 'We accept major UPI apps, cards, net-banking and wallets through our secure payment gateway — plus Cash on Delivery where available.' },
+    { q: 'How do I track my order?', a: 'Sign in and open Orders in your account to see live status, or use the tracking link in your confirmation email/SMS.' },
+    { q: 'Can I return or replace an item?', a: 'Yes. If an item arrives damaged or defective, or is eligible under our return policy, reach out within the returns window and we will help with a replacement or refund.' },
+    { q: 'How do I contact support?', a: 'Head to the Contact page and send us a message — we typically reply within one business day.' },
   ];
 
   ngOnInit(): void {
+    const name = this.theme.storeName() || 'our store';
     this.seo.setMeta({
-      title: 'FAQ — CalendarShop',
-      description: 'Answers to common questions about customizing, ordering, shipping, returns and bulk pricing for CalendarShop calendars.',
+      title: `FAQ — ${name}`,
+      description: `Answers to common questions about ordering, shipping, payment, returns and support at ${name}.`,
       url: `${SITE_URL}/faq`,
     });
     this.seo.setJsonLd({

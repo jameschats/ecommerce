@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CatalogService, StorePolicy } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import { SITE_URL } from '../../../core/api.config';
 
 @Component({
@@ -23,6 +24,7 @@ export class PolicyComponent implements OnInit {
   private readonly catalog = inject(CatalogService);
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
+  private readonly theme = inject(ThemeService);
 
   readonly policy = signal<StorePolicy | null>(null);
   readonly loading = signal(true);
@@ -34,7 +36,7 @@ export class PolicyComponent implements OnInit {
       this.catalog.getPolicy(handle).subscribe((p) => {
         this.policy.set(p);
         this.loading.set(false);
-        if (p) this.seo.setMeta({ title: `${p.title} — CalendarShop`, description: p.title, url: `${SITE_URL}/policies/${handle}` });
+        if (p) this.seo.setMeta({ title: `${p.title} — ${this.theme.storeName() || 'Online Store'}`, description: p.title, url: `${SITE_URL}/policies/${handle}` });
       });
     });
   }

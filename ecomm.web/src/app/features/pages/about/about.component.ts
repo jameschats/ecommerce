@@ -1,7 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-about',
@@ -9,26 +10,15 @@ import { SeoService } from '../../../core/services/seo.service';
   template: `
     <section class="page-container py-12">
       <div class="max-w-3xl">
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">About CalendarShop</h1>
+        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">About {{ store() }}</h1>
         <p class="mt-4 text-lg text-slate-600">
-          We help businesses and individuals turn 2026 into something personal — premium, fully customizable
-          calendars printed with your photos, brand name and logo.
+          We're on a simple mission: bring you products you'll love, at fair prices, delivered fast — with a
+          shopping experience that's genuinely easy from browse to doorstep.
         </p>
         <p class="mt-4 text-slate-600">
-          From a single wall calendar to bulk corporate gifting, we obsess over print quality, on-time delivery
-          and a buying experience that's genuinely simple. What started as a small print shop is now trusted by
-          teams across India for their year-round calendar needs.
+          From your first order to your hundredth, we obsess over quality, honest pricing and dependable delivery.
+          Thanks for shopping with {{ store() }}.
         </p>
-      </div>
-
-      <!-- Stats -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10">
-        @for (s of stats; track s.label) {
-          <div class="bg-white border border-slate-200 rounded-xl p-5 text-center">
-            <div class="text-2xl font-bold text-primary">{{ s.value }}</div>
-            <div class="text-sm text-slate-500 mt-1">{{ s.label }}</div>
-          </div>
-        }
       </div>
 
       <!-- Values -->
@@ -44,34 +34,31 @@ import { SeoService } from '../../../core/services/seo.service';
       </div>
 
       <div class="mt-12 bg-gradient-to-br from-primary to-primary-dark rounded-2xl px-8 py-10 text-center text-white">
-        <h2 class="text-2xl font-bold">Ready to design your 2026 calendar?</h2>
-        <p class="mt-2 text-white/85">Pick a style, add your photos, and we'll handle the rest.</p>
-        <a routerLink="/products" class="inline-block mt-5 bg-white text-primary-dark font-medium px-6 py-2.5 rounded-lg hover:bg-slate-100 transition">Shop calendars</a>
+        <h2 class="text-2xl font-bold">Ready to shop?</h2>
+        <p class="mt-2 text-white/85">Discover our latest products and find something you love.</p>
+        <a routerLink="/products" class="inline-block mt-5 bg-white text-primary-dark font-medium px-6 py-2.5 rounded-lg hover:bg-slate-100 transition">Shop now</a>
       </div>
     </section>
   `,
 })
 export class AboutComponent implements OnInit {
   private readonly seo = inject(SeoService);
+  private readonly theme = inject(ThemeService);
 
-  readonly stats = [
-    { value: '10,000+', label: 'Calendars printed' },
-    { value: '1,000+', label: 'Happy customers' },
-    { value: '4.5★', label: 'Average rating' },
-    { value: 'Pan-India', label: 'Delivery' },
-  ];
+  readonly store = computed(() => this.theme.storeName() || 'our store');
 
   readonly values = [
-    { icon: '🖨️', title: 'Premium print quality', text: 'Full-colour HD printing on heavy art paper.' },
-    { icon: '⏱️', title: 'On-time delivery', text: 'We ship on schedule, every time.' },
-    { icon: '🎨', title: 'Easy customization', text: 'Your photos, text, brand name and logo.' },
-    { icon: '📦', title: 'Bulk-friendly', text: 'Great pricing for corporate gifting at scale.' },
+    { icon: '✨', title: 'Quality you can trust', text: 'Products we are proud to stand behind.' },
+    { icon: '🚚', title: 'Fast, reliable delivery', text: 'Shipped quickly and tracked to your door.' },
+    { icon: '🛒', title: 'Easy, secure shopping', text: 'Simple checkout with protected payments.' },
+    { icon: '💬', title: 'Support that cares', text: 'Real help whenever you need it.' },
   ];
 
   ngOnInit(): void {
+    const name = this.theme.storeName() || 'our store';
     this.seo.setMeta({
-      title: 'About Us — CalendarShop',
-      description: 'CalendarShop makes premium, fully customizable 2026 calendars — trusted by teams across India for quality printing and on-time delivery.',
+      title: `About us — ${name}`,
+      description: `Learn about ${name} — quality products, fair prices and fast, reliable delivery.`,
       url: `${SITE_URL}/about`,
     });
   }

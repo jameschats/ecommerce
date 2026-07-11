@@ -8,6 +8,7 @@ import { AccountService } from '../../core/services/account.service';
 import { AuthService } from '../../core/services/auth.service';
 import { CartService } from '../../core/services/cart.service';
 import { OrderService } from '../../core/services/order.service';
+import { ThemeService } from '../../core/services/theme.service';
 
 type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } };
 
@@ -139,6 +140,7 @@ export class CheckoutComponent implements OnInit {
   private readonly account = inject(AccountService);
   private readonly auth = inject(AuthService);
   private readonly cart = inject(CartService);
+  private readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -247,7 +249,7 @@ export class CheckoutComponent implements OnInit {
         order_id: payment.gatewayOrderId,
         amount: Math.round(payment.amount * 100),
         currency: payment.currency,
-        name: 'CalendarShop',
+        name: this.theme.storeName() || 'Online Store',
         description: res.orderNumber,
         prefill: {
           name: user?.fullName ?? undefined,

@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SITE_URL } from '../../../core/api.config';
 import { SeoService } from '../../../core/services/seo.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-contact',
@@ -9,8 +10,8 @@ import { SeoService } from '../../../core/services/seo.service';
   template: `
     <section class="page-container py-12">
       <div class="max-w-2xl mb-10">
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Contact us</h1>
-        <p class="mt-3 text-slate-600">Questions about an order, customization, or a bulk enquiry? We'd love to help.</p>
+        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Contact {{ store() }}</h1>
+        <p class="mt-3 text-slate-600">Questions about an order, a product, or anything else? We'd love to help.</p>
       </div>
 
       <div class="grid lg:grid-cols-3 gap-8">
@@ -55,21 +56,23 @@ import { SeoService } from '../../../core/services/seo.service';
 })
 export class ContactComponent implements OnInit {
   private readonly seo = inject(SeoService);
+  private readonly theme = inject(ThemeService);
 
+  readonly store = computed(() => this.theme.storeName() || 'our store');
   readonly sent = signal(false);
   form = { name: '', email: '', subject: '', message: '' };
 
   readonly details = [
-    { icon: '📍', label: 'Address', value: 'CalendarShop\nChennai, Tamil Nadu, India' },
-    { icon: '📞', label: 'Phone', value: '+91 62922 23322' },
-    { icon: '✉️', label: 'Email', value: 'support@calendarshop.example' },
-    { icon: '🕒', label: 'Hours', value: 'Mon–Sat, 9:30 AM – 6:30 PM' },
+    { icon: '💬', label: 'Response time', value: 'We usually reply within 1 business day.' },
+    { icon: '🕒', label: 'Support hours', value: 'Mon–Sat, 9:30 AM – 6:30 PM' },
+    { icon: '✉️', label: 'Prefer email?', value: 'Send us a message using the form and we will get back to you.' },
   ];
 
   ngOnInit(): void {
+    const name = this.theme.storeName() || 'our store';
     this.seo.setMeta({
-      title: 'Contact us — CalendarShop',
-      description: 'Get in touch with CalendarShop for orders, customization help, or bulk and corporate calendar enquiries.',
+      title: `Contact us — ${name}`,
+      description: `Get in touch with ${name} for help with orders, products or any other questions.`,
       url: `${SITE_URL}/contact`,
     });
   }
