@@ -4,6 +4,7 @@ using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Auth.Dtos;
 using ecomm.api.Features.Auth.Services;
+using ecomm.api.Features.Storefront;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -35,6 +36,8 @@ public sealed partial class OnboardingService(
     ICurrentTenantService tenant,
     IPasswordHasher hasher,
     IAuthService auth,
+    IThemeLibraryService themes,
+    ILogger<OnboardingService> logger,
     IOptions<TenancyOptions> tenancy) : IOnboardingService
 {
     private const int TrialDays = 14;
@@ -122,12 +125,37 @@ public sealed partial class OnboardingService(
             db.TenantSettings.Add(new TenantSetting { Key = "StoreName", Value = storeName, CreatedAt = now });
             db.TenantSettings.Add(new TenantSetting { Key = "CurrencyCode", Value = "INR", CreatedAt = now });
 
+            // Default shipping so the store can check out on day one (editable in /admin/shipping).
+            db.ShippingMethods.Add(new ShippingMethod
+            {
+                Name = "Standard Delivery", Description = "Flat-rate delivery — free over ₹499",
+                RateType = "Flat", BaseRate = 49m, FreeShippingThreshold = 499m, EstimatedDays = 5,
+                IsActive = true, CreatedAt = now,
+            });
+            // Cash on Delivery on by default so orders can be placed before Razorpay is configured.
+            db.Settings.Add(new Setting { SettingKey = "CodEnabled", SettingValue = "true", DataType = "string", Category = "Billing", CreatedAt = now });
+
             await db.SaveChangesAsync(ct);
 
             tokens = await auth.IssueTokensForUserAsync(user, ip, ct);
         }
 
         await tx.CommitAsync(ct);
+
+        // Best-effort: publish a clean starter theme so the storefront renders immediately.
+        // Non-fatal — on failure the store keeps the default chrome and the merchant picks a theme.
+        try
+        {
+            using (tenant.BeginScope(newTenant.TenantId))
+            {
+                var starter = await themes.InstallPrebuiltAsync("minimal", ct);
+                await themes.PublishAsync(starter.ThemeId, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Signup: starter-theme provisioning failed for tenant {TenantId} (non-fatal).", newTenant.TenantId);
+        }
 
         return new OnboardingResult(newTenant.TenantId, slug, BuildStoreUrl(slug), tokens.AccessToken, trialEnds);
     }
