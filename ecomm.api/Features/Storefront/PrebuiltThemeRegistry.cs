@@ -62,11 +62,17 @@ public static class PrebuiltThemeRegistry
             announce: "New season drops every week ✨",
             index:
             [
-                Hero("New season, new you", "Fresh drops every week — find your look.", "Shop new in"),
-                Categories("Shop by category"),
-                Featured("New arrivals", "newest"),
+                HeroBanner("New season, new you", "Fresh drops every week — discover your next favourite look.", "Shop new in",
+                    "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=1600&q=80"),
+                Multicolumn("The boutique promise",
+                    ("🚚", "Free shipping", "On orders over ₹499"),
+                    ("↩️", "Easy returns", "30-day, no fuss"),
+                    ("🧵", "Made to last", "Quality in every stitch"),
+                    ("💬", "Style help", "Here whenever you need")),
+                Categories("Shop by category", "cards"),
+                Featured("New arrivals", "newest", "carousel"),
                 ImageWithText("Made to last", "Thoughtfully designed, ethically made. Quality you can feel in every stitch."),
-                Testimonials(),
+                Featured("Trending now", "bestsellers"),
                 Cta("Join our list", "Get 10% off your first order.", "Sign up", "#212529"),
             ], headingFont: "Playfair Display", radius: "round", card: "shadow", density: "spacious"),
 
@@ -75,10 +81,17 @@ public static class PrebuiltThemeRegistry
             announce: "Members get early access to every launch",
             index:
             [
-                Hero("Tech that keeps up", "The latest gear at prices that make sense.", "Shop deals"),
-                Categories("Browse categories"),
-                Featured("Best sellers", "bestsellers"),
+                HeroBanner("Tech that keeps up", "The latest gear at prices that make sense — with fast, free delivery.", "Shop deals",
+                    "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1600&q=80"),
+                Multicolumn("Why shop with us",
+                    ("🚚", "Free shipping", "On orders over ₹499"),
+                    ("🛡️", "2-year warranty", "On all devices"),
+                    ("↩️", "30-day returns", "No questions asked"),
+                    ("⚡", "Fast support", "Real humans, 24/7")),
+                Categories("Browse categories", "cards"),
+                Featured("Best sellers", "bestsellers", "carousel"),
                 Cta("Save on bundles", "Members get early access to launches and offers.", "Become a member", "#0f172a"),
+                Featured("New arrivals", "newest"),
             ], headingFont: "Space Grotesk", radius: "sharp", card: "elevated", density: "compact"),
 
         Theme("fresh", "Fresh", "Grocery", "Aisle-first layout with a delivery promo for everyday essentials.",
@@ -86,9 +99,17 @@ public static class PrebuiltThemeRegistry
             announce: "Fresh to your door — free delivery over ₹499",
             index:
             [
-                Categories("Shop by aisle"),
-                Featured("Today's picks", "featured"),
+                HeroBanner("Fresh to your door", "Everyday essentials and just-picked produce — delivered fast.", "Start shopping",
+                    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1600&q=80"),
+                Multicolumn("Groceries made easy",
+                    ("🚚", "Free delivery", "On orders over ₹499"),
+                    ("🥬", "Farm fresh", "Sourced daily"),
+                    ("⏰", "Same-day slots", "Order by noon"),
+                    ("💳", "Secure checkout", "Pay your way")),
+                Categories("Shop by aisle", "cards"),
+                Featured("Today's picks", "featured", "carousel"),
                 Cta("Free delivery over ₹499", "Fresh to your door, fast.", "Start shopping", "#166534"),
+                Featured("New this week", "newest"),
             ], headingFont: "Nunito", radius: "round", card: "shadow", density: "cozy"),
 
         Theme("bloom", "Bloom", "Beauty", "Soft, elegant look for beauty, skincare and wellness.",
@@ -96,9 +117,15 @@ public static class PrebuiltThemeRegistry
             announce: "Complimentary samples with every order 🌸",
             index:
             [
-                Hero("Glow, naturally", "Clean beauty, made to make you feel good.", "Discover"),
-                Categories("Shop by category"),
-                Featured("Bestsellers", "bestsellers"),
+                HeroBanner("Glow, naturally", "Clean beauty made to make you feel good — inside and out.", "Discover",
+                    "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1600&q=80"),
+                Multicolumn("The Bloom difference",
+                    ("🌸", "Clean formulas", "Kind to skin"),
+                    ("🐰", "Cruelty-free", "Always"),
+                    ("🎁", "Free samples", "With every order"),
+                    ("↩️", "Easy returns", "30-day promise")),
+                Categories("Shop by category", "cards"),
+                Featured("Bestsellers", "bestsellers", "carousel"),
                 ImageWithText("Kind to you and the planet", "Cruelty-free, dermatologically tested, thoughtfully packaged."),
                 Cta("Get 10% off", "Join for tips, launches and a welcome treat.", "Join Bloom", "#7c3aed"),
             ], headingFont: "Cormorant Garamond", radius: "round", card: "flat", density: "spacious"),
@@ -108,11 +135,17 @@ public static class PrebuiltThemeRegistry
             announce: "Free assembly on select furniture",
             index:
             [
-                Hero("Make it home", "Pieces you'll love for years, at honest prices.", "Shop the look"),
-                Categories("Shop by room"),
-                Featured("New in", "newest"),
+                HeroBanner("Make it home", "Pieces you'll love for years, at honest prices.", "Shop the look",
+                    "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1600&q=80"),
+                Multicolumn("Why Haven",
+                    ("🚚", "Free shipping", "On orders over ₹499"),
+                    ("🛠️", "Free assembly", "On select furniture"),
+                    ("🌳", "Built to last", "Solid, timeless design"),
+                    ("↩️", "Easy returns", "30-day peace of mind")),
+                Categories("Shop by room", "cards"),
+                Featured("New in", "newest", "carousel"),
                 ImageWithText("Built to last", "Solid materials, timeless design — furniture that grows with you."),
-                Testimonials(),
+                Featured("Bestsellers", "bestsellers"),
             ], headingFont: "Lora", radius: "soft", card: "bordered", density: "spacious"),
     ];
 
