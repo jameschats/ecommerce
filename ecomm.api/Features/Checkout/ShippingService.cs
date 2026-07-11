@@ -19,8 +19,8 @@ public sealed class ShippingService : IShippingService
 {
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
-    private readonly IShiprocketClient _shiprocket;
-    public ShippingService(EcommerceDbContext db, IShiprocketClient shiprocket)
+    private readonly ITenantShiprocketService _shiprocket;
+    public ShippingService(EcommerceDbContext db, ITenantShiprocketService shiprocket)
     {
         _db = db;
         _shiprocket = shiprocket;
@@ -54,8 +54,8 @@ public sealed class ShippingService : IShippingService
 
         var free = method.FreeShippingThreshold is { } th && orderSubtotal >= th;
 
-        // Live courier rate (Shiprocket) overrides the flat rate when configured; best-effort.
-        if (_shiprocket.Enabled && !string.IsNullOrWhiteSpace(pincode))
+        // Live courier rate (Shiprocket) overrides the flat rate when the store uses Shiprocket; best-effort.
+        if (!string.IsNullOrWhiteSpace(pincode))
         {
             var live = await _shiprocket.GetCheapestRateAsync(pincode.Trim(), weightKg: 0m, cod: false, ct);
             if (live is not null)
