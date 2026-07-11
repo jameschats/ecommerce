@@ -1,5 +1,5 @@
 import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { STORE_UNLOCK_KEY, isGateExempt } from './core/services/store-gate';
@@ -16,7 +16,7 @@ import { AnnouncementBarComponent } from './features/storefront/announcement-bar
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, NotificationBellComponent, AnnouncementBarComponent],
+  imports: [RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, NotificationBellComponent, AnnouncementBarComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -58,7 +58,11 @@ export class App implements OnInit {
   // current default when the theme defines no such section (so nothing changes until authored).
   private readonly headerCfg = computed(() => this.zoneSettings(this.theme.header(), 'Header'));
   private readonly footerCfg = computed(() => this.zoneSettings(this.theme.footer(), 'Footer'));
-  readonly showSearch = computed(() => this.headerCfg()['showSearch'] !== false);
+  // Header/footer layout variants (theme-driven): header standard|centered|minimal, footer columns|simple.
+  readonly headerLayout = computed(() => this.headerCfg()['layout'] || 'standard');
+  readonly footerLayout = computed(() => this.footerCfg()['layout'] || 'columns');
+  readonly showSearch = computed(() => this.headerLayout() !== 'minimal' && this.headerCfg()['showSearch'] !== false);
+  readonly showCategoryBar = computed(() => this.headerLayout() !== 'minimal');
   readonly showCart = computed(() => this.headerCfg()['showCart'] !== false);
   readonly stickyHeader = computed(() => this.headerCfg()['sticky'] !== false);
   readonly footerCopyright = computed(() =>

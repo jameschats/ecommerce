@@ -129,6 +129,7 @@ public static class SectionTypeRegistry
         new("Header", "Header", "layout", "Logo, navigation, search and cart.",
             Settings:
             [
+                new("layout", "Layout", "select", "standard", ["standard", "centered", "minimal"]),
                 new("showSearch", "Show search", "boolean", true),
                 new("showCart", "Show cart", "boolean", true),
                 new("sticky", "Stick to top on scroll", "boolean", true),
@@ -136,7 +137,12 @@ public static class SectionTypeRegistry
             ], BlockTypes: [], Kind: "group", Scope: ["header"]),
 
         new("Footer", "Footer", "layout", "Link columns, socials and legal.",
-            Settings: [ new("showPolicies", "Show policy links", "boolean", true), new("copyright", "Copyright text", "text") ],
+            Settings:
+            [
+                new("layout", "Layout", "select", "columns", ["columns", "simple"]),
+                new("showPolicies", "Show policy links", "boolean", true),
+                new("copyright", "Copyright text", "text"),
+            ],
             BlockTypes:
             [
                 new("Column", "Link column", [ new("heading", "Heading", "text"), new("links", "Links (JSON)", "textarea") ]),

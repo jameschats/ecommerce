@@ -36,7 +36,8 @@ public static class PrebuiltThemeRegistry
                 Featured("Featured", "featured"),
                 Categories("Shop by category"),
                 Testimonials(),
-            ], headingFont: "Inter", radius: "soft", card: "shadow", density: "cozy"),
+            ], headingFont: "Inter", radius: "soft", card: "shadow", density: "cozy",
+               headerLayout: "minimal", footerLayout: "simple"),
 
         // Flagship electronics theme (Phase B) — image banner + USP row + category cards + bestseller carousel.
         Theme("ignition", "Ignition", "Electronics", "Bold, deal-led electronics store — image banner, USP row, category cards and a bestseller carousel.",
@@ -74,7 +75,8 @@ public static class PrebuiltThemeRegistry
                 ImageWithText("Made to last", "Thoughtfully designed, ethically made. Quality you can feel in every stitch."),
                 Featured("Trending now", "bestsellers"),
                 Cta("Join our list", "Get 10% off your first order.", "Sign up", "#212529"),
-            ], headingFont: "Playfair Display", radius: "round", card: "shadow", density: "spacious"),
+            ], headingFont: "Playfair Display", radius: "round", card: "shadow", density: "spacious",
+               headerLayout: "centered", footerLayout: "simple"),
 
         Theme("circuit", "Circuit", "Electronics", "Sharp, techy layout that leads with deals and best-sellers.",
             palette: ("#2563eb", "#0f172a", "Inter", "square"),
@@ -128,7 +130,8 @@ public static class PrebuiltThemeRegistry
                 Featured("Bestsellers", "bestsellers", "carousel"),
                 ImageWithText("Kind to you and the planet", "Cruelty-free, dermatologically tested, thoughtfully packaged."),
                 Cta("Get 10% off", "Join for tips, launches and a welcome treat.", "Join Bloom", "#7c3aed"),
-            ], headingFont: "Cormorant Garamond", radius: "round", card: "flat", density: "spacious"),
+            ], headingFont: "Cormorant Garamond", radius: "round", card: "flat", density: "spacious",
+               headerLayout: "centered", footerLayout: "simple"),
 
         Theme("haven", "Haven", "Home & Living", "Warm, homely layout for furniture, decor and living.",
             palette: ("#a16207", "#44403c", "Inter", "rounded"),
@@ -165,7 +168,8 @@ public static class PrebuiltThemeRegistry
         (string primary, string secondary, string font, string button) palette,
         string announce, IReadOnlyList<PrebuiltSection> index,
         string? headingFont = null, string radius = "soft", string card = "bordered",
-        string density = "cozy", string headingCase = "none") =>
+        string density = "cozy", string headingCase = "none",
+        string headerLayout = "standard", string footerLayout = "columns") =>
         new(key, name, category, description,
             new Dictionary<string, string>
             {
@@ -183,8 +187,8 @@ public static class PrebuiltThemeRegistry
             [
                 new("index", index),
                 new("announcement", [Announcement(announce, palette.secondary)]),
-                new("header", [Header()]),
-                new("footer", [Footer($"© {name}. All rights reserved.")]),
+                new("header", [Header(headerLayout)]),
+                new("footer", [Footer($"© {name}. All rights reserved.", footerLayout)]),
             ]);
 
     // --- section builders (valid settings/blocks JSON against the central section-type catalog) ---
@@ -226,11 +230,11 @@ public static class PrebuiltThemeRegistry
         "AnnouncementBar", "Announcement bar", $$"""{"backgroundColor":{{J(bg)}},"autoplay":true}""",
         $$"""[{"text":{{J(message)}},"link":"/products"}]""");
 
-    private static PrebuiltSection Header() => new(
-        "Header", "Header", """{"showSearch":true,"showCart":true,"sticky":true,"menuHandle":"main"}""", "[]");
+    private static PrebuiltSection Header(string layout = "standard") => new(
+        "Header", "Header", $$"""{"layout":{{J(layout)}},"showSearch":true,"showCart":true,"sticky":true,"menuHandle":"main"}""", "[]");
 
-    private static PrebuiltSection Footer(string copyright) => new(
-        "Footer", "Footer", $$"""{"showPolicies":true,"copyright":{{J(copyright)}}}""", "[]");
+    private static PrebuiltSection Footer(string copyright, string layout = "columns") => new(
+        "Footer", "Footer", $$"""{"layout":{{J(layout)}},"showPolicies":true,"copyright":{{J(copyright)}}}""", "[]");
 
     private static string J(string s) => JsonSerializer.Serialize(s);
 }
