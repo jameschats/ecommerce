@@ -39,62 +39,77 @@ public static class PrebuiltThemeRegistry
             ], headingFont: "Inter", radius: "soft", card: "shadow", density: "cozy",
                headerLayout: "minimal", footerLayout: "simple"),
 
-        // Flagship electronics theme (Phase B) — image banner + USP row + category cards + bestseller carousel.
-        Theme("ignition", "Ignition", "Electronics", "Bold, deal-led electronics store — image banner, USP row, category cards and a bestseller carousel.",
+        // Electronics superstore (Maximize-inspired): dark hero, savings tiles, department tiles, dense rails.
+        Theme("ignition", "Ignition", "Electronics", "Deal-led electronics superstore — dark hero, savings tiles and dense product rails.",
             palette: ("#2563eb", "#0b1220", "Inter", "square"),
             announce: "Free shipping over ₹499 · Members get early access to every launch",
             index:
             [
-                HeroBanner("Upgrade your tech", "The latest gear at prices that make sense — with fast, free delivery.", "Shop deals",
-                    "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1600&q=80"),
-                Multicolumn("Why shop with us",
-                    ("🚚", "Free shipping", "On orders over ₹499"),
-                    ("🛡️", "2-year warranty", "On all devices"),
-                    ("↩️", "30-day returns", "No questions asked"),
-                    ("💬", "24/7 support", "We're here to help")),
-                Categories("Shop by category", "cards"),
+                HeroBanner("Sound. Vision. Power.", "Flagship tech at prices that make sense — fast, free delivery included.", "Shop deals",
+                    "https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=1600&q=80"),
+                PromoTiles("Today's top deals",
+                    ("Save up to 35%", "Headphones & audio", "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80"),
+                    ("New drop", "Smart watches", "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80"),
+                    ("Save big", "Speakers & home audio", "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80")),
+                TileGrid("Shop by department", "4",
+                    ("https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80", "Phones", "Latest flagships"),
+                    ("https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80", "Laptops", "Work + play"),
+                    ("https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80", "Audio", "Immersive sound"),
+                    ("https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80", "Wearables", "Track everything")),
                 Featured("Best sellers", "bestsellers", "carousel"),
-                Cta("Members save more", "Early access to launches and member-only deals.", "Become a member", "#0b1220"),
-                Featured("New arrivals", "newest"),
-            ], headingFont: "Space Grotesk", radius: "sharp", card: "elevated", density: "compact"),
-
-        Theme("boutique", "Boutique", "Fashion", "Bold hero and editorial feel for apparel and accessories.",
-            palette: ("#d6336c", "#212529", "Poppins", "pill"),
-            announce: "New season drops every week ✨",
-            index:
-            [
-                HeroBanner("New season, new you", "Fresh drops every week — discover your next favourite look.", "Shop new in",
-                    "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=1600&q=80"),
-                Multicolumn("The boutique promise",
-                    ("🚚", "Free shipping", "On orders over ₹499"),
-                    ("↩️", "Easy returns", "30-day, no fuss"),
-                    ("🧵", "Made to last", "Quality in every stitch"),
-                    ("💬", "Style help", "Here whenever you need")),
-                Categories("Shop by category", "cards"),
-                Featured("New arrivals", "newest", "carousel"),
-                ImageWithText("Made to last", "Thoughtfully designed, ethically made. Quality you can feel in every stitch."),
-                Featured("Trending now", "bestsellers"),
-                Cta("Join our list", "Get 10% off your first order.", "Sign up", "#212529"),
-            ], headingFont: "Playfair Display", radius: "round", card: "shadow", density: "spacious",
-               headerLayout: "centered", footerLayout: "simple"),
-
-        Theme("circuit", "Circuit", "Electronics", "Sharp, techy layout that leads with deals and best-sellers.",
-            palette: ("#2563eb", "#0f172a", "Inter", "square"),
-            announce: "Members get early access to every launch",
-            index:
-            [
-                HeroBanner("Tech that keeps up", "The latest gear at prices that make sense — with fast, free delivery.", "Shop deals",
-                    "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1600&q=80"),
                 Multicolumn("Why shop with us",
                     ("🚚", "Free shipping", "On orders over ₹499"),
                     ("🛡️", "2-year warranty", "On all devices"),
                     ("↩️", "30-day returns", "No questions asked"),
                     ("⚡", "Fast support", "Real humans, 24/7")),
-                Categories("Browse categories", "cards"),
-                Featured("Best sellers", "bestsellers", "carousel"),
-                Cta("Save on bundles", "Members get early access to launches and offers.", "Become a member", "#0f172a"),
+                Cta("Members save more", "Early access to launches and member-only deals.", "Become a member", "#0b1220"),
                 Featured("New arrivals", "newest"),
             ], headingFont: "Space Grotesk", radius: "sharp", card: "elevated", density: "compact"),
+
+        // Apparel (Avenue-inspired): lifestyle hero, For Her/Him/Kids persona tiles, editorial split, marquee.
+        Theme("boutique", "Boutique", "Fashion", "Editorial apparel store — lifestyle hero, persona tiles and serif elegance.",
+            palette: ("#d6336c", "#212529", "Poppins", "pill"),
+            announce: "New season drops every week ✨",
+            index:
+            [
+                HeroBanner("The new season edit", "Fresh silhouettes and timeless staples — made to be lived in.", "Shop new in",
+                    "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1600&q=80"),
+                TileGrid("Who are you shopping for?", "3",
+                    ("https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80", "For Her", "Dresses, tops & more"),
+                    ("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80", "For Him", "Shirts, tees & denim"),
+                    ("https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=800&q=80", "For Kids", "Play-proof styles")),
+                Featured("New arrivals", "newest", "carousel"),
+                Marquee("New drops every Friday ✦ Free returns, always", "#212529"),
+                ImageWithText("Made to last", "Thoughtfully designed, ethically made. Quality you can feel in every stitch.",
+                    "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80"),
+                Featured("Trending now", "bestsellers"),
+                Cta("Join our list", "Get 10% off your first order.", "Sign up", "#212529"),
+            ], headingFont: "Playfair Display", radius: "round", card: "shadow", density: "spacious",
+               headerLayout: "centered", footerLayout: "simple"),
+
+        // Food & drink (Savor-inspired): appetite-first photography, bold colour blocks, pantry tiles.
+        Theme("savor", "Savor", "Food & Drink", "Appetite-first food and beverage store — rich photography and bold colour blocks.",
+            palette: ("#b91c1c", "#7f1d1d", "Inter", "rounded"),
+            announce: "Fresh batches every week · Free delivery over ₹499",
+            index:
+            [
+                HeroBanner("Savor every last bite", "Small-batch flavours and pantry heroes, delivered fresh to your door.", "Shop the range",
+                    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=80"),
+                TileGrid("Shop the pantry", "4",
+                    ("https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80", "Coffee & brews", ""),
+                    ("https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&fit=crop&w=800&q=80", "Snacks", ""),
+                    ("https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=800&q=80", "Sauces & spice", ""),
+                    ("https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=800&q=80", "Fresh picks", "")),
+                Featured("Customer favourites", "bestsellers", "carousel"),
+                Marquee("Small batch ✦ Big flavour ✦ Made with love", "#7f1d1d"),
+                Multicolumn("From our kitchen",
+                    ("👨‍🍳", "Small-batch", "Made in real kitchens"),
+                    ("🌿", "Real ingredients", "Nothing artificial"),
+                    ("🚚", "Fresh delivery", "Over ₹499, on us"),
+                    ("↩️", "Loved or refunded", "No questions asked")),
+                Featured("Just landed", "newest"),
+                Cta("Join the taste club", "First dibs on new flavours and 10% off your first box.", "Join now", "#7f1d1d"),
+            ], headingFont: "Poppins", radius: "round", card: "shadow", density: "cozy"),
 
         Theme("fresh", "Fresh", "Grocery", "Aisle-first layout with a delivery promo for everyday essentials.",
             palette: ("#16a34a", "#166534", "Inter", "rounded"),
@@ -121,14 +136,18 @@ public static class PrebuiltThemeRegistry
             [
                 HeroBanner("Glow, naturally", "Clean beauty made to make you feel good — inside and out.", "Discover",
                     "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1600&q=80"),
+                TileGrid("Shop by ritual", "3",
+                    ("https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80", "Serums", "Targeted actives"),
+                    ("https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "Moisturisers", "Barrier love"),
+                    ("https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80", "Makeup", "Everyday glow")),
+                Featured("Bestsellers", "bestsellers", "carousel"),
                 Multicolumn("The Bloom difference",
                     ("🌸", "Clean formulas", "Kind to skin"),
                     ("🐰", "Cruelty-free", "Always"),
                     ("🎁", "Free samples", "With every order"),
                     ("↩️", "Easy returns", "30-day promise")),
-                Categories("Shop by category", "cards"),
-                Featured("Bestsellers", "bestsellers", "carousel"),
-                ImageWithText("Kind to you and the planet", "Cruelty-free, dermatologically tested, thoughtfully packaged."),
+                ImageWithText("Kind to you and the planet", "Cruelty-free, dermatologically tested, thoughtfully packaged.",
+                    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80"),
                 Cta("Get 10% off", "Join for tips, launches and a welcome treat.", "Join Bloom", "#7c3aed"),
             ], headingFont: "Cormorant Garamond", radius: "round", card: "flat", density: "spacious",
                headerLayout: "centered", footerLayout: "simple"),
@@ -150,6 +169,56 @@ public static class PrebuiltThemeRegistry
                 ImageWithText("Built to last", "Solid materials, timeless design — furniture that grows with you."),
                 Featured("Bestsellers", "bestsellers"),
             ], headingFont: "Lora", radius: "soft", card: "bordered", density: "spacious"),
+
+        // Kids & toys (Kidu-inspired): three-panel hero, marquee, rounded-everything playfulness.
+        Theme("sprout", "Sprout", "Kids & Toys", "Playful, rounded kids store — three-panel hero, scrolling strip and joyful tiles.",
+            palette: ("#7c3aed", "#4c1d95", "Nunito", "pill"),
+            announce: "Free shipping over ₹499 · Gift wrap on every order 🎁",
+            index:
+            [
+                HeroPanels("Explore the world of play", "Toys, books and little wardrobes — endless joy, zero boredom.", "Shop toys", "#7c3aed",
+                    "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=800&q=80",
+                    "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80"),
+                Marquee("New arrivals every week ✦ Made to be loved ✦ Gift wrap included", "#7c3aed"),
+                TileGrid("Little favourites", "3",
+                    ("https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=800&q=80", "Toys & games", "For every age"),
+                    ("https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=800&q=80", "Kids' clothing", "Play-proof"),
+                    ("https://images.unsplash.com/photo-1512076249812-fd58fb2c8748?auto=format&fit=crop&w=800&q=80", "Books & learning", "Curious minds")),
+                Featured("Most loved", "bestsellers", "carousel"),
+                Multicolumn("Grown-ups love us too",
+                    ("🧸", "Safe materials", "Tested & certified"),
+                    ("🎁", "Gift wrap", "Free on every order"),
+                    ("🚚", "Fast delivery", "Before the birthday"),
+                    ("↩️", "Easy returns", "30-day promise")),
+                Featured("Just in", "newest"),
+                Cta("Join the club", "Birthday surprises and early access to new drops.", "Sign up", "#4c1d95"),
+            ], headingFont: "Nunito", radius: "round", card: "shadow", density: "cozy"),
+
+        // Everything store (Maximize/xtra-inspired): dense, deals-first marketplace layout.
+        Theme("bazaar", "Bazaar", "Everything Store", "Dense, deals-first marketplace look for stores that sell a bit of everything.",
+            palette: ("#ea580c", "#0f172a", "Inter", "rounded"),
+            announce: "Deals refresh daily · Free shipping over ₹499",
+            index:
+            [
+                HeroBanner("Everything you need. One place.", "Thousands of products, daily deals and fast delivery.", "Shop today's deals",
+                    "https://images.unsplash.com/photo-1534452203293-494d7ddbf7e0?auto=format&fit=crop&w=1600&q=80"),
+                PromoTiles("Today's deals",
+                    ("Up to 40% off", "Electronics", "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=800&q=80"),
+                    ("From ₹199", "Fashion", "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=800&q=80"),
+                    ("Up to 30% off", "Home & living", "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80")),
+                TileGrid("Shop by department", "3",
+                    ("https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80", "Grocery", "Everyday essentials"),
+                    ("https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=800&q=80", "Beauty", "Skincare & more"),
+                    ("https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80", "Sports & fitness", "Gear up")),
+                Featured("Best sellers", "bestsellers", "carousel"),
+                Multicolumn("Shop with confidence",
+                    ("🚚", "Free shipping", "On orders over ₹499"),
+                    ("💳", "Secure payments", "UPI, cards & COD"),
+                    ("↩️", "Easy returns", "30-day, no fuss"),
+                    ("💬", "Real support", "Humans, not bots")),
+                Featured("Fresh finds", "newest"),
+                Cta("Deals drop daily", "Don't miss tomorrow's steals — check back often.", "Browse all deals", "#0f172a"),
+            ], headingFont: "Archivo", radius: "soft", card: "bordered", density: "compact"),
     ];
 
     public static IReadOnlyList<PrebuiltThemeSummary> Summaries =>
@@ -239,9 +308,9 @@ public static class PrebuiltThemeRegistry
     private static PrebuiltSection Featured(string heading, string source, string layout = "grid") => new(
         "FeaturedProducts", "Featured products", $$"""{"heading":{{J(heading)}},"layout":{{J(layout)}},"source":{{J(source)}},"count":8,"columns":4}""", "[]");
 
-    private static PrebuiltSection ImageWithText(string heading, string body) => new(
+    private static PrebuiltSection ImageWithText(string heading, string body, string image = "") => new(
         "ImageWithText", "Image with text",
-        $$"""{"image":"","imageSide":"left","heading":{{J(heading)}},"body":{{J(body)}},"buttonText":"Learn more","buttonLink":"/products"}""", "[]");
+        $$"""{"image":{{J(image)}},"imageSide":"left","heading":{{J(heading)}},"body":{{J(body)}},"buttonText":"Learn more","buttonLink":"/products"}""", "[]");
 
     private static PrebuiltSection Testimonials() => new(
         "Testimonials", "Testimonials", """{"heading":"What customers say"}""",
