@@ -28,3 +28,4 @@ documents/deployment.md
 documents/razorpay_test_api_keys_*.csv
 *.env
 secrets.json
+**/dp-keys/

@@ -170,7 +170,17 @@ if ((builder.Configuration["Shiprocket:Provider"] ?? "None").Equals("Shiprocket"
 else
     builder.Services.AddSingleton<ecomm.api.Features.Shipping.Shiprocket.IShiprocketClient,
         ecomm.api.Features.Shipping.Shiprocket.NullShiprocketClient>();
-builder.Services.AddDataProtection();   // encrypts per-tenant payment secrets at rest
+// Encrypts per-tenant secrets at rest (Razorpay key secret, Shiprocket password). The key ring MUST
+// survive restarts or every saved secret becomes undecryptable — persist it to disk. Path is
+// configurable (DataProtection:KeysPath); default lives under the content root, which `dotnet publish`
+// leaves untouched (it overwrites files but never deletes unknown directories).
+var dpKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (string.IsNullOrWhiteSpace(dpKeysPath))
+    dpKeysPath = Path.Combine(builder.Environment.ContentRootPath, "dp-keys");
+Directory.CreateDirectory(dpKeysPath);
+builder.Services.AddDataProtection()
+    .SetApplicationName("wavcommerce")
+    .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 // Tenant-aware payment gateway: prefer the current tenant's own Razorpay config
 // (TenantPaymentAccounts, secret decrypted), else fall back to the app-wide Payments config, else Mock.
 builder.Services.AddScoped<IPaymentGateway>(sp =>
