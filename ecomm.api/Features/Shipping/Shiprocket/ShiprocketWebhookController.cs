@@ -9,9 +9,11 @@ namespace ecomm.api.Features.Shipping.Shiprocket;
 /// Receives Shiprocket tracking webhooks (SR5). Anonymous; when <c>Shiprocket:WebhookToken</c> is
 /// configured the <c>x-api-key</c> header must match (the token the merchant sets on their Shiprocket
 /// webhook). The payload self-identifies the store via the AWB, so no tenant context is needed.
+/// NOTE: the route deliberately avoids the words "shiprocket"/"sr" — Shiprocket rejects webhook URLs
+/// containing those keywords.
 /// </summary>
 [ApiController]
-[Route("api/webhooks/shiprocket")]
+[Route("api/webhooks/tracking")]
 [AllowAnonymous]
 public sealed class ShiprocketWebhookController(
     IShiprocketWebhookService svc, IConfiguration config, ILogger<ShiprocketWebhookController> log) : ControllerBase
