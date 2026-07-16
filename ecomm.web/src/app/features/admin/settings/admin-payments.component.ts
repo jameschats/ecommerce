@@ -22,17 +22,17 @@ import { PaymentAdminService, PaymentSettings } from '../../../core/services/pay
             <div>
               <label class="lbl">Provider</label>
               <select class="input" [(ngModel)]="form.provider" name="provider">
-                <option value="Mock">Test mode (Mock — no real charges)</option>
+                <option value="Mock">Built-in simulator (no gateway, no real charges)</option>
                 <option value="Razorpay">Razorpay</option>
               </select>
-              <p class="text-xs text-slate-400 mt-1">Test mode simulates payments so you can try checkout end-to-end without real money.</p>
+              <p class="text-xs text-slate-400 mt-1">The simulator approves checkouts instantly so you can try the full flow before connecting a gateway.</p>
             </div>
 
             @if (form.provider === 'Razorpay') {
               <div class="grid gap-4 pt-1">
                 <div>
                   <label class="lbl">Razorpay Key ID</label>
-                  <input class="input" [(ngModel)]="form.razorpayKeyId" name="keyId" placeholder="rzp_live_…" />
+                  <input class="input" [(ngModel)]="form.razorpayKeyId" name="keyId" placeholder="rzp_test_… or rzp_live_…" />
                 </div>
                 <div>
                   <label class="lbl">Razorpay Key Secret</label>
@@ -43,8 +43,8 @@ import { PaymentAdminService, PaymentSettings } from '../../../core/services/pay
                 <label class="flex items-center gap-3 cursor-pointer pt-1">
                   <input type="checkbox" [(ngModel)]="form.isEnabled" name="enabled" class="w-4 h-4" />
                   <span>
-                    <span class="text-sm font-medium text-slate-800">Enable live payments</span>
-                    <span class="block text-xs text-slate-400">When off, online checkout uses test mode even with keys saved.</span>
+                    <span class="text-sm font-medium text-slate-800">Activate Razorpay at checkout</span>
+                    <span class="block text-xs text-slate-400">When off, checkout uses the built-in simulator even with keys saved. Test vs real money is decided by your key: <code>rzp_test_</code> keys run Razorpay's test mode (no real charges); <code>rzp_live_</code> keys take real payments.</span>
                   </span>
                 </label>
               </div>
