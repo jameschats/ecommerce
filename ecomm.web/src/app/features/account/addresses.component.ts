@@ -20,7 +20,7 @@ import { AccountService } from '../../core/services/account.service';
           <div class="sm:col-span-2 font-medium text-slate-700">{{ editId() ? 'Edit address' : 'New address' }}</div>
           <div><label class="lbl">Label</label><input class="input" [(ngModel)]="form.label" name="label" placeholder="Home / Work" /></div>
           <div><label class="lbl">Recipient name</label><input class="input" [(ngModel)]="form.recipientName" name="recipientName" /></div>
-          <div><label class="lbl">Phone</label><input class="input" [(ngModel)]="form.phone" name="phone" /></div>
+          <div><label class="lbl">Phone *</label><input class="input" [(ngModel)]="form.phone" name="phone" required placeholder="10-digit mobile" /></div>
           <div>
             <label class="lbl">Address type</label>
             <select class="input" [(ngModel)]="form.addressType" name="addressType">
@@ -112,6 +112,8 @@ export class AddressesComponent implements OnInit {
   cancel(): void { this.showForm.set(false); this.error.set(null); }
 
   save(): void {
+    // Couriers (and Shiprocket's API) require a contact number for delivery.
+    if (!this.form.phone?.trim()) { this.error.set('A phone number is required for delivery updates.'); return; }
     this.saving.set(true);
     this.error.set(null);
     const id = this.editId();

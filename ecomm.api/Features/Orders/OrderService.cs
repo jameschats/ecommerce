@@ -594,6 +594,9 @@ public sealed class OrderService : IOrderService
         if (addr is null) throw new AppException("This order has no shipping address to ship to.");
 
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == order.UserId, ct);
+        // Pre-flight: Shiprocket rejects orders without a contact phone (billing_phone required).
+        if (string.IsNullOrWhiteSpace(addr.Phone) && string.IsNullOrWhiteSpace(user?.PhoneNumber))
+            throw new AppException("Shiprocket needs the customer's phone number, but this order's delivery address has none. Ask the customer to add a phone to their address, or enter the tracking manually.");
         var isCod = await _db.Payments.AsNoTracking().AnyAsync(p => p.OrderId == orderId && p.Method == "COD", ct);
 
         var input = new Features.Shipping.Shiprocket.ShiprocketOrderInput(
