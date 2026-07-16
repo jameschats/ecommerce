@@ -46,6 +46,22 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
               </section>
             }
           }
+          @case ('panels') {
+            <!-- Three-panel hero: colour panel with copy flanked by two images (playful/kids look). -->
+            @if (blocks()[0]; as b) {
+              <section class="page-container py-6">
+                <div class="grid md:grid-cols-[1fr_1.7fr_1fr] gap-4 items-stretch">
+                  @if (blocks()[1]; as l) { <div class="hidden md:block overflow-hidden sf-card"><img [src]="l.image" alt="" class="w-full h-full object-cover" /></div> }
+                  <div class="p-8 sm:p-10 flex flex-col justify-center text-white min-h-[320px] overflow-hidden" style="border-radius: var(--radius-card, 0.75rem)" [style.background-color]="s().backgroundColor || 'var(--color-primary)'">
+                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">{{ b.heading }}</h2> }
+                    @if (b.subheading) { <p class="mt-3 text-white/85">{{ b.subheading }}</p> }
+                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit">{{ b.buttonText }}</a> }
+                  </div>
+                  @if (blocks()[2]; as r) { <div class="hidden md:block overflow-hidden sf-card"><img [src]="r.image" alt="" class="w-full h-full object-cover" /></div> }
+                </div>
+              </section>
+            }
+          }
           @default {
             <section class="relative">
               @for (b of blocks(); track $index) {
@@ -77,6 +93,54 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
             }
           </div>
         </section>
+      }
+      @case ('TileGrid') {
+        <section class="page-container py-8">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          <div class="grid gap-4" [class]="tileCols()">
+            @for (b of blocks(); track $index) {
+              <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card">
+                <div class="aspect-[4/5] bg-slate-100 overflow-hidden">
+                  @if (b.image) { <img [src]="b.image" [alt]="b.label || ''" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
+                </div>
+                @if (b.label || b.sublabel) {
+                  <div class="p-3 text-center">
+                    @if (b.label) { <div class="font-semibold text-slate-800">{{ b.label }}</div> }
+                    @if (b.sublabel) { <div class="text-xs text-slate-500 mt-0.5">{{ b.sublabel }}</div> }
+                  </div>
+                }
+              </a>
+            }
+          </div>
+        </section>
+      }
+      @case ('PromoTiles') {
+        <section class="page-container py-8">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            @for (b of blocks(); track $index) {
+              <a [href]="b.link || '/products'" class="relative block overflow-hidden min-h-[170px] sf-card" [style.background-color]="b.backgroundColor || 'var(--color-secondary, #0f172a)'">
+                @if (b.image) { <img [src]="b.image" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+                <div class="relative p-4 flex flex-col justify-end h-full min-h-[170px] text-white">
+                  @if (b.badge) { <span class="text-[11px] font-bold uppercase tracking-wide bg-white/90 text-slate-900 rounded px-1.5 py-0.5 w-fit mb-1.5">{{ b.badge }}</span> }
+                  @if (b.heading) { <div class="font-bold leading-snug">{{ b.heading }}</div> }
+                  @if (b.text) { <div class="text-xs text-white/80 mt-0.5">{{ b.text }}</div> }
+                </div>
+              </a>
+            }
+          </div>
+        </section>
+      }
+      @case ('Marquee') {
+        <div class="overflow-hidden py-2.5 text-white text-sm font-medium" [style.background-color]="s().backgroundColor || '#111827'">
+          <div class="marquee-x flex whitespace-nowrap w-max">
+            @for (i of ph; track i) {
+              <span class="mx-6">{{ s().text || 'Free shipping over ₹499' }}</span><span class="opacity-50">✦</span>
+              <span class="mx-6">{{ s().text || 'Free shipping over ₹499' }}</span><span class="opacity-50">✦</span>
+            }
+          </div>
+        </div>
       }
       @case ('RichText') {
         <div class="max-w-3xl mx-auto px-4 py-8 prose" [style.text-align]="s().align || 'left'" [innerHTML]="s().content"></div>
@@ -221,6 +285,12 @@ export class StorefrontSectionComponent implements OnInit {
   }
 
   stars(n: number): string { const r = Math.max(0, Math.min(5, Math.round(n || 0))); return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r); }
+
+  /** Tailwind column classes for TileGrid (full class names so the JIT keeps them). */
+  tileCols(): string {
+    const c = String(this.s()['columns'] ?? '3');
+    return c === '2' ? 'grid-cols-1 sm:grid-cols-2' : c === '4' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3';
+  }
 
   private parse<T>(json: string | null, fallback: T): T {
     try { return json ? JSON.parse(json) : fallback; } catch { return fallback; }

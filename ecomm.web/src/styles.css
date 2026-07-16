@@ -153,6 +153,10 @@ h1, h2, h3, h4, h5 {
 .marquee-track { animation: marquee-up 24s linear infinite; }
 .marquee-track.slow { animation-duration: 34s; }
 .marquee-fade:hover .marquee-track { animation-play-state: paused; }
+
+/* Horizontal auto-scrolling strip (theme Marquee section) */
+@keyframes marquee-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee-x { animation: marquee-left 22s linear infinite; }
 .marquee-fade {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);

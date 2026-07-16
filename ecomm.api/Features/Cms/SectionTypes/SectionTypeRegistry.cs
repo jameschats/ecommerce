@@ -34,7 +34,8 @@ public static class SectionTypeRegistry
         new("Hero", "Hero / Slideshow", "image", "A big banner or auto-playing slideshow.",
             Settings:
             [
-                new("style", "Layout", "select", "boxed", ["boxed", "split", "banner"]),
+                new("style", "Layout", "select", "boxed", ["boxed", "split", "banner", "panels"]),
+                new("backgroundColor", "Background colour (panels)", "color", Help: "Centre-panel colour for the panels layout."),
                 new("autoplay", "Auto-play slides", "boolean", true),
                 new("intervalSec", "Seconds per slide", "number", 5),
             ],
@@ -117,6 +118,31 @@ public static class SectionTypeRegistry
                 new("subtext", "Subtext", "textarea"),
                 new("buttonText", "Button text", "text"),
                 new("buttonLink", "Button link", "url"),
+                new("backgroundColor", "Background colour", "color", "#111827"),
+            ], BlockTypes: []),
+
+        new("TileGrid", "Image tiles", "grid", "A grid of image tiles with labels — categories, personas or lookbook shots.",
+            Settings:
+            [
+                new("heading", "Heading", "text"),
+                new("columns", "Columns", "select", "3", ["2", "3", "4"]),
+            ],
+            BlockTypes:
+            [
+                new("Tile", "Tile", [ new("image", "Image", "image"), new("label", "Label", "text"), new("sublabel", "Sub-label", "text"), new("link", "Link", "url") ]),
+            ], MaxBlocks: 6),
+
+        new("PromoTiles", "Promo tiles", "tag", "Deal tiles with a badge and heading over an image or colour.",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Tile", "Promo", [ new("badge", "Badge", "text"), new("heading", "Heading", "text"), new("text", "Text", "text"), new("image", "Image", "image"), new("backgroundColor", "Background colour", "color"), new("link", "Link", "url") ]),
+            ], MaxBlocks: 6),
+
+        new("Marquee", "Scrolling strip", "megaphone", "A slim auto-scrolling text strip for offers or brand personality.",
+            Settings:
+            [
+                new("text", "Text", "text", "Free shipping over ₹499"),
                 new("backgroundColor", "Background colour", "color", "#111827"),
             ], BlockTypes: []),
 

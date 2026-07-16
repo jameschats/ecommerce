@@ -208,6 +208,31 @@ public static class PrebuiltThemeRegistry
         return new("Multicolumn", "Feature columns", $$"""{"heading":{{J(heading ?? "")}}}""", $"[{blocks}]");
     }
 
+    /// <summary>A three-panel hero: colour panel with copy flanked by two images (playful look).</summary>
+    private static PrebuiltSection HeroPanels(string heading, string sub, string cta, string bg, string leftImage, string rightImage) => new(
+        "Hero", "Hero", $$"""{"style":"panels","backgroundColor":{{J(bg)}},"autoplay":false}""",
+        $$"""[{"image":"","heading":{{J(heading)}},"subheading":{{J(sub)}},"buttonText":{{J(cta)}},"buttonLink":"/products"},{"image":{{J(leftImage)}}},{"image":{{J(rightImage)}}}]""");
+
+    /// <summary>A grid of image tiles with labels (categories/personas/lookbook).</summary>
+    private static PrebuiltSection TileGrid(string heading, string columns, params (string image, string label, string sublabel)[] tiles)
+    {
+        var blocks = string.Join(",", tiles.Select(t =>
+            $$"""{"image":{{J(t.image)}},"label":{{J(t.label)}},"sublabel":{{J(t.sublabel)}},"link":"/products"}"""));
+        return new("TileGrid", "Image tiles", $$"""{"heading":{{J(heading)}},"columns":{{J(columns)}}}""", $"[{blocks}]");
+    }
+
+    /// <summary>Deal tiles with a badge + heading over an image or colour.</summary>
+    private static PrebuiltSection PromoTiles(string heading, params (string badge, string headline, string image)[] tiles)
+    {
+        var blocks = string.Join(",", tiles.Select(t =>
+            $$"""{"badge":{{J(t.badge)}},"heading":{{J(t.headline)}},"image":{{J(t.image)}},"link":"/products"}"""));
+        return new("PromoTiles", "Promo tiles", $$"""{"heading":{{J(heading)}}}""", $"[{blocks}]");
+    }
+
+    /// <summary>A slim auto-scrolling text strip.</summary>
+    private static PrebuiltSection Marquee(string text, string bg) => new(
+        "Marquee", "Scrolling strip", $$"""{"text":{{J(text)}},"backgroundColor":{{J(bg)}}}""", "[]");
+
     private static PrebuiltSection Categories(string heading, string style = "grid") => new(
         "Categories", "Category strip", $$"""{"heading":{{J(heading)}},"style":{{J(style)}}}""", "[]");
 
