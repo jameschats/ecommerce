@@ -73,6 +73,13 @@ public class AdminOrdersController : ControllerBase
             : Ok(ApiResponse<object>.Ok(new { labelUrl = url }, "Label ready."));
     }
 
+    [HttpPost("{id:long}/reship")]
+    public async Task<IActionResult> Reship(long id, CancellationToken ct)
+    {
+        var dto = await _orders.ReshipAsync(id, CurrentUserId, ct);
+        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Order is back to Packed — ship it again below."));
+    }
+
     [HttpPost("{id:long}/deliver")]
     public async Task<IActionResult> MarkDelivered(long id, CancellationToken ct)
     {

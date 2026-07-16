@@ -28,6 +28,8 @@ public interface IOrderService
     Task<OrderDto?> SchedulePickupAsync(long orderId, long? userId, CancellationToken ct = default);
     /// <summary>Generate (and cache) the Shiprocket shipping-label URL for an order (SR4).</summary>
     Task<string?> GenerateShiprocketLabelAsync(long orderId, CancellationToken ct = default);
+    /// <summary>After a returned/cancelled shipment: put the order back to Packed so it can be fulfilled again.</summary>
+    Task<OrderDto?> ReshipAsync(long orderId, long? userId, CancellationToken ct = default);
     Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default);
 }
 
@@ -387,12 +389,15 @@ public sealed class OrderService : IOrderService
         // Merchant can disable customer self-service cancellation (default on). Admin is never gated.
         if (!isAdmin && !await SelfServeCancelEnabledAsync(ct))
             throw new AppException("Please contact us to cancel this order.");
-        if (order.Status is "Shipped" or "Delivered" or "Cancelled" or "Returned")
+        if (order.Status is "Delivered" or "Cancelled" or "Returned")
             throw new AppException($"An order that is {order.Status} cannot be cancelled.");
+        // A shipped order can only be cancelled once its shipment came back (returned/failed courier run).
+        if (order.Status == "Shipped" && await LatestShipmentStatusAsync(orderId, ct) != "Returned")
+            throw new AppException("This order is with the courier. It can be cancelled after the shipment is returned.");
 
         var items = await _db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
-        // Inventory is committed once an order is Paid/Confirmed (COD)/Packed; only Pending orders are still reserved.
-        var wasCommitted = order.Status is "Paid" or "Packed" or "Confirmed";
+        // Inventory is committed once an order is Paid/Confirmed (COD)/Packed/Shipped; only Pending orders are still reserved.
+        var wasCommitted = order.Status is "Paid" or "Packed" or "Confirmed" or "Shipped";
 
         foreach (var it in items)
         {
@@ -474,7 +479,8 @@ public sealed class OrderService : IOrderService
         var invoice = await _db.Invoices.Where(i => i.OrderId == orderId)
             .Select(i => new { i.InvoiceId, i.InvoiceNumber }).FirstOrDefaultAsync(ct);
 
-        var canCancel = order.Status is "Pending" or "Paid" or "Packed" or "Confirmed";
+        var canCancel = order.Status is "Pending" or "Paid" or "Packed" or "Confirmed"
+            || (order.Status == "Shipped" && await LatestShipmentStatusAsync(orderId, ct) == "Returned");
         // Hide the customer's self-cancel affordance when the merchant has disabled self-service cancellation.
         if (canCancel && !isAdmin) canCancel = await SelfServeCancelEnabledAsync(ct);
 
@@ -681,6 +687,32 @@ public sealed class OrderService : IOrderService
             ?? throw new AppException("This order has no Shiprocket shipment yet — ship it with Shiprocket first.");
         return (order, shipment);
     }
+
+    public async Task<OrderDto?> ReshipAsync(long orderId, long? userId, CancellationToken ct = default)
+    {
+        var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && o.TenantId == Tenant, ct);
+        if (order is null) return null;
+        if (order.Status != "Shipped")
+            throw new AppException($"An order that is {order.Status} can't be re-shipped.");
+        if (await LatestShipmentStatusAsync(orderId, ct) != "Returned")
+            throw new AppException("Re-ship is only available after the shipment was returned or cancelled.");
+
+        var now = DateTime.UtcNow;
+        order.Status = "Packed";
+        order.UpdatedAt = now;
+        _db.OrderStatusHistories.Add(new OrderStatusHistory
+        {
+            OrderId = orderId, FromStatus = "Shipped", ToStatus = "Packed",
+            Notes = "Re-shipping — previous shipment was returned", ChangedBy = userId, CreatedAt = now,
+        });
+        await _db.SaveChangesAsync(ct);
+        return await GetAsync(orderId, null, true, ct);
+    }
+
+    /// <summary>Status of the order's most recent shipment (null when it has none).</summary>
+    private Task<string?> LatestShipmentStatusAsync(long orderId, CancellationToken ct) =>
+        _db.Shipments.Where(s => s.OrderId == orderId)
+            .OrderByDescending(s => s.ShipmentId).Select(s => (string?)s.Status).FirstOrDefaultAsync(ct);
 
     public async Task<OrderDto?> MarkDeliveredAsync(long orderId, long? userId, CancellationToken ct = default)
     {

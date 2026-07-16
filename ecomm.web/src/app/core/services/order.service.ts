@@ -79,6 +79,11 @@ export class OrderService {
     return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/deliver`, {}).pipe(map((r) => r.data!));
   }
 
+  /** After a returned/cancelled shipment: put the order back to Packed for a fresh fulfillment. */
+  adminReship(orderId: number): Observable<Order> {
+    return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/reship`, {}).pipe(map((r) => r.data!));
+  }
+
   // --- Shiprocket fulfillment (when the store uses Shiprocket) ---
   adminShipShiprocket(orderId: number): Observable<Order> {
     return this.http.post<ApiResponse<Order>>(`${this.adminBase}/${orderId}/ship-shiprocket`, {}).pipe(map((r) => r.data!));

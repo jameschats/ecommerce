@@ -48,7 +48,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
 
     @if (selected(); as o) {
       <div class="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4" (click)="selected.set(null)">
-        <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-auto p-5" (click)="$event.stopPropagation()">
+        <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-auto p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-semibold text-slate-800">{{ o.orderNumber }} <span class="text-[11px] px-2 py-0.5 rounded-full" [class]="badge(o.status)">{{ o.status }}</span></h2>
             <button type="button" (click)="selected.set(null)" class="text-slate-400 hover:text-slate-700 text-xl">×</button>
@@ -97,11 +97,27 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
             </div>
           }
 
+          <!-- Returned shipment: the two ways forward, side by side -->
+          @if (shipReturned(o)) {
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3">
+              <div class="text-sm font-semibold text-amber-900">Shipment was returned</div>
+              <p class="text-xs text-amber-700 mt-0.5 mb-3">The courier returned this shipment (or it was cancelled). Choose how to proceed:</p>
+              <div class="grid sm:grid-cols-2 gap-2">
+                <button type="button" (click)="reship(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2.5 disabled:opacity-50">
+                  🔁 Re-ship order<span class="block text-[11px] font-normal opacity-80">Back to Packed — create a new shipment</span>
+                </button>
+                <button type="button" (click)="cancel(o)" [disabled]="busy()" class="text-sm px-4 py-2.5 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                  ✖ Cancel & refund<span class="block text-[11px] font-normal opacity-70">Refund payment and restock items</span>
+                </button>
+              </div>
+            </div>
+          }
+
           <div class="flex flex-wrap gap-2">
             @if (o.status === 'Paid' || o.status === 'Confirmed') {
               <button type="button" (click)="advance(o, 'Packed')" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Packed</button>
             }
-            @if (o.status === 'Shipped') {
+            @if (o.status === 'Shipped' && !shipReturned(o)) {
               <button type="button" (click)="markDelivered(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Delivered</button>
               @if (useShiprocket()) {
                 <button type="button" (click)="shiprocketPickup(o)" [disabled]="busy()" class="btn-ghost border border-slate-300 text-sm">Schedule pickup</button>
@@ -138,6 +154,17 @@ export class AdminOrdersComponent implements OnInit {
   ngOnInit(): void {
     this.reload();
     this.fulfillment.getSettings().subscribe({ next: (s) => this.useShiprocket.set(s.method === 'Shiprocket'), error: () => {} });
+  }
+
+  /** Shipped, but the latest shipment came back (courier return or cancellation). */
+  shipReturned(o: Order): boolean { return o.status === 'Shipped' && o.shipment?.status === 'Returned'; }
+
+  reship(o: Order): void {
+    this.busy.set(true); this.msg.set(null); this.err.set(null);
+    this.svc.adminReship(o.orderId).subscribe({
+      next: (d) => { this.selected.set(d); this.busy.set(false); this.msg.set('Order is back to Packed — ship it again below.'); this.reload(); },
+      error: (e: unknown) => { this.busy.set(false); this.err.set(this.m(e)); },
+    });
   }
 
   shipShiprocket(o: Order): void {
