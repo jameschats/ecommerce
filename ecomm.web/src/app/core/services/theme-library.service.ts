@@ -22,6 +22,11 @@ export interface PrebuiltThemeSummary {
   primaryColor: string;
   secondaryColor: string;
   font: string;
+  headingFont: string;
+  radius: string;
+  heroImage: string | null;
+  heroHeading: string | null;
+  tileImages: string[];
 }
 
 @Injectable({ providedIn: 'root' })

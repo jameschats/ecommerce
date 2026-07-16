@@ -162,8 +162,9 @@ export class ThemeService {
   ]);
   private readonly loadedFonts = new Set<string>();
 
-  /** Inject a Google-Fonts stylesheet for the theme's fonts (once each). Without this the CSS var alone falls back to system fonts. */
-  private loadFonts(families: (string | undefined)[]): void {
+  /** Inject a Google-Fonts stylesheet for the given fonts (once each; allowlisted). Public so
+   *  the theme library can render authentic mini-previews in each theme's heading font. */
+  loadFonts(families: (string | undefined)[]): void {
     const toLoad = families.filter((f): f is string => !!f && ThemeService.KNOWN_FONTS.has(f) && !this.loadedFonts.has(f));
     if (!toLoad.length) return;
     for (const f of toLoad) this.loadedFonts.add(f);

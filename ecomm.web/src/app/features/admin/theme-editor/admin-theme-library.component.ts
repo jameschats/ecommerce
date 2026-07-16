@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
 import { PrebuiltThemeSummary, ThemeLibraryService, ThemeSummary } from '../../../core/services/theme-library.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 /**
  * Theme library (S5): the tenant's themes — exactly one Published (live), the rest Draft.
@@ -61,12 +62,24 @@ import { PrebuiltThemeSummary, ThemeLibraryService, ThemeSummary } from '../../.
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           @for (p of prebuilt(); track p.key) {
             <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-              <!-- Color-swatch thumbnail derived from the theme palette -->
-              <div class="h-24 flex items-end p-3" [style.background]="'linear-gradient(135deg,' + p.primaryColor + ',' + p.secondaryColor + ')'">
-                <span class="text-white font-semibold text-sm drop-shadow">{{ p.name }}</span>
+              <!-- Mini storefront preview: the theme's REAL hero + tile imagery from its bundle -->
+              <div class="relative h-36 overflow-hidden" [style.background]="'linear-gradient(135deg,' + p.primaryColor + ',' + p.secondaryColor + ')'">
+                @if (p.heroImage) { <img [src]="p.heroImage" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
+                <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent"></div>
+                <div class="absolute left-3 right-3 bottom-2.5 text-white drop-shadow">
+                  @if (p.heroHeading) { <div class="font-bold leading-snug" [style.font-family]="p.headingFont + ', sans-serif'">{{ p.heroHeading }}</div> }
+                </div>
               </div>
+              @if (p.tileImages.length) {
+                <div class="grid gap-1 p-1.5 pb-0" [class]="p.tileImages.length === 3 ? 'grid-cols-3' : 'grid-cols-4'">
+                  @for (img of p.tileImages; track img) {
+                    <img [src]="img" alt="" class="h-14 w-full object-cover" [class.rounded-lg]="p.radius !== 'sharp'" loading="lazy" />
+                  }
+                </div>
+              }
               <div class="p-4">
                 <div class="flex items-center gap-2">
+                  <span class="font-semibold text-slate-800 text-sm">{{ p.name }}</span>
                   <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ p.category }}</span>
                 </div>
                 <p class="text-sm text-slate-600 mt-2">{{ p.description }}</p>
@@ -81,13 +94,20 @@ import { PrebuiltThemeSummary, ThemeLibraryService, ThemeSummary } from '../../.
 })
 export class AdminThemeLibraryComponent implements OnInit {
   private readonly api = inject(ThemeLibraryService);
+  private readonly theme = inject(ThemeService);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
   readonly themes = signal<ThemeSummary[]>([]);
   readonly prebuilt = signal<PrebuiltThemeSummary[]>([]);
 
-  ngOnInit(): void { this.load(); this.api.prebuilt().subscribe((p) => this.prebuilt.set(p)); }
+  ngOnInit(): void {
+    this.load();
+    this.api.prebuilt().subscribe((p) => {
+      this.prebuilt.set(p);
+      this.theme.loadFonts(p.map((x) => x.headingFont));   // authentic preview headlines
+    });
+  }
   private load(): void { this.api.list().subscribe({ next: (t) => { this.themes.set(t); this.loading.set(false); }, error: () => this.loading.set(false) }); }
 
   install(p: PrebuiltThemeSummary): void {

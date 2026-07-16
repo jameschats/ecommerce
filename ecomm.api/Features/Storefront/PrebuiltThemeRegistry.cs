@@ -13,9 +13,14 @@ public sealed record PrebuiltTheme(
     string Key, string Name, string Category, string Description,
     IReadOnlyDictionary<string, string> Settings, IReadOnlyList<PrebuiltTemplate> Templates);
 
-/// <summary>Install-picker summary (palette drives the thumbnail; no section payloads).</summary>
+/// <summary>
+/// Install-picker summary. Carries enough of the bundle to render a Shopify-style mini-preview
+/// (real hero image + heading + tile imagery) so a card shows what the store will look like.
+/// </summary>
 public sealed record PrebuiltThemeSummary(
-    string Key, string Name, string Category, string Description, string PrimaryColor, string SecondaryColor, string Font);
+    string Key, string Name, string Category, string Description,
+    string PrimaryColor, string SecondaryColor, string Font,
+    string HeadingFont, string Radius, string? HeroImage, string? HeroHeading, IReadOnlyList<string> TileImages);
 
 /// <summary>
 /// The catalog of free prebuilt themes a merchant can install into their library (S6) — our answer to a
@@ -222,11 +227,57 @@ public static class PrebuiltThemeRegistry
     ];
 
     public static IReadOnlyList<PrebuiltThemeSummary> Summaries =>
-        All.Select(t => new PrebuiltThemeSummary(
-            t.Key, t.Name, t.Category, t.Description,
-            t.Settings.GetValueOrDefault("PrimaryColor", "#111827"),
-            t.Settings.GetValueOrDefault("SecondaryColor", "#6b7280"),
-            t.Settings.GetValueOrDefault("Font", "Inter"))).ToList();
+        All.Select(t =>
+        {
+            var (heroImage, heroHeading, tiles) = PreviewOf(t);
+            return new PrebuiltThemeSummary(
+                t.Key, t.Name, t.Category, t.Description,
+                t.Settings.GetValueOrDefault("PrimaryColor", "#111827"),
+                t.Settings.GetValueOrDefault("SecondaryColor", "#6b7280"),
+                t.Settings.GetValueOrDefault("Font", "Inter"),
+                t.Settings.GetValueOrDefault("HeadingFont", "Inter"),
+                t.Settings.GetValueOrDefault("Radius", "soft"),
+                heroImage, heroHeading, tiles);
+        }).ToList();
+
+    /// <summary>Extract mini-preview material (hero image + heading, up to 4 tile images) from a bundle's index.</summary>
+    private static (string? heroImage, string? heroHeading, IReadOnlyList<string> tiles) PreviewOf(PrebuiltTheme t)
+    {
+        string? heroImage = null, heroHeading = null;
+        var tiles = new List<string>();
+        var index = t.Templates.FirstOrDefault(x => x.TemplateKey == "index");
+        if (index is null) return (null, null, tiles);
+
+        foreach (var s in index.Sections)
+        {
+            if (string.IsNullOrEmpty(s.Blocks)) continue;
+            try
+            {
+                if (s.Type == "Hero" && (heroImage is null || heroHeading is null))
+                {
+                    using var doc = JsonDocument.Parse(s.Blocks);
+                    foreach (var b in doc.RootElement.EnumerateArray())
+                    {
+                        var img = b.TryGetProperty("image", out var i) ? i.GetString() : null;
+                        if (heroHeading is null && b.TryGetProperty("heading", out var h)) heroHeading = h.GetString();
+                        if (heroImage is null && !string.IsNullOrEmpty(img)) heroImage = img;
+                    }
+                }
+                else if ((s.Type == "TileGrid" || s.Type == "PromoTiles") && tiles.Count < 4)
+                {
+                    using var doc = JsonDocument.Parse(s.Blocks);
+                    foreach (var b in doc.RootElement.EnumerateArray())
+                    {
+                        if (tiles.Count >= 4) break;
+                        var img = b.TryGetProperty("image", out var i) ? i.GetString() : null;
+                        if (!string.IsNullOrEmpty(img)) tiles.Add(img!);
+                    }
+                }
+            }
+            catch { /* preview extraction is best-effort — a malformed block never breaks the picker */ }
+        }
+        return (heroImage, heroHeading, tiles);
+    }
 
     public static PrebuiltTheme? Get(string key) =>
         All.FirstOrDefault(t => string.Equals(t.Key, key, StringComparison.OrdinalIgnoreCase));
