@@ -93,7 +93,8 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
             var cat = new Category
             {
                 Name = Trim(top.Name, 120), Slug = Unique(Slug.From(top.Name), catSlugs),
-                Description = Clip(top.Description, 500), DisplayOrder = order++, IsActive = true, CreatedAt = now,
+                Description = Clip(top.Description, 500), ImageUrl = FirstImage(top),
+                DisplayOrder = order++, IsActive = true, CreatedAt = now,
             };
             db.Categories.Add(cat);
             tops.Add((top, cat));
@@ -112,7 +113,8 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
                     var sc = new Category
                     {
                         Name = Trim(sub.Name, 120), Slug = Unique(Slug.From(sub.Name), catSlugs),
-                        Description = Clip(sub.Description, 500), ParentCategoryId = cat.CategoryId,
+                        Description = Clip(sub.Description, 500), ImageUrl = FirstImage(sub),
+                        ParentCategoryId = cat.CategoryId,
                         DisplayOrder = 0, IsActive = true, CreatedAt = now,
                     };
                     db.Categories.Add(sc);
@@ -245,6 +247,19 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
         var mapped = cats.Select(MapCategory).Where(x => x is not null).Cast<GenCategory>().ToList();
         if (mapped.Count == 0) throw new AppException("The AI didn't return any usable products. Please try again.", 502);
         return new GeneratedCatalog(storeType, mapped);
+    }
+
+    /// <summary>A representative photo for a category — its first product's image, else a descendant's.</summary>
+    private static string? FirstImage(GenCategory c)
+    {
+        var direct = c.Products.FirstOrDefault()?.ImageUrl;
+        if (!string.IsNullOrWhiteSpace(direct)) return direct;
+        foreach (var s in c.Subcategories ?? Enumerable.Empty<GenCategory>())
+        {
+            var img = s.Products.FirstOrDefault()?.ImageUrl;
+            if (!string.IsNullOrWhiteSpace(img)) return img;
+        }
+        return null;
     }
 
     private static IEnumerable<(string CatName, GenProduct Product)> Flatten(GeneratedCatalog catalog)

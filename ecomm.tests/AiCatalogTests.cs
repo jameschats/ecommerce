@@ -78,6 +78,8 @@ public class AiCatalogTests
         Assert.All(products, p => Assert.Equal("Active", p.Status));
         Assert.All(products, p => Assert.Single(p.Images));
         Assert.All(products, p => Assert.Equal(25, p.InventoryRecords.Single().AvailableQty));
+        // Every seeded category (top + sub) gets a representative photo so the shop-by-category view isn't blank.
+        Assert.All(await db.Categories.ToListAsync(), c => Assert.False(string.IsNullOrWhiteSpace(c.ImageUrl)));
     }
 
     [Fact]
