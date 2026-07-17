@@ -22,10 +22,29 @@ export interface Contact {
   lastLoginAt: string | null;
 }
 
+export interface TenantSubscriptionInfo {
+  planName: string | null;
+  status: string | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  razorpaySubscriptionId: string | null;
+}
+export interface TenantUsage {
+  products: number;
+  orders: number;
+  gmv: number;
+  aiCreditBalance: number;
+}
+
 export interface TenantDetail {
   summary: TenantSummary;
   contacts: Contact[];
   standingReason: string | null;
+  subscription: TenantSubscriptionInfo;
+  usage: TenantUsage;
+  customDomain: string | null;
+  customDomainVerified: boolean;
+  recentActivity: AuditEntry[];
 }
 
 export interface PlanRevenueRow { plan: string; activeCount: number; mrr: number; }

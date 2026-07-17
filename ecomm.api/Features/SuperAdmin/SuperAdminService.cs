@@ -15,7 +15,13 @@ public sealed record TenantSummaryDto(
 
 public sealed record ContactDto(long UserId, string? Email, string? FullName, string? PhoneNumber, string Roles, DateTime? LastLoginAt);
 
-public sealed record TenantDetailDto(TenantSummaryDto Summary, IReadOnlyList<ContactDto> Contacts, string? StandingReason);
+public sealed record TenantSubscriptionInfo(string? PlanName, string? Status, DateTime? TrialEndsAt, DateTime? CurrentPeriodEnd, string? RazorpaySubscriptionId);
+public sealed record TenantUsageDto(int Products, int Orders, decimal Gmv, int AiCreditBalance);
+
+public sealed record TenantDetailDto(
+    TenantSummaryDto Summary, IReadOnlyList<ContactDto> Contacts, string? StandingReason,
+    TenantSubscriptionInfo Subscription, TenantUsageDto Usage,
+    string? CustomDomain, bool CustomDomainVerified, IReadOnlyList<AuditDto> RecentActivity);
 
 public sealed record PlanRevenueRow(string Plan, int ActiveCount, decimal Mrr);
 public sealed record PlatformRevenueDto(
@@ -50,6 +56,7 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
         { "Good", "Trusted", "Watch", "Flagged", "Blacklisted" };
     private static readonly HashSet<string> BlockTypes = new(StringComparer.OrdinalIgnoreCase) { "Email", "Gstin", "Phone" };
+    private static readonly string[] SoldStatuses = { "Paid", "Confirmed", "Packed", "Shipped", "Delivered" };
 
     public async Task<IReadOnlyList<TenantSummaryDto>> ListTenantsAsync(string? search, CancellationToken ct)
     {
@@ -95,8 +102,23 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             string.Join(", ", roleMap.Where(m => m.UserId == u.UserId).Select(m => m.Name)),
             u.LastLoginAt)).ToList();
 
+        var sub = await db.TenantSubscriptions.IgnoreQueryFilters().Include(x => x.Plan).AsNoTracking()
+            .Where(x => x.TenantId == tenantId).OrderByDescending(x => x.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+        var subInfo = new TenantSubscriptionInfo(sub?.Plan?.Name, sub?.Status, t.TrialEndsAt, sub?.CurrentPeriodEnd, sub?.RazorpaySubscriptionId);
+
+        var products = await db.Products.IgnoreQueryFilters().CountAsync(p => p.TenantId == tenantId && !p.IsDeleted, ct);
+        var gmv = await db.Orders.IgnoreQueryFilters()
+            .Where(o => o.TenantId == tenantId && SoldStatuses.Contains(o.Status) && o.PlacedAt != null)
+            .SumAsync(o => (decimal?)o.TotalAmount, ct) ?? 0m;
+        var aiBalance = await db.TenantAiCredits.IgnoreQueryFilters()
+            .Where(c => c.TenantId == tenantId).Select(c => (int?)c.Balance).FirstOrDefaultAsync(ct) ?? 0;
+        var usage = new TenantUsageDto(products, summary.OrderCount, gmv, aiBalance);
+
+        var recent = await GetAuditAsync(tenantId, 15, ct);   // read before logging this view
+
         await LogAsync(adminUserId, tenantId, "ViewTenant", null, ct);
-        return new TenantDetailDto(summary, contacts, t.StandingReason);
+        return new TenantDetailDto(summary, contacts, t.StandingReason, subInfo, usage,
+            t.CustomDomain, t.CustomDomainVerified, recent);
     }
 
     public async Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct)
