@@ -12,10 +12,16 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
       <p class="text-sm text-slate-500 mb-6">Bulk-manage your catalog with Excel. Upsert by SKU; unknown columns become specifications.</p>
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
-      <a routerLink="/admin/ai/catalog" class="block mb-6 rounded-xl border border-violet-200 bg-violet-50 p-5 hover:bg-violet-100 transition">
-        <div class="font-medium text-violet-800">✨ Generate a starter catalog with AI</div>
-        <p class="text-sm text-violet-700/80 mt-1">No spreadsheet yet? Pick a store type and let AI create categories and products you can edit — ready in seconds.</p>
-      </a>
+      <div class="grid sm:grid-cols-2 gap-4 mb-6">
+        <a routerLink="/admin/ai/catalog" class="block rounded-xl border border-violet-200 bg-violet-50 p-5 hover:bg-violet-100 transition">
+          <div class="font-medium text-violet-800">✨ Generate a starter catalog with AI</div>
+          <p class="text-sm text-violet-700/80 mt-1">No spreadsheet yet? Pick a store type and let AI create products you can edit.</p>
+        </a>
+        <a routerLink="/admin/ai/import" class="block rounded-xl border border-violet-200 bg-violet-50 p-5 hover:bg-violet-100 transition">
+          <div class="font-medium text-violet-800">✨ Import from any spreadsheet</div>
+          <p class="text-sm text-violet-700/80 mt-1">Already have a product file in any layout? AI matches your columns to ours.</p>
+        </a>
+      </div>
 
       <div class="grid sm:grid-cols-2 gap-4 mb-6">
         <div class="bg-white border border-slate-200 rounded-xl p-5">

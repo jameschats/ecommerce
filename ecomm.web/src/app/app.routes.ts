@@ -105,6 +105,7 @@ export const routes: Routes = [
       { path: 'billing', loadComponent: () => import('./features/admin/billing/admin-billing.component').then((m) => m.AdminBillingComponent) },
       { path: 'ai', loadComponent: () => import('./features/admin/ai/admin-ai.component').then((m) => m.AdminAiComponent) },
       { path: 'ai/catalog', loadComponent: () => import('./features/admin/ai/admin-ai-catalog.component').then((m) => m.AdminAiCatalogComponent) },
+      { path: 'ai/import', loadComponent: () => import('./features/admin/ai/admin-ai-import.component').then((m) => m.AdminAiImportComponent) },
       { path: 'policies', loadComponent: () => import('./features/admin/settings/admin-policies.component').then((m) => m.AdminPoliciesComponent) },
       { path: 'preferences', loadComponent: () => import('./features/admin/settings/admin-preferences.component').then((m) => m.AdminPreferencesComponent) },
       { path: 'checkout-settings', loadComponent: () => import('./features/admin/settings/admin-checkout-settings.component').then((m) => m.AdminCheckoutSettingsComponent) },
