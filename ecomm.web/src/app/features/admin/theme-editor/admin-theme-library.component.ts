@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DOCUMENT } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
@@ -95,6 +95,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 export class AdminThemeLibraryComponent implements OnInit {
   private readonly api = inject(ThemeLibraryService);
   private readonly theme = inject(ThemeService);
+  private readonly doc = inject(DOCUMENT);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
@@ -116,8 +117,12 @@ export class AdminThemeLibraryComponent implements OnInit {
   }
   private flash(m: string): void { this.message.set(m); setTimeout(() => this.message.set(null), 2500); }
 
-  /** Storefront URL that renders this (draft) theme via its preview token. */
-  previewUrl(t: ThemeSummary): string { return `${SITE_URL}/?preview=${t.previewToken}`; }
+  /** Storefront URL that renders this (draft) theme via its preview token — on THIS store's own
+   *  host (admin runs on the store subdomain), not the build-time apex SITE_URL. */
+  previewUrl(t: ThemeSummary): string {
+    const origin = this.doc.defaultView?.location?.origin || SITE_URL;
+    return `${origin}/?preview=${t.previewToken}`;
+  }
 
   create(): void {
     const name = typeof window !== 'undefined' ? window.prompt('Name your new theme', 'New theme') : 'New theme';
