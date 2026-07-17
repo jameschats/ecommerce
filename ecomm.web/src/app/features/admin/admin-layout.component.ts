@@ -92,6 +92,7 @@ export class AdminLayoutComponent {
       { path: '/admin/notification-templates', label: 'Email & SMS' },
       { path: '/admin/staff', label: 'Staff' },
       { path: '/admin/billing', label: 'Plan & billing' },
+      { path: '/admin/ai', label: 'AI credits' },
       { path: '/admin/domain', label: 'Custom domain' },
       { path: '/admin/auth-providers', label: 'Sign-in methods' },
     ] },

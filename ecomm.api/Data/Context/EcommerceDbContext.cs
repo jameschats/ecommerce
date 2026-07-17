@@ -119,6 +119,11 @@ public class EcommerceDbContext : DbContext
     public DbSet<PlatformAccessLog> PlatformAccessLog => Set<PlatformAccessLog>();
     public DbSet<SignupBlocklist> SignupBlocklist => Set<SignupBlocklist>();
 
+    // --- V2: AI credits (AI-0) ---
+    public DbSet<TenantAiCredit> TenantAiCredits => Set<TenantAiCredit>();
+    public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
+    public DbSet<AiCreditPack> AiCreditPacks => Set<AiCreditPack>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Tenant>(e => { e.ToTable("Tenants"); e.HasKey(x => x.TenantId); });
@@ -415,6 +420,9 @@ public class EcommerceDbContext : DbContext
         b.Entity<TenantShippingAccount>(e => { e.ToTable("TenantShippingAccounts"); e.HasKey(x => x.TenantShippingAccountId); });
         b.Entity<PlatformAccessLog>(e => { e.ToTable("PlatformAccessLog"); e.HasKey(x => x.PlatformAccessLogId); });
         b.Entity<SignupBlocklist>(e => { e.ToTable("SignupBlocklist"); e.HasKey(x => x.SignupBlocklistId); });
+        b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
+        b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
+        b.Entity<AiCreditPack>(e => { e.ToTable("AiCreditPacks"); e.HasKey(x => x.AiCreditPackId); e.Property(x => x.PriceInr).HasPrecision(10, 2); });
 
         // --- Multi-tenant global query filters (V2-0) ---
         // Every ITenantScoped entity is auto-scoped to the current tenant. Read live

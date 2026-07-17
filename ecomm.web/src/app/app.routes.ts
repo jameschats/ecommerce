@@ -103,6 +103,7 @@ export const routes: Routes = [
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'staff', loadComponent: () => import('./features/admin/staff/admin-staff.component').then((m) => m.AdminStaffComponent) },
       { path: 'billing', loadComponent: () => import('./features/admin/billing/admin-billing.component').then((m) => m.AdminBillingComponent) },
+      { path: 'ai', loadComponent: () => import('./features/admin/ai/admin-ai.component').then((m) => m.AdminAiComponent) },
       { path: 'policies', loadComponent: () => import('./features/admin/settings/admin-policies.component').then((m) => m.AdminPoliciesComponent) },
       { path: 'preferences', loadComponent: () => import('./features/admin/settings/admin-preferences.component').then((m) => m.AdminPreferencesComponent) },
       { path: 'checkout-settings', loadComponent: () => import('./features/admin/settings/admin-checkout-settings.component').then((m) => m.AdminCheckoutSettingsComponent) },

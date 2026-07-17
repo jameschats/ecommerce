@@ -170,6 +170,20 @@ if ((builder.Configuration["Shiprocket:Provider"] ?? "None").Equals("Shiprocket"
 else
     builder.Services.AddSingleton<ecomm.api.Features.Shipping.Shiprocket.IShiprocketClient,
         ecomm.api.Features.Shipping.Shiprocket.NullShiprocketClient>();
+// AI (V2 AI-0): provider-agnostic text generation, config-gated (Ai:Provider None|OpenAI — mirrors the
+// SMS/Shiprocket pattern), plus the credit ledger + metering wrapper. Disabled by default (None → NullAiService).
+builder.Services.Configure<ecomm.api.Features.Ai.AiOptions>(builder.Configuration.GetSection(ecomm.api.Features.Ai.AiOptions.SectionName));
+if ((builder.Configuration["Ai:Provider"] ?? "None").Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<ecomm.api.Features.Ai.IAiService>(sp => new ecomm.api.Features.Ai.OpenAiService(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("openai"),
+        sp.GetRequiredService<IOptions<ecomm.api.Features.Ai.AiOptions>>(),
+        sp.GetRequiredService<ILogger<ecomm.api.Features.Ai.OpenAiService>>()));
+else
+    builder.Services.AddScoped<ecomm.api.Features.Ai.IAiService, ecomm.api.Features.Ai.NullAiService>();
+builder.Services.AddScoped<ecomm.api.Features.Ai.IAiCreditService, ecomm.api.Features.Ai.AiCreditService>();
+// Platform-side gateway (from the app-wide Payments config) — merchant→platform payments (AI credit top-ups).
+builder.Services.AddSingleton<ecomm.api.Features.Payments.PlatformPaymentGatewayFactory>();
+
 // Encrypts per-tenant secrets at rest (Razorpay key secret, Shiprocket password). The key ring MUST
 // survive restarts or every saved secret becomes undecryptable — persist it to disk. Path is
 // configurable (DataProtection:KeysPath); default lives under the content root, which `dotnet publish`
