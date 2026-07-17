@@ -29,6 +29,13 @@ public sealed class AnalyticsController : ControllerBase
     public async Task<IActionResult> Summary(CancellationToken ct)
         => Ok(ApiResponse<AnalyticsSummaryDto>.Ok(await _analytics.SummaryAsync(ct)));
 
+    [HttpGet("sales")]
+    public async Task<IActionResult> Sales([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<SalesDashboardDto>.Ok(await _analytics.SalesDashboardAsync(f, t, ct)));
+    }
+
     [HttpGet("best-sellers")]
     public async Task<IActionResult> BestSellers([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
     {

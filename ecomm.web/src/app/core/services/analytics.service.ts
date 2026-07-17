@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
-import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow } from '../models/analytics.model';
+import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesDashboard } from '../models/analytics.model';
 import { ApiResponse } from '../models/api-response.model';
 
 @Injectable({ providedIn: 'root' })
@@ -19,6 +19,9 @@ export class AnalyticsService {
 
   summary(): Observable<AnalyticsSummary> {
     return this.unwrap(this.http.get<ApiResponse<AnalyticsSummary>>(`${this.base}/summary`));
+  }
+  salesDashboard(from: string, to: string): Observable<SalesDashboard> {
+    return this.unwrap(this.http.get<ApiResponse<SalesDashboard>>(`${this.base}/sales${this.range(from, to)}`));
   }
   bestSellers(from: string, to: string): Observable<ProductReportRow[]> {
     return this.unwrap(this.http.get<ApiResponse<ProductReportRow[]>>(`${this.base}/best-sellers${this.range(from, to)}`));

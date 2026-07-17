@@ -2,7 +2,7 @@ import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow } from '../../../core/models/analytics.model';
+import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesDashboard } from '../../../core/models/analytics.model';
 import { AnalyticsService } from '../../../core/services/analytics.service';
 
 type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'supplier';
@@ -12,10 +12,19 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
   imports: [FormsModule, CurrencyPipe, RouterLink],
   template: `
     <div class="max-w-5xl mx-auto p-6">
-      <h1 class="text-xl font-bold text-slate-900 mb-1">Analytics</h1>
-      <p class="text-sm text-slate-500 mb-5">Business pulse + profit & margin reports. Margin = revenue − cost (tax excluded).</p>
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900 mb-1">Analytics</h1>
+          <p class="text-sm text-slate-500">Sales overview + profit & margin reports. Margin = revenue − cost (tax excluded).</p>
+        </div>
+        <div class="flex items-center gap-1.5 text-sm">
+          <input type="date" [(ngModel)]="from" (ngModelChange)="reload()" class="input py-1" />
+          <span class="text-slate-400">to</span>
+          <input type="date" [(ngModel)]="to" (ngModelChange)="reload()" class="input py-1" />
+        </div>
+      </div>
 
-      <!-- Activity widget -->
+      <!-- Business-pulse widget (today / this week) -->
       @if (summary(); as s) {
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Orders today</div><div class="text-lg font-bold text-slate-900">{{ s.ordersToday }}</div><div class="text-[11px] text-slate-400">{{ s.ordersThisWeek }} this week</div></div>
@@ -30,6 +39,68 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
         }
       }
 
+      <!-- Sales dashboard (range-based) -->
+      @if (sales(); as sd) {
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Net sales</div><div class="text-lg font-bold text-slate-900">{{ sd.kpis.netSales | currency:'INR':'symbol':'1.0-0' }}</div></div>
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Gross sales</div><div class="text-lg font-bold text-slate-900">{{ sd.kpis.grossSales | currency:'INR':'symbol':'1.0-0' }}</div></div>
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Orders</div><div class="text-lg font-bold text-slate-900">{{ sd.kpis.orders }}</div></div>
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Avg order value</div><div class="text-lg font-bold text-slate-900">{{ sd.kpis.aov | currency:'INR':'symbol':'1.0-0' }}</div></div>
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Returning customers</div><div class="text-lg font-bold text-slate-900">{{ sd.kpis.returningRatePct }}%</div><div class="text-[11px] text-slate-400">of buyers in range</div></div>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-4 mb-6">
+          <!-- Sales over time -->
+          <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4">
+            <div class="flex items-baseline justify-between mb-2">
+              <div class="text-sm font-medium text-slate-700">Sales over time</div>
+              <div class="text-lg font-bold text-slate-900">{{ sd.kpis.netSales | currency:'INR':'symbol':'1.0-0' }}</div>
+            </div>
+            @if (chart(); as c) {
+              <svg [attr.viewBox]="'0 0 ' + c.w + ' ' + c.h" preserveAspectRatio="none" class="w-full h-44">
+                <polygon [attr.points]="c.area" fill="#3b82f6" opacity="0.10" />
+                <polyline [attr.points]="c.line" fill="none" stroke="#2563eb" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+              </svg>
+              <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                <span>{{ c.first }}</span>
+                <span>peak {{ c.peak.sales | currency:'INR':'symbol':'1.0-0' }}</span>
+                <span>{{ c.last }}</span>
+              </div>
+            } @else {
+              <div class="h-44 flex items-center justify-center text-slate-400 text-sm">No sales in this range.</div>
+            }
+          </div>
+
+          <!-- Sales breakdown -->
+          <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div class="text-sm font-medium text-slate-700 mb-3">Breakdown</div>
+            <dl class="space-y-1.5 text-sm">
+              <div class="flex justify-between"><dt class="text-slate-500">Gross sales</dt><dd class="text-slate-800">{{ sd.breakdown.gross | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Discounts</dt><dd class="text-rose-600">−{{ sd.breakdown.discounts | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Returns</dt><dd class="text-rose-600">−{{ sd.breakdown.returns | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+              <div class="flex justify-between border-t border-slate-100 pt-1.5 font-medium"><dt class="text-slate-600">Net sales</dt><dd class="text-slate-900">{{ sd.breakdown.net | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Shipping</dt><dd class="text-slate-800">{{ sd.breakdown.shipping | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Tax</dt><dd class="text-slate-800">{{ sd.breakdown.tax | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+              <div class="flex justify-between border-t border-slate-100 pt-1.5 font-semibold"><dt class="text-slate-700">Total</dt><dd class="text-slate-900">{{ sd.breakdown.total | currency:'INR':'symbol':'1.0-0' }}</dd></div>
+            </dl>
+          </div>
+        </div>
+
+        <!-- New vs returning -->
+        <div class="grid grid-cols-2 gap-4 mb-8">
+          <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div class="text-xs text-slate-400">New customers</div>
+            <div class="text-2xl font-bold text-slate-900">{{ sd.newVsReturning.newCustomers }}</div>
+            <div class="text-[11px] text-slate-400">{{ sd.newVsReturning.newRevenue | currency:'INR':'symbol':'1.0-0' }} revenue</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div class="text-xs text-slate-400">Returning customers</div>
+            <div class="text-2xl font-bold text-slate-900">{{ sd.newVsReturning.returningCustomers }}</div>
+            <div class="text-[11px] text-slate-400">{{ sd.newVsReturning.returningRevenue | currency:'INR':'symbol':'1.0-0' }} revenue</div>
+          </div>
+        </div>
+      }
+
       <!-- Report controls -->
       <div class="flex flex-wrap items-center gap-2 mb-3">
         <div class="flex flex-wrap gap-1">
@@ -37,12 +108,7 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
             <button type="button" (click)="setTab(t.key)" class="px-3 py-1.5 rounded-lg text-sm border" [class]="tab() === t.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">{{ t.label }}</button>
           }
         </div>
-        <div class="flex items-center gap-1.5 ml-auto text-sm">
-          <input type="date" [(ngModel)]="from" (ngModelChange)="loadReport()" class="input py-1" />
-          <span class="text-slate-400">to</span>
-          <input type="date" [(ngModel)]="to" (ngModelChange)="loadReport()" class="input py-1" />
-          <button type="button" (click)="exportCsv()" [disabled]="!rowCount()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50">CSV</button>
-        </div>
+        <button type="button" (click)="exportCsv()" [disabled]="!rowCount()" class="ml-auto px-3 py-1.5 rounded-lg border border-slate-300 text-sm hover:bg-slate-50 disabled:opacity-50">CSV</button>
       </div>
 
       @if (loading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
@@ -123,6 +189,7 @@ export class AdminAnalyticsComponent implements OnInit {
   ];
 
   readonly summary = signal<AnalyticsSummary | null>(null);
+  readonly sales = signal<SalesDashboard | null>(null);
   readonly tab = signal<Tab>('best');
   readonly loading = signal(false);
   readonly productRows = signal<ProductReportRow[]>([]);
@@ -139,12 +206,53 @@ export class AdminAnalyticsComponent implements OnInit {
   readonly maxProfit = computed(() => Math.max(1, ...(this.isGroup() ? this.groupRows() : this.productRows()).map((r) => Math.max(0, r.profit))));
   readonly maxReturn = computed(() => Math.max(1, ...this.returnRows().map((r) => r.returnRatePct)));
 
+  // Hand-rolled SSR-safe SVG line chart: fills every day in the range (0 when no sales) so gaps read correctly.
+  readonly chart = computed(() => {
+    const sd = this.sales();
+    if (!sd || !sd.series.length) return null;
+    const byDate = new Map<string, number>();
+    for (const p of sd.series) byDate.set(p.date.slice(0, 10), p.sales);
+
+    const days: { date: string; sales: number }[] = [];
+    const cur = new Date(this.from + 'T00:00:00');
+    const end = new Date(this.to + 'T00:00:00');
+    let guard = 0;
+    while (cur <= end && guard++ < 400) {
+      const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+      days.push({ date: key, sales: byDate.get(key) ?? 0 });
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (!days.length) return null;
+
+    const w = 700, h = 180, padX = 6, padTop = 12, padBot = 6;
+    const max = Math.max(1, ...days.map((d) => d.sales));
+    const n = days.length;
+    const x = (i: number) => (n <= 1 ? w / 2 : padX + (i / (n - 1)) * (w - 2 * padX));
+    const y = (v: number) => h - padBot - (v / max) * (h - padTop - padBot);
+    const pts = days.map((d, i) => `${x(i).toFixed(1)},${y(d.sales).toFixed(1)}`);
+    const line = pts.join(' ');
+    const baseY = (h - padBot).toFixed(1);
+    const area = `${x(0).toFixed(1)},${baseY} ${line} ${x(n - 1).toFixed(1)},${baseY}`;
+    const peak = days.reduce((a, b) => (b.sales > a.sales ? b : a), days[0]);
+    return { line, area, w, h, first: days[0].date, last: days[n - 1].date, peak };
+  });
+
   ngOnInit(): void {
     this.svc.summary().subscribe({ next: (s) => this.summary.set(s), error: () => {} });
-    this.loadReport();
+    this.reload();
   }
 
   setTab(t: Tab): void { this.tab.set(t); this.loadReport(); }
+
+  /** Refresh both the sales dashboard and the active report for the current date range. */
+  reload(): void {
+    this.loadSales();
+    this.loadReport();
+  }
+
+  loadSales(): void {
+    this.svc.salesDashboard(this.from, this.to).subscribe({ next: (d) => this.sales.set(d), error: () => this.sales.set(null) });
+  }
 
   loadReport(): void {
     this.loading.set(true);
