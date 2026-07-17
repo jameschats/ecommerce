@@ -3,10 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { SaveCategoryRequest } from '../../../core/models/admin-catalog.model';
 import { Category } from '../../../core/models/catalog.model';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
+import { AiAssistButtonComponent } from '../../../shared/ai-assist/ai-assist-button.component';
 
 @Component({
   selector: 'app-admin-categories',
-  imports: [FormsModule],
+  imports: [FormsModule, AiAssistButtonComponent],
   template: `
     <div class="max-w-5xl mx-auto p-6">
       <h1 class="text-xl font-bold text-slate-900 mb-4">Categories</h1>
@@ -26,6 +27,8 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
             </select>
             <input [(ngModel)]="form.imageUrl" placeholder="Image URL (optional)" class="input" />
             <textarea [(ngModel)]="form.description" placeholder="Description" rows="2" class="input"></textarea>
+            <app-ai-assist purpose="category-description" [text]="form.description ?? ''" [context]="form.name"
+                           (applied)="form.description = $event" />
             <div class="flex items-center gap-3">
               <input type="number" [(ngModel)]="form.displayOrder" placeholder="Order" class="input w-24" />
               <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.isActive" /> Active</label>

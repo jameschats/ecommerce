@@ -46,8 +46,16 @@
           </select>
         </div>
       </div>
-      <div><label class="lbl">Short description</label><input [(ngModel)]="form.shortDescription" class="input" /></div>
-      <div><label class="lbl">Description</label><textarea [(ngModel)]="form.description" rows="4" class="input"></textarea></div>
+      <div>
+        <label class="lbl">Short description</label><input [(ngModel)]="form.shortDescription" class="input" />
+        <app-ai-assist purpose="short-description" [text]="form.shortDescription ?? ''" [context]="form.name" label="Write with AI"
+                       (applied)="form.shortDescription = $event" />
+      </div>
+      <div>
+        <label class="lbl">Description</label><textarea [(ngModel)]="form.description" rows="4" class="input"></textarea>
+        <app-ai-assist purpose="product-description" [text]="form.description ?? ''" [context]="form.name"
+                       (applied)="form.description = $event" />
+      </div>
       <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.isFeatured" /> Featured</label>
 
       <div class="grid sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
@@ -55,9 +63,18 @@
         <div><label class="lbl">Tags (comma-separated)</label><input [(ngModel)]="form.tags" class="input" placeholder="summer, sale" /></div>
       </div>
       <div>
-        <label class="lbl">Search engine listing (SEO)</label>
+        <div class="flex items-center justify-between">
+          <label class="lbl">Search engine listing (SEO)</label>
+          @if (ai.enabled()) {
+            <button type="button" (click)="generateSeo()" [disabled]="seoBusy()"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 disabled:opacity-60">
+              <span aria-hidden="true">✨</span>{{ seoBusy() ? 'Thinking…' : 'Generate with AI' }}
+            </button>
+          }
+        </div>
         <input [(ngModel)]="form.metaTitle" class="input mb-2" placeholder="Meta title (defaults to product name)" />
         <textarea [(ngModel)]="form.metaDescription" rows="2" class="input" placeholder="Meta description for Google"></textarea>
+        @if (seoError()) { <p class="mt-1 text-xs text-red-600">{{ seoError() }}</p> }
       </div>
 
       <!-- Images -->

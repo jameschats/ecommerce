@@ -7,10 +7,12 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
 import { MediaService } from '../../../core/services/media.service';
 import { ProductSupplierInput, Supplier } from '../../../core/models/supplier.model';
 import { SupplierService } from '../../../core/services/supplier.service';
+import { AiAssistService } from '../../../core/services/ai-assist.service';
+import { AiAssistButtonComponent } from '../../../shared/ai-assist/ai-assist-button.component';
 
 @Component({
   selector: 'app-admin-product-form',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, AiAssistButtonComponent],
   templateUrl: './admin-product-form.component.html',
 })
 export class AdminProductFormComponent implements OnInit {
@@ -19,6 +21,10 @@ export class AdminProductFormComponent implements OnInit {
   private readonly suppliers = inject(SupplierService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  readonly ai = inject(AiAssistService);
+
+  readonly seoBusy = signal(false);
+  readonly seoError = signal<string | null>(null);
 
   readonly uploading = signal(false);
 
@@ -42,6 +48,7 @@ export class AdminProductFormComponent implements OnInit {
   attrValues: Record<number, string> = {};
 
   ngOnInit(): void {
+    this.ai.ensureStatus();
     this.api.listCategories().subscribe((c) => this.categories.set(c));
     this.api.listBrands().subscribe((b) => this.brands.set(b));
     this.api.listAttributes().subscribe((a) => this.attributeDefs.set(a));
@@ -130,6 +137,22 @@ export class AdminProductFormComponent implements OnInit {
         if (!this.isEdit()) this.router.navigate(['/admin/products', p.productId]);
       },
       error: (e) => { this.saving.set(false); this.error.set(e?.error?.message ?? 'Save failed.'); },
+    });
+  }
+
+  // --- SEO (✨ generate meta title + description) ---
+  generateSeo(): void {
+    if (!this.form.name.trim()) { this.seoError.set('Add a product name first.'); return; }
+    this.seoBusy.set(true); this.seoError.set(null);
+    this.ai.seo(this.form.name, this.form.description || undefined).subscribe({
+      next: (s) => { this.form.metaTitle = s.title; this.form.metaDescription = s.metaDescription; this.seoBusy.set(false); },
+      error: (e: unknown) => {
+        this.seoBusy.set(false);
+        const err = e as { status?: number; error?: { message?: string } };
+        this.seoError.set(err?.status === 402
+          ? (err.error?.message ?? 'Out of AI credits.')
+          : (err?.error?.message ?? 'Could not generate SEO. Please try again.'));
+      },
     });
   }
 
