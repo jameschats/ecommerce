@@ -52,3 +52,7 @@ export interface SalesDashboard {
   topProducts: ProductReportRow[];
   byCategory: GroupProfitRow[];
 }
+
+export interface FunnelStage { stage: string; count: number; pctOfTop: number; stepPct: number; }
+export interface Funnel { stages: FunnelStage[]; }
+export interface AbandonedCartRow { cartId: number; customer: string; items: number; value: number; lastActivity: string; }

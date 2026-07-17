@@ -1,15 +1,15 @@
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesDashboard } from '../../../core/models/analytics.model';
+import { AbandonedCartRow, AnalyticsSummary, Funnel, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesDashboard } from '../../../core/models/analytics.model';
 import { AnalyticsService } from '../../../core/services/analytics.service';
 
 type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'supplier';
 
 @Component({
   selector: 'app-admin-analytics',
-  imports: [FormsModule, CurrencyPipe, RouterLink],
+  imports: [FormsModule, CurrencyPipe, DatePipe, RouterLink],
   template: `
     <div class="max-w-5xl mx-auto p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
@@ -97,6 +97,56 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
             <div class="text-xs text-slate-400">Returning customers</div>
             <div class="text-2xl font-bold text-slate-900">{{ sd.newVsReturning.returningCustomers }}</div>
             <div class="text-[11px] text-slate-400">{{ sd.newVsReturning.returningRevenue | currency:'INR':'symbol':'1.0-0' }} revenue</div>
+          </div>
+        </div>
+      }
+
+      <!-- Conversion funnel + abandoned carts -->
+      @if (funnel(); as fn) {
+        <div class="grid lg:grid-cols-2 gap-4 mb-8">
+          <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div class="text-sm font-medium text-slate-700 mb-1">Cart → purchase funnel</div>
+            <p class="text-[11px] text-slate-400 mb-3">From carts and orders in this range.</p>
+            <div class="space-y-3">
+              @for (st of fn.stages; track st.stage; let i = $index) {
+                <div>
+                  <div class="flex items-baseline justify-between text-sm mb-1">
+                    <span class="text-slate-700">{{ st.stage }}</span>
+                    <span class="text-slate-900 font-semibold">{{ st.count }}<span class="text-[11px] font-normal text-slate-400"> · {{ st.pctOfTop }}%</span></span>
+                  </div>
+                  <div class="h-6 rounded bg-slate-100 overflow-hidden"><div class="h-full bg-blue-500/80 rounded" [style.width.%]="barPct(st.pctOfTop, 100)"></div></div>
+                  @if (i > 0) { <div class="text-[11px] text-slate-400 mt-0.5">{{ st.stepPct }}% of previous step</div> }
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div class="flex items-baseline justify-between mb-3">
+              <div class="text-sm font-medium text-slate-700">Abandoned carts</div>
+              <span class="text-[11px] text-slate-400">{{ abandoned().length }} open · biggest first</span>
+            </div>
+            @if (!abandoned().length) {
+              <div class="py-8 text-center text-slate-400 text-sm">No abandoned carts in this range.</div>
+            } @else {
+              <div class="overflow-x-auto -mx-1">
+                <table class="w-full text-sm">
+                  <thead class="text-left text-slate-400 border-b border-slate-100">
+                    <tr><th class="px-1 py-1.5">Customer</th><th class="px-1 py-1.5 text-right">Items</th><th class="px-1 py-1.5 text-right">Value</th><th class="px-1 py-1.5 text-right">Last active</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (c of abandoned(); track c.cartId) {
+                      <tr class="border-b border-slate-50">
+                        <td class="px-1 py-1.5 text-slate-800 truncate max-w-[10rem]">{{ c.customer }}</td>
+                        <td class="px-1 py-1.5 text-right">{{ c.items }}</td>
+                        <td class="px-1 py-1.5 text-right font-medium text-slate-800">{{ c.value | currency:'INR':'symbol':'1.0-0' }}</td>
+                        <td class="px-1 py-1.5 text-right text-slate-400 whitespace-nowrap">{{ c.lastActivity | date:'dd MMM' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
           </div>
         </div>
       }
@@ -190,6 +240,8 @@ export class AdminAnalyticsComponent implements OnInit {
 
   readonly summary = signal<AnalyticsSummary | null>(null);
   readonly sales = signal<SalesDashboard | null>(null);
+  readonly funnel = signal<Funnel | null>(null);
+  readonly abandoned = signal<AbandonedCartRow[]>([]);
   readonly tab = signal<Tab>('best');
   readonly loading = signal(false);
   readonly productRows = signal<ProductReportRow[]>([]);
@@ -244,9 +296,11 @@ export class AdminAnalyticsComponent implements OnInit {
 
   setTab(t: Tab): void { this.tab.set(t); this.loadReport(); }
 
-  /** Refresh both the sales dashboard and the active report for the current date range. */
+  /** Refresh the sales dashboard, funnel, abandoned carts, and the active report for the current range. */
   reload(): void {
     this.loadSales();
+    this.svc.funnel(this.from, this.to).subscribe({ next: (f) => this.funnel.set(f), error: () => this.funnel.set(null) });
+    this.svc.abandonedCarts(this.from, this.to).subscribe({ next: (c) => this.abandoned.set(c), error: () => this.abandoned.set([]) });
     this.loadReport();
   }
 

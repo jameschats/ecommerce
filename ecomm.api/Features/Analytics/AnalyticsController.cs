@@ -36,6 +36,20 @@ public sealed class AnalyticsController : ControllerBase
         return Ok(ApiResponse<SalesDashboardDto>.Ok(await _analytics.SalesDashboardAsync(f, t, ct)));
     }
 
+    [HttpGet("funnel")]
+    public async Task<IActionResult> Funnel([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<FunnelDto>.Ok(await _analytics.FunnelAsync(f, t, ct)));
+    }
+
+    [HttpGet("abandoned-carts")]
+    public async Task<IActionResult> AbandonedCarts([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<AbandonedCartRow>>.Ok(await _analytics.AbandonedCartsAsync(f, t, ct)));
+    }
+
     [HttpGet("best-sellers")]
     public async Task<IActionResult> BestSellers([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
     {

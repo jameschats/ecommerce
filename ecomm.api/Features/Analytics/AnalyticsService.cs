@@ -22,10 +22,17 @@ public sealed record SalesDashboardDto(
     SalesKpisDto Kpis, List<SalesPoint> Series, SalesBreakdownDto Breakdown,
     NewReturningDto NewVsReturning, List<ProductReportRow> TopProducts, List<GroupProfitRow> ByCategory);
 
+// ---- Cart-to-purchase funnel (from existing cart/order data) ----
+public sealed record FunnelStage(string Stage, int Count, decimal PctOfTop, decimal StepPct);
+public sealed record FunnelDto(List<FunnelStage> Stages);
+public sealed record AbandonedCartRow(long CartId, string Customer, int Items, decimal Value, DateTime LastActivity);
+
 public interface IAnalyticsService
 {
     Task<AnalyticsSummaryDto> SummaryAsync(CancellationToken ct = default);
     Task<SalesDashboardDto> SalesDashboardAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<FunnelDto> FunnelAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<AbandonedCartRow>> AbandonedCartsAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<List<ProductReportRow>> BestSellersAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<List<ProductReportRow>> MarginsAsync(DateTime from, DateTime to, bool lowFirst, CancellationToken ct = default);
     Task<List<ReturnRateRow>> ReturnRateAsync(DateTime from, DateTime to, CancellationToken ct = default);
@@ -119,6 +126,55 @@ public sealed class AnalyticsService : IAnalyticsService
         var topProducts = (await BestSellersAsync(from, to, ct)).Take(8).ToList();
         var byCategory = await ProfitByCategoryAsync(from, to, ct);
         return new SalesDashboardDto(kpis, series, breakdown, newVsReturning, topProducts, byCategory);
+    }
+
+    // ---------------- Cart-to-purchase funnel ----------------
+    // Built from the cart lifecycle + orders we already store — no visitor/event tracking.
+    // Stages are range-based counts (a cart created in the range may convert later), which
+    // matches how storefront funnels are read; not a strict per-cart cohort.
+    public async Task<FunnelDto> FunnelAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var cartsWithItems = await _db.Carts
+            .CountAsync(c => c.TenantId == Tenant && c.CreatedAt >= from && c.CreatedAt <= to && c.Items.Any(), ct);
+        var ordersPlaced = await _db.Orders
+            .CountAsync(o => o.TenantId == Tenant && o.Status != "Draft" && o.PlacedAt >= from && o.PlacedAt <= to, ct);
+        var ordersPaid = await _db.Orders
+            .CountAsync(o => o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt >= from && o.PlacedAt <= to, ct);
+
+        decimal PctOf(int n) => cartsWithItems > 0 ? Math.Round((decimal)n / cartsWithItems * 100m, 1) : 0m;
+        decimal Step(int n, int prev) => prev > 0 ? Math.Round((decimal)n / prev * 100m, 1) : 0m;
+
+        var stages = new List<FunnelStage>
+        {
+            new("Carts with items", cartsWithItems, PctOf(cartsWithItems), cartsWithItems > 0 ? 100m : 0m),
+            new("Checkout (order placed)", ordersPlaced, PctOf(ordersPlaced), Step(ordersPlaced, cartsWithItems)),
+            new("Paid", ordersPaid, PctOf(ordersPaid), Step(ordersPaid, ordersPlaced)),
+        };
+        return new FunnelDto(stages);
+    }
+
+    // Active carts that still hold items and never converted, last touched within the range —
+    // the recoverable ones, biggest basket first.
+    public async Task<List<AbandonedCartRow>> AbandonedCartsAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var rows = await _db.Carts
+            .Where(c => c.TenantId == Tenant && c.Status == "Active" && c.Items.Any()
+                && (c.UpdatedAt ?? c.CreatedAt) >= from && (c.UpdatedAt ?? c.CreatedAt) <= to)
+            .Select(c => new
+            {
+                c.CartId,
+                Customer = c.UserId == null ? null : _db.Users.Where(u => u.UserId == c.UserId).Select(u => u.FullName ?? u.Email).FirstOrDefault(),
+                Items = c.Items.Count,
+                Value = c.Items.Sum(i => i.UnitPrice * i.Quantity),
+                LastActivity = c.UpdatedAt ?? c.CreatedAt,
+            })
+            .ToListAsync(ct);
+
+        return rows
+            .OrderByDescending(r => r.Value)
+            .Take(50)
+            .Select(r => new AbandonedCartRow(r.CartId, r.Customer ?? "Guest", r.Items, r.Value, r.LastActivity))
+            .ToList();
     }
 
     // ---------------- Reports ----------------

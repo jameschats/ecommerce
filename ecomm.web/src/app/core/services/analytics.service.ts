@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
-import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesDashboard } from '../models/analytics.model';
+import { AbandonedCartRow, AnalyticsSummary, Funnel, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesDashboard } from '../models/analytics.model';
 import { ApiResponse } from '../models/api-response.model';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +22,12 @@ export class AnalyticsService {
   }
   salesDashboard(from: string, to: string): Observable<SalesDashboard> {
     return this.unwrap(this.http.get<ApiResponse<SalesDashboard>>(`${this.base}/sales${this.range(from, to)}`));
+  }
+  funnel(from: string, to: string): Observable<Funnel> {
+    return this.unwrap(this.http.get<ApiResponse<Funnel>>(`${this.base}/funnel${this.range(from, to)}`));
+  }
+  abandonedCarts(from: string, to: string): Observable<AbandonedCartRow[]> {
+    return this.unwrap(this.http.get<ApiResponse<AbandonedCartRow[]>>(`${this.base}/abandoned-carts${this.range(from, to)}`));
   }
   bestSellers(from: string, to: string): Observable<ProductReportRow[]> {
     return this.unwrap(this.http.get<ApiResponse<ProductReportRow[]>>(`${this.base}/best-sellers${this.range(from, to)}`));
