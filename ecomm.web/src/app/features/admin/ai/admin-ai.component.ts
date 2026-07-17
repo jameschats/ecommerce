@@ -1,5 +1,6 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { AiBalance, AiCreditService, AiPack, AiUsage, TopUpResult } from '../../../core/services/ai-credit.service';
 
@@ -13,7 +14,7 @@ declare const Razorpay: new (options: Record<string, unknown>) => { open: () => 
  */
 @Component({
   selector: 'app-admin-ai',
-  imports: [CurrencyPipe, DatePipe],
+  imports: [CurrencyPipe, DatePipe, RouterLink],
   template: `
     <div class="max-w-4xl mx-auto p-6">
       <h1 class="text-xl font-bold text-slate-900 mb-1">AI credits</h1>
@@ -38,6 +39,12 @@ declare const Razorpay: new (options: Record<string, unknown>) => { open: () => 
             @if (b.cycleResetAt) { <p class="text-xs text-slate-400 mt-1">Plan credits refresh on {{ b.cycleResetAt | date:'d MMM y' }}.</p> }
           </div>
         </div>
+
+        <!-- Generate catalog CTA -->
+        <a routerLink="/admin/ai/catalog" class="block mb-6 rounded-xl border border-violet-200 bg-violet-50 p-4 hover:bg-violet-100 transition">
+          <div class="font-medium text-violet-800">✨ Generate a sample catalog</div>
+          <p class="text-sm text-violet-700/80 mt-0.5">Create categories and products for a store type in seconds — fully editable.</p>
+        </a>
 
         <!-- Buy credits -->
         <h2 class="font-semibold text-slate-800 mb-3">Buy credits</h2>
