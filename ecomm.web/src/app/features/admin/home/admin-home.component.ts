@@ -2,6 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
+import { AiAssistService } from '../../../core/services/ai-assist.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Dashboard } from '../../../core/models/admin-catalog.model';
 
@@ -38,6 +39,28 @@ import { Dashboard } from '../../../core/models/admin-catalog.model';
             <div class="text-xs text-slate-400">{{ d.summary.newSignupsThisWeek }} this week</div>
           </div>
         </div>
+
+        <!-- AI quick-start (new stores only) -->
+        @if (ai.enabled() && d.checklistDone < d.checklistTotal) {
+          <div class="mb-6 rounded-xl border border-violet-200 bg-violet-50 p-5">
+            <h2 class="font-semibold text-violet-900">✨ Quick start with AI</h2>
+            <p class="text-sm text-violet-700/80 mt-0.5 mb-3">New store? Let AI do the heavy lifting — you can edit everything afterwards.</p>
+            <div class="grid sm:grid-cols-3 gap-3">
+              <a routerLink="/admin/ai/catalog" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
+                <div class="text-sm font-medium text-slate-800">Generate a catalog</div>
+                <div class="text-xs text-slate-500 mt-0.5">Pick a store type → products in seconds.</div>
+              </a>
+              <a routerLink="/admin/ai/import" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
+                <div class="text-sm font-medium text-slate-800">Import your products</div>
+                <div class="text-xs text-slate-500 mt-0.5">Moving from Shopify/Woo/Wix or a spreadsheet.</div>
+              </a>
+              <a routerLink="/admin/pages" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
+                <div class="text-sm font-medium text-slate-800">Create a page</div>
+                <div class="text-xs text-slate-500 mt-0.5">Describe an About or FAQ → built for you.</div>
+              </a>
+            </div>
+          </div>
+        }
 
         <div class="grid lg:grid-cols-3 gap-6">
           <!-- Setup checklist -->
@@ -109,6 +132,7 @@ import { Dashboard } from '../../../core/models/admin-catalog.model';
 export class AdminHomeComponent implements OnInit {
   private readonly api = inject(AdminCatalogService);
   private readonly auth = inject(AuthService);
+  readonly ai = inject(AiAssistService);
 
   readonly loading = signal(true);
   readonly data = signal<Dashboard | null>(null);
@@ -118,6 +142,7 @@ export class AdminHomeComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.ai.ensureStatus();
     this.api.getDashboard().subscribe({
       next: (d) => { this.data.set(d); this.loading.set(false); },
       error: () => this.loading.set(false),

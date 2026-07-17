@@ -48,6 +48,12 @@ One reusable Angular affordance — a small **✨ "AI" button** component (`ai-a
 (text + purpose) and returns a suggestion inline. Reused on: product description + SEO, category description,
 page content, theme copy, email templates. One endpoint `POST /api/admin/ai/improve` behind the credit wrapper.
 
+## Status (2026-07-17): AI-0 → AI-6 all shipped ✅
+All six phases built, tested (`dotnet test` green), and committed. AI is off by default
+(`Ai:Provider=None`); enable with an OpenAI key + migration `172`. Deferred: super-admin
+editor for credit packs; cycle-renewal grant hook (balance currently lazy-seeds from the
+plan on first touch). Parked: AI marketing / product-image engine (separate plan).
+
 ## Phasing (each: migration in V2 band, build + tests green, committed)
 - **AI-0 — Foundation.** `IAiService` + OpenAI provider (config-gated) + credits model (entities/migration,
   `AiCreditService`, debit wrapper) + `/admin/ai` screen (balance/history/buy via Razorpay). *Everything depends
