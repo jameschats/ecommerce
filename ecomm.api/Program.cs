@@ -184,6 +184,7 @@ builder.Services.AddScoped<ecomm.api.Features.Ai.IAiCreditService, ecomm.api.Fea
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiImproveService, ecomm.api.Features.Ai.AiImproveService>();
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiCatalogService, ecomm.api.Features.Ai.AiCatalogService>();
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiImportService, ecomm.api.Features.Ai.AiImportService>();
+builder.Services.AddScoped<ecomm.api.Features.Ai.IAiPageService, ecomm.api.Features.Ai.AiPageService>();
 // Platform-side gateway (from the app-wide Payments config) — merchant→platform payments (AI credit top-ups).
 builder.Services.AddSingleton<ecomm.api.Features.Payments.PlatformPaymentGatewayFactory>();
 
