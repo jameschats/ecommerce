@@ -52,7 +52,14 @@ import { CustomerDetail } from '../../../core/models/customer.model';
             <div class="bg-white border border-slate-200 rounded-xl p-5">
               <h2 class="font-semibold text-slate-800 mb-3">Notes & tags</h2>
               <label class="lbl">Tags (comma-separated)</label>
-              <input class="input mb-3" [(ngModel)]="form.tags" name="tags" placeholder="vip, wholesale" />
+              <input class="input" [(ngModel)]="form.tags" name="tags" placeholder="vip, wholesale" />
+              @if (suggestedTags().length) {
+                <div class="flex flex-wrap gap-1.5 mt-2 mb-3">
+                  @for (t of suggestedTags(); track t) {
+                    <button type="button" (click)="addTag(t)" class="text-xs px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50">+ {{ t }}</button>
+                  }
+                </div>
+              } @else { <div class="mb-3"></div> }
               <label class="lbl">Private notes</label>
               <textarea class="input" rows="3" [(ngModel)]="form.notes" name="notes" placeholder="Only visible to your team."></textarea>
             </div>
@@ -104,7 +111,19 @@ export class AdminCustomerDetailComponent implements OnInit {
   readonly saving = signal(false);
   readonly saved = signal(false);
   readonly error = signal<string | null>(null);
+  readonly allTags = signal<string[]>([]);
   private id = 0;
+
+  // Method (not computed) so it re-evaluates as the plain ngModel-bound tags field changes.
+  suggestedTags(): string[] {
+    const used = new Set((this.form.tags ?? '').split(',').map((t) => t.trim().toLowerCase()).filter(Boolean));
+    return this.allTags().filter((t) => !used.has(t.toLowerCase())).slice(0, 12);
+  }
+
+  addTag(t: string): void {
+    const current = (this.form.tags ?? '').trim();
+    this.form.tags = current ? `${current.replace(/,\s*$/, '')}, ${t}` : t;
+  }
 
   form = {
     fullName: '' as string | null, phoneNumber: '' as string | null,
@@ -114,6 +133,7 @@ export class AdminCustomerDetailComponent implements OnInit {
 
   ngOnInit(): void {
     this.id = Number(this.route.snapshot.paramMap.get('id'));
+    this.api.tags().subscribe((t) => this.allTags.set(t.map((x) => x.tag)));
     this.api.get(this.id).subscribe({
       next: (cust) => {
         this.c.set(cust);

@@ -31,7 +31,7 @@ public class CustomerAdminTests
         db.Orders.Add(new Order { UserId = created.UserId, OrderNumber = "O3", Status = "Cancelled", PlacedAt = DateTime.UtcNow, TotalAmount = 999m });
         await db.SaveChangesAsync();
 
-        var list = await svc.ListAsync(null, null, 1, 20);
+        var list = await svc.ListAsync(null, null, null, 1, 20);
         var row = Assert.Single(list.Items);
         Assert.Equal(created.UserId, row.UserId);
         Assert.Equal(2, row.OrderCount);
@@ -62,10 +62,10 @@ public class CustomerAdminTests
 
         await svc.CreateAsync(new CreateCustomerRequest("Buyer", "b@x.com", null, false, false, false, null, null));
         var prospect = await svc.CreateAsync(new CreateCustomerRequest("Prospect", "p@x.com", null, false, false, false, null, null));
-        db.Orders.Add(new Order { UserId = (await svc.ListAsync("b@x.com", null, 1, 20)).Items[0].UserId, OrderNumber = "O1", Status = "Paid", PlacedAt = DateTime.UtcNow, TotalAmount = 100m });
+        db.Orders.Add(new Order { UserId = (await svc.ListAsync("b@x.com", null, null, 1, 20)).Items[0].UserId, OrderNumber = "O1", Status = "Paid", PlacedAt = DateTime.UtcNow, TotalAmount = 100m });
         await db.SaveChangesAsync();
 
-        var prospects = await svc.ListAsync(null, "prospect", 1, 20);
+        var prospects = await svc.ListAsync(null, "prospect", null, 1, 20);
         var row = Assert.Single(prospects.Items);
         Assert.Equal(prospect.UserId, row.UserId);
     }

@@ -1,3 +1,4 @@
+using System.Text;
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
@@ -9,7 +10,11 @@ namespace ecomm.api.Features.Customers;
 
 public sealed record CustomerListItem(
     long UserId, string? FullName, string? Email, string? PhoneNumber,
-    int OrderCount, decimal TotalSpent, DateTime? LastOrderAt, bool AcceptsEmailMarketing, DateTime CreatedAt);
+    int OrderCount, decimal TotalSpent, DateTime? LastOrderAt, bool AcceptsEmailMarketing,
+    IReadOnlyList<string> Tags, DateTime CreatedAt);
+
+public sealed record TagCountDto(string Tag, int Count);
+public sealed record CustomerImportResult(int Total, int Created, int Updated, int Skipped, List<string> Errors);
 
 public sealed record CustomerAddressDto(
     long CustomerAddressId, string? Label, string? RecipientName, string? Phone,
@@ -33,11 +38,13 @@ public sealed record SegmentDto(string Key, string Label, int Count);
 
 public interface ICustomerAdminService
 {
-    Task<PagedResult<CustomerListItem>> ListAsync(string? search, string? segment, int page, int pageSize, CancellationToken ct = default);
+    Task<PagedResult<CustomerListItem>> ListAsync(string? search, string? segment, string? tag, int page, int pageSize, CancellationToken ct = default);
     Task<CustomerDetailDto> GetAsync(long userId, CancellationToken ct = default);
     Task<CustomerDetailDto> CreateAsync(CreateCustomerRequest req, CancellationToken ct = default);
     Task<CustomerDetailDto> UpdateAsync(long userId, UpdateCustomerRequest req, CancellationToken ct = default);
     Task<IReadOnlyList<SegmentDto>> SegmentsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<TagCountDto>> TagsAsync(CancellationToken ct = default);
+    Task<CustomerImportResult> ImportAsync(Stream csv, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -50,7 +57,7 @@ public sealed class CustomerAdminService(EcommerceDbContext db) : ICustomerAdmin
     private const string CustomerRole = "CUSTOMER";
     private static readonly string[] SoldStatuses = { "Paid", "Confirmed", "Packed", "Shipped", "Delivered" };
 
-    public async Task<PagedResult<CustomerListItem>> ListAsync(string? search, string? segment, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PagedResult<CustomerListItem>> ListAsync(string? search, string? segment, string? tag, int page, int pageSize, CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -67,6 +74,11 @@ public sealed class CustomerAdminService(EcommerceDbContext db) : ICustomerAdmin
                 || (c.PhoneNumber?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
         }
         q = ApplySegment(q, segment);
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            var tg = tag.Trim();
+            q = q.Where(c => c.Tags.Any(t => string.Equals(t, tg, StringComparison.OrdinalIgnoreCase)));
+        }
 
         var ordered = q.OrderByDescending(c => c.LastOrderAt ?? DateTime.MinValue).ThenByDescending(c => c.CreatedAt).ToList();
         var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -183,6 +195,119 @@ public sealed class CustomerAdminService(EcommerceDbContext db) : ICustomerAdmin
         return await GetAsync(userId, ct);
     }
 
+    public async Task<IReadOnlyList<TagCountDto>> TagsAsync(CancellationToken ct = default)
+    {
+        var all = await LoadAllAsync(ct);
+        return all.SelectMany(c => c.Tags)
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new TagCountDto(g.Key, g.Count()))
+            .OrderByDescending(x => x.Count).ThenBy(x => x.Tag)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Bulk-import customers from a CSV (headers: name, email, phone, tags, notes, and optional
+    /// email/sms/whatsapp marketing). Matches existing shoppers by email — updates them (tags are
+    /// merged, not wiped); otherwise creates a CUSTOMER user + profile. Rows with neither email
+    /// nor phone are skipped with a reason.
+    /// </summary>
+    public async Task<CustomerImportResult> ImportAsync(Stream csv, CancellationToken ct = default)
+    {
+        using var reader = new StreamReader(csv);
+        var rows = ParseCsv(await reader.ReadToEndAsync(ct));
+        if (rows.Count < 2) throw new AppException("The file has no data rows.");
+
+        var headers = rows[0].Select(h => (h ?? "").Trim().ToLowerInvariant()).ToList();
+        int Col(params string[] names) => headers.FindIndex(h => names.Contains(h));
+        int iName = Col("name", "full name", "fullname", "customer"),
+            iEmail = Col("email", "email address"),
+            iPhone = Col("phone", "phone number", "phonenumber", "mobile"),
+            iTags = Col("tags", "tag"),
+            iNotes = Col("notes", "note"),
+            iEmailMk = Col("email marketing", "acceptsemailmarketing", "subscribed"),
+            iSmsMk = Col("sms marketing", "acceptssmsmarketing"),
+            iWaMk = Col("whatsapp marketing", "acceptswhatsappmarketing");
+        if (iEmail < 0 && iPhone < 0)
+            throw new AppException("The file needs at least an 'email' or 'phone' column.");
+
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.NormalizedName == CustomerRole, ct);
+        string? Cell(string[] r, int i) => i >= 0 && i < r.Length ? r[i]?.Trim() : null;
+
+        int total = 0, created = 0, updated = 0, skipped = 0;
+        var errors = new List<string>();
+
+        for (var n = 1; n < rows.Count; n++)
+        {
+            var r = rows[n];
+            if (r.All(string.IsNullOrWhiteSpace)) continue;
+            total++;
+            var email = Cell(r, iEmail);
+            var phone = Cell(r, iPhone);
+            if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(phone))
+            {
+                skipped++; errors.Add($"Row {n + 1}: no email or phone."); continue;
+            }
+            if (!string.IsNullOrWhiteSpace(email) && !email.Contains('@'))
+            {
+                skipped++; errors.Add($"Row {n + 1}: invalid email '{email}'."); continue;
+            }
+
+            var name = Cell(r, iName);
+            var tags = NormalizeTags(Cell(r, iTags));
+            var notes = Cell(r, iNotes);
+            bool wantEmail = Truthy(Cell(r, iEmailMk)), wantSms = Truthy(Cell(r, iSmsMk)), wantWa = Truthy(Cell(r, iWaMk));
+
+            User? user = null;
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var norm = email.ToUpperInvariant();
+                user = await db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == norm && !u.IsDeleted, ct);
+            }
+
+            if (user is null)
+            {
+                user = new User
+                {
+                    Email = email, NormalizedEmail = email?.ToUpperInvariant(), FullName = name, PhoneNumber = phone,
+                    PasswordHash = null, IsActive = true, CreatedAt = DateTime.UtcNow,
+                };
+                db.Users.Add(user);
+                await db.SaveChangesAsync(ct);   // assign UserId + stamp tenant
+                if (role is not null) db.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = role.RoleId });
+                db.CustomerProfiles.Add(new CustomerProfile
+                {
+                    UserId = user.UserId, AcceptsEmailMarketing = wantEmail, AcceptsSmsMarketing = wantSms,
+                    AcceptsWhatsappMarketing = wantWa, Notes = notes, Tags = tags, CreatedAt = DateTime.UtcNow,
+                });
+                created++;
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(name)) user.FullName = name;
+                if (!string.IsNullOrWhiteSpace(phone)) user.PhoneNumber = phone;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                var profile = await db.CustomerProfiles.FirstOrDefaultAsync(p => p.UserId == user.UserId, ct);
+                if (profile is null)
+                {
+                    profile = new CustomerProfile { UserId = user.UserId, CreatedAt = DateTime.UtcNow };
+                    db.CustomerProfiles.Add(profile);
+                }
+                profile.Tags = MergeTags(profile.Tags, tags);   // add, don't wipe
+                if (!string.IsNullOrWhiteSpace(notes)) profile.Notes = notes;
+                if (wantEmail) profile.AcceptsEmailMarketing = true;
+                if (wantSms) profile.AcceptsSmsMarketing = true;
+                if (wantWa) profile.AcceptsWhatsappMarketing = true;
+                profile.UpdatedAt = DateTime.UtcNow;
+                updated++;
+            }
+            await db.SaveChangesAsync(ct);
+        }
+
+        if (errors.Count > 50) errors = errors.Take(50).Append($"…and {errors.Count - 50} more.").ToList();
+        return new CustomerImportResult(total, created, updated, skipped, errors);
+    }
+
     // ---- helpers ----
     private async Task<List<CustomerListItem>> LoadAllAsync(CancellationToken ct)
     {
@@ -198,14 +323,15 @@ public sealed class CustomerAdminService(EcommerceDbContext db) : ICustomerAdmin
                 .ToListAsync(ct))
             .ToDictionary(x => x.UserId);
 
-        var subscribers = (await db.CustomerProfiles.Where(p => p.AcceptsEmailMarketing).Select(p => p.UserId).ToListAsync(ct))
-            .ToHashSet();
+        var profiles = (await db.CustomerProfiles.Select(p => new { p.UserId, p.AcceptsEmailMarketing, p.Tags }).ToListAsync(ct))
+            .ToDictionary(p => p.UserId);
 
         return customers.Select(c =>
         {
             var a = agg.GetValueOrDefault(c.UserId);
+            var p = profiles.GetValueOrDefault(c.UserId);
             return new CustomerListItem(c.UserId, c.FullName, c.Email, c.PhoneNumber,
-                a?.Count ?? 0, a?.Spent ?? 0m, a?.Last, subscribers.Contains(c.UserId), c.CreatedAt);
+                a?.Count ?? 0, a?.Spent ?? 0m, a?.Last, p?.AcceptsEmailMarketing ?? false, SplitTags(p?.Tags), c.CreatedAt);
         }).ToList();
     }
 
@@ -233,7 +359,54 @@ public sealed class CustomerAdminService(EcommerceDbContext db) : ICustomerAdmin
 
     private static string? NormalizeTags(string? tags) =>
         string.IsNullOrWhiteSpace(tags) ? null
-        : string.Join(",", tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct());
+        : string.Join(",", tags.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct());
+
+    private static string? MergeTags(string? existing, string? incoming)
+    {
+        var merged = new List<string>();
+        merged.AddRange(SplitTags(existing));
+        merged.AddRange(SplitTags(incoming));
+        var distinct = merged.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return distinct.Count == 0 ? null : string.Join(",", distinct);
+    }
+
+    private static bool Truthy(string? v) =>
+        v is not null && v.Trim().ToLowerInvariant() is "yes" or "true" or "1" or "y";
+
+    // Minimal RFC-4180-ish CSV reader (quotes, escaped "" , embedded commas/newlines).
+    private static List<string[]> ParseCsv(string text)
+    {
+        var rows = new List<string[]>();
+        var field = new StringBuilder();
+        var record = new List<string>();
+        var inQuotes = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (inQuotes)
+            {
+                if (ch == '"')
+                {
+                    if (i + 1 < text.Length && text[i + 1] == '"') { field.Append('"'); i++; }
+                    else inQuotes = false;
+                }
+                else field.Append(ch);
+            }
+            else
+            {
+                switch (ch)
+                {
+                    case '"': inQuotes = true; break;
+                    case ',': record.Add(field.ToString()); field.Clear(); break;
+                    case '\r': break;
+                    case '\n': record.Add(field.ToString()); field.Clear(); rows.Add(record.ToArray()); record = []; break;
+                    default: field.Append(ch); break;
+                }
+            }
+        }
+        if (field.Length > 0 || record.Count > 0) { record.Add(field.ToString()); rows.Add(record.ToArray()); }
+        return rows;
+    }
 
     private static IReadOnlyList<string> SplitTags(string? tags) =>
         string.IsNullOrWhiteSpace(tags) ? []

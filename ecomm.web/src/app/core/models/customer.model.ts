@@ -7,7 +7,21 @@ export interface CustomerListItem {
   totalSpent: number;
   lastOrderAt: string | null;
   acceptsEmailMarketing: boolean;
+  tags: string[];
   createdAt: string;
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
+}
+
+export interface CustomerImportResult {
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
 }
 
 export interface CustomerAddress {
