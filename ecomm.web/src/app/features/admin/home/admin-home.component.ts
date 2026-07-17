@@ -45,7 +45,7 @@ import { Dashboard } from '../../../core/models/admin-catalog.model';
           <div class="mb-6 rounded-xl border border-violet-200 bg-violet-50 p-5">
             <h2 class="font-semibold text-violet-900">✨ Quick start with AI</h2>
             <p class="text-sm text-violet-700/80 mt-0.5 mb-3">New store? Let AI do the heavy lifting — you can edit everything afterwards.</p>
-            <div class="grid sm:grid-cols-3 gap-3">
+            <div class="grid sm:grid-cols-2 gap-3">
               <a routerLink="/admin/ai/catalog" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
                 <div class="text-sm font-medium text-slate-800">Generate a catalog</div>
                 <div class="text-xs text-slate-500 mt-0.5">Pick a store type → products in seconds.</div>
@@ -53,10 +53,6 @@ import { Dashboard } from '../../../core/models/admin-catalog.model';
               <a routerLink="/admin/ai/import" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
                 <div class="text-sm font-medium text-slate-800">Import your products</div>
                 <div class="text-xs text-slate-500 mt-0.5">Moving from Shopify/Woo/Wix or a spreadsheet.</div>
-              </a>
-              <a routerLink="/admin/pages" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
-                <div class="text-sm font-medium text-slate-800">Create a page</div>
-                <div class="text-xs text-slate-500 mt-0.5">Describe an About or FAQ → built for you.</div>
               </a>
             </div>
           </div>
