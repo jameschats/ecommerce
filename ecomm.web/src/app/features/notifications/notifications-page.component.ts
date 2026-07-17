@@ -10,7 +10,7 @@ import { NotificationService } from '../../core/services/notification.service';
   selector: 'app-notifications-page',
   imports: [DatePipe],
   template: `
-    <div class="max-w-2xl">
+    <div [class]="isAdmin ? 'max-w-2xl mx-auto p-6' : 'max-w-2xl'">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold text-slate-800">Notifications</h2>
         <div class="flex items-center gap-3">
@@ -48,6 +48,10 @@ import { NotificationService } from '../../core/services/notification.service';
 export class NotificationsPageComponent implements OnInit {
   private readonly svc = inject(NotificationService);
   private readonly router = inject(Router);
+
+  /** In the admin shell this page needs its own padding/centering (the admin <main> has none);
+   *  in the account section the layout already pads the content, so leave it alone. */
+  get isAdmin(): boolean { return this.router.url.startsWith('/admin'); }
 
   readonly items = signal<AppNotification[]>([]);
   readonly loading = signal(true);
