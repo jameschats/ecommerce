@@ -18,8 +18,8 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
           <p class="text-sm text-violet-700/80 mt-1">No spreadsheet yet? Pick a store type and let AI create products you can edit.</p>
         </a>
         <a routerLink="/admin/ai/import" class="block rounded-xl border border-violet-200 bg-violet-50 p-5 hover:bg-violet-100 transition">
-          <div class="font-medium text-violet-800">✨ Import from any spreadsheet</div>
-          <p class="text-sm text-violet-700/80 mt-1">Already have a product file in any layout? AI matches your columns to ours.</p>
+          <div class="font-medium text-violet-800">✨ Import / migrate from any spreadsheet</div>
+          <p class="text-sm text-violet-700/80 mt-1">Moving from Shopify, WooCommerce, Wix, or any layout? AI matches your columns to ours.</p>
         </a>
       </div>
 

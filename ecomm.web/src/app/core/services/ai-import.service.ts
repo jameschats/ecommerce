@@ -11,6 +11,8 @@ export interface AiImportAnalysis {
   sampleRows: string[][];
   mapping: Record<string, string>;
   fields: AiImportField[];
+  detectedFormat: string | null;
+  formats: AiImportField[];
 }
 
 /** AI-3 "bring your own file" import: AI maps the merchant's columns → our schema; review, then import. */
@@ -20,9 +22,10 @@ export class AiImportService {
   private readonly base = `${API_BASE_URL}/admin/ai/import`;
   private unwrap<T>(o: Observable<ApiResponse<T>>): Observable<T> { return o.pipe(map((r) => r.data as T)); }
 
-  analyze(file: File): Observable<AiImportAnalysis> {
+  analyze(file: File, format?: string): Observable<AiImportAnalysis> {
     const fd = new FormData();
     fd.append('file', file);
+    if (format) fd.append('format', format);
     return this.unwrap(this.http.post<ApiResponse<AiImportAnalysis>>(`${this.base}/analyze`, fd));
   }
 

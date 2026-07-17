@@ -16,13 +16,17 @@ public sealed record AiImportAnalysis(
     IReadOnlyList<string> Headers,
     IReadOnlyList<IReadOnlyList<string>> SampleRows,
     IReadOnlyDictionary<string, string> Mapping,
-    IReadOnlyList<AiImportField> Fields);
+    IReadOnlyList<AiImportField> Fields,
+    string? DetectedFormat,
+    IReadOnlyList<AiImportField> Formats);
 
 public interface IAiImportService
 {
-    /// <summary>Read a merchant's arbitrary .xlsx/.csv, ask the AI to map its columns → our schema (metered),
-    /// and return the mapping + sample rows for the merchant to review/correct.</summary>
-    Task<AiImportAnalysis> AnalyzeAsync(Stream stream, string? fileName, CancellationToken ct = default);
+    /// <summary>Read a merchant's arbitrary .xlsx/.csv. Known platform columns (Shopify/Woo/Wix) map via a
+    /// preset; anything left over is mapped by the AI (metered only when the AI is actually called). Returns
+    /// the merged mapping + sample rows for the merchant to review/correct. <paramref name="format"/> forces a
+    /// platform preset (else it's auto-detected).</summary>
+    Task<AiImportAnalysis> AnalyzeAsync(Stream stream, string? fileName, string? format = null, CancellationToken ct = default);
 
     /// <summary>Transform the file per the confirmed mapping, auto-create any missing categories, and import
     /// through the existing product importer. Not metered (the AI spend happened at analyze time).</summary>
@@ -34,7 +38,7 @@ public interface IAiImportService
 /// this service only does the AI column-mapping and the transform to our canonical column layout, so a
 /// merchant can upload a spreadsheet in any shape and preview/confirm before anything is written.
 /// </summary>
-public sealed class AiImportService(EcommerceDbContext db, IAiCreditService credits, IProductImportService importer) : IAiImportService
+public sealed class AiImportService(EcommerceDbContext db, IAiCreditService credits, IAiService ai, IProductImportService importer) : IAiImportService
 {
     // target field value → canonical header the importer recognises
     private static readonly IReadOnlyDictionary<string, string> Canonical = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -54,21 +58,44 @@ public sealed class AiImportService(EcommerceDbContext db, IAiCreditService cred
         new AiImportField("ignore", "Ignore this column"),
     };
     private static readonly HashSet<string> ValidTargets = new(Fields.Select(f => f.Value), StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyList<AiImportField> Formats =
+        MigrationPresets.All.Select(p => new AiImportField(p.Key, p.Label)).ToList();
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
-    public async Task<AiImportAnalysis> AnalyzeAsync(Stream stream, string? fileName, CancellationToken ct = default)
+    public async Task<AiImportAnalysis> AnalyzeAsync(Stream stream, string? fileName, string? format = null, CancellationToken ct = default)
     {
         var (headers, rows) = ReadTable(stream, fileName);
         if (headers.Count == 0) throw new AppException("No columns found in the file.", 400);
 
-        var mapping = await credits.MeterAsync(AiCreditPricing.ColumnMap, async ai =>
+        // 1) Deterministic platform preset for recognised columns (free, accurate).
+        var preset = MigrationPresets.Get(format) ?? MigrationPresets.Detect(headers);
+        var mapping = new Dictionary<string, string>(StringComparer.Ordinal);
+        var unmapped = new List<string>();
+        foreach (var h in headers)
         {
-            var c = await ai.CompleteAsync(new AiPrompt(MapSystem, BuildMapUser(headers, rows), Json: true, MaxTokens: 800), ct);
-            return (ParseMapping(c.Text, headers), c);
-        }, ct);
+            if (preset is not null && preset.Map.TryGetValue(h, out var t) && ValidTargets.Contains(t))
+                mapping[h] = t.ToLowerInvariant();
+            else
+                unmapped.Add(h);
+        }
+
+        // 2) AI maps only what the preset didn't cover (metered only when the AI is actually called).
+        if (unmapped.Count > 0 && ai.Enabled)
+        {
+            var aiMap = await credits.MeterAsync(AiCreditPricing.ColumnMap, async svc =>
+            {
+                var c = await svc.CompleteAsync(new AiPrompt(MapSystem, BuildMapUser(unmapped, headers, rows), Json: true, MaxTokens: 800), ct);
+                return (ParseMapping(c.Text, unmapped), c);
+            }, ct);
+            foreach (var h in unmapped) mapping[h] = aiMap.TryGetValue(h, out var t) ? t : "ignore";
+        }
+        else
+        {
+            foreach (var h in unmapped) mapping[h] = "ignore";
+        }
 
         var sample = rows.Take(5).Select(r => (IReadOnlyList<string>)Align(r, headers.Count)).ToList();
-        return new AiImportAnalysis(headers, sample, mapping, Fields);
+        return new AiImportAnalysis(headers, sample, mapping, Fields, preset?.Label, Formats);
     }
 
     public async Task<ImportResultDto> ApplyAsync(Stream stream, string? fileName, IReadOnlyDictionary<string, string> mapping, long? userId, CancellationToken ct = default)
@@ -135,7 +162,9 @@ public sealed class AiImportService(EcommerceDbContext db, IAiCreditService cred
             for (var c = 0; c < outputs.Count; c++)
             {
                 var idx = outputs[c].SourceIndex;
-                ws.Cell(r, c + 1).Value = idx < row.Length ? StripHtml(row[idx]) : string.Empty;
+                var val = idx < row.Length ? StripHtml(row[idx]) : string.Empty;
+                if (outputs[c].Header == "ImageUrl") val = FirstUrl(val);   // Woo/Shopify pack multiple images per cell
+                ws.Cell(r, c + 1).Value = val;
             }
             r++;
         }
@@ -152,14 +181,16 @@ public sealed class AiImportService(EcommerceDbContext db, IAiCreditService cred
         "Use \"ignore\" for internal IDs, handles/slugs, timestamps, inventory quantities/locations, SEO fields, variant plumbing. " +
         "Return STRICT JSON: {\"mapping\": {\"<sourceHeader>\": \"<target>\"}} with exactly one entry per source header. Output ONLY JSON.";
 
-    private static string BuildMapUser(IReadOnlyList<string> headers, IReadOnlyList<string[]> rows)
+    private static string BuildMapUser(IReadOnlyList<string> subset, IReadOnlyList<string> allHeaders, IReadOnlyList<string[]> rows)
     {
         var sb = new StringBuilder("Source columns with sample values:\n");
-        for (var i = 0; i < headers.Count; i++)
+        foreach (var h in subset)
         {
-            var samples = rows.Take(4).Select(r => i < r.Length ? r[i].Trim() : "")
+            var i = -1;
+            for (var k = 0; k < allHeaders.Count; k++) if (allHeaders[k] == h) { i = k; break; }
+            var samples = rows.Take(4).Select(r => i >= 0 && i < r.Length ? r[i].Trim() : "")
                 .Where(v => v.Length > 0).Take(3).Select(v => "\"" + Trunc(StripHtml(v), 40).Replace("\"", "'") + "\"");
-            sb.AppendLine($"- \"{headers[i]}\": [{string.Join(", ", samples)}]");
+            sb.AppendLine($"- \"{h}\": [{string.Join(", ", samples)}]");
         }
         return sb.ToString();
     }
@@ -252,6 +283,14 @@ public sealed class AiImportService(EcommerceDbContext db, IAiCreditService cred
 
     private static string StripHtml(string s) =>
         string.IsNullOrEmpty(s) ? s : System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", string.Empty).Trim();
+
+    /// <summary>First URL from a cell that may pack several (comma/newline/semicolon separated).</summary>
+    private static string FirstUrl(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return s;
+        var i = s.IndexOfAny(new[] { ',', '\n', '\r', ';' });
+        return (i < 0 ? s : s[..i]).Trim();
+    }
 
     private static string Trunc(string s, int max) { s = (s ?? string.Empty).Trim(); return s.Length <= max ? s : s[..max]; }
 }

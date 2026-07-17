@@ -19,7 +19,7 @@ import { ImportJobResult } from '../../../core/models/admin-catalog.model';
         <h1 class="text-xl font-bold text-slate-900">Import from any spreadsheet</h1>
         <a routerLink="/admin/ai" class="text-sm text-slate-500 hover:underline">AI credits ↗</a>
       </div>
-      <p class="text-sm text-slate-500 mb-5">Upload your product list in <em>any</em> column layout (.xlsx or .csv). AI matches your columns to ours — review the mapping, then import. New categories are created for you.</p>
+      <p class="text-sm text-slate-500 mb-5">Migrating from Shopify, WooCommerce or Wix — or any spreadsheet in any layout (.xlsx or .csv)? We recognise the big platforms automatically and AI maps the rest. Review the mapping, then import; new categories are created for you.</p>
 
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
@@ -39,6 +39,15 @@ import { ImportJobResult } from '../../../core/models/admin-catalog.model';
         @if (analysis(); as a) {
           <h2 class="font-semibold text-slate-800 mb-1">Review the column mapping</h2>
           <p class="text-sm text-slate-500 mb-3">We matched your columns to ours. Change any that look wrong before importing.</p>
+          <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
+            @if (a.detectedFormat) { <span class="px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs">Detected: {{ a.detectedFormat }}</span> }
+            <label class="text-slate-500">Treat as</label>
+            <select [(ngModel)]="format" name="fmt" (change)="reanalyze()" [disabled]="analyzing()" class="input py-1 w-auto">
+              <option value="">Auto-detect</option>
+              @for (f of a.formats; track f.value) { <option [value]="f.value">{{ f.label }}</option> }
+            </select>
+            @if (analyzing()) { <span class="text-violet-600">Re-checking…</span> }
+          </div>
           <div class="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
             <table class="w-full text-sm">
               <thead class="bg-slate-50 text-slate-500 text-left">
@@ -97,15 +106,24 @@ export class AdminAiImportComponent implements OnInit {
 
   file: File | null = null;
   mapping: Record<string, string> = {};
+  format = '';
 
   ngOnInit(): void { this.ai.ensureStatus(); }
 
   onFile(event: Event): void {
     this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.format = '';
     this.analysis.set(null); this.result.set(null); this.error.set(null); this.message.set(null);
+    if (this.file) this.runAnalyze();
+  }
+
+  /** Re-run mapping when the merchant forces a platform format ("Treat as…"). */
+  reanalyze(): void { this.runAnalyze(); }
+
+  private runAnalyze(): void {
     if (!this.file) return;
-    this.analyzing.set(true);
-    this.api.analyze(this.file).subscribe({
+    this.analyzing.set(true); this.error.set(null);
+    this.api.analyze(this.file, this.format || undefined).subscribe({
       next: (a) => { this.analysis.set(a); this.mapping = { ...a.mapping }; this.analyzing.set(false); },
       error: (e: unknown) => { this.analyzing.set(false); this.error.set(this.msg(e, true)); },
     });

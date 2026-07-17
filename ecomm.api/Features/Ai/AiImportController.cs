@@ -16,10 +16,10 @@ public sealed class AiImportController(IAiImportService svc) : ControllerBase
 {
     /// <summary>Upload a file → AI proposes a column → field mapping (metered) for the merchant to review.</summary>
     [HttpPost("analyze")]
-    public async Task<IActionResult> Analyze(IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> Analyze(IFormFile file, [FromForm] string? format, CancellationToken ct)
     {
         using var ms = await BufferAsync(file, ct);
-        return Ok(ApiResponse<AiImportAnalysis>.Ok(await svc.AnalyzeAsync(ms, file.FileName, ct)));
+        return Ok(ApiResponse<AiImportAnalysis>.Ok(await svc.AnalyzeAsync(ms, file.FileName, format, ct)));
     }
 
     /// <summary>Re-upload the file + confirmed mapping → transform and import (auto-creates missing categories).</summary>

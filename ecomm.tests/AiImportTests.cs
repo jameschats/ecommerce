@@ -27,8 +27,9 @@ public class AiImportTests
         db.Plans.Add(new Plan { PlanId = 1, Name = "P", Slug = "p", AiCredits = 100, IsActive = true });
         db.TenantSubscriptions.Add(new TenantSubscription { PlanId = 1, Status = "Trial", CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
-        var credits = new AiCreditService(db, new CannedAi(aiResponse), new HttpContextAccessor());
-        return new AiImportService(db, credits, new ProductImportService(db));
+        var ai = new CannedAi(aiResponse);
+        var credits = new AiCreditService(db, ai, new HttpContextAccessor());
+        return new AiImportService(db, credits, ai, new ProductImportService(db));
     }
 
     private static MemoryStream CsvStream() => new(Encoding.UTF8.GetBytes(Csv));
