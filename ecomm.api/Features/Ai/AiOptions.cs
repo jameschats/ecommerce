@@ -14,7 +14,10 @@ public sealed class AiOptions
 public sealed class OpenAiOptions
 {
     public string ApiKey { get; set; } = "";
-    public string Model { get; set; } = "gpt-5-mini";          // cheap, capable bulk model (platform-paid)
+    // Default to a NON-reasoning mini: cheap, fast, and reliably returns JSON. GPT-5 minis are reasoning
+    // models that can spend a small token budget on hidden reasoning and return empty content in JSON mode,
+    // which would break catalog/mapping/SEO/page generation. Override via Ai:OpenAi:Model if desired.
+    public string Model { get; set; } = "gpt-4.1-mini";
     public string BaseUrl { get; set; } = "https://api.openai.com/";
     public int TimeoutSeconds { get; set; } = 60;
 
