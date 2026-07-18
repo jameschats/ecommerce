@@ -12,7 +12,7 @@ export class AuthService {
   private readonly storage = inject(TokenStorageService);
   private readonly base = `${API_BASE_URL}/auth`;
 
-  readonly currentUser = signal<AuthUser | null>(this.storage.getUser());
+  readonly currentUser = signal<AuthUser | null>(this.restoreSession());
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
   readonly isAdmin = computed(() => this.currentUser()?.roles?.includes('Admin') ?? false);
   readonly isSuperAdmin = computed(() => this.currentUser()?.roles?.includes('SuperAdmin') ?? false);
@@ -75,6 +75,31 @@ export class AuthService {
     this.storage.setSession(token, '', user);
     this.currentUser.set(user);
     return true;
+  }
+
+  /**
+   * Hydrate the stored session, but only if it's actually usable. A dead access token with no
+   * refresh token used to leave the app "logged in" forever: guards let you through, every API call
+   * 401'd, and SignalR retried its 401 negotiate on a loop. If it can't be recovered, drop it so the
+   * user simply sees a login screen. (An expired access token WITH a refresh token is kept — the
+   * auth interceptor silently refreshes it on the next call.)
+   */
+  private restoreSession(): AuthUser | null {
+    const token = this.storage.getAccessToken();
+    if (!token || (this.isExpired(token) && !this.storage.getRefreshToken())) {
+      this.storage.clear();
+      return null;
+    }
+    return this.storage.getUser();
+  }
+
+  private isExpired(token: string): boolean {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return typeof p.exp === 'number' && p.exp * 1000 <= Date.now();
+    } catch {
+      return true;   // unparseable = unusable
+    }
   }
 
   private decodeUser(token: string): AuthUser | null {
