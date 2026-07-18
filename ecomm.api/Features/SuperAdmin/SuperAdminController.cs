@@ -50,6 +50,45 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
         return Ok(ApiResponse<object>.Ok(new { }, "Tenant activated."));
     }
 
+    [HttpGet("plans")]
+    public async Task<IActionResult> Plans(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<PlanOptionDto>>.Ok(await svc.ListPlansAsync(ct)));
+
+    [HttpPut("tenants/{id:long}/plan")]
+    public async Task<IActionResult> ChangePlan(long id, [FromBody] ChangePlanRequest req, CancellationToken ct)
+    {
+        await svc.ChangePlanAsync(id, req.PlanId, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Plan changed."));
+    }
+
+    [HttpPut("tenants/{id:long}/trial")]
+    public async Task<IActionResult> SetTrial(long id, [FromBody] SetTrialRequest req, CancellationToken ct)
+    {
+        await svc.SetTrialAsync(id, req.TrialEndsAt, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Trial updated."));
+    }
+
+    [HttpPut("tenants/{id:long}/tags")]
+    public async Task<IActionResult> SetTags(long id, [FromBody] SetTagsRequest req, CancellationToken ct)
+    {
+        await svc.SetTagsAsync(id, req.Tags, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Tags saved."));
+    }
+
+    [HttpPost("tenants/{id:long}/notes")]
+    public async Task<IActionResult> AddNote(long id, [FromBody] AddNoteRequest req, CancellationToken ct)
+    {
+        await svc.AddNoteAsync(id, req.Note, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Note added."));
+    }
+
+    [HttpPost("tenants/{id:long}/offboard")]
+    public async Task<IActionResult> Offboard(long id, CancellationToken ct)
+    {
+        await svc.OffboardAsync(id, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Store off-boarded."));
+    }
+
     /// <summary>Act as a store: mode=view (read-only, default) or full. Returns a short-lived token + the store URL.</summary>
     [HttpPost("tenants/{id:long}/impersonate")]
     public async Task<IActionResult> Impersonate(long id, [FromQuery] string mode = "view", CancellationToken ct = default)
@@ -80,3 +119,7 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
 
 public sealed record SetStandingRequest(string Standing, string? Reason);
 public sealed record AddBlockRequest(string Type, string Value, string? Reason);
+public sealed record ChangePlanRequest(int PlanId);
+public sealed record SetTrialRequest(DateTime? TrialEndsAt);
+public sealed record SetTagsRequest(string? Tags);
+public sealed record AddNoteRequest(string Note);

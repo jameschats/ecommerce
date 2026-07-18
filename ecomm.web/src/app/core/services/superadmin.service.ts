@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
-  AuditEntry, BlocklistEntry, ImpersonationResult, PlatformRevenue, TenantDetail, TenantSummary,
+  AuditEntry, BlocklistEntry, ImpersonationResult, PlanOption, PlatformRevenue, TenantDetail, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -27,6 +27,22 @@ export class SuperAdminService {
   }
   suspend(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/suspend`, {}); }
   activate(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/activate`, {}); }
+  offboard(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/offboard`, {}); }
+  plans(): Observable<PlanOption[]> {
+    return this.http.get<ApiResponse<PlanOption[]>>(`${this.base}/plans`).pipe(map((r) => r.data ?? []));
+  }
+  changePlan(id: number, planId: number): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/plan`, { planId });
+  }
+  setTrial(id: number, trialEndsAt: string | null): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/trial`, { trialEndsAt });
+  }
+  setTags(id: number, tags: string | null): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/tags`, { tags });
+  }
+  addNote(id: number, note: string): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/notes`, { note });
+  }
   impersonate(id: number, mode: 'view' | 'full'): Observable<ImpersonationResult> {
     return this.http.post<ApiResponse<ImpersonationResult>>(`${this.base}/tenants/${id}/impersonate?mode=${mode}`, {}).pipe(map((r) => r.data as ImpersonationResult));
   }

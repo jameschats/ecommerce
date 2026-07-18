@@ -23,6 +23,7 @@ export interface Contact {
 }
 
 export interface TenantSubscriptionInfo {
+  planId: number | null;
   planName: string | null;
   status: string | null;
   trialEndsAt: string | null;
@@ -36,6 +37,9 @@ export interface TenantUsage {
   aiCreditBalance: number;
 }
 
+export interface PlanOption { planId: number; name: string; monthlyPrice: number; isActive: boolean; }
+export interface TenantNote { tenantNoteId: number; adminUserId: number; note: string; createdAt: string; }
+
 export interface TenantDetail {
   summary: TenantSummary;
   contacts: Contact[];
@@ -45,6 +49,9 @@ export interface TenantDetail {
   customDomain: string | null;
   customDomainVerified: boolean;
   recentActivity: AuditEntry[];
+  tags: string[];
+  notes: TenantNote[];
+  offboardedAt: string | null;
 }
 
 export interface PlanRevenueRow { plan: string; activeCount: number; mrr: number; }

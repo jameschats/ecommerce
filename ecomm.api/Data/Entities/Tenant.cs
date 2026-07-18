@@ -21,6 +21,8 @@ public class Tenant
     public string Standing { get; set; } = "Good";   // Good | Trusted | Watch | Flagged | Blacklisted
     public string? StandingReason { get; set; }
     public DateTime? StandingUpdatedAt { get; set; }
+    public string? PlatformTags { get; set; }        // comma-separated, platform-owner set (migration 173)
+    public DateTime? OffboardedAt { get; set; }       // soft off-boarding, distinct from SuspendedAt
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

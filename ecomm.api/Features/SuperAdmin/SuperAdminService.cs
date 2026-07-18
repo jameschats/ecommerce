@@ -15,13 +15,16 @@ public sealed record TenantSummaryDto(
 
 public sealed record ContactDto(long UserId, string? Email, string? FullName, string? PhoneNumber, string Roles, DateTime? LastLoginAt);
 
-public sealed record TenantSubscriptionInfo(string? PlanName, string? Status, DateTime? TrialEndsAt, DateTime? CurrentPeriodEnd, string? RazorpaySubscriptionId);
+public sealed record TenantSubscriptionInfo(int? PlanId, string? PlanName, string? Status, DateTime? TrialEndsAt, DateTime? CurrentPeriodEnd, string? RazorpaySubscriptionId);
 public sealed record TenantUsageDto(int Products, int Orders, decimal Gmv, int AiCreditBalance);
+public sealed record PlanOptionDto(int PlanId, string Name, decimal MonthlyPrice, bool IsActive);
+public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, DateTime CreatedAt);
 
 public sealed record TenantDetailDto(
     TenantSummaryDto Summary, IReadOnlyList<ContactDto> Contacts, string? StandingReason,
     TenantSubscriptionInfo Subscription, TenantUsageDto Usage,
-    string? CustomDomain, bool CustomDomainVerified, IReadOnlyList<AuditDto> RecentActivity);
+    string? CustomDomain, bool CustomDomainVerified, IReadOnlyList<AuditDto> RecentActivity,
+    IReadOnlyList<string> Tags, IReadOnlyList<NoteDto> Notes, DateTime? OffboardedAt);
 
 public sealed record PlanRevenueRow(string Plan, int ActiveCount, decimal Mrr);
 public sealed record PlatformRevenueDto(
@@ -39,6 +42,12 @@ public interface ISuperAdminService
     Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
     Task SetActiveAsync(long tenantId, bool active, long adminUserId, CancellationToken ct);
+    Task<IReadOnlyList<PlanOptionDto>> ListPlansAsync(CancellationToken ct);
+    Task ChangePlanAsync(long tenantId, int planId, long adminUserId, CancellationToken ct);
+    Task SetTrialAsync(long tenantId, DateTime? trialEndsAt, long adminUserId, CancellationToken ct);
+    Task SetTagsAsync(long tenantId, string? tags, long adminUserId, CancellationToken ct);
+    Task AddNoteAsync(long tenantId, string note, long adminUserId, CancellationToken ct);
+    Task OffboardAsync(long tenantId, long adminUserId, CancellationToken ct);
     Task<ImpersonationResult> ImpersonateAsync(long tenantId, string mode, long adminUserId, CancellationToken ct);
     Task<IReadOnlyList<BlocklistDto>> ListBlocklistAsync(CancellationToken ct);
     Task AddBlockAsync(string type, string value, string? reason, long adminUserId, CancellationToken ct);
@@ -104,7 +113,7 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
 
         var sub = await db.TenantSubscriptions.IgnoreQueryFilters().Include(x => x.Plan).AsNoTracking()
             .Where(x => x.TenantId == tenantId).OrderByDescending(x => x.TenantSubscriptionId).FirstOrDefaultAsync(ct);
-        var subInfo = new TenantSubscriptionInfo(sub?.Plan?.Name, sub?.Status, t.TrialEndsAt, sub?.CurrentPeriodEnd, sub?.RazorpaySubscriptionId);
+        var subInfo = new TenantSubscriptionInfo(sub?.PlanId, sub?.Plan?.Name, sub?.Status, t.TrialEndsAt, sub?.CurrentPeriodEnd, sub?.RazorpaySubscriptionId);
 
         var products = await db.Products.IgnoreQueryFilters().CountAsync(p => p.TenantId == tenantId && !p.IsDeleted, ct);
         var gmv = await db.Orders.IgnoreQueryFilters()
@@ -115,10 +124,74 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         var usage = new TenantUsageDto(products, summary.OrderCount, gmv, aiBalance);
 
         var recent = await GetAuditAsync(tenantId, 15, ct);   // read before logging this view
+        var notes = await db.TenantNotes.AsNoTracking().Where(n => n.TenantId == tenantId)
+            .OrderByDescending(n => n.TenantNoteId).Take(50)
+            .Select(n => new NoteDto(n.TenantNoteId, n.AdminUserId, n.Note, n.CreatedAt)).ToListAsync(ct);
 
         await LogAsync(adminUserId, tenantId, "ViewTenant", null, ct);
         return new TenantDetailDto(summary, contacts, t.StandingReason, subInfo, usage,
-            t.CustomDomain, t.CustomDomainVerified, recent);
+            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt);
+    }
+
+    public async Task<IReadOnlyList<PlanOptionDto>> ListPlansAsync(CancellationToken ct) =>
+        await db.Plans.AsNoTracking().OrderBy(p => p.DisplayOrder).ThenBy(p => p.PlanId)
+            .Select(p => new PlanOptionDto(p.PlanId, p.Name, p.MonthlyPrice, p.IsActive)).ToListAsync(ct);
+
+    public async Task ChangePlanAsync(long tenantId, int planId, long adminUserId, CancellationToken ct)
+    {
+        var t = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct)
+                ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+        var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == planId, ct)
+                   ?? throw new AppException("Plan not found.", StatusCodes.Status400BadRequest);
+        var sub = await db.TenantSubscriptions.IgnoreQueryFilters()
+            .Where(s => s.TenantId == tenantId).OrderByDescending(s => s.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+        if (sub is not null) { sub.PlanId = planId; sub.UpdatedAt = DateTime.UtcNow; }
+        t.PlanId = planId;
+        t.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, tenantId, "ChangePlan", plan.Name, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task SetTrialAsync(long tenantId, DateTime? trialEndsAt, long adminUserId, CancellationToken ct)
+    {
+        var t = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct)
+                ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+        t.TrialEndsAt = trialEndsAt;
+        t.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, tenantId, "SetTrial", trialEndsAt?.ToString("yyyy-MM-dd") ?? "cleared", ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task SetTagsAsync(long tenantId, string? tags, long adminUserId, CancellationToken ct)
+    {
+        var t = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct)
+                ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+        t.PlatformTags = NormalizeTags(tags);
+        t.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, tenantId, "SetTags", t.PlatformTags, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task AddNoteAsync(long tenantId, string note, long adminUserId, CancellationToken ct)
+    {
+        note = (note ?? "").Trim();
+        if (note.Length == 0) throw new AppException("Note is empty.", StatusCodes.Status400BadRequest);
+        if (!await db.Tenants.AnyAsync(x => x.TenantId == tenantId, ct))
+            throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+        db.TenantNotes.Add(new TenantNote { TenantId = tenantId, AdminUserId = adminUserId, Note = note, CreatedAt = DateTime.UtcNow });
+        await LogAsync(adminUserId, tenantId, "AddNote", null, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task OffboardAsync(long tenantId, long adminUserId, CancellationToken ct)
+    {
+        var t = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct)
+                ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+        t.OffboardedAt = DateTime.UtcNow;
+        t.IsActive = false;   // TenantResolutionMiddleware then 404s the storefront
+        t.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, tenantId, "Offboard", null, ct);
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct)
@@ -152,10 +225,19 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
                 ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
         t.IsActive = active;
         t.SuspendedAt = active ? null : DateTime.UtcNow;
+        if (active) t.OffboardedAt = null;   // reactivating clears both suspend and off-board
         t.UpdatedAt = DateTime.UtcNow;
         await LogAsync(adminUserId, tenantId, active ? "Activate" : "Suspend", null, ct);
         await db.SaveChangesAsync(ct);
     }
+
+    private static string? NormalizeTags(string? tags) =>
+        string.IsNullOrWhiteSpace(tags) ? null
+        : string.Join(",", tags.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct());
+
+    private static IReadOnlyList<string> SplitTags(string? tags) =>
+        string.IsNullOrWhiteSpace(tags) ? []
+        : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
     public async Task<ImpersonationResult> ImpersonateAsync(long tenantId, string mode, long adminUserId, CancellationToken ct)
     {
