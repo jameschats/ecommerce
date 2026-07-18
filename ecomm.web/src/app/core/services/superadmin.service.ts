@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
   AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
-  PlatformAnalytics, PlatformRevenue, SubStatusRow, TenantDetail, TenantSummary,
+  PlatformAnalytics, PlatformRevenue, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -77,6 +77,12 @@ export class SuperAdminService {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/blocklist`, { type, value, reason });
   }
   removeBlock(id: number): Observable<unknown> { return this.http.delete<ApiResponse<unknown>>(`${this.base}/blocklist/${id}`); }
+  diagnostics(id: number): Observable<TenantDiagnostics> {
+    return this.http.get<ApiResponse<TenantDiagnostics>>(`${this.base}/tenants/${id}/diagnostics`).pipe(map((r) => r.data as TenantDiagnostics));
+  }
+  resendNotification(historyId: number): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/notifications/${historyId}/resend`, {});
+  }
   audit(tenantId?: number, limit = 100): Observable<AuditEntry[]> {
     const q = tenantId ? `?tenantId=${tenantId}&limit=${limit}` : `?limit=${limit}`;
     return this.http.get<ApiResponse<AuditEntry[]>>(`${this.base}/audit${q}`).pipe(map((r) => r.data ?? []));

@@ -3,6 +3,7 @@ using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Auth.Services;
+using ecomm.api.Features.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -25,6 +26,9 @@ public sealed record AiCreditPackDto(int AiCreditPackId, string Name, int Credit
 public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder);
 public sealed record PackUpsert(string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
 public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, DateTime CreatedAt);
+
+public sealed record FailedNotificationDto(long Id, string Channel, string Recipient, string? Subject, string? Error, DateTime CreatedAt);
+public sealed record TenantDiagnosticsDto(int FailedNotifications, int OrdersNeedingAction, int LowStock, List<FailedNotificationDto> RecentFailures);
 
 public sealed record BillingChargeDto(long Id, long TenantId, decimal Amount, string Status, DateTime BilledAt, DateTime? PeriodStart, DateTime? PeriodEnd, string? RazorpayPaymentId);
 public sealed record SubStatusRow(long TenantId, string Name, string? Slug, string? PlanName, string Status, DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt);
@@ -60,6 +64,8 @@ public interface ISuperAdminService
     Task<IReadOnlyList<SubStatusRow>> SubscriptionsAsync(string? status, CancellationToken ct);
     Task<IReadOnlyList<BillingChargeDto>> RecentChargesAsync(int limit, CancellationToken ct);
     Task RecordManualPaymentAsync(long tenantId, int planId, decimal amount, string? reference, long adminUserId, CancellationToken ct);
+    Task<TenantDiagnosticsDto> DiagnosticsAsync(long tenantId, CancellationToken ct);
+    Task ResendNotificationAsync(long historyId, long adminUserId, CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
     Task SetActiveAsync(long tenantId, bool active, long adminUserId, CancellationToken ct);
     Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct);
@@ -86,7 +92,8 @@ public interface ISuperAdminService
 /// IgnoreQueryFilters() — this is the one place cross-tenant access is allowed
 /// (design-v2 §6.1). Mutations are written to PlatformAccessLog.
 /// </summary>
-public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy, ICurrentTenantService tenant) : ISuperAdminService
+public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy, ICurrentTenantService tenant,
+    IEmailSender email, ISmsSender sms) : ISuperAdminService
 {
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
         { "Good", "Trusted", "Watch", "Flagged", "Blacklisted" };
@@ -277,6 +284,49 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             t.UpdatedAt = now;
 
             db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = tenantId, Action = "RecordPayment", Detail = $"{amount} — {plan.Name}", CreatedAt = now });
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    public async Task<TenantDiagnosticsDto> DiagnosticsAsync(long tenantId, CancellationToken ct)
+    {
+        var failed = await db.NotificationHistory.IgnoreQueryFilters().CountAsync(n => n.TenantId == tenantId && n.Status == "Failed", ct);
+        var needAction = await db.Orders.IgnoreQueryFilters().CountAsync(o => o.TenantId == tenantId && (o.Status == "Paid" || o.Status == "Confirmed"), ct);
+        var lowStock = await db.Inventory.IgnoreQueryFilters().CountAsync(i => i.TenantId == tenantId && i.AvailableQty <= i.ReorderLevel, ct);
+        var recent = await db.NotificationHistory.IgnoreQueryFilters()
+            .Where(n => n.TenantId == tenantId && n.Status == "Failed")
+            .OrderByDescending(n => n.NotificationHistoryId).Take(10)
+            .Select(n => new FailedNotificationDto(n.NotificationHistoryId, n.Channel, n.Recipient, n.Subject, n.Error, n.CreatedAt))
+            .ToListAsync(ct);
+        return new TenantDiagnosticsDto(failed, needAction, lowStock, recent);
+    }
+
+    /// <summary>Re-send a previously-failed notification using its stored recipient/body. Logs a fresh history row.</summary>
+    public async Task ResendNotificationAsync(long historyId, long adminUserId, CancellationToken ct)
+    {
+        var h = await db.NotificationHistory.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(n => n.NotificationHistoryId == historyId, ct)
+                ?? throw new AppException("Notification not found.", StatusCodes.Status404NotFound);
+
+        using (tenant.BeginScope(h.TenantId))
+        {
+            string status = "Sent";
+            string? error = null;
+            try
+            {
+                if (h.Channel == "Email") await email.SendAsync(h.Recipient, h.Subject ?? "", h.Body ?? "", ct);
+                else await sms.SendAsync(h.Recipient, h.Body ?? "", ct);
+            }
+            catch (Exception ex)
+            {
+                status = "Failed";
+                error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
+            }
+            db.NotificationHistory.Add(new NotificationHistory
+            {
+                TemplateId = h.TemplateId, Channel = h.Channel, Recipient = h.Recipient, Subject = h.Subject, Body = h.Body,
+                Status = status, Error = error, SentAt = status == "Sent" ? DateTime.UtcNow : null, CreatedAt = DateTime.UtcNow,
+            });
+            db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = h.TenantId, Action = "ResendNotification", Detail = $"{h.Channel} → {h.Recipient}", CreatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync(ct);
         }
     }

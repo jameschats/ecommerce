@@ -110,6 +110,14 @@ export interface PlatformRevenue {
   byPlan: PlanRevenueRow[];
 }
 
+export interface FailedNotification { id: number; channel: string; recipient: string; subject: string | null; error: string | null; createdAt: string; }
+export interface TenantDiagnostics {
+  failedNotifications: number;
+  ordersNeedingAction: number;
+  lowStock: number;
+  recentFailures: FailedNotification[];
+}
+
 export interface StoreLeader { tenantId: number; name: string; slug: string | null; gmv: number; orders: number; }
 export interface PlatformGmvPoint { date: string; gmv: number; }
 export interface PlatformAnalytics {

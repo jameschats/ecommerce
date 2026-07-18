@@ -3,7 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SuperAdminService } from '../../core/services/superadmin.service';
-import { PlanOption, TenantDetail } from '../../core/models/superadmin.model';
+import { PlanOption, TenantDetail, TenantDiagnostics } from '../../core/models/superadmin.model';
 import { healthClass, standingClass } from './superadmin-ui';
 
 /** Deep single-store view: standing, lifecycle actions, subscription, usage/GMV, domain, contacts, recent activity. */
@@ -52,6 +52,31 @@ import { healthClass, standingClass } from './superadmin-ui';
           </div>
         }
       </div>
+
+      <!-- Diagnostics -->
+      @if (diag(); as dg) {
+        <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+          <h2 class="font-semibold text-slate-800 mb-2">Diagnostics</h2>
+          <div class="flex flex-wrap gap-4 text-sm mb-2">
+            <span [class]="dg.ordersNeedingAction ? 'text-amber-700' : 'text-slate-500'">{{ dg.ordersNeedingAction }} orders need action</span>
+            <span [class]="dg.lowStock ? 'text-amber-700' : 'text-slate-500'">{{ dg.lowStock }} low-stock items</span>
+            <span [class]="dg.failedNotifications ? 'text-red-600' : 'text-slate-500'">{{ dg.failedNotifications }} failed notifications</span>
+          </div>
+          @if (dg.recentFailures.length) {
+            <div class="border-t border-slate-100 pt-2">
+              @for (f of dg.recentFailures; track f.id) {
+                <div class="flex items-center justify-between text-sm border-b border-slate-50 py-1.5">
+                  <span class="min-w-0">
+                    <span class="text-slate-700">{{ f.channel }} → {{ f.recipient }}</span>
+                    <span class="block text-[11px] text-red-500 truncate">{{ f.error || 'failed' }}</span>
+                  </span>
+                  <button type="button" (click)="resend(f.id)" class="ml-2 px-2.5 py-1 rounded-lg border border-slate-300 text-xs hover:bg-slate-50 whitespace-nowrap">Resend</button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
 
       <div class="grid lg:grid-cols-2 gap-4">
         <!-- Standing + actions -->
@@ -196,6 +221,7 @@ export class SuperAdminTenantDetailComponent implements OnInit {
 
   readonly detail = signal<TenantDetail | null>(null);
   readonly plans = signal<PlanOption[]>([]);
+  readonly diag = signal<TenantDiagnostics | null>(null);
   readonly message = signal<string | null>(null);
   readonly standingClass = standingClass;
   readonly healthClass = healthClass;
@@ -215,8 +241,12 @@ export class SuperAdminTenantDetailComponent implements OnInit {
   ngOnInit(): void {
     this.id = Number(this.route.snapshot.paramMap.get('id'));
     this.svc.plans().subscribe((p) => this.plans.set(p));
+    this.loadDiag();
     this.load();
   }
+
+  private loadDiag(): void { this.svc.diagnostics(this.id).subscribe((d) => this.diag.set(d)); }
+  resend(historyId: number): void { this.svc.resendNotification(historyId).subscribe(() => { this.loadDiag(); this.after('Notification re-sent.'); }); }
 
   private load(): void {
     this.svc.tenant(this.id).subscribe((d) => {

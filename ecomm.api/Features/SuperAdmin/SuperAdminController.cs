@@ -172,6 +172,17 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
         return Ok(ApiResponse<object>.Ok(new { }, "Removed from blocklist."));
     }
 
+    [HttpGet("tenants/{id:long}/diagnostics")]
+    public async Task<IActionResult> Diagnostics(long id, CancellationToken ct)
+        => Ok(ApiResponse<TenantDiagnosticsDto>.Ok(await svc.DiagnosticsAsync(id, ct)));
+
+    [HttpPost("notifications/{historyId:long}/resend")]
+    public async Task<IActionResult> ResendNotification(long historyId, CancellationToken ct)
+    {
+        await svc.ResendNotificationAsync(historyId, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Notification re-sent."));
+    }
+
     [HttpGet("audit")]
     public async Task<IActionResult> Audit([FromQuery] long? tenantId, [FromQuery] int limit = 100, CancellationToken ct = default)
         => Ok(ApiResponse<IReadOnlyList<AuditDto>>.Ok(await svc.GetAuditAsync(tenantId, limit, ct)));

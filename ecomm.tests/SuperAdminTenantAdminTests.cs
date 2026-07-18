@@ -2,6 +2,7 @@ using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Auth.Services;
+using ecomm.api.Features.Notifications;
 using ecomm.api.Features.SuperAdmin;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -20,12 +21,21 @@ public class SuperAdminTenantAdminTests
         public string HashRefreshToken(string raw) => throw new NotImplementedException();
     }
 
+    private sealed class NoopEmail : IEmailSender
+    {
+        public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default, string? fromName = null, string? replyTo = null) => Task.CompletedTask;
+    }
+    private sealed class NoopSms : ISmsSender
+    {
+        public Task SendAsync(string phoneNumber, string message, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     // Service + context must SHARE the tenant instance so GrantCredits' BeginScope affects the auto-stamp.
     private static (EcommerceDbContext db, SuperAdminService svc) Build(long contextTenant)
     {
         var tenant = new FixedTenant(contextTenant);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        var svc = new SuperAdminService(db, new StubJwt(), Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online" }), tenant);
+        var svc = new SuperAdminService(db, new StubJwt(), Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online" }), tenant, new NoopEmail(), new NoopSms());
         return (db, svc);
     }
 
@@ -127,6 +137,46 @@ public class SuperAdminTenantAdminTests
             Assert.Equal(3, sub.PlanId);
             Assert.NotNull(sub.CurrentPeriodEnd);
             Assert.Equal(3, (await db.Tenants.FirstAsync(t => t.TenantId == 2)).PlanId);
+        }
+    }
+
+    [Fact]
+    public async Task Diagnostics_counts_failures_actions_and_lowstock()
+    {
+        var (db, svc) = Build(2);
+        using (db)
+        {
+            db.Tenants.Add(new Tenant { TenantId = 2, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow });
+            db.NotificationHistory.Add(new NotificationHistory { TenantId = 2, Channel = "Email", Recipient = "a@x.com", Status = "Failed", CreatedAt = DateTime.UtcNow });
+            db.Orders.Add(new Order { TenantId = 2, UserId = 1, OrderNumber = "P1", Status = "Paid", PlacedAt = DateTime.UtcNow, TotalAmount = 100m });
+            db.Inventory.Add(new Inventory { TenantId = 2, ProductId = 1, AvailableQty = 1, ReorderLevel = 5 });
+            await db.SaveChangesAsync();
+
+            var d = await svc.DiagnosticsAsync(2, default);
+            Assert.Equal(1, d.FailedNotifications);
+            Assert.Equal(1, d.OrdersNeedingAction);
+            Assert.Equal(1, d.LowStock);
+            Assert.Single(d.RecentFailures);
+        }
+    }
+
+    [Fact]
+    public async Task Resend_notification_writes_a_sent_history_row()
+    {
+        var (db, svc) = Build(2);
+        using (db)
+        {
+            db.Tenants.Add(new Tenant { TenantId = 2, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow });
+            db.NotificationHistory.Add(new NotificationHistory { TenantId = 2, Channel = "Email", Recipient = "a@x.com", Subject = "Hi", Body = "Body", Status = "Failed", Error = "smtp down", CreatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+            var failed = await db.NotificationHistory.IgnoreQueryFilters().FirstAsync();
+
+            await svc.ResendNotificationAsync(failed.NotificationHistoryId, adminUserId: 1, default);
+
+            var sent = await db.NotificationHistory.IgnoreQueryFilters().Where(n => n.Status == "Sent").ToListAsync();
+            Assert.Single(sent);
+            Assert.Equal("a@x.com", sent[0].Recipient);
+            Assert.Equal(2, sent[0].TenantId);
         }
     }
 
