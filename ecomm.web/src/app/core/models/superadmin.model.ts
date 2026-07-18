@@ -131,6 +131,8 @@ export interface PlatformAnalytics {
   topStores: StoreLeader[];
 }
 
+export interface PlatformStaff { userId: number; email: string | null; fullName: string | null; isActive: boolean; lastLoginAt: string | null; createdAt: string; }
+
 export interface ImpersonationResult { accessToken: string; storeUrl: string; mode: string; expiresAt: string; }
 export interface BlocklistEntry { signupBlocklistId: number; type: string; value: string; reason: string | null; createdAt: string; }
 export interface AuditEntry { platformAccessLogId: number; adminUserId: number; tenantId: number | null; action: string; detail: string | null; createdAt: string; }

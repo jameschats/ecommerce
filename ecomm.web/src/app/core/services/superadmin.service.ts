@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
   AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
-  PlatformAnalytics, PlatformRevenue, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
+  PlatformAnalytics, PlatformRevenue, PlatformStaff, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -82,6 +82,15 @@ export class SuperAdminService {
   }
   resendNotification(historyId: number): Observable<unknown> {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/notifications/${historyId}/resend`, {});
+  }
+  staff(): Observable<PlatformStaff[]> {
+    return this.http.get<ApiResponse<PlatformStaff[]>>(`${this.base}/staff`).pipe(map((r) => r.data ?? []));
+  }
+  createStaff(email: string, fullName: string | null, password: string): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/staff`, { email, fullName, password });
+  }
+  setStaffActive(userId: number, active: boolean): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/staff/${userId}/active`, { active });
   }
   audit(tenantId?: number, limit = 100): Observable<AuditEntry[]> {
     const q = tenantId ? `?tenantId=${tenantId}&limit=${limit}` : `?limit=${limit}`;
