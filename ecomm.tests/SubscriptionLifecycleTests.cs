@@ -20,8 +20,10 @@ public class SubscriptionLifecycleTests
 
     private static (ecomm.api.Data.Context.EcommerceDbContext db, SubscriptionService svc) NewSvc(long tenantId = 1)
     {
-        var db = TestDb.New(tenantId);
-        return (db, new SubscriptionService(db, Gateways()));
+        // Service + context share the tenant instance so RecordCharge's BeginScope drives the auto-stamp.
+        var tenant = new FixedTenant(tenantId);
+        var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
+        return (db, new SubscriptionService(db, Gateways(), tenant));
     }
 
     [Fact]

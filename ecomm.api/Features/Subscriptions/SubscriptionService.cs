@@ -33,7 +33,10 @@ public interface ISubscriptionService
     Task<SubscriptionDto> ConfirmCheckoutAsync(ConfirmCheckoutCommand cmd, CancellationToken ct);
 }
 
-public sealed class SubscriptionService(EcommerceDbContext db, ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways) : ISubscriptionService
+public sealed class SubscriptionService(
+    EcommerceDbContext db,
+    ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
+    ecomm.api.Common.Tenancy.ICurrentTenantService tenant) : ISubscriptionService
 {
     public const string Trial = "Trial", Active = "Active", PastDue = "PastDue", Suspended = "Suspended", Cancelled = "Cancelled";
 
@@ -126,31 +129,37 @@ public sealed class SubscriptionService(EcommerceDbContext db, ecomm.api.Feature
             .AnyAsync(b => b.RazorpayPaymentId == cmd.RazorpayPaymentId, ct);
         if (already) return false;   // duplicate delivery — no-op
 
-        db.TenantBillingHistory.Add(new TenantBillingHistory
+        // The charge must land on the PAYING tenant. On the anonymous webhook path the request's
+        // tenant is the apex (tenant 1), and TenantBillingHistory is ITenantScoped — so without this
+        // scope the auto-stamp would file another store's payment under tenant 1.
+        using (tenant.BeginScope(cmd.TenantId))
         {
-            TenantId = cmd.TenantId, Amount = cmd.Amount, Status = "Paid",
-            RazorpayPaymentId = cmd.RazorpayPaymentId, BilledAt = DateTime.UtcNow,
-            PeriodStart = cmd.PeriodStart, PeriodEnd = cmd.PeriodEnd, CreatedAt = DateTime.UtcNow,
-        });
+            db.TenantBillingHistory.Add(new TenantBillingHistory
+            {
+                TenantId = cmd.TenantId, Amount = cmd.Amount, Status = "Paid",
+                RazorpayPaymentId = cmd.RazorpayPaymentId, BilledAt = DateTime.UtcNow,
+                PeriodStart = cmd.PeriodStart, PeriodEnd = cmd.PeriodEnd, CreatedAt = DateTime.UtcNow,
+            });
 
-        var sub = await db.TenantSubscriptions.IgnoreQueryFilters()
-            .Where(s => s.TenantId == cmd.TenantId)
-            .OrderByDescending(s => s.TenantSubscriptionId).FirstOrDefaultAsync(ct);
-        if (sub is not null)
-        {
-            sub.Status = Active;
-            sub.CurrentPeriodStart = cmd.PeriodStart;
-            sub.CurrentPeriodEnd = cmd.PeriodEnd;
-            sub.GraceEndsAt = null;
-            if (!string.IsNullOrEmpty(cmd.RazorpaySubscriptionId)) sub.RazorpaySubscriptionId = cmd.RazorpaySubscriptionId;
-            sub.UpdatedAt = DateTime.UtcNow;
+            var sub = await db.TenantSubscriptions.IgnoreQueryFilters()
+                .Where(s => s.TenantId == cmd.TenantId)
+                .OrderByDescending(s => s.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+            if (sub is not null)
+            {
+                sub.Status = Active;
+                sub.CurrentPeriodStart = cmd.PeriodStart;
+                sub.CurrentPeriodEnd = cmd.PeriodEnd;
+                sub.GraceEndsAt = null;
+                if (!string.IsNullOrEmpty(cmd.RazorpaySubscriptionId)) sub.RazorpaySubscriptionId = cmd.RazorpaySubscriptionId;
+                sub.UpdatedAt = DateTime.UtcNow;
+            }
+
+            // Reactivate the store if it was suspended for non-payment.
+            var store = await db.Tenants.FirstOrDefaultAsync(t => t.TenantId == cmd.TenantId, ct);
+            if (store?.SuspendedAt is not null) { store.SuspendedAt = null; store.UpdatedAt = DateTime.UtcNow; }
+
+            await db.SaveChangesAsync(ct);
         }
-
-        // Reactivate the store if it was suspended for non-payment.
-        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.TenantId == cmd.TenantId, ct);
-        if (tenant?.SuspendedAt is not null) { tenant.SuspendedAt = null; tenant.UpdatedAt = DateTime.UtcNow; }
-
-        await db.SaveChangesAsync(ct);
         return true;
     }
 
