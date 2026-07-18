@@ -1,9 +1,9 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { SuperAdminService } from '../../core/services/superadmin.service';
 import { PlatformRevenue, TenantSummary } from '../../core/models/superadmin.model';
-import { standingClass } from './superadmin-ui';
+import { healthClass, standingClass } from './superadmin-ui';
 
 /** Store directory: revenue strip + searchable table; each row links to the tenant detail page. */
 @Component({
@@ -23,19 +23,24 @@ import { standingClass } from './superadmin-ui';
     }
 
     <div class="bg-white border border-slate-200 rounded-xl p-4">
-      <input [(ngModel)]="search" (ngModelChange)="load()" placeholder="Search stores…" class="input w-full mb-3" />
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <input [(ngModel)]="search" (ngModelChange)="load()" placeholder="Search stores…" class="input flex-1 min-w-[12rem]" />
+        <label class="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" [ngModel]="atRiskOnly()" (ngModelChange)="atRiskOnly.set($event)" /> At-risk only</label>
+        <label class="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" [ngModel]="sortHealth()" (ngModelChange)="sortHealth.set($event)" /> Sort by health</label>
+      </div>
       <table class="w-full text-sm">
-        <thead class="text-left text-slate-400 border-b border-slate-200"><tr><th class="py-1">Store</th><th>Plan</th><th>Standing</th><th></th></tr></thead>
+        <thead class="text-left text-slate-400 border-b border-slate-200"><tr><th class="py-1">Store</th><th>Plan</th><th>Health</th><th>Standing</th><th></th></tr></thead>
         <tbody>
-          @for (t of tenants(); track t.tenantId) {
+          @for (t of visible(); track t.tenantId) {
             <tr class="border-b border-slate-100 hover:bg-slate-50">
               <td class="py-2"><a [routerLink]="['/superadmin/tenants', t.tenantId]" class="font-medium text-slate-800 hover:text-blue-600">{{ t.name }}</a><div class="text-xs text-slate-400">{{ t.slug }} · {{ t.userCount }} users · {{ t.orderCount }} orders</div></td>
               <td>{{ t.planName || '—' }}<div class="text-xs text-slate-400">{{ t.subStatus }}</div></td>
+              <td><span class="text-xs px-1.5 py-0.5 rounded" [class]="healthClass(t.healthBand)">{{ t.healthBand }} {{ t.healthScore }}</span></td>
               <td><span class="text-xs px-1.5 py-0.5 rounded" [class]="standingClass(t.standing)">{{ t.standing }}</span>@if (t.suspended) { <span class="text-xs text-red-500 block">suspended</span> }</td>
               <td class="text-right"><a [routerLink]="['/superadmin/tenants', t.tenantId]" class="text-blue-600 text-xs">Manage →</a></td>
             </tr>
           }
-          @if (!tenants().length) { <tr><td colspan="4" class="py-8 text-center text-slate-400">No stores found.</td></tr> }
+          @if (!visible().length) { <tr><td colspan="5" class="py-8 text-center text-slate-400">No stores found.</td></tr> }
         </tbody>
       </table>
     </div>
@@ -46,7 +51,17 @@ export class SuperAdminStoresComponent implements OnInit {
   readonly tenants = signal<TenantSummary[]>([]);
   readonly revenue = signal<PlatformRevenue | null>(null);
   readonly standingClass = standingClass;
+  readonly healthClass = healthClass;
+  readonly atRiskOnly = signal(false);
+  readonly sortHealth = signal(false);
   search = '';
+
+  readonly visible = computed(() => {
+    let rows = this.tenants();
+    if (this.atRiskOnly()) rows = rows.filter((t) => t.healthBand !== 'Healthy');
+    if (this.sortHealth()) rows = [...rows].sort((a, b) => a.healthScore - b.healthScore);
+    return rows;
+  });
 
   ngOnInit(): void {
     this.svc.revenue().subscribe((r) => this.revenue.set(r));

@@ -11,7 +11,11 @@ export interface TenantSummary {
   createdAt: string;
   userCount: number;
   orderCount: number;
+  healthScore: number;
+  healthBand: string;
 }
+
+export interface TenantHealth { score: number; band: string; signals: string[]; suggestedStanding: string | null; }
 
 export interface Contact {
   userId: number;
@@ -71,6 +75,7 @@ export interface TenantDetail {
   notes: TenantNote[];
   offboardedAt: string | null;
   billing: BillingCharge[];
+  health: TenantHealth;
 }
 
 export interface BillingCharge {

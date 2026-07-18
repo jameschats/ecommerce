@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SuperAdminService } from '../../core/services/superadmin.service';
 import { PlanOption, TenantDetail } from '../../core/models/superadmin.model';
-import { standingClass } from './superadmin-ui';
+import { healthClass, standingClass } from './superadmin-ui';
 
 /** Deep single-store view: standing, lifecycle actions, subscription, usage/GMV, domain, contacts, recent activity. */
 @Component({
@@ -32,6 +32,25 @@ import { standingClass } from './superadmin-ui';
         <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Orders</div><div class="text-lg font-bold">{{ d.usage.orders }}</div></div>
         <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Products</div><div class="text-lg font-bold">{{ d.usage.products }}</div></div>
         <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">AI credits</div><div class="text-lg font-bold">{{ d.usage.aiCreditBalance }}</div></div>
+      </div>
+
+      <!-- Health -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold text-slate-800">Merchant health</h2>
+          <span class="text-xs px-2 py-0.5 rounded" [class]="healthClass(d.health.band)">{{ d.health.band }} · {{ d.health.score }}/100</span>
+        </div>
+        @if (d.health.signals.length) {
+          <ul class="text-sm text-slate-600 list-disc list-inside space-y-0.5">
+            @for (s of d.health.signals; track s) { <li>{{ s }}</li> }
+          </ul>
+        } @else { <p class="text-sm text-slate-400">No risk signals — looking healthy.</p> }
+        @if (d.health.suggestedStanding && d.health.suggestedStanding !== d.summary.standing) {
+          <div class="mt-3 flex items-center gap-2 text-sm">
+            <span class="text-slate-500">Suggested standing: <span class="font-medium text-amber-700">{{ d.health.suggestedStanding }}</span></span>
+            <button type="button" (click)="applySuggested(d.summary.tenantId, d.health.suggestedStanding)" class="px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 text-xs hover:bg-amber-50">Apply</button>
+          </div>
+        }
       </div>
 
       <div class="grid lg:grid-cols-2 gap-4">
@@ -179,6 +198,7 @@ export class SuperAdminTenantDetailComponent implements OnInit {
   readonly plans = signal<PlanOption[]>([]);
   readonly message = signal<string | null>(null);
   readonly standingClass = standingClass;
+  readonly healthClass = healthClass;
   private id = 0;
   standing = 'Good';
   standingReason = '';
@@ -211,6 +231,10 @@ export class SuperAdminTenantDetailComponent implements OnInit {
   }
 
   saveStanding(id: number): void { this.svc.setStanding(id, this.standing, this.standingReason || null).subscribe(() => this.after('Standing updated.')); }
+  applySuggested(id: number, standing: string): void {
+    this.standing = standing;
+    this.svc.setStanding(id, standing, 'Auto-suggested from health signals').subscribe(() => this.after('Standing updated.'));
+  }
   suspend(id: number): void { this.svc.suspend(id).subscribe(() => this.after('Store suspended.')); }
   activate(id: number): void { this.svc.activate(id).subscribe(() => this.after('Store reactivated.')); }
   offboard(id: number): void {

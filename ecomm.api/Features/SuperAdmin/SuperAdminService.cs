@@ -11,7 +11,10 @@ namespace ecomm.api.Features.SuperAdmin;
 
 public sealed record TenantSummaryDto(
     long TenantId, string Name, string? Slug, string Standing, bool IsActive, bool Suspended,
-    string? PlanName, string? SubStatus, DateTime? TrialEndsAt, DateTime CreatedAt, int UserCount, int OrderCount);
+    string? PlanName, string? SubStatus, DateTime? TrialEndsAt, DateTime CreatedAt, int UserCount, int OrderCount,
+    int HealthScore, string HealthBand);
+
+public sealed record HealthDto(int Score, string Band, List<string> Signals, string? SuggestedStanding);
 
 public sealed record ContactDto(long UserId, string? Email, string? FullName, string? PhoneNumber, string Roles, DateTime? LastLoginAt);
 
@@ -31,7 +34,7 @@ public sealed record TenantDetailDto(
     TenantSubscriptionInfo Subscription, TenantUsageDto Usage,
     string? CustomDomain, bool CustomDomainVerified, IReadOnlyList<AuditDto> RecentActivity,
     IReadOnlyList<string> Tags, IReadOnlyList<NoteDto> Notes, DateTime? OffboardedAt,
-    IReadOnlyList<BillingChargeDto> Billing);
+    IReadOnlyList<BillingChargeDto> Billing, HealthDto Health);
 
 public sealed record PlanRevenueRow(string Plan, int ActiveCount, decimal Mrr);
 public sealed record PlatformRevenueDto(
@@ -98,21 +101,76 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             .OrderBy(t => t.TenantId)
             .ToListAsync(ct);
 
+        var now = DateTime.UtcNow;
         var subs = await db.TenantSubscriptions.IgnoreQueryFilters().Include(x => x.Plan).AsNoTracking().ToListAsync(ct);
         var userCounts = await db.Users.IgnoreQueryFilters().Where(u => !u.IsDeleted)
             .GroupBy(u => u.TenantId).Select(g => new { g.Key, C = g.Count() }).ToListAsync(ct);
-        var orderCounts = await db.Orders.IgnoreQueryFilters()
-            .GroupBy(o => o.TenantId).Select(g => new { g.Key, C = g.Count() }).ToListAsync(ct);
+        var orderHealth = await db.Orders.IgnoreQueryFilters()
+            .GroupBy(o => o.TenantId)
+            .Select(g => new
+            {
+                g.Key,
+                Total = g.Count(),
+                Sold = g.Count(o => SoldStatuses.Contains(o.Status)),
+                Lost = g.Count(o => o.Status == "Cancelled" || o.Status == "Returned"),
+                LastOrder = g.Max(o => (DateTime?)o.PlacedAt),
+            }).ToListAsync(ct);
+        var lastLogins = await db.Users.IgnoreQueryFilters().Where(u => !u.IsDeleted)
+            .GroupBy(u => u.TenantId).Select(g => new { g.Key, Last = g.Max(u => u.LastLoginAt) }).ToListAsync(ct);
 
         return tenants.Select(t =>
         {
             var sub = subs.Where(x => x.TenantId == t.TenantId).OrderByDescending(x => x.TenantSubscriptionId).FirstOrDefault();
+            var oh = orderHealth.FirstOrDefault(x => x.Key == t.TenantId);
+            var lastLogin = lastLogins.FirstOrDefault(x => x.Key == t.TenantId)?.Last;
+            var (score, band, _, _) = ComputeHealth(sub?.Status, oh?.Sold ?? 0, oh?.Lost ?? 0, oh?.LastOrder, lastLogin, t.CreatedAt, t.Standing, now);
             return new TenantSummaryDto(
                 t.TenantId, t.Name, t.Slug, t.Standing, t.IsActive, t.SuspendedAt is not null,
                 sub?.Plan?.Name, sub?.Status, t.TrialEndsAt, t.CreatedAt,
                 userCounts.FirstOrDefault(u => u.Key == t.TenantId)?.C ?? 0,
-                orderCounts.FirstOrDefault(o => o.Key == t.TenantId)?.C ?? 0);
+                oh?.Total ?? 0, score, band);
         }).ToList();
+    }
+
+    // Merchant health from signals we already store: payment status, refund/cancel rate,
+    // sales recency, and owner login recency. Suggests a standing escalation for the admin to confirm.
+    private static (int score, string band, List<string> signals, string? suggested) ComputeHealth(
+        string? subStatus, int sold, int lost, DateTime? lastOrder, DateTime? lastLogin, DateTime createdAt, string currentStanding, DateTime now)
+    {
+        var signals = new List<string>();
+        var score = 100;
+
+        if (subStatus == "Suspended") { score -= 50; signals.Add("Subscription suspended for non-payment"); }
+        else if (subStatus == "PastDue") { score -= 30; signals.Add("Subscription past due"); }
+        else if (subStatus == "Cancelled") { score -= 20; signals.Add("Subscription cancelled"); }
+
+        var resolved = sold + lost;
+        if (resolved >= 5)
+        {
+            var rate = (double)lost / resolved;
+            if (rate > 0.30) { score -= 20; signals.Add($"High refund/cancel rate ({rate:P0})"); }
+            else if (rate > 0.15) { score -= 10; signals.Add($"Elevated refund/cancel rate ({rate:P0})"); }
+        }
+
+        if (sold == 0 && (now - createdAt).TotalDays > 30) { score -= 15; signals.Add("No sales in 30+ days since signup"); }
+        else if (lastOrder is not null && (now - lastOrder.Value).TotalDays > 30) { score -= 10; signals.Add($"No orders in {(int)(now - lastOrder.Value).TotalDays} days"); }
+
+        if (lastLogin is null) { score -= 10; signals.Add("Owner has never signed in"); }
+        else
+        {
+            var d = (int)(now - lastLogin.Value).TotalDays;
+            if (d > 90) { score -= 20; signals.Add($"Owner last seen {d} days ago"); }
+            else if (d > 30) { score -= 10; signals.Add($"Owner last seen {d} days ago"); }
+        }
+
+        score = Math.Clamp(score, 0, 100);
+        var band = score >= 70 ? "Healthy" : score >= 40 ? "At-risk" : "Critical";
+
+        // Only suggest an escalation, and only when the admin hasn't already set a governance standing.
+        string? suggested = null;
+        var managed = currentStanding is "Watch" or "Flagged" or "Blacklisted";
+        if (!managed) suggested = band == "Critical" ? "Flagged" : band == "At-risk" ? "Watch" : null;
+        return (score, band, signals, suggested);
     }
 
     public async Task<TenantDetailDto?> GetTenantAsync(long tenantId, long adminUserId, CancellationToken ct)
@@ -121,7 +179,7 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         if (t is null) return null;
 
         var summary = (await ListTenantsAsync(null, ct)).FirstOrDefault(x => x.TenantId == tenantId)
-                      ?? new TenantSummaryDto(t.TenantId, t.Name, t.Slug, t.Standing, t.IsActive, t.SuspendedAt is not null, null, null, t.TrialEndsAt, t.CreatedAt, 0, 0);
+                      ?? new TenantSummaryDto(t.TenantId, t.Name, t.Slug, t.Standing, t.IsActive, t.SuspendedAt is not null, null, null, t.TrialEndsAt, t.CreatedAt, 0, 0, 100, "Healthy");
 
         var users = await db.Users.IgnoreQueryFilters().AsNoTracking()
             .Where(u => u.TenantId == tenantId && !u.IsDeleted).ToListAsync(ct);
@@ -154,9 +212,16 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             .OrderByDescending(b => b.TenantBillingHistoryId).Take(10)
             .Select(b => new BillingChargeDto(b.TenantBillingHistoryId, b.TenantId, b.Amount, b.Status, b.BilledAt, b.PeriodStart, b.PeriodEnd, b.RazorpayPaymentId)).ToListAsync(ct);
 
+        var soldCount = await db.Orders.IgnoreQueryFilters().CountAsync(o => o.TenantId == tenantId && SoldStatuses.Contains(o.Status), ct);
+        var lostCount = await db.Orders.IgnoreQueryFilters().CountAsync(o => o.TenantId == tenantId && (o.Status == "Cancelled" || o.Status == "Returned"), ct);
+        var lastOrder = await db.Orders.IgnoreQueryFilters().Where(o => o.TenantId == tenantId).MaxAsync(o => (DateTime?)o.PlacedAt, ct);
+        var lastLogin = users.Count == 0 ? (DateTime?)null : users.Max(u => u.LastLoginAt);
+        var (hScore, hBand, hSignals, hSuggested) = ComputeHealth(subInfo.Status, soldCount, lostCount, lastOrder, lastLogin, t.CreatedAt, t.Standing, DateTime.UtcNow);
+        var health = new HealthDto(hScore, hBand, hSignals, hSuggested);
+
         await LogAsync(adminUserId, tenantId, "ViewTenant", null, ct);
         return new TenantDetailDto(summary, contacts, t.StandingReason, subInfo, usage,
-            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt, billing);
+            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt, billing, health);
     }
 
     public async Task<IReadOnlyList<SubStatusRow>> SubscriptionsAsync(string? status, CancellationToken ct)

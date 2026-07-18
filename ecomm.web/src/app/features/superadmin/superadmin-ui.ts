@@ -5,3 +5,10 @@ export function standingClass(s: string): string {
     : s === 'Trusted' ? 'bg-blue-50 text-blue-700 border border-blue-200'
     : 'bg-green-50 text-green-700 border border-green-200';
 }
+
+/** Tailwind classes for a merchant health-band badge. */
+export function healthClass(band: string): string {
+  return band === 'Critical' ? 'bg-red-50 text-red-700 border border-red-200'
+    : band === 'At-risk' ? 'bg-amber-50 text-amber-700 border border-amber-200'
+    : 'bg-green-50 text-green-700 border border-green-200';
+}

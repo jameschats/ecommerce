@@ -131,6 +131,26 @@ public class SuperAdminTenantAdminTests
     }
 
     [Fact]
+    public async Task Health_drops_for_pastdue_plus_high_refund_rate()
+    {
+        var (db, svc) = Build(2);
+        using (db)
+        {
+            db.Tenants.Add(new Tenant { TenantId = 2, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-60) });
+            db.Plans.Add(new Plan { PlanId = 1, Name = "Basic", Slug = "basic", MonthlyPrice = 0 });
+            db.TenantSubscriptions.Add(new TenantSubscription { TenantId = 2, PlanId = 1, Status = "PastDue", CreatedAt = DateTime.UtcNow });
+            for (var i = 0; i < 6; i++) db.Orders.Add(new Order { TenantId = 2, UserId = 1, OrderNumber = $"S{i}", Status = "Paid", PlacedAt = DateTime.UtcNow.AddDays(-2), TotalAmount = 100m });
+            for (var i = 0; i < 4; i++) db.Orders.Add(new Order { TenantId = 2, UserId = 1, OrderNumber = $"C{i}", Status = "Cancelled", PlacedAt = DateTime.UtcNow.AddDays(-2), TotalAmount = 100m });
+            await db.SaveChangesAsync();
+
+            var summary = (await svc.ListTenantsAsync(null, default)).First(x => x.TenantId == 2);
+
+            Assert.True(summary.HealthScore <= 60);          // PastDue (-30) + 40% refunds (-20) + never-logged-in (-10)
+            Assert.NotEqual("Healthy", summary.HealthBand);
+        }
+    }
+
+    [Fact]
     public async Task GrantCredits_lands_on_target_tenant_and_clamps_at_zero()
     {
         var (db, svc) = Build(1);   // super-admin runs in tenant-1 context, grants to tenant 2
