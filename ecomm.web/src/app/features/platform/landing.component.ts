@@ -20,8 +20,8 @@ import { SeoService } from '../../core/services/seo.service';
         <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           <a routerLink="/welcome" class="font-extrabold text-xl tracking-tight">Wav<span class="text-indigo-600">Commerce</span></a>
           <nav class="hidden sm:flex items-center gap-7 text-sm text-slate-600">
-            <a href="#features" class="hover:text-slate-900">Features</a>
-            <a href="#pricing" class="hover:text-slate-900">Pricing</a>
+            <a routerLink="/welcome" fragment="features" class="hover:text-slate-900">Features</a>
+            <a routerLink="/welcome" fragment="pricing" class="hover:text-slate-900">Pricing</a>
             <a routerLink="/login" class="hover:text-slate-900">Log in</a>
           </nav>
           <a routerLink="/signup" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Start free trial</a>
@@ -35,7 +35,7 @@ import { SeoService } from '../../core/services/seo.service';
         <p class="text-lg text-slate-600 mt-4 max-w-2xl mx-auto">Everything you need to sell online — themes, payments, shipping and your own domain. Start free, upgrade when you're ready.</p>
         <div class="mt-8 flex items-center justify-center gap-3">
           <a routerLink="/signup" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-lg">Start your free trial</a>
-          <a href="#pricing" class="border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-6 py-3 rounded-lg">See pricing</a>
+          <a routerLink="/welcome" fragment="pricing" class="border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-6 py-3 rounded-lg">See pricing</a>
         </div>
         <p class="text-xs text-slate-400 mt-3">Free for 14 days. No card required. Cancel anytime.</p>
       </section>
@@ -97,8 +97,8 @@ import { SeoService } from '../../core/services/seo.service';
         <div class="max-w-6xl mx-auto px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
           <span class="font-bold text-slate-800">Wav<span class="text-indigo-600">Commerce</span></span>
           <div class="flex gap-5">
-            <a href="#features" class="hover:text-slate-800">Features</a>
-            <a href="#pricing" class="hover:text-slate-800">Pricing</a>
+            <a routerLink="/welcome" fragment="features" class="hover:text-slate-800">Features</a>
+            <a routerLink="/welcome" fragment="pricing" class="hover:text-slate-800">Pricing</a>
             <a routerLink="/signup" class="hover:text-slate-800">Start free</a>
             <a routerLink="/login" class="hover:text-slate-800">Log in</a>
           </div>
