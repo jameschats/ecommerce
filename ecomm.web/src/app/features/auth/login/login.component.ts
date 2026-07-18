@@ -120,11 +120,21 @@ export class LoginComponent implements OnInit {
     obs.subscribe({
       next: () => {
         this.submitting.set(false);
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
-        this.router.navigateByUrl(returnUrl);
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+        this.router.navigateByUrl(returnUrl ?? this.defaultHome());
       },
       error: (e) => this.fail(e),
     });
+  }
+
+  /**
+   * Where to land when there's no returnUrl. Plain '/' is wrong for staff: on the apex the landing
+   * guard bounces it straight to /welcome, so a signed-in super admin appeared to go nowhere.
+   */
+  private defaultHome(): string {
+    if (this.auth.isSuperAdmin()) return '/superadmin';
+    if (this.auth.isAdmin()) return '/admin';
+    return '/';
   }
 
   private fail(e: any): void {
