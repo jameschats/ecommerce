@@ -4,8 +4,9 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
-  AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
-  PlatformAnalytics, PlatformRevenue, PlatformStaff, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
+  Announcement, AnnouncementUpsert, AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult,
+  PackUpsert, PlanOption, PlanUpsert, PlatformAnalytics, PlatformRevenue, PlatformStaff, SubStatusRow,
+  TenantDetail, TenantDiagnostics, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -82,6 +83,15 @@ export class SuperAdminService {
   }
   resendNotification(historyId: number): Observable<unknown> {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/notifications/${historyId}/resend`, {});
+  }
+  announcements(): Observable<Announcement[]> {
+    return this.http.get<ApiResponse<Announcement[]>>(`${this.base}/announcements`).pipe(map((r) => r.data ?? []));
+  }
+  createAnnouncement(req: AnnouncementUpsert): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/announcements`, req);
+  }
+  setAnnouncementActive(id: number, active: boolean): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/announcements/${id}/active`, { active });
   }
   staff(): Observable<PlatformStaff[]> {
     return this.http.get<ApiResponse<PlatformStaff[]>>(`${this.base}/staff`).pipe(map((r) => r.data ?? []));

@@ -133,6 +133,9 @@ export interface PlatformAnalytics {
 
 export interface PlatformStaff { userId: number; email: string | null; fullName: string | null; isActive: boolean; lastLoginAt: string | null; createdAt: string; }
 
+export interface Announcement { id: number; title: string; body: string; level: string; isActive: boolean; startsAt: string | null; endsAt: string | null; createdAt: string; }
+export interface AnnouncementUpsert { title: string; body: string; level: string; startsAt: string | null; endsAt: string | null; }
+
 export interface ImpersonationResult { accessToken: string; storeUrl: string; mode: string; expiresAt: string; }
 export interface BlocklistEntry { signupBlocklistId: number; type: string; value: string; reason: string | null; createdAt: string; }
 export interface AuditEntry { platformAccessLogId: number; adminUserId: number; tenantId: number | null; action: string; detail: string | null; createdAt: string; }

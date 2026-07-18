@@ -1,7 +1,9 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
+import { AnnouncementService } from '../../core/services/announcement.service';
+import { Announcement } from '../../core/models/superadmin.model';
 
 @Component({
   selector: 'app-admin-layout',
@@ -33,16 +35,51 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
       </aside>
       <main class="flex-1 overflow-auto">
+        @for (a of visibleAnnouncements(); track a.id) {
+          <div class="flex items-start gap-3 px-6 py-3 text-sm border-b" [class]="bannerClass(a.level)">
+            <span class="flex-1"><span class="font-semibold">{{ a.title }}</span> — {{ a.body }}</span>
+            <button type="button" (click)="dismiss(a.id)" class="opacity-60 hover:opacity-100" aria-label="Dismiss">✕</button>
+          </div>
+        }
         <router-outlet />
       </main>
     </div>
   `,
 })
-export class AdminLayoutComponent {
+export class AdminLayoutComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly announcementsSvc = inject(AnnouncementService);
 
   readonly umamiUrl = UMAMI_DASHBOARD_URL;
+
+  private readonly announcements = signal<Announcement[]>([]);
+  private readonly dismissed = signal<Set<number>>(this.loadDismissed());
+  readonly visibleAnnouncements = () => this.announcements().filter((a) => !this.dismissed().has(a.id));
+
+  ngOnInit(): void {
+    this.announcementsSvc.active().subscribe((a) => this.announcements.set(a));
+  }
+
+  dismiss(id: number): void {
+    const next = new Set(this.dismissed());
+    next.add(id);
+    this.dismissed.set(next);
+    try { localStorage.setItem('dismissedAnnouncements', JSON.stringify([...next])); } catch { /* ignore */ }
+  }
+
+  private loadDismissed(): Set<number> {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('dismissedAnnouncements') : null;
+      return new Set<number>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set<number>(); }
+  }
+
+  bannerClass(level: string): string {
+    return level === 'critical' ? 'bg-red-50 border-red-200 text-red-800'
+      : level === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800'
+      : 'bg-blue-50 border-blue-200 text-blue-800';
+  }
 
   // Grouped like a Shopify-style IA: Home, then Orders / Products / Customers / Discounts /
   // Online Store / Analytics / Settings. "Online Store" gathers everything that shapes the storefront.

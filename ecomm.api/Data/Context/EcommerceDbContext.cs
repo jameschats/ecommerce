@@ -118,6 +118,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<TenantShippingAccount> TenantShippingAccounts => Set<TenantShippingAccount>();
     public DbSet<PlatformAccessLog> PlatformAccessLog => Set<PlatformAccessLog>();
     public DbSet<TenantNote> TenantNotes => Set<TenantNote>();
+    public DbSet<PlatformAnnouncement> PlatformAnnouncements => Set<PlatformAnnouncement>();
     public DbSet<SignupBlocklist> SignupBlocklist => Set<SignupBlocklist>();
 
     // --- V2: AI credits (AI-0) ---
@@ -421,6 +422,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<TenantShippingAccount>(e => { e.ToTable("TenantShippingAccounts"); e.HasKey(x => x.TenantShippingAccountId); });
         b.Entity<PlatformAccessLog>(e => { e.ToTable("PlatformAccessLog"); e.HasKey(x => x.PlatformAccessLogId); });
         b.Entity<TenantNote>(e => { e.ToTable("TenantNotes"); e.HasKey(x => x.TenantNoteId); });
+        b.Entity<PlatformAnnouncement>(e => { e.ToTable("PlatformAnnouncements"); e.HasKey(x => x.PlatformAnnouncementId); });
         b.Entity<SignupBlocklist>(e => { e.ToTable("SignupBlocklist"); e.HasKey(x => x.SignupBlocklistId); });
         b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
         b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
