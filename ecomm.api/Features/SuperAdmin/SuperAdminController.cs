@@ -99,6 +99,21 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
         return Ok(ApiResponse<object>.Ok(new { }, $"Granted {req.Amount} credits."));
     }
 
+    [HttpGet("subscriptions")]
+    public async Task<IActionResult> Subscriptions([FromQuery] string? status, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<SubStatusRow>>.Ok(await svc.SubscriptionsAsync(status, ct)));
+
+    [HttpGet("charges")]
+    public async Task<IActionResult> Charges([FromQuery] int limit = 100, CancellationToken ct = default)
+        => Ok(ApiResponse<IReadOnlyList<BillingChargeDto>>.Ok(await svc.RecentChargesAsync(limit, ct)));
+
+    [HttpPost("tenants/{id:long}/record-payment")]
+    public async Task<IActionResult> RecordPayment(long id, [FromBody] RecordPaymentRequest req, CancellationToken ct)
+    {
+        await svc.RecordManualPaymentAsync(id, req.PlanId, req.Amount, req.Reference, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Payment recorded — subscription active."));
+    }
+
     [HttpPut("tenants/{id:long}/plan")]
     public async Task<IActionResult> ChangePlan(long id, [FromBody] ChangePlanRequest req, CancellationToken ct)
     {
@@ -169,3 +184,4 @@ public sealed record SetTrialRequest(DateTime? TrialEndsAt);
 public sealed record SetTagsRequest(string? Tags);
 public sealed record AddNoteRequest(string Note);
 public sealed record GrantCreditsRequest(int Amount, string? Reason);
+public sealed record RecordPaymentRequest(int PlanId, decimal Amount, string? Reference);

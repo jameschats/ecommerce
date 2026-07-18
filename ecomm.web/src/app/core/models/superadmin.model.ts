@@ -70,6 +70,27 @@ export interface TenantDetail {
   tags: string[];
   notes: TenantNote[];
   offboardedAt: string | null;
+  billing: BillingCharge[];
+}
+
+export interface BillingCharge {
+  id: number;
+  tenantId: number;
+  amount: number;
+  status: string;
+  billedAt: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  razorpayPaymentId: string | null;
+}
+export interface SubStatusRow {
+  tenantId: number;
+  name: string;
+  slug: string | null;
+  planName: string | null;
+  status: string;
+  currentPeriodEnd: string | null;
+  graceEndsAt: string | null;
 }
 
 export interface PlanRevenueRow { plan: string; activeCount: number; mrr: number; }

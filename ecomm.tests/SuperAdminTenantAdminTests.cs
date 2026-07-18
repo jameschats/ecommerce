@@ -107,6 +107,30 @@ public class SuperAdminTenantAdminTests
     }
 
     [Fact]
+    public async Task RecordManualPayment_writes_paid_charge_and_activates_subscription()
+    {
+        var (db, svc) = Build(1);   // super-admin in tenant-1 context records a payment for tenant 2
+        using (db)
+        {
+            SeedTenant(db, id: 2);
+            db.Plans.Add(new Plan { PlanId = 3, Name = "Pro", Slug = "pro", MonthlyPrice = 999 });
+            await db.SaveChangesAsync();
+
+            await svc.RecordManualPaymentAsync(2, 3, 999m, "manual-1", adminUserId: 1, default);
+
+            var charge = await db.TenantBillingHistory.IgnoreQueryFilters().FirstAsync(b => b.TenantId == 2);
+            Assert.Equal("Paid", charge.Status);
+            Assert.Equal(999m, charge.Amount);
+
+            var sub = await db.TenantSubscriptions.IgnoreQueryFilters().FirstAsync(s => s.TenantId == 2);
+            Assert.Equal("Active", sub.Status);
+            Assert.Equal(3, sub.PlanId);
+            Assert.NotNull(sub.CurrentPeriodEnd);
+            Assert.Equal(3, (await db.Tenants.FirstAsync(t => t.TenantId == 2)).PlanId);
+        }
+    }
+
+    [Fact]
     public async Task GrantCredits_lands_on_target_tenant_and_clamps_at_zero()
     {
         var (db, svc) = Build(1);   // super-admin runs in tenant-1 context, grants to tenant 2

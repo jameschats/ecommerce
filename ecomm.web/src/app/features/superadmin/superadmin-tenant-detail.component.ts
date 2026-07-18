@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -9,7 +9,7 @@ import { standingClass } from './superadmin-ui';
 /** Deep single-store view: standing, lifecycle actions, subscription, usage/GMV, domain, contacts, recent activity. */
 @Component({
   selector: 'app-superadmin-tenant-detail',
-  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe],
+  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe, CurrencyPipe],
   template: `
     <a routerLink="/superadmin/stores" class="text-sm text-slate-500 hover:text-slate-700">← All stores</a>
 
@@ -117,6 +117,31 @@ import { standingClass } from './superadmin-ui';
           </dl>
         </div>
 
+        <!-- Billing -->
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+          <h2 class="font-semibold text-slate-800 mb-3">Billing</h2>
+          <span class="lbl">Record a payment (manual / offline)</span>
+          <div class="grid grid-cols-3 gap-2">
+            <select [(ngModel)]="paymentPlanId" class="input">
+              @for (p of plans(); track p.planId) { <option [ngValue]="p.planId">{{ p.name }}</option> }
+            </select>
+            <input type="number" [(ngModel)]="paymentAmount" placeholder="₹ amount" class="input" />
+            <input [(ngModel)]="paymentRef" placeholder="reference" class="input" />
+          </div>
+          <button type="button" (click)="recordPayment(d.summary.tenantId)" class="btn-primary text-xs mt-2">Mark paid &amp; activate</button>
+          <p class="text-[11px] text-slate-400 mt-1">Writes a paid charge + activates the plan for one month. For offline/bank-transfer or comp — the Razorpay auto-checkout is a separate flow.</p>
+          @if (d.billing.length) {
+            <div class="mt-3">
+              @for (b of d.billing; track b.id) {
+                <div class="flex justify-between text-sm border-t border-slate-100 py-1.5">
+                  <span class="text-slate-600">{{ b.billedAt | date:'mediumDate' }} <span class="text-xs text-green-600">{{ b.status }}</span></span>
+                  <span class="font-medium text-slate-800">{{ b.amount | currency:'INR':'symbol':'1.0-0' }}</span>
+                </div>
+              }
+            </div>
+          } @else { <div class="text-sm text-slate-400 mt-3">No charges yet.</div> }
+        </div>
+
         <!-- Contacts -->
         <div class="bg-white border border-slate-200 rounded-xl p-4">
           <h2 class="font-semibold text-slate-800 mb-2">Contacts</h2>
@@ -163,6 +188,9 @@ export class SuperAdminTenantDetailComponent implements OnInit {
   newNote = '';
   grantAmount: number | null = null;
   grantReason = '';
+  paymentPlanId: number | null = null;
+  paymentAmount: number | null = null;
+  paymentRef = '';
 
   ngOnInit(): void {
     this.id = Number(this.route.snapshot.paramMap.get('id'));
@@ -176,6 +204,7 @@ export class SuperAdminTenantDetailComponent implements OnInit {
       this.standing = d.summary.standing;
       this.standingReason = d.standingReason ?? '';
       this.selectedPlanId = d.subscription.planId ?? null;
+      this.paymentPlanId = d.subscription.planId ?? null;
       this.trialDate = d.subscription.trialEndsAt ? d.subscription.trialEndsAt.slice(0, 10) : '';
       this.tagsInput = d.tags.join(', ');
     });
@@ -205,6 +234,12 @@ export class SuperAdminTenantDetailComponent implements OnInit {
     if (!this.grantAmount) return;
     this.svc.grantCredits(id, this.grantAmount, this.grantReason.trim() || null).subscribe(() => {
       this.grantAmount = null; this.grantReason = ''; this.after('Credits granted.');
+    });
+  }
+  recordPayment(id: number): void {
+    if (this.paymentPlanId == null || !this.paymentAmount) return;
+    this.svc.recordPayment(id, this.paymentPlanId, this.paymentAmount, this.paymentRef.trim() || null).subscribe(() => {
+      this.paymentAmount = null; this.paymentRef = ''; this.after('Payment recorded.');
     });
   }
 

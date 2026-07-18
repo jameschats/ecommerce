@@ -23,11 +23,15 @@ public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice,
 public sealed record PackUpsert(string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
 public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, DateTime CreatedAt);
 
+public sealed record BillingChargeDto(long Id, long TenantId, decimal Amount, string Status, DateTime BilledAt, DateTime? PeriodStart, DateTime? PeriodEnd, string? RazorpayPaymentId);
+public sealed record SubStatusRow(long TenantId, string Name, string? Slug, string? PlanName, string Status, DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt);
+
 public sealed record TenantDetailDto(
     TenantSummaryDto Summary, IReadOnlyList<ContactDto> Contacts, string? StandingReason,
     TenantSubscriptionInfo Subscription, TenantUsageDto Usage,
     string? CustomDomain, bool CustomDomainVerified, IReadOnlyList<AuditDto> RecentActivity,
-    IReadOnlyList<string> Tags, IReadOnlyList<NoteDto> Notes, DateTime? OffboardedAt);
+    IReadOnlyList<string> Tags, IReadOnlyList<NoteDto> Notes, DateTime? OffboardedAt,
+    IReadOnlyList<BillingChargeDto> Billing);
 
 public sealed record PlanRevenueRow(string Plan, int ActiveCount, decimal Mrr);
 public sealed record PlatformRevenueDto(
@@ -50,6 +54,9 @@ public interface ISuperAdminService
     Task<TenantDetailDto?> GetTenantAsync(long tenantId, long adminUserId, CancellationToken ct);
     Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct);
     Task<PlatformAnalyticsDto> PlatformAnalyticsAsync(DateTime from, DateTime to, CancellationToken ct);
+    Task<IReadOnlyList<SubStatusRow>> SubscriptionsAsync(string? status, CancellationToken ct);
+    Task<IReadOnlyList<BillingChargeDto>> RecentChargesAsync(int limit, CancellationToken ct);
+    Task RecordManualPaymentAsync(long tenantId, int planId, decimal amount, string? reference, long adminUserId, CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
     Task SetActiveAsync(long tenantId, bool active, long adminUserId, CancellationToken ct);
     Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct);
@@ -143,10 +150,70 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         var notes = await db.TenantNotes.AsNoTracking().Where(n => n.TenantId == tenantId)
             .OrderByDescending(n => n.TenantNoteId).Take(50)
             .Select(n => new NoteDto(n.TenantNoteId, n.AdminUserId, n.Note, n.CreatedAt)).ToListAsync(ct);
+        var billing = await db.TenantBillingHistory.IgnoreQueryFilters().AsNoTracking().Where(b => b.TenantId == tenantId)
+            .OrderByDescending(b => b.TenantBillingHistoryId).Take(10)
+            .Select(b => new BillingChargeDto(b.TenantBillingHistoryId, b.TenantId, b.Amount, b.Status, b.BilledAt, b.PeriodStart, b.PeriodEnd, b.RazorpayPaymentId)).ToListAsync(ct);
 
         await LogAsync(adminUserId, tenantId, "ViewTenant", null, ct);
         return new TenantDetailDto(summary, contacts, t.StandingReason, subInfo, usage,
-            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt);
+            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt, billing);
+    }
+
+    public async Task<IReadOnlyList<SubStatusRow>> SubscriptionsAsync(string? status, CancellationToken ct)
+    {
+        var subs = await db.TenantSubscriptions.IgnoreQueryFilters().Include(s => s.Plan).AsNoTracking().ToListAsync(ct);
+        var latest = subs.GroupBy(s => s.TenantId).Select(g => g.OrderByDescending(x => x.TenantSubscriptionId).First()).ToList();
+        if (!string.IsNullOrWhiteSpace(status)) latest = latest.Where(s => s.Status == status).ToList();
+        var ids = latest.Select(s => s.TenantId).ToList();
+        var tenants = await db.Tenants.Where(t => ids.Contains(t.TenantId)).Select(t => new { t.TenantId, t.Name, t.Slug }).ToListAsync(ct);
+        return latest.Select(s =>
+        {
+            var tn = tenants.FirstOrDefault(x => x.TenantId == s.TenantId);
+            return new SubStatusRow(s.TenantId, tn?.Name ?? "—", tn?.Slug, s.Plan?.Name, s.Status, s.CurrentPeriodEnd, s.GraceEndsAt);
+        }).OrderBy(r => r.Status).ThenByDescending(r => r.CurrentPeriodEnd).ToList();
+    }
+
+    public async Task<IReadOnlyList<BillingChargeDto>> RecentChargesAsync(int limit, CancellationToken ct) =>
+        await db.TenantBillingHistory.IgnoreQueryFilters().AsNoTracking()
+            .OrderByDescending(b => b.TenantBillingHistoryId).Take(Math.Clamp(limit, 1, 500))
+            .Select(b => new BillingChargeDto(b.TenantBillingHistoryId, b.TenantId, b.Amount, b.Status, b.BilledAt, b.PeriodStart, b.PeriodEnd, b.RazorpayPaymentId))
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// Manually record a paid month for a store (offline/bank-transfer, or comp) — the admin-override
+    /// path to convert a trial to paid without the Razorpay checkout flow. Writes a "Paid" charge,
+    /// activates the subscription for a 1-month period, and clears any non-payment suspension.
+    /// Cross-tenant write via BeginScope so the charge lands on the target tenant.
+    /// </summary>
+    public async Task RecordManualPaymentAsync(long tenantId, int planId, decimal amount, string? reference, long adminUserId, CancellationToken ct)
+    {
+        var t = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct)
+                ?? throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+        var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == planId, ct)
+                   ?? throw new AppException("Plan not found.", StatusCodes.Status400BadRequest);
+        var now = DateTime.UtcNow;
+        var periodEnd = now.AddMonths(1);
+
+        using (tenant.BeginScope(tenantId))
+        {
+            db.TenantBillingHistory.Add(new TenantBillingHistory
+            {
+                Amount = amount, Status = "Paid", RazorpayPaymentId = reference, BilledAt = now,
+                PeriodStart = now, PeriodEnd = periodEnd, CreatedAt = now,
+            });
+            var sub = await db.TenantSubscriptions.IgnoreQueryFilters()
+                .Where(s => s.TenantId == tenantId).OrderByDescending(s => s.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+            if (sub is null) { sub = new TenantSubscription { PlanId = planId, Status = "Active", CreatedAt = now }; db.TenantSubscriptions.Add(sub); }
+            else { sub.PlanId = planId; sub.Status = "Active"; }
+            sub.CurrentPeriodStart = now; sub.CurrentPeriodEnd = periodEnd; sub.GraceEndsAt = null; sub.UpdatedAt = now;
+
+            t.PlanId = planId;
+            if (t.SuspendedAt is not null) t.SuspendedAt = null;   // paying clears a non-payment suspension
+            t.UpdatedAt = now;
+
+            db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = tenantId, Action = "RecordPayment", Detail = $"{amount} — {plan.Name}", CreatedAt = now });
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     public async Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct) =>

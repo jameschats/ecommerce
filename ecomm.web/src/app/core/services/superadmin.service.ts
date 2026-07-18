@@ -4,8 +4,8 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
-  AuditEntry, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
-  PlatformAnalytics, PlatformRevenue, TenantDetail, TenantSummary,
+  AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
+  PlatformAnalytics, PlatformRevenue, SubStatusRow, TenantDetail, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -44,6 +44,16 @@ export class SuperAdminService {
   updatePack(id: number, req: PackUpsert): Observable<unknown> { return this.http.put<ApiResponse<unknown>>(`${this.base}/credit-packs/${id}`, req); }
   grantCredits(id: number, amount: number, reason: string | null): Observable<unknown> {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/grant-credits`, { amount, reason });
+  }
+  subscriptions(status = ''): Observable<SubStatusRow[]> {
+    const q = status ? `?status=${status}` : '';
+    return this.http.get<ApiResponse<SubStatusRow[]>>(`${this.base}/subscriptions${q}`).pipe(map((r) => r.data ?? []));
+  }
+  charges(limit = 100): Observable<BillingCharge[]> {
+    return this.http.get<ApiResponse<BillingCharge[]>>(`${this.base}/charges?limit=${limit}`).pipe(map((r) => r.data ?? []));
+  }
+  recordPayment(id: number, planId: number, amount: number, reference: string | null): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/record-payment`, { planId, amount, reference });
   }
   changePlan(id: number, planId: number): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/plan`, { planId });
