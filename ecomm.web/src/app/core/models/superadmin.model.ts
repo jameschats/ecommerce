@@ -84,6 +84,19 @@ export interface PlatformRevenue {
   byPlan: PlanRevenueRow[];
 }
 
+export interface StoreLeader { tenantId: number; name: string; slug: string | null; gmv: number; orders: number; }
+export interface PlatformGmvPoint { date: string; gmv: number; }
+export interface PlatformAnalytics {
+  gmv: number;
+  orders: number;
+  aov: number;
+  activeStores: number;
+  newStores: number;
+  collectedRevenue: number;
+  series: PlatformGmvPoint[];
+  topStores: StoreLeader[];
+}
+
 export interface ImpersonationResult { accessToken: string; storeUrl: string; mode: string; expiresAt: string; }
 export interface BlocklistEntry { signupBlocklistId: number; type: string; value: string; reason: string | null; createdAt: string; }
 export interface AuditEntry { platformAccessLogId: number; adminUserId: number; tenantId: number | null; action: string; detail: string | null; createdAt: string; }

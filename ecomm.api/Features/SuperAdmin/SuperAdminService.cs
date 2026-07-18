@@ -34,6 +34,12 @@ public sealed record PlatformRevenueDto(
     decimal Mrr, int TotalTenants, int Active, int Trial, int PastDue, int Suspended, int Cancelled,
     IReadOnlyList<PlanRevenueRow> ByPlan);
 
+public sealed record StoreLeaderRow(long TenantId, string Name, string? Slug, decimal Gmv, int Orders);
+public sealed record PlatformGmvPoint(DateTime Date, decimal Gmv);
+public sealed record PlatformAnalyticsDto(
+    decimal Gmv, int Orders, decimal Aov, int ActiveStores, int NewStores, decimal CollectedRevenue,
+    List<PlatformGmvPoint> Series, List<StoreLeaderRow> TopStores);
+
 public sealed record ImpersonationResult(string AccessToken, string StoreUrl, string Mode, DateTime ExpiresAt);
 public sealed record BlocklistDto(long SignupBlocklistId, string Type, string Value, string? Reason, DateTime CreatedAt);
 public sealed record AuditDto(long PlatformAccessLogId, long AdminUserId, long? TenantId, string Action, string? Detail, DateTime CreatedAt);
@@ -43,6 +49,7 @@ public interface ISuperAdminService
     Task<IReadOnlyList<TenantSummaryDto>> ListTenantsAsync(string? search, CancellationToken ct);
     Task<TenantDetailDto?> GetTenantAsync(long tenantId, long adminUserId, CancellationToken ct);
     Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct);
+    Task<PlatformAnalyticsDto> PlatformAnalyticsAsync(DateTime from, DateTime to, CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
     Task SetActiveAsync(long tenantId, bool active, long adminUserId, CancellationToken ct);
     Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct);
@@ -311,6 +318,38 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             .OrderByDescending(r => r.Mrr).ToList();
         var total = await db.Tenants.CountAsync(ct);
         return new PlatformRevenueDto(mrr, total, Count("Active"), Count("Trial"), Count("PastDue"), Count("Suspended"), Count("Cancelled"), byPlan);
+    }
+
+    public async Task<PlatformAnalyticsDto> PlatformAnalyticsAsync(DateTime from, DateTime to, CancellationToken ct)
+    {
+        var sold = db.Orders.IgnoreQueryFilters().Where(o => SoldStatuses.Contains(o.Status) && o.PlacedAt >= from && o.PlacedAt <= to);
+
+        var gmv = await sold.SumAsync(o => (decimal?)o.TotalAmount, ct) ?? 0m;
+        var orders = await sold.CountAsync(ct);
+        var aov = orders > 0 ? Math.Round(gmv / orders, 2) : 0m;
+        var activeStores = await sold.Select(o => o.TenantId).Distinct().CountAsync(ct);
+        var newStores = await db.Tenants.CountAsync(t => t.CreatedAt >= from && t.CreatedAt <= to, ct);
+        var collected = await db.TenantBillingHistory.IgnoreQueryFilters()
+            .Where(b => b.Status == "Paid" && b.BilledAt >= from && b.BilledAt <= to)
+            .SumAsync(b => (decimal?)b.Amount, ct) ?? 0m;
+
+        var rawSeries = await sold.GroupBy(o => o.PlacedAt!.Value.Date)
+            .Select(g => new { Date = g.Key, Gmv = g.Sum(o => o.TotalAmount) }).ToListAsync(ct);
+        var series = rawSeries.OrderBy(x => x.Date).Select(x => new PlatformGmvPoint(x.Date, x.Gmv)).ToList();
+
+        var byTenant = await sold.GroupBy(o => o.TenantId)
+            .Select(g => new { TenantId = g.Key, Gmv = g.Sum(o => o.TotalAmount), Orders = g.Count() }).ToListAsync(ct);
+        var top = byTenant.OrderByDescending(x => x.Gmv).Take(10).ToList();
+        var ids = top.Select(x => x.TenantId).ToList();
+        var names = await db.Tenants.Where(t => ids.Contains(t.TenantId))
+            .Select(t => new { t.TenantId, t.Name, t.Slug }).ToListAsync(ct);
+        var leaderboard = top.Select(x =>
+        {
+            var n = names.FirstOrDefault(y => y.TenantId == x.TenantId);
+            return new StoreLeaderRow(x.TenantId, n?.Name ?? "—", n?.Slug, x.Gmv, x.Orders);
+        }).ToList();
+
+        return new PlatformAnalyticsDto(gmv, orders, aov, activeStores, newStores, collected, series, leaderboard);
     }
 
     public async Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct)

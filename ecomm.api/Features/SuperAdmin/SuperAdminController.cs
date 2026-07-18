@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using ecomm.api.Common.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,23 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
     [HttpGet("revenue")]
     public async Task<IActionResult> Revenue(CancellationToken ct)
         => Ok(ApiResponse<PlatformRevenueDto>.Ok(await svc.GetRevenueAsync(ct)));
+
+    [HttpGet("analytics")]
+    public async Task<IActionResult> Analytics([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<PlatformAnalyticsDto>.Ok(await svc.PlatformAnalyticsAsync(f, t, ct)));
+    }
+
+    // Parse yyyy-MM-dd; default to the last 30 days, `to` inclusive (end of day).
+    private static (DateTime from, DateTime to) Range(string? from, string? to)
+    {
+        var toDate = TryDate(to) ?? DateTime.UtcNow.Date;
+        var fromDate = TryDate(from) ?? toDate.AddDays(-29);
+        return (fromDate.Date, toDate.Date.AddDays(1).AddTicks(-1));
+    }
+    private static DateTime? TryDate(string? s) =>
+        DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var d) ? d : null;
 
     [HttpPut("tenants/{id:long}/standing")]
     public async Task<IActionResult> SetStanding(long id, [FromBody] SetStandingRequest req, CancellationToken ct)

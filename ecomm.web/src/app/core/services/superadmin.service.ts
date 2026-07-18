@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
   AuditEntry, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
-  PlatformRevenue, TenantDetail, TenantSummary,
+  PlatformAnalytics, PlatformRevenue, TenantDetail, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +22,9 @@ export class SuperAdminService {
   }
   revenue(): Observable<PlatformRevenue> {
     return this.http.get<ApiResponse<PlatformRevenue>>(`${this.base}/revenue`).pipe(map((r) => r.data as PlatformRevenue));
+  }
+  analytics(from: string, to: string): Observable<PlatformAnalytics> {
+    return this.http.get<ApiResponse<PlatformAnalytics>>(`${this.base}/analytics?from=${from}&to=${to}`).pipe(map((r) => r.data as PlatformAnalytics));
   }
   setStanding(id: number, standing: string, reason: string | null): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/standing`, { standing, reason });
