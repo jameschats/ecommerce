@@ -54,12 +54,13 @@ export interface PlanOption {
   displayOrder: number;
   introPriceInr: number | null;
   introMonths: number | null;
+  introEndsAt: string | null;
 }
 export interface PlanUpsert {
   name: string; slug: string | null; monthlyPrice: number;
   maxProducts: number | null; maxOrders: number | null; aiCredits: number;
   features: string | null; isActive: boolean; displayOrder: number;
-  introPriceInr: number | null; introMonths: number | null;
+  introPriceInr: number | null; introMonths: number | null; introEndsAt: string | null;
 }
 export interface CreditPack { aiCreditPackId: number; name: string; credits: number; priceInr: number; isActive: boolean; displayOrder: number; }
 export interface PackUpsert { name: string; credits: number; priceInr: number; isActive: boolean; displayOrder: number; }

@@ -29,7 +29,8 @@ import { CreditPack, PlanOption, PackUpsert, PlanUpsert } from '../../core/model
               <td class="text-right">{{ p.monthlyPrice }}</td>
               <td>
                 @if (introLabel(p); as label) {
-                  <span class="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">{{ label }}</span>
+                  <span class="text-xs px-1.5 py-0.5 rounded border"
+                        [class]="offerExpired(p) ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-green-50 text-green-700 border-green-200'">{{ label }}</span>
                 } @else { <span class="text-xs text-slate-300">—</span> }
               </td>
               <td class="text-right text-slate-500">{{ p.maxProducts ?? '∞' }}</td>
@@ -60,11 +61,12 @@ import { CreditPack, PlanOption, PackUpsert, PlanUpsert } from '../../core/model
           <div class="mt-4 border-t border-slate-100 pt-3">
             <div class="text-sm font-medium text-slate-700">Introductory offer <span class="font-normal text-slate-400">— optional</span></div>
             <p class="text-[11px] text-slate-400 mb-2">Charges a promo price for a merchant's first N paid months, then reverts to the standard price. Leave blank for no offer.</p>
-            <div class="grid sm:grid-cols-3 gap-2 items-end">
+            <div class="grid sm:grid-cols-3 gap-2">
               <label class="block"><span class="lbl">Intro ₹ / month</span><input type="number" class="input" [(ngModel)]="f.introPriceInr" placeholder="e.g. 20" /></label>
               <label class="block"><span class="lbl">For how many months</span><input type="number" class="input" [(ngModel)]="f.introMonths" placeholder="e.g. 3" /></label>
-              <div class="text-sm text-slate-600 pb-2">{{ introPreview(f) }}</div>
+              <label class="block"><span class="lbl">Offer ends (optional)</span><input type="date" class="input" [(ngModel)]="introEndsAt" /></label>
             </div>
+            <div class="text-sm text-slate-600 mt-2">{{ introPreview(f) }}</div>
           </div>
 
           <div class="flex gap-2 mt-3">
@@ -126,6 +128,7 @@ export class SuperAdminPlansComponent implements OnInit {
   readonly error = signal<string | null>(null);
   editingPlanId: number | null = null;
   editingPackId: number | null = null;
+  introEndsAt = '';   // bound as yyyy-MM-dd, sent as ISO
 
   ngOnInit(): void { this.loadPlans(); this.loadPacks(); }
   loadPlans(): void { this.svc.plans().subscribe((p) => this.plans.set(p)); }
@@ -133,31 +136,43 @@ export class SuperAdminPlansComponent implements OnInit {
 
   newPlan(): void {
     this.editingPlanId = null;
-    this.planForm.set({ name: '', slug: null, monthlyPrice: 0, maxProducts: null, maxOrders: null, aiCredits: 0, features: null, isActive: true, displayOrder: 0, introPriceInr: null, introMonths: null });
+    this.introEndsAt = '';
+    this.planForm.set({ name: '', slug: null, monthlyPrice: 0, maxProducts: null, maxOrders: null, aiCredits: 0, features: null, isActive: true, displayOrder: 0, introPriceInr: null, introMonths: null, introEndsAt: null });
   }
   editPlan(p: PlanOption): void {
     this.editingPlanId = p.planId;
-    this.planForm.set({ name: p.name, slug: p.slug, monthlyPrice: p.monthlyPrice, maxProducts: p.maxProducts, maxOrders: p.maxOrders, aiCredits: p.aiCredits, features: p.features, isActive: p.isActive, displayOrder: p.displayOrder, introPriceInr: p.introPriceInr, introMonths: p.introMonths });
+    this.introEndsAt = p.introEndsAt ? p.introEndsAt.slice(0, 10) : '';
+    this.planForm.set({ name: p.name, slug: p.slug, monthlyPrice: p.monthlyPrice, maxProducts: p.maxProducts, maxOrders: p.maxOrders, aiCredits: p.aiCredits, features: p.features, isActive: p.isActive, displayOrder: p.displayOrder, introPriceInr: p.introPriceInr, introMonths: p.introMonths, introEndsAt: p.introEndsAt });
   }
 
-  /** "First 3 months at ₹20 (90% off)" — shown in the table. */
-  introLabel(p: { monthlyPrice: number; introPriceInr: number | null; introMonths: number | null }): string | null {
+  /** "₹20/mo × 3mo · 90% off · ended" — shown in the table. */
+  introLabel(p: PlanOption): string | null {
     if (p.introPriceInr == null || !p.introMonths) return null;
     const off = p.monthlyPrice > 0 ? Math.round(((p.monthlyPrice - p.introPriceInr) / p.monthlyPrice) * 100) : 0;
-    return `₹${p.introPriceInr}/mo × ${p.introMonths}mo` + (off > 0 ? ` · ${off}% off` : '');
+    return `₹${p.introPriceInr}/mo × ${p.introMonths}mo`
+      + (off > 0 ? ` · ${off}% off` : '')
+      + (p.introEndsAt ? (this.offerExpired(p) ? ' · ended' : ` · till ${p.introEndsAt.slice(0, 10)}`) : '');
+  }
+
+  offerExpired(p: PlanOption): boolean {
+    return !!p.introEndsAt && new Date(p.introEndsAt).getTime() < Date.now();
   }
 
   /** Live feedback while editing, so "90% off" is obvious from a price. */
   introPreview(f: PlanUpsert): string {
     if (f.introPriceInr == null || !f.introMonths) return 'No offer';
     const off = f.monthlyPrice > 0 ? Math.round(((f.monthlyPrice - f.introPriceInr) / f.monthlyPrice) * 100) : 0;
-    return `First ${f.introMonths} month(s) at ₹${f.introPriceInr}` + (off > 0 ? ` — ${off}% off` : '') + `, then ₹${f.monthlyPrice}`;
+    return `First ${f.introMonths} month(s) at ₹${f.introPriceInr}`
+      + (off > 0 ? ` — ${off}% off` : '')
+      + `, then ₹${f.monthlyPrice}`
+      + (this.introEndsAt ? `. New sign-ups until ${this.introEndsAt} (merchants already on it keep it).` : '');
   }
   savePlan(): void {
     const f = this.planForm();
     if (!f || !f.name.trim()) return;
+    const body: PlanUpsert = { ...f, introEndsAt: this.introEndsAt ? new Date(this.introEndsAt).toISOString() : null };
     const done = () => { this.planForm.set(null); this.loadPlans(); this.toast('Plan saved.'); };
-    const op = this.editingPlanId ? this.svc.updatePlan(this.editingPlanId, f) : this.svc.createPlan(f);
+    const op = this.editingPlanId ? this.svc.updatePlan(this.editingPlanId, body) : this.svc.createPlan(body);
     op.subscribe({ next: done, error: (e) => this.fail(e) });
   }
 

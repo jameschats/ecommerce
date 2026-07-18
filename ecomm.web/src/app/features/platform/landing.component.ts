@@ -2,6 +2,7 @@ import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlanOption } from '../../core/models/onboarding.model';
+import { AuthService } from '../../core/services/auth.service';
 import { OnboardingService } from '../../core/services/onboarding.service';
 import { SeoService } from '../../core/services/seo.service';
 
@@ -22,9 +23,15 @@ import { SeoService } from '../../core/services/seo.service';
           <nav class="hidden sm:flex items-center gap-7 text-sm text-slate-600">
             <a routerLink="/welcome" fragment="features" class="hover:text-slate-900">Features</a>
             <a routerLink="/welcome" fragment="pricing" class="hover:text-slate-900">Pricing</a>
-            <a routerLink="/login" class="hover:text-slate-900">Log in</a>
+            @if (!auth.isAuthenticated()) { <a routerLink="/login" class="hover:text-slate-900">Log in</a> }
           </nav>
-          <a routerLink="/signup" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Start free trial</a>
+          @if (auth.isSuperAdmin()) {
+            <a routerLink="/superadmin" class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg">Platform admin →</a>
+          } @else if (auth.isAdmin()) {
+            <a routerLink="/admin" class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg">My store admin →</a>
+          } @else {
+            <a routerLink="/signup" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Start free trial</a>
+          }
         </div>
       </header>
 
@@ -122,6 +129,8 @@ import { SeoService } from '../../core/services/seo.service';
 export class LandingComponent implements OnInit {
   private readonly onboarding = inject(OnboardingService);
   private readonly seo = inject(SeoService);
+  /** Signed-in staff landing on the apex need a way back into their console. */
+  readonly auth = inject(AuthService);
 
   readonly plans = signal<PlanOption[]>([]);
   readonly year = 2026;

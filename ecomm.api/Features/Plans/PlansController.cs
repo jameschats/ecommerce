@@ -13,10 +13,16 @@ public sealed class PlansController(EcommerceDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
+        // An expired campaign is hidden from the public pricing page, so we never advertise an
+        // offer a new merchant can no longer get. (Merchants already on it keep it — see
+        // SubscriptionService.EffectivePriceAsync.)
+        var now = DateTime.UtcNow;
         var plans = await db.Plans.AsNoTracking()
             .Where(p => p.IsActive)
             .OrderBy(p => p.DisplayOrder)
-            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.IntroPriceInr, p.IntroMonths))
+            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits,
+                p.IntroEndsAt == null || p.IntroEndsAt >= now ? p.IntroPriceInr : null,
+                p.IntroEndsAt == null || p.IntroEndsAt >= now ? p.IntroMonths : null))
             .ToListAsync(ct);
         return Ok(ApiResponse<IReadOnlyList<PlanDto>>.Ok(plans));
     }

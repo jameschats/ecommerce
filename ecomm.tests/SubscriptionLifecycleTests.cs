@@ -146,6 +146,33 @@ public class SubscriptionLifecycleTests
     }
 
     [Fact]
+    public async Task Expired_campaign_closes_the_offer_to_new_joiners_only()
+    {
+        // A merchant who has never paid gets the standard price once the campaign has ended.
+        var (db1, svc1) = NewSvc();
+        using (db1)
+        {
+            db1.Tenants.Add(new Tenant { TenantId = 1, Name = "New", Code = "new", IsActive = true, CreatedAt = DateTime.UtcNow });
+            db1.Plans.Add(new Plan { PlanId = 1, Name = "Pro", Slug = "pro", MonthlyPrice = 1999, IsActive = true, IntroPriceInr = 20, IntroMonths = 3, IntroEndsAt = DateTime.UtcNow.AddDays(-1) });
+            await db1.SaveChangesAsync();
+
+            Assert.Equal(1999m, (await svc1.StartCheckoutAsync(1, default)).Amount);
+        }
+
+        // A merchant already on the offer keeps it for the rest of their cycles, deadline or not.
+        var (db2, svc2) = NewSvc();
+        using (db2)
+        {
+            db2.Tenants.Add(new Tenant { TenantId = 1, Name = "Existing", Code = "ex", IsActive = true, CreatedAt = DateTime.UtcNow });
+            db2.Plans.Add(new Plan { PlanId = 1, Name = "Pro", Slug = "pro", MonthlyPrice = 1999, IsActive = true, IntroPriceInr = 20, IntroMonths = 3, IntroEndsAt = DateTime.UtcNow.AddDays(-1) });
+            await db2.SaveChangesAsync();
+            await svc2.ConfirmCheckoutAsync(new ConfirmCheckoutCommand(1, "order_0", "pay_0", "sig"), default);   // 1 cycle already paid
+
+            Assert.Equal(20m, (await svc2.StartCheckoutAsync(1, default)).Amount);
+        }
+    }
+
+    [Fact]
     public async Task Checkout_rejects_a_free_plan()
     {
         var (db, svc) = NewSvc();

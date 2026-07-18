@@ -9,6 +9,7 @@ public class Plan
     public decimal MonthlyPrice { get; set; }
     public decimal? IntroPriceInr { get; set; }   // promo price for the first IntroMonths paid cycles (migration 176)
     public int? IntroMonths { get; set; }
+    public DateTime? IntroEndsAt { get; set; }    // campaign deadline: closes the offer to NEW joiners (migration 177)
     public int? MaxProducts { get; set; }   // null = unlimited
     public int? MaxOrders { get; set; }     // null = unlimited (per month)
     public int AiCredits { get; set; }

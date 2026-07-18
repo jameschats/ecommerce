@@ -90,8 +90,16 @@ public sealed class SubscriptionService(
     {
         if (plan.IntroPriceInr is not { } intro || plan.IntroMonths is not { } months || months <= 0)
             return plan.MonthlyPrice;
+
         var paidCycles = await db.TenantBillingHistory.CountAsync(b => b.Status == "Paid", ct);   // tenant-scoped
-        return paidCycles < months ? intro : plan.MonthlyPrice;
+        if (paidCycles >= months) return plan.MonthlyPrice;                                      // intro used up
+
+        // Campaign deadline closes the offer to NEW joiners only. A merchant already part-way
+        // through the offer keeps the price they were promised for the rest of their cycles.
+        if (paidCycles == 0 && plan.IntroEndsAt is { } endsAt && DateTime.UtcNow > endsAt)
+            return plan.MonthlyPrice;
+
+        return intro;
     }
 
     public async Task<CheckoutSessionDto> StartCheckoutAsync(int planId, CancellationToken ct)
