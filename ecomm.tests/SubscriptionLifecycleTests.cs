@@ -121,6 +121,31 @@ public class SubscriptionLifecycleTests
     }
 
     [Fact]
+    public async Task Intro_price_applies_for_the_first_cycles_then_reverts()
+    {
+        var (db, svc) = NewSvc();
+        using (db)
+        {
+            db.Tenants.Add(new Tenant { TenantId = 1, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow });
+            // ₹20/mo for the first 2 months, then ₹1999 (a 99% intro offer).
+            db.Plans.Add(new Plan { PlanId = 1, Name = "Pro", Slug = "pro", MonthlyPrice = 1999, IsActive = true, IntroPriceInr = 20, IntroMonths = 2 });
+            await db.SaveChangesAsync();
+
+            // Cycle 1 + 2 bill at the intro price.
+            Assert.Equal(20m, (await svc.StartCheckoutAsync(1, default)).Amount);
+            await svc.ConfirmCheckoutAsync(new ConfirmCheckoutCommand(1, "order_1", "pay_1", "sig"), default);
+            Assert.Equal(20m, (await svc.StartCheckoutAsync(1, default)).Amount);
+            await svc.ConfirmCheckoutAsync(new ConfirmCheckoutCommand(1, "order_2", "pay_2", "sig"), default);
+
+            // Intro exhausted -> standard price.
+            Assert.Equal(1999m, (await svc.StartCheckoutAsync(1, default)).Amount);
+
+            var charged = await db.TenantBillingHistory.OrderBy(b => b.TenantBillingHistoryId).Select(b => b.Amount).ToListAsync();
+            Assert.Equal(new[] { 20m, 20m }, charged);   // recorded at the intro price, not the list price
+        }
+    }
+
+    [Fact]
     public async Task Checkout_rejects_a_free_plan()
     {
         var (db, svc) = NewSvc();

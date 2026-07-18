@@ -81,14 +81,28 @@ public sealed class SubscriptionService(
     /// Returns what the browser widget needs. Mock gateway in dev → KeyId is null and the client
     /// confirms straight away (MockPaymentGateway.VerifySignature always passes).
     /// </summary>
+    /// <summary>
+    /// What this tenant pays for the NEXT cycle of a plan. Introductory pricing applies to the first
+    /// <c>IntroMonths</c> paid cycles — measured by how many charges the tenant already has — after
+    /// which it reverts to the standard monthly price.
+    /// </summary>
+    private async Task<decimal> EffectivePriceAsync(Plan plan, CancellationToken ct)
+    {
+        if (plan.IntroPriceInr is not { } intro || plan.IntroMonths is not { } months || months <= 0)
+            return plan.MonthlyPrice;
+        var paidCycles = await db.TenantBillingHistory.CountAsync(b => b.Status == "Paid", ct);   // tenant-scoped
+        return paidCycles < months ? intro : plan.MonthlyPrice;
+    }
+
     public async Task<CheckoutSessionDto> StartCheckoutAsync(int planId, CancellationToken ct)
     {
         var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == planId && p.IsActive, ct)
                    ?? throw new AppException("Plan not found.", StatusCodes.Status404NotFound);
-        if (plan.MonthlyPrice <= 0) throw new AppException("That plan is free — just select it.", StatusCodes.Status400BadRequest);
+        var price = await EffectivePriceAsync(plan, ct);
+        if (price <= 0) throw new AppException("That plan is free right now — just select it.", StatusCodes.Status400BadRequest);
 
         var gateway = gateways.Create();
-        var order = await gateway.CreateOrderAsync(db.CurrentTenantId, plan.MonthlyPrice, "INR", $"sub-{db.CurrentTenantId}-{planId}", ct);
+        var order = await gateway.CreateOrderAsync(db.CurrentTenantId, price, "INR", $"sub-{db.CurrentTenantId}-{planId}", ct);
         return new CheckoutSessionDto(order.GatewayOrderId, order.Amount, order.Currency, gateway.PublicKey, gateway.Name, plan.PlanId, plan.Name);
     }
 
@@ -107,9 +121,11 @@ public sealed class SubscriptionService(
         if (!gateway.VerifySignature(cmd.GatewayOrderId, cmd.PaymentId, cmd.Signature))
             throw new AppException("Payment verification failed.", StatusCodes.Status400BadRequest);
 
+        // Re-derive the price server-side (same rule as StartCheckout) — never trust the client.
+        var price = await EffectivePriceAsync(plan, ct);
         await SelectPlanAsync(cmd.PlanId, ct);   // point the subscription at the plan being paid for
         var now = DateTime.UtcNow;
-        await RecordChargeAsync(new RecordChargeCommand(db.CurrentTenantId, plan.MonthlyPrice, cmd.PaymentId, null, now, now.AddMonths(1)), ct);
+        await RecordChargeAsync(new RecordChargeCommand(db.CurrentTenantId, price, cmd.PaymentId, null, now, now.AddMonths(1)), ct);
         return (await GetCurrentAsync(ct))!;
     }
 

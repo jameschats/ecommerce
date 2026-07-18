@@ -46,7 +46,14 @@ import { BillingHistory, BillingService, CheckoutSession, Plan, Subscription } f
                 <h3 class="font-semibold text-slate-800">{{ p.name }}</h3>
                 @if (isCurrent(p)) { <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Current</span> }
               </div>
-              <p class="text-2xl font-bold text-slate-900 mt-2">{{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}<span class="text-sm font-normal text-slate-400">/mo</span></p>
+              @if (p.introPriceInr != null && p.introMonths) {
+                <p class="text-2xl font-bold text-slate-900 mt-2">{{ p.introPriceInr | currency:'INR':'symbol':'1.0-0' }}<span class="text-sm font-normal text-slate-400">/mo</span>
+                  <span class="ml-2 text-sm font-normal text-slate-400 line-through">{{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}</span>
+                </p>
+                <p class="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5 inline-block mt-1">First {{ p.introMonths }} months, then {{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}/mo</p>
+              } @else {
+                <p class="text-2xl font-bold text-slate-900 mt-2">{{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}<span class="text-sm font-normal text-slate-400">/mo</span></p>
+              }
               <ul class="text-sm text-slate-600 mt-3 space-y-1 flex-1">
                 <li>{{ p.maxProducts ? (p.maxProducts + ' products') : 'Unlimited products' }}</li>
                 <li>{{ p.maxOrders ? (p.maxOrders + ' orders / mo') : 'Unlimited orders' }}</li>

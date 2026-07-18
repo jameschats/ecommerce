@@ -21,9 +21,11 @@ public sealed record ContactDto(long UserId, string? Email, string? FullName, st
 
 public sealed record TenantSubscriptionInfo(int? PlanId, string? PlanName, string? Status, DateTime? TrialEndsAt, DateTime? CurrentPeriodEnd, string? RazorpaySubscriptionId);
 public sealed record TenantUsageDto(int Products, int Orders, decimal Gmv, int AiCreditBalance);
-public sealed record PlanDto(int PlanId, string Name, string Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder);
+public sealed record PlanDto(int PlanId, string Name, string Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder,
+    decimal? IntroPriceInr, int? IntroMonths);
 public sealed record AiCreditPackDto(int AiCreditPackId, string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
-public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder);
+public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder,
+    decimal? IntroPriceInr = null, int? IntroMonths = null);
 public sealed record PackUpsert(string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
 public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, DateTime CreatedAt);
 
@@ -333,7 +335,7 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
 
     public async Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct) =>
         await db.Plans.AsNoTracking().OrderBy(p => p.DisplayOrder).ThenBy(p => p.PlanId)
-            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder))
+            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder, p.IntroPriceInr, p.IntroMonths))
             .ToListAsync(ct);
 
     public async Task<PlanDto> CreatePlanAsync(PlanUpsert r, long adminUserId, CancellationToken ct)
@@ -345,7 +347,8 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         var plan = new Plan
         {
             Name = name, Slug = slug, MonthlyPrice = r.MonthlyPrice, MaxProducts = r.MaxProducts, MaxOrders = r.MaxOrders,
-            AiCredits = r.AiCredits, Features = r.Features, IsActive = r.IsActive, DisplayOrder = r.DisplayOrder, CreatedAt = DateTime.UtcNow,
+            AiCredits = r.AiCredits, Features = r.Features, IsActive = r.IsActive, DisplayOrder = r.DisplayOrder,
+            IntroPriceInr = r.IntroPriceInr, IntroMonths = r.IntroMonths, CreatedAt = DateTime.UtcNow,
         };
         db.Plans.Add(plan);
         await LogAsync(adminUserId, null, "CreatePlan", name, ct);
@@ -363,7 +366,9 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         if (await db.Plans.AnyAsync(p => p.Slug == slug && p.PlanId != planId, ct)) throw new AppException("A plan with that slug already exists.", StatusCodes.Status409Conflict);
         plan.Name = name; plan.Slug = slug; plan.MonthlyPrice = r.MonthlyPrice; plan.MaxProducts = r.MaxProducts;
         plan.MaxOrders = r.MaxOrders; plan.AiCredits = r.AiCredits; plan.Features = r.Features; plan.IsActive = r.IsActive;
-        plan.DisplayOrder = r.DisplayOrder; plan.UpdatedAt = DateTime.UtcNow;
+        plan.DisplayOrder = r.DisplayOrder;
+        plan.IntroPriceInr = r.IntroPriceInr; plan.IntroMonths = r.IntroMonths;
+        plan.UpdatedAt = DateTime.UtcNow;
         await LogAsync(adminUserId, null, "UpdatePlan", name, ct);
         await db.SaveChangesAsync(ct);
         return ToPlanDto(plan);
@@ -423,7 +428,7 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
     }
 
     private static PlanDto ToPlanDto(Plan p) =>
-        new(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder);
+        new(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder, p.IntroPriceInr, p.IntroMonths);
 
     private static string Slugify(string s)
     {

@@ -7,6 +7,8 @@ public class Plan
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public decimal MonthlyPrice { get; set; }
+    public decimal? IntroPriceInr { get; set; }   // promo price for the first IntroMonths paid cycles (migration 176)
+    public int? IntroMonths { get; set; }
     public int? MaxProducts { get; set; }   // null = unlimited
     public int? MaxOrders { get; set; }     // null = unlimited (per month)
     public int AiCredits { get; set; }

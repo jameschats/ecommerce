@@ -16,7 +16,7 @@ public sealed class PlansController(EcommerceDbContext db) : ControllerBase
         var plans = await db.Plans.AsNoTracking()
             .Where(p => p.IsActive)
             .OrderBy(p => p.DisplayOrder)
-            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits))
+            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.IntroPriceInr, p.IntroMonths))
             .ToListAsync(ct);
         return Ok(ApiResponse<IReadOnlyList<PlanDto>>.Ok(plans));
     }
@@ -24,4 +24,5 @@ public sealed class PlansController(EcommerceDbContext db) : ControllerBase
 
 public sealed record PlanDto(
     int PlanId, string Name, string Slug, decimal MonthlyPrice,
-    int? MaxProducts, int? MaxOrders, int AiCredits);
+    int? MaxProducts, int? MaxOrders, int AiCredits,
+    decimal? IntroPriceInr, int? IntroMonths);

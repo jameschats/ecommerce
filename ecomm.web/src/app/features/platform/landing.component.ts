@@ -65,7 +65,18 @@ import { SeoService } from '../../core/services/seo.service';
               <div class="border rounded-2xl p-6 flex flex-col" [class]="i === 1 ? 'border-indigo-400 ring-1 ring-indigo-200 shadow-sm' : 'border-slate-200'">
                 @if (i === 1) { <span class="text-xs font-semibold text-indigo-700 mb-2">Most popular</span> }
                 <h3 class="font-semibold text-lg">{{ p.name }}</h3>
-                <p class="mt-2"><span class="text-3xl font-extrabold">{{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}</span><span class="text-slate-400 text-sm">/mo</span></p>
+                @if (p.introPriceInr != null && p.introMonths) {
+                  <p class="mt-2">
+                    <span class="text-3xl font-extrabold">{{ p.introPriceInr | currency:'INR':'symbol':'1.0-0' }}</span><span class="text-slate-400 text-sm">/mo</span>
+                    <span class="ml-2 text-sm text-slate-400 line-through">{{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}</span>
+                  </p>
+                  <p class="mt-1 inline-block text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                    First {{ p.introMonths }} months{{ percentOff(p) ? ' · ' + percentOff(p) + '% off' : '' }}
+                  </p>
+                  <p class="text-xs text-slate-400 mt-1">Then {{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}/mo</p>
+                } @else {
+                  <p class="mt-2"><span class="text-3xl font-extrabold">{{ p.monthlyPrice | currency:'INR':'symbol':'1.0-0' }}</span><span class="text-slate-400 text-sm">/mo</span></p>
+                }
                 <ul class="text-sm text-slate-600 mt-4 space-y-1.5 flex-1">
                   <li>✓ {{ p.maxProducts ? (p.maxProducts + ' products') : 'Unlimited products' }}</li>
                   <li>✓ {{ p.maxOrders ? (p.maxOrders + ' orders / mo') : 'Unlimited orders' }}</li>
@@ -114,6 +125,13 @@ export class LandingComponent implements OnInit {
 
   readonly plans = signal<PlanOption[]>([]);
   readonly year = 2026;
+
+  /** Discount implied by the intro price, so "₹20 on a ₹1999 plan" reads as "90% off". */
+  percentOff(p: PlanOption): number {
+    if (p.introPriceInr == null || p.monthlyPrice <= 0) return 0;
+    return Math.round(((p.monthlyPrice - p.introPriceInr) / p.monthlyPrice) * 100);
+  }
+
   readonly features = [
     { icon: '🎨', title: 'Beautiful themes', body: 'Install a free theme and customise it — no code.' },
     { icon: '💳', title: 'Payments built in', body: 'Accept cards, UPI and COD out of the box.' },

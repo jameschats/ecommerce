@@ -6,6 +6,8 @@ export interface PlanOption {
   maxProducts: number | null;
   maxOrders: number | null;
   aiCredits: number;
+  introPriceInr: number | null;
+  introMonths: number | null;
 }
 
 export interface SignupRequest {
