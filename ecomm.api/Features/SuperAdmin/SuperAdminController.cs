@@ -172,6 +172,14 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
         return Ok(ApiResponse<object>.Ok(new { }, "Removed from blocklist."));
     }
 
+    [HttpGet("payment-settings")]
+    public async Task<IActionResult> PlatformPayment(CancellationToken ct)
+        => Ok(ApiResponse<PlatformPaymentDto>.Ok(await svc.GetPlatformPaymentAsync(ct)));
+
+    [HttpPut("payment-settings")]
+    public async Task<IActionResult> SavePlatformPayment([FromBody] PlatformPaymentUpsert req, CancellationToken ct)
+        => Ok(ApiResponse<PlatformPaymentDto>.Ok(await svc.SavePlatformPaymentAsync(req, AdminUserId, ct), "Payment settings saved."));
+
     [HttpGet("tenants/{id:long}/diagnostics")]
     public async Task<IActionResult> Diagnostics(long id, CancellationToken ct)
         => Ok(ApiResponse<TenantDiagnosticsDto>.Ok(await svc.DiagnosticsAsync(id, ct)));

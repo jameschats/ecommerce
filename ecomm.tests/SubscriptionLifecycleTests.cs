@@ -15,15 +15,16 @@ public class SubscriptionLifecycleTests
         public HttpClient CreateClient(string name) => throw new NotImplementedException();
     }
 
-    private static PlatformPaymentGatewayFactory Gateways() =>
-        new(new StubHttpFactory(), Options.Create(new PaymentOptions()));
+    private static PlatformPaymentGatewayFactory Gateways(ecomm.api.Data.Context.EcommerceDbContext db) =>
+        new(new StubHttpFactory(), Options.Create(new PaymentOptions()), db,
+            Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests"));
 
     private static (ecomm.api.Data.Context.EcommerceDbContext db, SubscriptionService svc) NewSvc(long tenantId = 1)
     {
         // Service + context share the tenant instance so RecordCharge's BeginScope drives the auto-stamp.
         var tenant = new FixedTenant(tenantId);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        return (db, new SubscriptionService(db, Gateways(), tenant));
+        return (db, new SubscriptionService(db, Gateways(db), tenant));
     }
 
     [Fact]

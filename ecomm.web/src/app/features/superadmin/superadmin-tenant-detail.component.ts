@@ -159,6 +159,24 @@ import { healthClass, standingClass } from './superadmin-ui';
             <div class="flex justify-between"><dt class="text-slate-500">Razorpay sub</dt><dd class="text-slate-800 truncate max-w-[12rem]">{{ d.subscription.razorpaySubscriptionId || '—' }}</dd></div>
             <div class="flex justify-between border-t border-slate-100 pt-1.5"><dt class="text-slate-500">Custom domain</dt><dd class="text-slate-800">{{ d.customDomain || '—' }} @if (d.customDomain) { <span class="text-xs" [class]="d.customDomainVerified ? 'text-green-600' : 'text-amber-600'">{{ d.customDomainVerified ? '✓ verified' : 'unverified' }}</span> }</dd></div>
           </dl>
+
+          <!-- Payment readiness (read-only oversight; the merchant's secret is never exposed) -->
+          <div class="border-t border-slate-100 mt-3 pt-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-slate-700">Store payments</span>
+              @if (d.payment.isEnabled && d.payment.hasSecret) {
+                <span class="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">Live · {{ d.payment.provider }}</span>
+              } @else if (d.payment.hasSecret) {
+                <span class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Configured, not enabled</span>
+              } @else {
+                <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">Not set up</span>
+              }
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">
+              @if (d.payment.razorpayKeyId) { Key {{ d.payment.razorpayKeyId }} }
+              @else { No gateway of their own — shopper checkout falls back to the platform keys. }
+            </p>
+          </div>
         </div>
 
         <!-- Billing -->

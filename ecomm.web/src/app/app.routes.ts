@@ -62,6 +62,7 @@ export const routes: Routes = [
       { path: 'revenue', loadComponent: () => import('./features/superadmin/superadmin-revenue.component').then((m) => m.SuperAdminRevenueComponent) },
       { path: 'billing', loadComponent: () => import('./features/superadmin/superadmin-billing.component').then((m) => m.SuperAdminBillingComponent) },
       { path: 'plans', loadComponent: () => import('./features/superadmin/superadmin-plans.component').then((m) => m.SuperAdminPlansComponent) },
+      { path: 'payments', loadComponent: () => import('./features/superadmin/superadmin-payments.component').then((m) => m.SuperAdminPaymentsComponent) },
       { path: 'blocklist', loadComponent: () => import('./features/superadmin/superadmin-blocklist.component').then((m) => m.SuperAdminBlocklistComponent) },
       { path: 'support', loadComponent: () => import('./features/superadmin/superadmin-support.component').then((m) => m.SuperAdminSupportComponent) },
       { path: 'announcements', loadComponent: () => import('./features/superadmin/superadmin-announcements.component').then((m) => m.SuperAdminAnnouncementsComponent) },

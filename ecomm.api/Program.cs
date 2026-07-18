@@ -190,7 +190,8 @@ builder.Services.AddScoped<ecomm.api.Features.Ai.IAiCatalogService, ecomm.api.Fe
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiImportService, ecomm.api.Features.Ai.AiImportService>();
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiPageService, ecomm.api.Features.Ai.AiPageService>();
 // Platform-side gateway (from the app-wide Payments config) — merchant→platform payments (AI credit top-ups).
-builder.Services.AddSingleton<ecomm.api.Features.Payments.PlatformPaymentGatewayFactory>();
+// Scoped, not singleton: it reads PlatformPaymentSettings (console-set keys override api.env).
+builder.Services.AddScoped<ecomm.api.Features.Payments.PlatformPaymentGatewayFactory>();
 
 // Encrypts per-tenant secrets at rest (Razorpay key secret, Shiprocket password). The key ring MUST
 // survive restarts or every saved secret becomes undecryptable — persist it to disk. Path is

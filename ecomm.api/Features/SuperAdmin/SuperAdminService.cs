@@ -4,6 +4,7 @@ using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Auth.Services;
 using ecomm.api.Features.Notifications;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -32,6 +33,13 @@ public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, D
 public sealed record FailedNotificationDto(long Id, string Channel, string Recipient, string? Subject, string? Error, DateTime CreatedAt);
 public sealed record TenantDiagnosticsDto(int FailedNotifications, int OrdersNeedingAction, int LowStock, List<FailedNotificationDto> RecentFailures);
 
+/// <summary>Can this store actually take money? Read-only oversight — the secret is never returned.</summary>
+public sealed record TenantPaymentInfo(string Provider, string? RazorpayKeyId, bool HasSecret, bool IsEnabled);
+
+/// <summary>The platform's own gateway config (merchants paying us). Source = console | env.</summary>
+public sealed record PlatformPaymentDto(string Provider, string? RazorpayKeyId, bool HasSecret, string Source);
+public sealed record PlatformPaymentUpsert(string Provider, string? RazorpayKeyId, string? RazorpayKeySecret);
+
 public sealed record BillingChargeDto(long Id, long TenantId, decimal Amount, string Status, DateTime BilledAt, DateTime? PeriodStart, DateTime? PeriodEnd, string? RazorpayPaymentId);
 public sealed record SubStatusRow(long TenantId, string Name, string? Slug, string? PlanName, string Status, DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt);
 
@@ -40,7 +48,7 @@ public sealed record TenantDetailDto(
     TenantSubscriptionInfo Subscription, TenantUsageDto Usage,
     string? CustomDomain, bool CustomDomainVerified, IReadOnlyList<AuditDto> RecentActivity,
     IReadOnlyList<string> Tags, IReadOnlyList<NoteDto> Notes, DateTime? OffboardedAt,
-    IReadOnlyList<BillingChargeDto> Billing, HealthDto Health);
+    IReadOnlyList<BillingChargeDto> Billing, HealthDto Health, TenantPaymentInfo Payment);
 
 public sealed record PlanRevenueRow(string Plan, int ActiveCount, decimal Mrr);
 public sealed record PlatformRevenueDto(
@@ -66,6 +74,8 @@ public interface ISuperAdminService
     Task<IReadOnlyList<SubStatusRow>> SubscriptionsAsync(string? status, CancellationToken ct);
     Task<IReadOnlyList<BillingChargeDto>> RecentChargesAsync(int limit, CancellationToken ct);
     Task RecordManualPaymentAsync(long tenantId, int planId, decimal amount, string? reference, long adminUserId, CancellationToken ct);
+    Task<PlatformPaymentDto> GetPlatformPaymentAsync(CancellationToken ct);
+    Task<PlatformPaymentDto> SavePlatformPaymentAsync(PlatformPaymentUpsert req, long adminUserId, CancellationToken ct);
     Task<TenantDiagnosticsDto> DiagnosticsAsync(long tenantId, CancellationToken ct);
     Task ResendNotificationAsync(long historyId, long adminUserId, CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
@@ -95,7 +105,9 @@ public interface ISuperAdminService
 /// (design-v2 §6.1). Mutations are written to PlatformAccessLog.
 /// </summary>
 public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy, ICurrentTenantService tenant,
-    IEmailSender email, ISmsSender sms) : ISuperAdminService
+    IEmailSender email, ISmsSender sms,
+    ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
+    Microsoft.AspNetCore.DataProtection.IDataProtectionProvider dp) : ISuperAdminService
 {
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
         { "Good", "Trusted", "Watch", "Flagged", "Blacklisted" };
@@ -228,9 +240,15 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         var (hScore, hBand, hSignals, hSuggested) = ComputeHealth(subInfo.Status, soldCount, lostCount, lastOrder, lastLogin, t.CreatedAt, t.Standing, DateTime.UtcNow);
         var health = new HealthDto(hScore, hBand, hSignals, hSuggested);
 
+        // Payment oversight: can this store actually take money? (Secret is never surfaced.)
+        var acct = await db.TenantPaymentAccounts.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(a => a.TenantId == tenantId, ct);
+        var payment = new TenantPaymentInfo(acct?.Provider ?? "Mock", acct?.RazorpayKeyId,
+            !string.IsNullOrEmpty(acct?.RazorpayKeySecret), acct?.IsEnabled ?? false);
+
         await LogAsync(adminUserId, tenantId, "ViewTenant", null, ct);
         return new TenantDetailDto(summary, contacts, t.StandingReason, subInfo, usage,
-            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt, billing, health);
+            t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt, billing, health, payment);
     }
 
     public async Task<IReadOnlyList<SubStatusRow>> SubscriptionsAsync(string? status, CancellationToken ct)
@@ -288,6 +306,39 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = tenantId, Action = "RecordPayment", Detail = $"{amount} — {plan.Name}", CreatedAt = now });
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    public Task<PlatformPaymentDto> GetPlatformPaymentAsync(CancellationToken ct)
+    {
+        var (provider, keyId, hasSecret, source) = gateways.Describe();
+        return Task.FromResult(new PlatformPaymentDto(provider, keyId, hasSecret, source));
+    }
+
+    /// <summary>
+    /// Store the platform's gateway config in the DB (overriding api.env). A blank secret keeps the
+    /// existing one, so you can edit the key id without re-typing the secret. Never returned to the client.
+    /// </summary>
+    public async Task<PlatformPaymentDto> SavePlatformPaymentAsync(PlatformPaymentUpsert req, long adminUserId, CancellationToken ct)
+    {
+        var provider = string.Equals(req.Provider, "Razorpay", StringComparison.OrdinalIgnoreCase) ? "Razorpay" : "Mock";
+        var row = await db.PlatformPaymentSettings.FirstOrDefaultAsync(ct);
+        if (row is null)
+        {
+            row = new PlatformPaymentSetting { PlatformPaymentSettingId = 1, CreatedAt = DateTime.UtcNow };
+            db.PlatformPaymentSettings.Add(row);
+        }
+        row.Provider = provider;
+        row.RazorpayKeyId = req.RazorpayKeyId?.Trim();
+        if (!string.IsNullOrWhiteSpace(req.RazorpayKeySecret))
+            row.RazorpayKeySecret = dp.CreateProtector(ecomm.api.Features.Payments.PaymentSettingsService.ProtectorPurpose).Protect(req.RazorpayKeySecret.Trim());
+        row.UpdatedAt = DateTime.UtcNow;
+
+        if (provider == "Razorpay" && (string.IsNullOrWhiteSpace(row.RazorpayKeyId) || string.IsNullOrEmpty(row.RazorpayKeySecret)))
+            throw new AppException("Razorpay needs both a key id and a key secret.", StatusCodes.Status400BadRequest);
+
+        db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = null, Action = "PlatformPaymentSettings", Detail = provider, CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
+        return new PlatformPaymentDto(row.Provider, row.RazorpayKeyId, !string.IsNullOrEmpty(row.RazorpayKeySecret), "console");
     }
 
     public async Task<TenantDiagnosticsDto> DiagnosticsAsync(long tenantId, CancellationToken ct)

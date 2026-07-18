@@ -80,7 +80,12 @@ export interface TenantDetail {
   offboardedAt: string | null;
   billing: BillingCharge[];
   health: TenantHealth;
+  payment: TenantPaymentInfo;
 }
+
+export interface TenantPaymentInfo { provider: string; razorpayKeyId: string | null; hasSecret: boolean; isEnabled: boolean; }
+export interface PlatformPayment { provider: string; razorpayKeyId: string | null; hasSecret: boolean; source: string; }
+export interface PlatformPaymentUpsert { provider: string; razorpayKeyId: string | null; razorpayKeySecret: string | null; }
 
 export interface BillingCharge {
   id: number;

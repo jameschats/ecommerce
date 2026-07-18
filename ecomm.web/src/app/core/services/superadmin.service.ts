@@ -5,8 +5,8 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
   Announcement, AnnouncementUpsert, AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult,
-  PackUpsert, PlanOption, PlanUpsert, PlatformAnalytics, PlatformRevenue, PlatformStaff, SubStatusRow,
-  TenantDetail, TenantDiagnostics, TenantSummary,
+  PackUpsert, PlanOption, PlanUpsert, PlatformAnalytics, PlatformPayment, PlatformPaymentUpsert,
+  PlatformRevenue, PlatformStaff, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -92,6 +92,12 @@ export class SuperAdminService {
   }
   setAnnouncementActive(id: number, active: boolean): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/announcements/${id}/active`, { active });
+  }
+  platformPayment(): Observable<PlatformPayment> {
+    return this.http.get<ApiResponse<PlatformPayment>>(`${this.base}/payment-settings`).pipe(map((r) => r.data as PlatformPayment));
+  }
+  savePlatformPayment(req: PlatformPaymentUpsert): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/payment-settings`, req);
   }
   staff(): Observable<PlatformStaff[]> {
     return this.http.get<ApiResponse<PlatformStaff[]>>(`${this.base}/staff`).pipe(map((r) => r.data ?? []));

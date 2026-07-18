@@ -119,6 +119,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<PlatformAccessLog> PlatformAccessLog => Set<PlatformAccessLog>();
     public DbSet<TenantNote> TenantNotes => Set<TenantNote>();
     public DbSet<PlatformAnnouncement> PlatformAnnouncements => Set<PlatformAnnouncement>();
+    public DbSet<PlatformPaymentSetting> PlatformPaymentSettings => Set<PlatformPaymentSetting>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
     public DbSet<SignupBlocklist> SignupBlocklist => Set<SignupBlocklist>();
@@ -425,6 +426,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<PlatformAccessLog>(e => { e.ToTable("PlatformAccessLog"); e.HasKey(x => x.PlatformAccessLogId); });
         b.Entity<TenantNote>(e => { e.ToTable("TenantNotes"); e.HasKey(x => x.TenantNoteId); });
         b.Entity<PlatformAnnouncement>(e => { e.ToTable("PlatformAnnouncements"); e.HasKey(x => x.PlatformAnnouncementId); });
+        b.Entity<PlatformPaymentSetting>(e => { e.ToTable("PlatformPaymentSettings"); e.HasKey(x => x.PlatformPaymentSettingId); });
         b.Entity<SupportTicket>(e => { e.ToTable("SupportTickets"); e.HasKey(x => x.SupportTicketId); });
         b.Entity<SupportMessage>(e => { e.ToTable("SupportMessages"); e.HasKey(x => x.SupportMessageId); });
         b.Entity<SignupBlocklist>(e => { e.ToTable("SignupBlocklist"); e.HasKey(x => x.SignupBlocklistId); });

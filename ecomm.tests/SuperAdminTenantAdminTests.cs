@@ -29,13 +29,21 @@ public class SuperAdminTenantAdminTests
     {
         public Task SendAsync(string phoneNumber, string message, CancellationToken ct = default) => Task.CompletedTask;
     }
+    private sealed class StubHttpFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => throw new NotImplementedException();
+    }
 
     // Service + context must SHARE the tenant instance so GrantCredits' BeginScope affects the auto-stamp.
     private static (EcommerceDbContext db, SuperAdminService svc) Build(long contextTenant)
     {
         var tenant = new FixedTenant(contextTenant);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        var svc = new SuperAdminService(db, new StubJwt(), Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online" }), tenant, new NoopEmail(), new NoopSms());
+        var dp = Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests");
+        var gateways = new ecomm.api.Features.Payments.PlatformPaymentGatewayFactory(
+            new StubHttpFactory(), Options.Create(new ecomm.api.Features.Payments.PaymentOptions()), db, dp);
+        var svc = new SuperAdminService(db, new StubJwt(), Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online" }), tenant,
+            new NoopEmail(), new NoopSms(), gateways, dp);
         return (db, svc);
     }
 

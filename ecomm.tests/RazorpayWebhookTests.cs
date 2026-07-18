@@ -43,7 +43,9 @@ public class RazorpayWebhookTests
         // Context tenant = 1 (the apex, exactly like the anonymous webhook request).
         var tenant = new FixedTenant(1);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        var subs = new SubscriptionService(db, new PlatformPaymentGatewayFactory(new StubHttpFactory(), Options.Create(new PaymentOptions())), tenant);
+        var subs = new SubscriptionService(db,
+            new PlatformPaymentGatewayFactory(new StubHttpFactory(), Options.Create(new PaymentOptions()), db,
+                Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests")), tenant);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Billing:WebhookSecret"] = Secret }).Build();
 
