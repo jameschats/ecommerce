@@ -4,7 +4,8 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
-  AuditEntry, BlocklistEntry, ImpersonationResult, PlanOption, PlatformRevenue, TenantDetail, TenantSummary,
+  AuditEntry, BlocklistEntry, CreditPack, ImpersonationResult, PackUpsert, PlanOption, PlanUpsert,
+  PlatformRevenue, TenantDetail, TenantSummary,
 } from '../models/superadmin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -30,6 +31,16 @@ export class SuperAdminService {
   offboard(id: number): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/offboard`, {}); }
   plans(): Observable<PlanOption[]> {
     return this.http.get<ApiResponse<PlanOption[]>>(`${this.base}/plans`).pipe(map((r) => r.data ?? []));
+  }
+  createPlan(req: PlanUpsert): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/plans`, req); }
+  updatePlan(id: number, req: PlanUpsert): Observable<unknown> { return this.http.put<ApiResponse<unknown>>(`${this.base}/plans/${id}`, req); }
+  packs(): Observable<CreditPack[]> {
+    return this.http.get<ApiResponse<CreditPack[]>>(`${this.base}/credit-packs`).pipe(map((r) => r.data ?? []));
+  }
+  createPack(req: PackUpsert): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/credit-packs`, req); }
+  updatePack(id: number, req: PackUpsert): Observable<unknown> { return this.http.put<ApiResponse<unknown>>(`${this.base}/credit-packs/${id}`, req); }
+  grantCredits(id: number, amount: number, reason: string | null): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/tenants/${id}/grant-credits`, { amount, reason });
   }
   changePlan(id: number, planId: number): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/tenants/${id}/plan`, { planId });

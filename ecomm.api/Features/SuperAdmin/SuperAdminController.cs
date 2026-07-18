@@ -52,7 +52,34 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
 
     [HttpGet("plans")]
     public async Task<IActionResult> Plans(CancellationToken ct)
-        => Ok(ApiResponse<IReadOnlyList<PlanOptionDto>>.Ok(await svc.ListPlansAsync(ct)));
+        => Ok(ApiResponse<IReadOnlyList<PlanDto>>.Ok(await svc.ListPlansAsync(ct)));
+
+    [HttpPost("plans")]
+    public async Task<IActionResult> CreatePlan([FromBody] PlanUpsert req, CancellationToken ct)
+        => Ok(ApiResponse<PlanDto>.Ok(await svc.CreatePlanAsync(req, AdminUserId, ct), "Plan created."));
+
+    [HttpPut("plans/{planId:int}")]
+    public async Task<IActionResult> UpdatePlan(int planId, [FromBody] PlanUpsert req, CancellationToken ct)
+        => Ok(ApiResponse<PlanDto>.Ok(await svc.UpdatePlanAsync(planId, req, AdminUserId, ct), "Plan saved."));
+
+    [HttpGet("credit-packs")]
+    public async Task<IActionResult> Packs(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<AiCreditPackDto>>.Ok(await svc.ListPacksAsync(ct)));
+
+    [HttpPost("credit-packs")]
+    public async Task<IActionResult> CreatePack([FromBody] PackUpsert req, CancellationToken ct)
+        => Ok(ApiResponse<AiCreditPackDto>.Ok(await svc.CreatePackAsync(req, AdminUserId, ct), "Pack created."));
+
+    [HttpPut("credit-packs/{packId:int}")]
+    public async Task<IActionResult> UpdatePack(int packId, [FromBody] PackUpsert req, CancellationToken ct)
+        => Ok(ApiResponse<AiCreditPackDto>.Ok(await svc.UpdatePackAsync(packId, req, AdminUserId, ct), "Pack saved."));
+
+    [HttpPost("tenants/{id:long}/grant-credits")]
+    public async Task<IActionResult> GrantCredits(long id, [FromBody] GrantCreditsRequest req, CancellationToken ct)
+    {
+        await svc.GrantCreditsAsync(id, req.Amount, req.Reason, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, $"Granted {req.Amount} credits."));
+    }
 
     [HttpPut("tenants/{id:long}/plan")]
     public async Task<IActionResult> ChangePlan(long id, [FromBody] ChangePlanRequest req, CancellationToken ct)
@@ -123,3 +150,4 @@ public sealed record ChangePlanRequest(int PlanId);
 public sealed record SetTrialRequest(DateTime? TrialEndsAt);
 public sealed record SetTagsRequest(string? Tags);
 public sealed record AddNoteRequest(string Note);
+public sealed record GrantCreditsRequest(int Amount, string? Reason);

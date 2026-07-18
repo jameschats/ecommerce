@@ -38,6 +38,7 @@ export class SuperAdminShellComponent {
   readonly links = [
     { path: 'stores', label: 'Stores', icon: '🏬' },
     { path: 'revenue', label: 'Revenue', icon: '💰' },
+    { path: 'plans', label: 'Plans & credits', icon: '🏷️' },
     { path: 'blocklist', label: 'Blocklist', icon: '⛔' },
     { path: 'audit', label: 'Audit log', icon: '📜' },
   ];

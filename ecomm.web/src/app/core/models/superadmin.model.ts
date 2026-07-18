@@ -37,7 +37,25 @@ export interface TenantUsage {
   aiCreditBalance: number;
 }
 
-export interface PlanOption { planId: number; name: string; monthlyPrice: number; isActive: boolean; }
+export interface PlanOption {
+  planId: number;
+  name: string;
+  slug: string;
+  monthlyPrice: number;
+  maxProducts: number | null;
+  maxOrders: number | null;
+  aiCredits: number;
+  features: string | null;
+  isActive: boolean;
+  displayOrder: number;
+}
+export interface PlanUpsert {
+  name: string; slug: string | null; monthlyPrice: number;
+  maxProducts: number | null; maxOrders: number | null; aiCredits: number;
+  features: string | null; isActive: boolean; displayOrder: number;
+}
+export interface CreditPack { aiCreditPackId: number; name: string; credits: number; priceInr: number; isActive: boolean; displayOrder: number; }
+export interface PackUpsert { name: string; credits: number; priceInr: number; isActive: boolean; displayOrder: number; }
 export interface TenantNote { tenantNoteId: number; adminUserId: number; note: string; createdAt: string; }
 
 export interface TenantDetail {

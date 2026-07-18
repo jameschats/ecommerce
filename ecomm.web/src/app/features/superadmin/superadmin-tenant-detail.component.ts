@@ -73,6 +73,14 @@ import { standingClass } from './superadmin-ui';
             <button type="button" (click)="clearTrial(d.summary.tenantId)" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs hover:bg-slate-50">Clear</button>
           </div>
           <p class="text-[11px] text-slate-400 mt-1">Comp/override only — no payment is taken.</p>
+
+          <span class="lbl mt-3 block">Grant AI credits</span>
+          <div class="flex gap-2 items-center">
+            <input type="number" [(ngModel)]="grantAmount" placeholder="e.g. 100" class="input w-28" />
+            <input [(ngModel)]="grantReason" placeholder="reason" class="input flex-1" />
+            <button type="button" (click)="grant(d.summary.tenantId)" class="btn-primary text-xs">Grant</button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Adds to the store's balance (current: {{ d.usage.aiCreditBalance }}). Use a negative amount to deduct.</p>
         </div>
 
         <!-- Notes & tags -->
@@ -153,6 +161,8 @@ export class SuperAdminTenantDetailComponent implements OnInit {
   trialDate = '';
   tagsInput = '';
   newNote = '';
+  grantAmount: number | null = null;
+  grantReason = '';
 
   ngOnInit(): void {
     this.id = Number(this.route.snapshot.paramMap.get('id'));
@@ -190,6 +200,12 @@ export class SuperAdminTenantDetailComponent implements OnInit {
   addNote(id: number): void {
     if (!this.newNote.trim()) return;
     this.svc.addNote(id, this.newNote.trim()).subscribe(() => { this.newNote = ''; this.after('Note added.'); });
+  }
+  grant(id: number): void {
+    if (!this.grantAmount) return;
+    this.svc.grantCredits(id, this.grantAmount, this.grantReason.trim() || null).subscribe(() => {
+      this.grantAmount = null; this.grantReason = ''; this.after('Credits granted.');
+    });
   }
 
   impersonate(id: number, mode: 'view' | 'full'): void {

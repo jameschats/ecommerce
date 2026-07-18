@@ -17,7 +17,10 @@ public sealed record ContactDto(long UserId, string? Email, string? FullName, st
 
 public sealed record TenantSubscriptionInfo(int? PlanId, string? PlanName, string? Status, DateTime? TrialEndsAt, DateTime? CurrentPeriodEnd, string? RazorpaySubscriptionId);
 public sealed record TenantUsageDto(int Products, int Orders, decimal Gmv, int AiCreditBalance);
-public sealed record PlanOptionDto(int PlanId, string Name, decimal MonthlyPrice, bool IsActive);
+public sealed record PlanDto(int PlanId, string Name, string Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder);
+public sealed record AiCreditPackDto(int AiCreditPackId, string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
+public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder);
+public sealed record PackUpsert(string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
 public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, DateTime CreatedAt);
 
 public sealed record TenantDetailDto(
@@ -42,7 +45,13 @@ public interface ISuperAdminService
     Task<PlatformRevenueDto> GetRevenueAsync(CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
     Task SetActiveAsync(long tenantId, bool active, long adminUserId, CancellationToken ct);
-    Task<IReadOnlyList<PlanOptionDto>> ListPlansAsync(CancellationToken ct);
+    Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct);
+    Task<PlanDto> CreatePlanAsync(PlanUpsert req, long adminUserId, CancellationToken ct);
+    Task<PlanDto> UpdatePlanAsync(int planId, PlanUpsert req, long adminUserId, CancellationToken ct);
+    Task<IReadOnlyList<AiCreditPackDto>> ListPacksAsync(CancellationToken ct);
+    Task<AiCreditPackDto> CreatePackAsync(PackUpsert req, long adminUserId, CancellationToken ct);
+    Task<AiCreditPackDto> UpdatePackAsync(int packId, PackUpsert req, long adminUserId, CancellationToken ct);
+    Task GrantCreditsAsync(long tenantId, int amount, string? reason, long adminUserId, CancellationToken ct);
     Task ChangePlanAsync(long tenantId, int planId, long adminUserId, CancellationToken ct);
     Task SetTrialAsync(long tenantId, DateTime? trialEndsAt, long adminUserId, CancellationToken ct);
     Task SetTagsAsync(long tenantId, string? tags, long adminUserId, CancellationToken ct);
@@ -60,7 +69,7 @@ public interface ISuperAdminService
 /// IgnoreQueryFilters() — this is the one place cross-tenant access is allowed
 /// (design-v2 §6.1). Mutations are written to PlatformAccessLog.
 /// </summary>
-public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy) : ISuperAdminService
+public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy, ICurrentTenantService tenant) : ISuperAdminService
 {
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
         { "Good", "Trusted", "Watch", "Flagged", "Blacklisted" };
@@ -133,9 +142,107 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             t.CustomDomain, t.CustomDomainVerified, recent, SplitTags(t.PlatformTags), notes, t.OffboardedAt);
     }
 
-    public async Task<IReadOnlyList<PlanOptionDto>> ListPlansAsync(CancellationToken ct) =>
+    public async Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct) =>
         await db.Plans.AsNoTracking().OrderBy(p => p.DisplayOrder).ThenBy(p => p.PlanId)
-            .Select(p => new PlanOptionDto(p.PlanId, p.Name, p.MonthlyPrice, p.IsActive)).ToListAsync(ct);
+            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder))
+            .ToListAsync(ct);
+
+    public async Task<PlanDto> CreatePlanAsync(PlanUpsert r, long adminUserId, CancellationToken ct)
+    {
+        var name = (r.Name ?? "").Trim();
+        if (name.Length == 0) throw new AppException("Plan name is required.", StatusCodes.Status400BadRequest);
+        var slug = string.IsNullOrWhiteSpace(r.Slug) ? Slugify(name) : Slugify(r.Slug!);
+        if (await db.Plans.AnyAsync(p => p.Slug == slug, ct)) throw new AppException("A plan with that slug already exists.", StatusCodes.Status409Conflict);
+        var plan = new Plan
+        {
+            Name = name, Slug = slug, MonthlyPrice = r.MonthlyPrice, MaxProducts = r.MaxProducts, MaxOrders = r.MaxOrders,
+            AiCredits = r.AiCredits, Features = r.Features, IsActive = r.IsActive, DisplayOrder = r.DisplayOrder, CreatedAt = DateTime.UtcNow,
+        };
+        db.Plans.Add(plan);
+        await LogAsync(adminUserId, null, "CreatePlan", name, ct);
+        await db.SaveChangesAsync(ct);
+        return ToPlanDto(plan);
+    }
+
+    public async Task<PlanDto> UpdatePlanAsync(int planId, PlanUpsert r, long adminUserId, CancellationToken ct)
+    {
+        var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == planId, ct)
+                   ?? throw new AppException("Plan not found.", StatusCodes.Status404NotFound);
+        var name = (r.Name ?? "").Trim();
+        if (name.Length == 0) throw new AppException("Plan name is required.", StatusCodes.Status400BadRequest);
+        var slug = string.IsNullOrWhiteSpace(r.Slug) ? Slugify(name) : Slugify(r.Slug!);
+        if (await db.Plans.AnyAsync(p => p.Slug == slug && p.PlanId != planId, ct)) throw new AppException("A plan with that slug already exists.", StatusCodes.Status409Conflict);
+        plan.Name = name; plan.Slug = slug; plan.MonthlyPrice = r.MonthlyPrice; plan.MaxProducts = r.MaxProducts;
+        plan.MaxOrders = r.MaxOrders; plan.AiCredits = r.AiCredits; plan.Features = r.Features; plan.IsActive = r.IsActive;
+        plan.DisplayOrder = r.DisplayOrder; plan.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, null, "UpdatePlan", name, ct);
+        await db.SaveChangesAsync(ct);
+        return ToPlanDto(plan);
+    }
+
+    public async Task<IReadOnlyList<AiCreditPackDto>> ListPacksAsync(CancellationToken ct) =>
+        await db.AiCreditPacks.AsNoTracking().OrderBy(p => p.DisplayOrder).ThenBy(p => p.AiCreditPackId)
+            .Select(p => new AiCreditPackDto(p.AiCreditPackId, p.Name, p.Credits, p.PriceInr, p.IsActive, p.DisplayOrder))
+            .ToListAsync(ct);
+
+    public async Task<AiCreditPackDto> CreatePackAsync(PackUpsert r, long adminUserId, CancellationToken ct)
+    {
+        var name = (r.Name ?? "").Trim();
+        if (name.Length == 0) throw new AppException("Pack name is required.", StatusCodes.Status400BadRequest);
+        if (r.Credits <= 0) throw new AppException("Credits must be positive.", StatusCodes.Status400BadRequest);
+        var pack = new AiCreditPack { Name = name, Credits = r.Credits, PriceInr = r.PriceInr, IsActive = r.IsActive, DisplayOrder = r.DisplayOrder, CreatedAt = DateTime.UtcNow };
+        db.AiCreditPacks.Add(pack);
+        await LogAsync(adminUserId, null, "CreatePack", name, ct);
+        await db.SaveChangesAsync(ct);
+        return new AiCreditPackDto(pack.AiCreditPackId, pack.Name, pack.Credits, pack.PriceInr, pack.IsActive, pack.DisplayOrder);
+    }
+
+    public async Task<AiCreditPackDto> UpdatePackAsync(int packId, PackUpsert r, long adminUserId, CancellationToken ct)
+    {
+        var pack = await db.AiCreditPacks.FirstOrDefaultAsync(p => p.AiCreditPackId == packId, ct)
+                   ?? throw new AppException("Pack not found.", StatusCodes.Status404NotFound);
+        var name = (r.Name ?? "").Trim();
+        if (name.Length == 0) throw new AppException("Pack name is required.", StatusCodes.Status400BadRequest);
+        if (r.Credits <= 0) throw new AppException("Credits must be positive.", StatusCodes.Status400BadRequest);
+        pack.Name = name; pack.Credits = r.Credits; pack.PriceInr = r.PriceInr; pack.IsActive = r.IsActive; pack.DisplayOrder = r.DisplayOrder; pack.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, null, "UpdatePack", name, ct);
+        await db.SaveChangesAsync(ct);
+        return new AiCreditPackDto(pack.AiCreditPackId, pack.Name, pack.Credits, pack.PriceInr, pack.IsActive, pack.DisplayOrder);
+    }
+
+    /// <summary>Manually grant (or deduct, if negative) AI credits to a store. Cross-tenant write via BeginScope.</summary>
+    public async Task GrantCreditsAsync(long tenantId, int amount, string? reason, long adminUserId, CancellationToken ct)
+    {
+        if (amount == 0) throw new AppException("Amount must be non-zero.", StatusCodes.Status400BadRequest);
+        if (!await db.Tenants.AnyAsync(t => t.TenantId == tenantId, ct))
+            throw new AppException("Tenant not found.", StatusCodes.Status404NotFound);
+
+        using (tenant.BeginScope(tenantId))   // so the write lands in the TARGET tenant, not the super-admin's
+        {
+            var credit = await db.TenantAiCredits.FirstOrDefaultAsync(ct);   // scoped to tenantId now
+            if (credit is null)
+            {
+                credit = new TenantAiCredit { Balance = 0, CreatedAt = DateTime.UtcNow };
+                db.TenantAiCredits.Add(credit);
+            }
+            credit.Balance = Math.Max(0, credit.Balance + amount);
+            credit.UpdatedAt = DateTime.UtcNow;
+            db.AiUsageLogs.Add(new AiUsageLog { Feature = "grant", Credits = amount, UserId = adminUserId, Model = reason, CreatedAt = DateTime.UtcNow });
+            db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = tenantId, Action = "GrantCredits", Detail = $"{amount}: {reason}", CreatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    private static PlanDto ToPlanDto(Plan p) =>
+        new(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder);
+
+    private static string Slugify(string s)
+    {
+        var chars = s.Trim().ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        var slug = new string(chars);
+        while (slug.Contains("--")) slug = slug.Replace("--", "-");
+        return slug.Trim('-');
+    }
 
     public async Task ChangePlanAsync(long tenantId, int planId, long adminUserId, CancellationToken ct)
     {
