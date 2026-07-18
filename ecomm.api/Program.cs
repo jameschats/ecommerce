@@ -82,6 +82,7 @@ builder.Services.AddScoped<ecomm.api.Features.Subscriptions.ISubscriptionService
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.ISuperAdminService, ecomm.api.Features.SuperAdmin.SuperAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformStaffService, ecomm.api.Features.SuperAdmin.PlatformStaffService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformAnnouncementService, ecomm.api.Features.SuperAdmin.PlatformAnnouncementService>();
+builder.Services.AddScoped<ecomm.api.Features.Support.ISupportService, ecomm.api.Features.Support.SupportService>();
 builder.Services.AddHostedService<ecomm.api.Features.Subscriptions.SubscriptionLifecycleService>();
 builder.Services.AddHostedService<AdminUserSeeder>();
 

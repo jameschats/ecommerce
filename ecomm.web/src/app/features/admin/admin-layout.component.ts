@@ -132,6 +132,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/ai', label: 'AI credits' },
       { path: '/admin/domain', label: 'Custom domain' },
       { path: '/admin/auth-providers', label: 'Sign-in methods' },
+      { path: '/admin/support', label: 'Support' },
     ] },
   ];
 
