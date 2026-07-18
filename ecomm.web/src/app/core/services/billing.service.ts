@@ -36,6 +36,16 @@ export interface BillingHistory {
   reference: string | null;
 }
 
+export interface CheckoutSession {
+  gatewayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string | null;   // null => Mock gateway (dev): confirm without the widget
+  provider: string;
+  planId: number;
+  planName: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BillingService {
   private readonly http = inject(HttpClient);
@@ -51,4 +61,10 @@ export class BillingService {
     return this.unwrap(this.http.post<ApiResponse<Subscription>>(`${this.base}/subscription/select-plan`, { planId }));
   }
   cancel(): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/subscription/cancel`, {}); }
+  startCheckout(planId: number): Observable<CheckoutSession> {
+    return this.unwrap(this.http.post<ApiResponse<CheckoutSession>>(`${this.base}/subscription/checkout/start`, { planId }));
+  }
+  confirmCheckout(body: { planId: number; gatewayOrderId: string; paymentId: string; signature: string }): Observable<Subscription> {
+    return this.unwrap(this.http.post<ApiResponse<Subscription>>(`${this.base}/subscription/checkout/confirm`, body));
+  }
 }

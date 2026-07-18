@@ -1,7 +1,7 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, NgZone, OnInit, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { BillingHistory, BillingService, Plan, Subscription } from '../../../core/services/billing.service';
+import { BillingHistory, BillingService, CheckoutSession, Plan, Subscription } from '../../../core/services/billing.service';
 
 @Component({
   selector: 'app-admin-billing',
@@ -96,6 +96,7 @@ import { BillingHistory, BillingService, Plan, Subscription } from '../../../cor
 })
 export class AdminBillingComponent implements OnInit {
   private readonly api = inject(BillingService);
+  private readonly zone = inject(NgZone);   // Razorpay callbacks fire outside Angular
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
@@ -149,11 +150,61 @@ export class AdminBillingComponent implements OnInit {
 
   choose(p: Plan): void {
     this.busy.set(true); this.message.set(null);
-    this.api.selectPlan(p.planId).subscribe({
-      next: (s) => { this.sub.set(s); this.busy.set(false); this.message.set(`You're now on the ${s.planName} plan.`); setTimeout(() => this.message.set(null), 3000); },
-      error: () => this.busy.set(false),
+    if (p.monthlyPrice <= 0) {   // free plan — nothing to charge
+      this.api.selectPlan(p.planId).subscribe({
+        next: (s) => { this.sub.set(s); this.busy.set(false); this.toast(`You're now on the ${s.planName} plan.`); },
+        error: () => this.busy.set(false),
+      });
+      return;
+    }
+    this.api.startCheckout(p.planId).subscribe({
+      next: (s) => {
+        if (!s.keyId) { this.confirmPayment(s, `mock_pay_${s.gatewayOrderId}`, 'mock'); return; }   // dev Mock gateway
+        this.openRazorpay(s);
+      },
+      error: () => { this.busy.set(false); this.toast('Could not start checkout.'); },
     });
   }
+
+  /** Loads Razorpay's widget on demand (browser only) and opens it for this billing cycle. */
+  private openRazorpay(s: CheckoutSession): void {
+    this.loadRazorpayScript().then(() => {
+      const w = window as unknown as { Razorpay: new (o: unknown) => { open: () => void } };
+      const rzp = new w.Razorpay({
+        key: s.keyId,
+        amount: Math.round(s.amount * 100),   // paise
+        currency: s.currency,
+        order_id: s.gatewayOrderId,
+        name: 'WavCommerce',
+        description: `${s.planName} plan — 1 month`,
+        handler: (res: { razorpay_payment_id: string; razorpay_signature: string }) =>
+          this.zone.run(() => this.confirmPayment(s, res.razorpay_payment_id, res.razorpay_signature)),
+        modal: { ondismiss: () => this.zone.run(() => this.busy.set(false)) },
+      });
+      rzp.open();
+    }).catch(() => { this.busy.set(false); this.toast('Could not load the payment widget.'); });
+  }
+
+  private confirmPayment(s: CheckoutSession, paymentId: string, signature: string): void {
+    this.api.confirmCheckout({ planId: s.planId, gatewayOrderId: s.gatewayOrderId, paymentId, signature }).subscribe({
+      next: (sub) => { this.sub.set(sub); this.busy.set(false); this.toast(`Payment received — you're on ${sub.planName}.`); this.load(); },
+      error: () => { this.busy.set(false); this.toast('Payment could not be verified.'); },
+    });
+  }
+
+  private loadRazorpayScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (typeof document === 'undefined') { reject(new Error('no document')); return; }
+      if ((window as unknown as { Razorpay?: unknown }).Razorpay) { resolve(); return; }
+      const el = document.createElement('script');
+      el.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      el.onload = () => resolve();
+      el.onerror = () => reject(new Error('script failed'));
+      document.head.appendChild(el);
+    });
+  }
+
+  private toast(m: string): void { this.message.set(m); setTimeout(() => this.message.set(null), 4000); }
   cancel(): void {
     if (typeof window !== 'undefined' && !window.confirm('Cancel your subscription? Your store may be suspended at the end of the current period.')) return;
     this.busy.set(true); this.message.set(null);

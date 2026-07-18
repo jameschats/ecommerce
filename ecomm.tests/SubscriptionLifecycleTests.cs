@@ -1,16 +1,27 @@
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Payments;
 using ecomm.api.Features.Subscriptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace ecomm.tests;
 
 public class SubscriptionLifecycleTests
 {
+    // Provider defaults to Mock, so the factory never builds an HttpClient.
+    private sealed class StubHttpFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => throw new NotImplementedException();
+    }
+
+    private static PlatformPaymentGatewayFactory Gateways() =>
+        new(new StubHttpFactory(), Options.Create(new PaymentOptions()));
+
     private static (ecomm.api.Data.Context.EcommerceDbContext db, SubscriptionService svc) NewSvc(long tenantId = 1)
     {
         var db = TestDb.New(tenantId);
-        return (db, new SubscriptionService(db));
+        return (db, new SubscriptionService(db, Gateways()));
     }
 
     [Fact]
@@ -77,5 +88,46 @@ public class SubscriptionLifecycleTests
         Assert.Equal(SubscriptionService.Active, sub.Status);
         Assert.Null(sub.GraceEndsAt);
         Assert.Null((await db.Tenants.SingleAsync(t => t.TenantId == 1)).SuspendedAt);       // reactivated
+    }
+
+    [Fact]
+    public async Task Checkout_confirm_records_charge_activates_plan_and_is_idempotent()
+    {
+        var (db, svc) = NewSvc();
+        using (db)
+        {
+            db.Tenants.Add(new Tenant { TenantId = 1, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow });
+            db.Plans.Add(new Plan { PlanId = 1, Name = "Pro", Slug = "pro", MonthlyPrice = 999, IsActive = true });
+            await db.SaveChangesAsync();
+
+            var session = await svc.StartCheckoutAsync(1, default);
+            Assert.Equal(999m, session.Amount);
+            Assert.Equal("Mock", session.Provider);
+
+            var cmd = new ConfirmCheckoutCommand(1, session.GatewayOrderId, "pay_test_1", "sig");
+            var sub = await svc.ConfirmCheckoutAsync(cmd, default);
+
+            Assert.Equal(SubscriptionService.Active, sub.Status);
+            Assert.Equal(1, sub.PlanId);
+            var charge = await db.TenantBillingHistory.SingleAsync();
+            Assert.Equal("Paid", charge.Status);
+            Assert.Equal(999m, charge.Amount);          // amount comes from the plan, not the client
+
+            await svc.ConfirmCheckoutAsync(cmd, default);                 // webhook/duplicate delivery
+            Assert.Equal(1, await db.TenantBillingHistory.CountAsync());  // still one charge
+        }
+    }
+
+    [Fact]
+    public async Task Checkout_rejects_a_free_plan()
+    {
+        var (db, svc) = NewSvc();
+        using (db)
+        {
+            db.Plans.Add(new Plan { PlanId = 2, Name = "Free", Slug = "free", MonthlyPrice = 0, IsActive = true });
+            await db.SaveChangesAsync();
+
+            await Assert.ThrowsAsync<ecomm.api.Common.Exceptions.AppException>(() => svc.StartCheckoutAsync(2, default));
+        }
     }
 }

@@ -28,6 +28,16 @@ public sealed class SubscriptionController(ISubscriptionService subscriptions) :
         return Ok(ApiResponse<SubscriptionDto>.Ok(sub, "Plan selected."));
     }
 
+    /// <summary>Create a Razorpay order for one billing cycle; the browser then opens checkout.</summary>
+    [HttpPost("checkout/start")]
+    public async Task<IActionResult> StartCheckout([FromBody] SelectPlanRequest request, CancellationToken ct)
+        => Ok(ApiResponse<CheckoutSessionDto>.Ok(await subscriptions.StartCheckoutAsync(request.PlanId, ct)));
+
+    /// <summary>Verify the payment signature, record the charge and activate the plan.</summary>
+    [HttpPost("checkout/confirm")]
+    public async Task<IActionResult> ConfirmCheckout([FromBody] ConfirmCheckoutCommand cmd, CancellationToken ct)
+        => Ok(ApiResponse<SubscriptionDto>.Ok(await subscriptions.ConfirmCheckoutAsync(cmd, ct), "Payment received — plan active."));
+
     [HttpPost("cancel")]
     public async Task<IActionResult> Cancel(CancellationToken ct)
     {

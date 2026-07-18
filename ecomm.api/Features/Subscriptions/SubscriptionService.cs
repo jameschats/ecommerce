@@ -17,6 +17,10 @@ public sealed record RecordChargeCommand(
     long TenantId, decimal Amount, string RazorpayPaymentId,
     string? RazorpaySubscriptionId, DateTime PeriodStart, DateTime PeriodEnd);
 
+/// <summary>What the browser needs to open the platform's Razorpay checkout for one billing cycle.</summary>
+public sealed record CheckoutSessionDto(string GatewayOrderId, decimal Amount, string Currency, string? KeyId, string Provider, int PlanId, string PlanName);
+public sealed record ConfirmCheckoutCommand(int PlanId, string GatewayOrderId, string PaymentId, string Signature);
+
 public interface ISubscriptionService
 {
     Task<SubscriptionDto?> GetCurrentAsync(CancellationToken ct);          // merchant (current tenant)
@@ -25,9 +29,11 @@ public interface ISubscriptionService
     Task CancelAsync(CancellationToken ct);
     Task<bool> RecordChargeAsync(RecordChargeCommand cmd, CancellationToken ct);   // webhook, idempotent
     Task<int> RunLifecycleSweepAsync(DateTime nowUtc, int graceDays, CancellationToken ct);   // background
+    Task<CheckoutSessionDto> StartCheckoutAsync(int planId, CancellationToken ct);            // pay one cycle
+    Task<SubscriptionDto> ConfirmCheckoutAsync(ConfirmCheckoutCommand cmd, CancellationToken ct);
 }
 
-public sealed class SubscriptionService(EcommerceDbContext db) : ISubscriptionService
+public sealed class SubscriptionService(EcommerceDbContext db, ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways) : ISubscriptionService
 {
     public const string Trial = "Trial", Active = "Active", PastDue = "PastDue", Suspended = "Suspended", Cancelled = "Cancelled";
 
@@ -65,6 +71,43 @@ public sealed class SubscriptionService(EcommerceDbContext db) : ISubscriptionSe
         // A real flow now creates a Razorpay Subscription and redirects to checkout; the
         // charge activates the plan via the webhook (RecordChargeAsync).
         return ToDto(await db.TenantSubscriptions.Include(x => x.Plan).FirstAsync(x => x.TenantSubscriptionId == sub.TenantSubscriptionId, ct));
+    }
+
+    /// <summary>
+    /// Start a one-cycle checkout against the PLATFORM's Razorpay account (merchant pays us).
+    /// Returns what the browser widget needs. Mock gateway in dev → KeyId is null and the client
+    /// confirms straight away (MockPaymentGateway.VerifySignature always passes).
+    /// </summary>
+    public async Task<CheckoutSessionDto> StartCheckoutAsync(int planId, CancellationToken ct)
+    {
+        var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == planId && p.IsActive, ct)
+                   ?? throw new AppException("Plan not found.", StatusCodes.Status404NotFound);
+        if (plan.MonthlyPrice <= 0) throw new AppException("That plan is free — just select it.", StatusCodes.Status400BadRequest);
+
+        var gateway = gateways.Create();
+        var order = await gateway.CreateOrderAsync(db.CurrentTenantId, plan.MonthlyPrice, "INR", $"sub-{db.CurrentTenantId}-{planId}", ct);
+        return new CheckoutSessionDto(order.GatewayOrderId, order.Amount, order.Currency, gateway.PublicKey, gateway.Name, plan.PlanId, plan.Name);
+    }
+
+    /// <summary>
+    /// Verify the Razorpay signature, then record the charge + activate the plan for one month.
+    /// The amount is taken from the PLAN, never the client. Idempotent on the payment id, so the
+    /// billing webhook delivering the same payment afterwards is a safe no-op.
+    /// </summary>
+    public async Task<SubscriptionDto> ConfirmCheckoutAsync(ConfirmCheckoutCommand cmd, CancellationToken ct)
+    {
+        var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == cmd.PlanId && p.IsActive, ct)
+                   ?? throw new AppException("Plan not found.", StatusCodes.Status404NotFound);
+        if (string.IsNullOrWhiteSpace(cmd.PaymentId)) throw new AppException("Missing payment id.", StatusCodes.Status400BadRequest);
+
+        var gateway = gateways.Create();
+        if (!gateway.VerifySignature(cmd.GatewayOrderId, cmd.PaymentId, cmd.Signature))
+            throw new AppException("Payment verification failed.", StatusCodes.Status400BadRequest);
+
+        await SelectPlanAsync(cmd.PlanId, ct);   // point the subscription at the plan being paid for
+        var now = DateTime.UtcNow;
+        await RecordChargeAsync(new RecordChargeCommand(db.CurrentTenantId, plan.MonthlyPrice, cmd.PaymentId, null, now, now.AddMonths(1)), ct);
+        return (await GetCurrentAsync(ct))!;
     }
 
     public async Task CancelAsync(CancellationToken ct)
