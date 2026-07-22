@@ -128,7 +128,9 @@ this module generalises. [ai-growth](../ai-growth/README.md) takes `240–249`.
 
 ### C1. Unified conversation engine
 
-- [ ] **Generalise the ticket model** — `AuthorType` enum replaces `FromPlatform`; `Axis` discriminator on the thread; migrate existing rows. Ticket reference (`TKT-yyyy-#####`), category, priority, assignee, attachments — the fields [v2-stage-9](../v2-stages/v2-stage-9-support-ticketing.md) specced but never shipped.
+- [x] **Generalise the ticket model** ✅ **Built** *(migration `251`)* — `AuthorType` (Shopper/Merchant/Platform) replaces `FromPlatform`; `Axis` (ShopperMerchant/MerchantPlatform) on the thread; existing rows backfilled. Adds reference (`TKT-yyyy-#####`), priority, category, assignee, `FirstResponseAt`/`ResolvedAt`, and the shopper-linkage columns (`ShopperUserId`, `ShopperEmail`, `OrderId`, `ProductId`) that C1's shopper threads will use. `PUT /api/superadmin/support/tickets/{id}/triage` sets priority/category/assignee. Both shipped screens keep working unchanged — `TicketMessageDto.FromPlatform` is now *derived* from `AuthorType`.
+  > **Expand-only, deliberately.** `FromPlatform` and `OpenedByPlatform` are backfilled and then **left in place, unused**. The deploy applies migrations *before* restarting the API ([deployment.md §10-WAV](../deployment.md)), so for a few seconds the **old binary reads these tables** — dropping the columns here would 500 the support screens until the restart landed. A later migration drops them once this code is live. The new code still writes both columns so a rollback reads correct data.
+- [ ] **Attachments** — `ConversationAttachment` over `IMediaStorage`.
 - [ ] **Shopper threads** — a conversation optionally linked to an `OrderId` or `ProductId`, started from the contact form, an order page, or a product page.
 - [ ] **Shopper identity** — logged-in shoppers by `UserId`; anonymous by email + a signed thread token in the reply link. **Note: checkout is member-only today** (`OrdersController` is `[Authorize]`, `Order.UserId` is non-nullable), so anyone with an order *has* an account — this is a login-friction problem, not a dead end.
 - [ ] **One inbox component** serving both axes, with the merchant view at `admin/inbox` and the shopper view in account + the signed-link page.
@@ -279,4 +281,4 @@ Shipped: `Features/Support/` (to generalise), `INotificationService`, `IAiServic
 
 ---
 
-**Status:** 🟡 **C0 built** (2026-07-22, migration `250`) — the storefront now has a working shopper→merchant channel for the first time. C1 (conversation engine) is next.
+**Status:** 🟡 **C0 built** (migration `250`) · **C1 model generalised + triage fields built** (migration `251`) — both 2026-07-22. Next: shopper threads on the new `ShopperMerchant` axis (entry points, signed reply links, merchant inbox), then C1b live chat.

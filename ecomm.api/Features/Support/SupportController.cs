@@ -62,9 +62,16 @@ public sealed class SupportAdminController(ISupportService svc) : ControllerBase
         await svc.SetStatusAsync(id, req.Status, AdminUserId, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Status updated."));
     }
+
+    /// <summary>Set priority / category / assignee. Any omitted field is left as-is.</summary>
+    [HttpPut("{id:long}/triage")]
+    public async Task<IActionResult> Triage(long id, [FromBody] TriageRequest req, CancellationToken ct)
+        => Ok(ApiResponse<TicketDto>.Ok(
+            await svc.TriageAsync(id, req.Priority, req.Category, req.AssignedToUserId, AdminUserId, ct), "Ticket updated."));
 }
 
 public sealed record CreateTicketRequest(string Subject, string Message);
 public sealed record ReplyRequest(string Body);
 public sealed record AdminReplyRequest(string Body, bool IsInternal);
 public sealed record StatusRequest(string Status);
+public sealed record TriageRequest(string? Priority, string? Category, long? AssignedToUserId);
