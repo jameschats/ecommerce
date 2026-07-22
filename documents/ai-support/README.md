@@ -154,8 +154,8 @@ Both parties hold a JWT, so `NotificationHub` needs extension rather than redesi
 
 ### C2. Close the grounding gaps *(prerequisite for any bot)*
 
-- [ ] **Expose `OrderStatusHistory` on `OrderDto`** — already written, never surfaced. Cheapest win on this list.
-- [ ] **Persist tracking checkpoints** — store raw Shiprocket webhook payloads as append-only `ShipmentCheckpoint` rows instead of discarding unmapped statuses. Enables a real delivery timeline.
+- [x] **Order timeline on `OrderDto`** ✅ **Built** — `OrderStatusHistory` (written since V1, never surfaced) merged with courier scans into one chronological `timeline`, each entry tagged `source: order|courier`.
+- [x] **Persist tracking checkpoints** ✅ **Built** *(migration `253`)* — append-only `ShipmentCheckpoint` rows for **every** webhook. Previously `Map()` returned `(null, null, false)` for anything unrecognised and the handler did nothing, so intermediate scans ("Reached destination hub", failed delivery attempts) were **discarded permanently** — couriers don't resend history. The raw payload is kept for unmapped statuses so the mapping can be improved from real data instead of guesswork. The controller now forwards location/remark/timestamp it was already receiving and throwing away.
 - [ ] **Order lookup for logged-out shoppers** — `GET api/orders/lookup?orderNumber=&email=`, strictly rate-limited, returning a *reduced* payload (status + tracking only, never addresses or totals). Removes the biggest friction point in WISMO.
 - [ ] **`Faq` entity** — no FAQ exists anywhere today (`Page.Type` is only `Home|Custom`; there is no FAQ section type). Per-tenant Q&A pairs, merchant-editable, storefront-rendered, and the bot's primary retrieval corpus.
 - [ ] **Normalise order status vocabulary** — `Order.Status` is a free-form `string` and `"Confirmed"` appears in `OrderService` and the web badge map but not in the documented set. A bot narrating status needs one vocabulary.

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using ecomm.api.Common.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +31,16 @@ public sealed class ShiprocketWebhookController(
         if (string.IsNullOrWhiteSpace(awb) || string.IsNullOrWhiteSpace(status))
             return Ok(ApiResponse<object>.Ok(new { handled = false }, "Ignored — missing awb/status."));
 
-        var handled = await svc.HandleAsync(awb!, status!, ct);
+        // The payload already carries scan detail we used to throw away — keep it.
+        var scan = new ShiprocketScan(
+            Location: Str(body, "location") ?? Str(body, "current_location") ?? Str(body, "scan_location"),
+            Remark: Str(body, "remark") ?? Str(body, "activity") ?? Str(body, "sr_status_label"),
+            OccurredAt: DateTime.TryParse(
+                Str(body, "scan_date") ?? Str(body, "current_timestamp") ?? Str(body, "timestamp"),
+                CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var occurred) ? occurred : null,
+            RawPayload: body.ValueKind == JsonValueKind.Object ? body.GetRawText() : null);
+
+        var handled = await svc.HandleAsync(awb!, status!, scan, ct);
         log.LogInformation("Shiprocket webhook AWB {Awb} status '{Status}': {Outcome}", awb, status, handled ? "applied" : "no-match");
         return Ok(ApiResponse<object>.Ok(new { handled }));
     }

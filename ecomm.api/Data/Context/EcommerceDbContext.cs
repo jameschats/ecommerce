@@ -124,6 +124,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
     public DbSet<SignupBlocklist> SignupBlocklist => Set<SignupBlocklist>();
     public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
+    public DbSet<ShipmentCheckpoint> ShipmentCheckpoints => Set<ShipmentCheckpoint>();
 
     // --- V2: AI credits (AI-0) ---
     public DbSet<TenantAiCredit> TenantAiCredits => Set<TenantAiCredit>();
@@ -432,6 +433,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<SupportMessage>(e => { e.ToTable("SupportMessages"); e.HasKey(x => x.SupportMessageId); });
         b.Entity<SignupBlocklist>(e => { e.ToTable("SignupBlocklist"); e.HasKey(x => x.SignupBlocklistId); });
         b.Entity<ContactMessage>(e => { e.ToTable("ContactMessages"); e.HasKey(x => x.ContactMessageId); });
+        b.Entity<ShipmentCheckpoint>(e => { e.ToTable("ShipmentCheckpoints"); e.HasKey(x => x.ShipmentCheckpointId); });
         b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
         b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
         b.Entity<AiCreditPack>(e => { e.ToTable("AiCreditPacks"); e.HasKey(x => x.AiCreditPackId); e.Property(x => x.PriceInr).HasPrecision(10, 2); });

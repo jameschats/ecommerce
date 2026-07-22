@@ -489,10 +489,38 @@ public sealed class OrderService : IOrderService
                 s.EstimatedDeliveryDate, s.ShippedAt, s.DeliveredAt))
             .FirstOrDefaultAsync(ct);
 
+        var timeline = await BuildTimelineAsync(orderId, shipment?.shipmentId, ct);
+
         return new OrderDto(order.OrderId, order.OrderNumber, order.Status, order.Currency,
             order.Subtotal, order.DiscountAmount, order.TaxAmount, order.ShippingAmount, order.TotalAmount,
             order.PlacedAt, order.CreatedAt, items, ship, bill,
-            payment?.Method, payment?.Status, invoice?.InvoiceId, invoice?.InvoiceNumber, canCancel, shipment);
+            payment?.Method, payment?.Status, invoice?.InvoiceId, invoice?.InvoiceNumber, canCancel, shipment,
+            timeline);
+    }
+
+    /// <summary>
+    /// The order's journey: our own status changes (already recorded in OrderStatusHistory but never
+    /// surfaced until now) merged with courier scans, oldest first. Answers "where is it, and since when"
+    /// rather than just "what is it now".
+    /// </summary>
+    private async Task<List<OrderTimelineEntryDto>> BuildTimelineAsync(long orderId, long? shipmentId, CancellationToken ct)
+    {
+        var history = await _db.OrderStatusHistories.AsNoTracking()
+            .Where(h => h.OrderId == orderId)
+            .Select(h => new OrderTimelineEntryDto(h.ToStatus, h.Notes, null, h.CreatedAt, "order"))
+            .ToListAsync(ct);
+
+        if (shipmentId is { } sid)
+        {
+            var scans = await _db.ShipmentCheckpoints.AsNoTracking()
+                .Where(c => c.ShipmentId == sid)
+                .Select(c => new OrderTimelineEntryDto(
+                    c.MappedStatus ?? c.RawStatus, c.Remark, c.Location, c.OccurredAt ?? c.CreatedAt, "courier"))
+                .ToListAsync(ct);
+            history.AddRange(scans);
+        }
+
+        return history.OrderBy(e => e.at).ToList();
     }
 
     public async Task<PagedResult<OrderListItem>> ListAllAsync(string? status, int page, int pageSize, CancellationToken ct = default)

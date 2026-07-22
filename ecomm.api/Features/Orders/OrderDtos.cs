@@ -35,6 +35,9 @@ public sealed record OrderItemDto(
     long orderItemId, long productId, string productName, string? sku, string? slug, string? variantLabel,
     string? hsnCode, int quantity, decimal unitPrice, decimal taxRate, decimal taxAmount, decimal lineTotal);
 
+/// <summary>One step in the order's journey — our own status changes plus courier scans, merged.</summary>
+public sealed record OrderTimelineEntryDto(string status, string? note, string? location, DateTime at, string source);
+
 public sealed record OrderDto(
     long orderId, string orderNumber, string status, string currency,
     decimal subtotal, decimal discountAmount, decimal taxAmount, decimal shippingAmount, decimal totalAmount,
@@ -44,7 +47,8 @@ public sealed record OrderDto(
     string? paymentMethod, string? paymentStatus,
     long? invoiceId, string? invoiceNumber,
     bool canCancel,
-    ShipmentDto? shipment);
+    ShipmentDto? shipment,
+    IReadOnlyList<OrderTimelineEntryDto> timeline);
 
 public sealed record OrderListItem(
     long orderId, string orderNumber, string status, decimal totalAmount, int itemCount,
