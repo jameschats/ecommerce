@@ -77,6 +77,7 @@ export const routes: Routes = [
   { path: 'about', loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent) },
   { path: 'contact', loadComponent: () => import('./features/pages/contact/contact.component').then((m) => m.ContactComponent) },
   { path: 'thread/:token', loadComponent: () => import('./features/pages/thread/thread.component').then((m) => m.ThreadComponent) },
+  { path: 'track', loadComponent: () => import('./features/pages/track/track-order.component').then((m) => m.TrackOrderComponent) },
   { path: 'faq', loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent) },
   {
     path: 'login',

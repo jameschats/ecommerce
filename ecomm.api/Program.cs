@@ -148,6 +148,7 @@ builder.Services.AddScoped<ecomm.api.Features.Orders.IDraftOrderService, ecomm.a
 builder.Services.AddScoped<ecomm.api.Features.Orders.ITestOrderService, ecomm.api.Features.Orders.TestOrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Contact.IContactService, ecomm.api.Features.Contact.ContactService>();
 builder.Services.AddScoped<ecomm.api.Features.Support.IShopperConversationService, ecomm.api.Features.Support.ShopperConversationService>();
+builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderLookupService, ecomm.api.Features.Orders.OrderLookupService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();
@@ -303,6 +304,11 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("contact", ctx => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
+    // Guest order lookup: order numbers are enumerable, so this is the realistic brute-force
+    // target. Generous enough for a shopper who mistypes their email twice, useless for a scan.
+    options.AddPolicy("lookup", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
