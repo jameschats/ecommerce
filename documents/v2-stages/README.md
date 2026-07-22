@@ -6,7 +6,7 @@ Sequential, dependency-ordered build plan for **V2** (see [`../design-v2.md`](..
 |---|---|---|---|
 | [V2-0](v2-stage-0-tenant-infra.md) | **Tenant Infrastructure** — isolation, resolution, query filters | 100–109 | ✅ done |
 | [V2-1](v2-stage-1-plans-onboarding.md) | Plans & Merchant Onboarding — signup, subdomain, Razorpay Subscriptions | 110–119 | ✅ |
-| [V2-2](v2-stage-2-merchant-admin.md) | Merchant Admin Portal — **same app** (ADR-001), tenant-scoped V1 admin → **detailed plan: [merchant-admin M1–M9](v2-merchant-admin-plan.md)** | — | 🟡 M1–M7 done · M8–M9 pending |
+| [V2-2](v2-stage-2-merchant-admin.md) | Merchant Admin Portal — **same app** (ADR-001), tenant-scoped V1 admin → **detailed plan: [merchant-admin M1–M10](v2-merchant-admin-plan.md)** | 179 | 🟡 M1–M8 + M10 done · M9 deferred |
 | [V2-3](v2-stage-3-super-admin.md) | Super Admin Panel — tenant mgmt, impersonation, revenue dashboard | 120–129 | ✅ |
 | [V2-4](v2-stage-4-storefront.md) | Per-Tenant Storefront — subdomain resolution, per-tenant theme/SEO → **theme engine: [storefront S1–S7](v2-storefront-theme-engine.md)** | — | 🟡 core done · theme engine pending |
 | [V2-5](v2-stage-5-payments.md) | Per-Merchant Payments — Razorpay Route, commission at source | 130–139 | ⬜ |

@@ -1,4 +1,4 @@
-# V2 — Merchant-Admin Plan (Shopify-parity gap analysis + M1–M9)
+# V2 — Merchant-Admin Plan (Shopify-parity gap analysis + M1–M10)
 
 **What this is.** The detailed, phased build plan for the **merchant/store admin console** — the surface a store
 owner uses to run their shop. It was produced by walking Shopify's merchant admin screen-by-screen (Areas 1–10
@@ -29,6 +29,7 @@ Attribution / abandoned-cart / email-SMS marketing) is its own later plan.
 | **M7** | Legal/compliance + checkout/account settings + store preferences | ✅ `99151a4` `527fcba` `37cf7c5` |
 | **M8** | Plan/Billing (merchant view) + Notifications sender/templates + Domains | ✅ `257047f` `148c8f8` `fed60bb` |
 | **M9** | Purchase orders *(deferred — build after M1–M8)* | ⬜ Deferred |
+| **M10** | Activation & first-revenue — checklist re-aim, guided test order, feature discovery, trial chrome | ✅ M10a–e built (migration `179`) |
 
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started
 
@@ -116,6 +117,12 @@ A unified **Settings hub**. Sub-pages + state:
 - ✅ **M1** (`2c0a7aa`): `/admin` is now a **dashboard** (KPIs via `AnalyticsService` + a **setup checklist**
   driven by real store state), replacing the old redirect-to-Products.
 - Global chrome: notifications bell ✅ (exists). **⌘K search** = nice-to-have, later.
+- ⬜ **M10** — reworked from the [Zoho Commerce onboarding review](../competitors/zoho-commerce.md). The checklist
+  *mechanism* is right (`DashboardService` computes `ChecklistItem` from live state); **what it asks for is wrong.**
+  Ours is `product · design · details · tax · pages` — a merchant can finish it **5/5 and still be unable to accept
+  an order**, because Payments, Shipping and Domain aren't on it. All three features exist
+  (`TenantPaymentAccount` m161, `TenantShippingAccount` m170, `Features/Domains` m168); they're just not surfaced
+  where a new merchant looks. See M10 below.
 
 ## AREA 10 — Growth / Markets / Catalogs / Agentic → **OUT OF SCOPE (confirmed)**
 - **Growth / Campaigns / Attribution** — skip; **our own marketing engine comes later** (user decision).
@@ -140,7 +147,7 @@ A unified **Settings hub**. Sub-pages + state:
 
 ---
 
-## The M1–M9 phases (detail)
+## The M1–M10 phases (detail)
 Each phase: migration in the V2 band (≥ next free number), entities `ITenantScoped`, `dotnet build` + `dotnet test`
 green, committed. Settings-only features reuse the generic `Settings` key/value table (no migration).
 
@@ -167,6 +174,45 @@ green, committed. Settings-only features reuse the generic `Settings` key/value 
   middleware custom-domain resolution; migration 168). *(TLS cert provisioning = edge/infra step.)*
 - **M9 — Purchase orders.** ⬜ DEFERRED. PO workflow (supplier→destination→receive→updates stock) over Suppliers +
   Inventory. Build only after M1–M8.
+- **M10 — Activation & first revenue.** ⬜ Not started. Source: [Zoho Commerce review](../competitors/zoho-commerce.md).
+  Everything here is *surfacing* features we already built — the point is that a trialing merchant reaches their
+  first real order instead of stalling. Sub-phases, cheapest first:
+  - **M10a — Re-aim the setup checklist.** ✅ **Done** — `Features/Dashboard/DashboardService.cs`, no migration.
+    Six rows ordered by what blocks revenue: first product · **accept online payments** (`/admin/payments`) ·
+    **set your shipping rates** (`/admin/shipping`) · design storefront · store details (tax folded in) ·
+    **add your own domain** (`/admin/domain`). Content pages dropped to the discovery grid (M10c). A nullable
+    `CurrentValue` on `ChecklistItem` lets a done — or *defaulted* — row show live state ("Razorpay connected",
+    "Using the default flat rate", `acme.wavcommerce.online`, "12 products"). Domain stays **open** on the
+    auto-subdomain while showing the URL — our `Tenant.Slug` vs `CustomDomainVerified` case.
+    > **Signup seeds day-one checkout** (`OnboardingService` — a flat-rate method + `CodEnabled=true`), so
+    > "has a shipping method" and "can take money" are true from signup and are **useless as checklist signals**.
+    > The honest ones, and what shipped: `TenantPaymentAccount.IsEnabled` (a gateway actually switched live — COD
+    > deliberately does *not* satisfy it) and `ShippingMethod.UpdatedAt != null || any ShippingZone` (seed edited
+    > or zones added). Both are locked by regression tests in `ecomm.tests/DashboardTests.cs`.
+  - **M10b — Guided test order.** ✅ Built. `POST /api/admin/test-order` → `Features/Orders/TestOrderService`.
+    Reuses **`IDraftOrderService`** (create → convert, COD) rather than the cart checkout path, so it never
+    touches the merchant's own cart, and runs the real pipeline: pricing → GST → shipping → inventory
+    reserve/commit → order number → invoice. Ends on `/admin/orders/:id`. `Order.IsTest` (**migration `179`**,
+    + index `IX_Orders_Tenant_IsTest`) flags it — **excluded from analytics, never deleted**, so invoice
+    numbering stays contiguous; a `TEST` badge marks it in the orders list. It holds one unit of real stock;
+    cancelling restocks via the normal flow.
+    > Analytics exclusion is applied **once**, in a private `AnalyticsService.Orders` accessor that every report
+    > goes through, rather than by adding `&& !o.IsTest` to ten separate queries where a future report would
+    > forget it.
+  - **M10c — Feature discovery grid.** ✅ Built. "Ways to improve your store" on the Getting-started tab:
+    Discounts · Collections · Reviews · Email & SMS templates · Suppliers/cost · Analytics. ~45 admin routes had
+    no discovery surface.
+  - **M10d — Trial chrome.** ✅ Built. Persistent "Trial expires in N days · Subscribe" band in
+    `admin-layout.component.ts`, from `BillingService.current()` (`isInTrial` + `currentPeriodEnd`, which *is*
+    the trial end — `OnboardingService` sets `CurrentPeriodEnd = trialEnds`). Amber under 3 days, "trial has
+    ended" at zero. Deliberately **not dismissable** and **no modal**.
+  - **M10e — Getting Started as a durable tab.** ✅ Built. Admin Home is now `Dashboard | Getting started`; the
+    tab carries a count of outstanding steps and **survives completion** (the old checklist vanished at 5/5).
+    New stores default to the setup tab, completed stores to the dashboard.
+  - *Not in scope:* Academy/Forum/app-marketplace (no community or ecosystem to back them — an empty forum reads
+    worse than none); "expert advice" services lead-gen (only once there's onboarding capacity to sell).
+  - *Related:* the persistent "Need help setting up your store?" widget is **not** M10 — it's merchant↔platform live
+    chat, specced as [ai-support](../ai-support/README.md) **A2/C1b**. Zoho independently validates that placement.
 
 ## Cross-cutting
 - **Sidebar IA**: regroup admin nav into Shopify-like sections; **Home** is the `/admin` landing (done in M1).
@@ -188,6 +234,11 @@ green, committed. Settings-only features reuse the generic `Settings` key/value 
 ## Verification (per phase)
 - **Unit** (`ecomm.tests`): settings/customer/discount/shipping services tenant-isolated; discount math correct;
   role checks deny cross-permission; Shiprocket rate mapping; checkout-settings validation + enforcement.
+- **M10 specifically**: a store with no payment account and no shipping zone shows both as **incomplete** on the
+  checklist and both links land on the right settings page; completing one flips it and shows its live value;
+  the domain row stays open on the auto-subdomain while displaying the URL; a guided test order produces a real
+  order + invoice PDF that is **absent from analytics totals** yet keeps invoice numbering contiguous; the trial
+  banner counts down from `Tenant.TrialEndsAt` and disappears once subscribed.
 - **E2E (tenant subdomains)**: as a merchant — Home dashboard + checklist; add a customer & view order history;
   invite a staff user with a limited role; configure Payments + Shipping/Shiprocket and place a real order; create
   an automatic/free-shipping discount that applies at checkout; build a draft order → invoice → paid; create an
