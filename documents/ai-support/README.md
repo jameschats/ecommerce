@@ -118,12 +118,13 @@ this module generalises. [ai-growth](../ai-growth/README.md) takes `240–249`.
 
 ## Scope & checklist
 
-### C0. Make the contact form real *(days, not weeks)*
+### C0. Make the contact form real ✅ **Built** *(migration `250`)*
 
-- [ ] **`ContactMessage` entity + endpoint** — anonymous `POST api/contact` (name, email, phone, subject, body, page URL), rate-limited and honeypot-protected, reusing the existing rate-limiting from V2-7 hardening.
-- [ ] **Wire the real form** — replace the fake `submit()` in `contact.component.ts` with an actual call.
-- [ ] **Notify the merchant** — email via `INotificationService` + the existing admin SignalR bell.
-- [ ] **Minimal admin list** — see submissions, mark handled. Deliberately not the full inbox yet.
+- [x] **`ContactMessage` entity + endpoint** — anonymous `POST api/contact` (name, email, phone, subject, body, page URL), `"contact"` rate-limit policy (**5/hour per IP**) alongside the existing `"auth"` one, plus a hidden honeypot field. A honeypot hit returns the **identical success response** and stores nothing, so a bot can't distinguish acceptance from rejection. Input is length-capped by truncation rather than rejection.
+- [x] **Wire the real form** — `contact.component.ts` now posts, captures `sourceUrl`, and surfaces a specific message on 429. The *"submissions aren't stored yet"* line is gone.
+- [x] **Notify the merchant** — admin bell via `INotificationFeedService.NotifyAdminsAsync` (`Type=ContactMessage`, deep-links to `/admin/messages`). **Email deferred:** `INotificationService.SendEmailAsync` renders a `NotificationTemplate` row keyed by code, so it needs a seeded template — worth doing with the C1 thread notifications rather than a one-off.
+- [x] **Admin list** — `/admin/messages`, New/Handled/All filters, mark-handled records who and when and is reversible. Linked under Customers in the admin nav.
+- [x] 10 tests in `ecomm.tests/ContactTests.cs`; verified end-to-end against MySQL (message persists, honeypot drops silently, bad email 400s, bell row written, 6th submit 429s).
 
 ### C1. Unified conversation engine
 
@@ -278,4 +279,4 @@ Shipped: `Features/Support/` (to generalise), `INotificationService`, `IAiServic
 
 ---
 
-**Status:** ⬜ Not started.
+**Status:** 🟡 **C0 built** (2026-07-22, migration `250`) — the storefront now has a working shopper→merchant channel for the first time. C1 (conversation engine) is next.

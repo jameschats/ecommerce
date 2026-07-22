@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SITE_URL } from '../../../core/api.config';
+import { ContactService } from '../../../core/services/contact.service';
 import { SeoService } from '../../../core/services/seo.service';
 import { ThemeService } from '../../../core/services/theme.service';
 
@@ -43,10 +44,18 @@ import { ThemeService } from '../../../core/services/theme.service';
                 <div><label class="lbl">Name</label><input [(ngModel)]="form.name" name="name" required class="input" /></div>
                 <div><label class="lbl">Email</label><input [(ngModel)]="form.email" name="email" type="email" required class="input" /></div>
               </div>
+              <div><label class="lbl">Phone <span class="text-slate-400 font-normal">(optional)</span></label><input [(ngModel)]="form.phone" name="phone" class="input" /></div>
               <div><label class="lbl">Subject</label><input [(ngModel)]="form.subject" name="subject" class="input" /></div>
-              <div><label class="lbl">Message</label><textarea [(ngModel)]="form.message" name="message" rows="5" required class="input"></textarea></div>
-              <button type="submit" class="btn-primary">Send message</button>
-              <p class="text-xs text-slate-400">This is a demo form — submissions aren't stored yet.</p>
+              <div><label class="lbl">Message</label><textarea [(ngModel)]="form.body" name="body" rows="5" required class="input"></textarea></div>
+
+              <!-- Honeypot: off-screen and aria-hidden, so only bots fill it. -->
+              <input [(ngModel)]="form.website" name="website" tabindex="-1" autocomplete="off"
+                     aria-hidden="true" class="absolute -left-[9999px] w-px h-px opacity-0" />
+
+              @if (error()) { <p class="text-sm text-red-600">{{ error() }}</p> }
+              <button type="submit" class="btn-primary" [disabled]="sending()">
+                {{ sending() ? 'Sending…' : 'Send message' }}
+              </button>
             </form>
           }
         </div>
@@ -57,10 +66,13 @@ import { ThemeService } from '../../../core/services/theme.service';
 export class ContactComponent implements OnInit {
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
+  private readonly contact = inject(ContactService);
 
   readonly store = computed(() => this.theme.storeName() || 'our store');
   readonly sent = signal(false);
-  form = { name: '', email: '', subject: '', message: '' };
+  readonly sending = signal(false);
+  readonly error = signal<string | null>(null);
+  form = { name: '', email: '', phone: '', subject: '', body: '', website: '' };
 
   readonly details = [
     { icon: '💬', label: 'Response time', value: 'We usually reply within 1 business day.' },
@@ -78,8 +90,30 @@ export class ContactComponent implements OnInit {
   }
 
   submit(): void {
-    if (!this.form.name.trim() || !this.form.email.trim() || !this.form.message.trim()) return;
-    this.sent.set(true);
-    this.form = { name: '', email: '', subject: '', message: '' };
+    if (!this.form.name.trim() || !this.form.email.trim() || !this.form.body.trim()) return;
+
+    this.sending.set(true);
+    this.error.set(null);
+    this.contact.submit({
+      name: this.form.name,
+      email: this.form.email,
+      phone: this.form.phone || null,
+      subject: this.form.subject || null,
+      body: this.form.body,
+      sourceUrl: typeof location !== 'undefined' ? location.href : null,
+      website: this.form.website || null,
+    }).subscribe({
+      next: () => {
+        this.sent.set(true);
+        this.sending.set(false);
+        this.form = { name: '', email: '', phone: '', subject: '', body: '', website: '' };
+      },
+      error: (e) => {
+        this.error.set(e?.status === 429
+          ? "You've sent a few messages already — please try again a little later."
+          : e?.error?.message ?? "Sorry, that didn't send. Please try again.");
+        this.sending.set(false);
+      },
+    });
   }
 }

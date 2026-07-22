@@ -119,6 +119,7 @@ export const routes: Routes = [
       { path: 'customers/:id', loadComponent: () => import('./features/admin/customers/admin-customer-detail.component').then((m) => m.AdminCustomerDetailComponent) },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
       { path: 'support', loadComponent: () => import('./features/admin/support/admin-support.component').then((m) => m.AdminSupportComponent) },
+      { path: 'messages', loadComponent: () => import('./features/admin/messages/admin-messages.component').then((m) => m.AdminMessagesComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'staff', loadComponent: () => import('./features/admin/staff/admin-staff.component').then((m) => m.AdminStaffComponent) },
       { path: 'billing', loadComponent: () => import('./features/admin/billing/admin-billing.component').then((m) => m.AdminBillingComponent) },

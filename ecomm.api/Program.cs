@@ -146,6 +146,7 @@ builder.Services.AddScoped<ecomm.api.Features.Orders.IInvoiceService, ecomm.api.
 builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderService, ecomm.api.Features.Orders.OrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IDraftOrderService, ecomm.api.Features.Orders.DraftOrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.ITestOrderService, ecomm.api.Features.Orders.TestOrderService>();
+builder.Services.AddScoped<ecomm.api.Features.Contact.IContactService, ecomm.api.Features.Contact.ContactService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();
@@ -297,6 +298,10 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // Contact form: anonymous writes, so keep it tight — a human sends one message, not five an hour.
+    options.AddPolicy("contact", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
