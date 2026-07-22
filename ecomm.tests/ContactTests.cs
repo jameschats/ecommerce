@@ -13,10 +13,10 @@ namespace ecomm.tests;
 /// </summary>
 public class ContactTests
 {
-    private static (EcommerceDbContext db, ContactService svc, RecordingFeed feed) Setup(long tenantId = 1)
+    private static (EcommerceDbContext db, ContactService svc, ContactTestFeed feed) Setup(long tenantId = 1)
     {
         var db = TestDb.New(tenantId);
-        var feed = new RecordingFeed();
+        var feed = new ContactTestFeed();
         return (db, new ContactService(db, feed), feed);
     }
 
@@ -136,20 +136,28 @@ public class ContactTests
         Assert.Equal(1, (await svc.ListAsync("Handled", 1, 20)).TotalCount);
     }
 
-    private sealed class RecordingFeed : INotificationFeedService
+}
+
+/// <summary>Captures notifications instead of pushing them, so tests can assert the merchant was told.</summary>
+public sealed class ContactTestFeed : INotificationFeedService
+{
+    public List<(string Type, string Title, string? Message, string? LinkUrl)> AdminNotifications { get; } = [];
+    public List<(long UserId, string Type, string Title)> UserNotifications { get; } = [];
+
+    public Task NotifyAdminsAsync(string type, string title, string? message, string? linkUrl, CancellationToken ct = default)
     {
-        public List<(string Type, string Title, string? Message, string? LinkUrl)> AdminNotifications { get; } = [];
-
-        public Task NotifyAdminsAsync(string type, string title, string? message, string? linkUrl, CancellationToken ct = default)
-        {
-            AdminNotifications.Add((type, title, message, linkUrl));
-            return Task.CompletedTask;
-        }
-
-        public Task NotifyUserAsync(long userId, string type, string title, string? message, string? linkUrl, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<List<NotificationDto>> ListAsync(long userId, bool isAdmin, int limit, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<int> UnreadCountAsync(long userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task MarkReadAsync(long userId, bool isAdmin, long id, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task MarkAllReadAsync(long userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
+        AdminNotifications.Add((type, title, message, linkUrl));
+        return Task.CompletedTask;
     }
+
+    public Task NotifyUserAsync(long userId, string type, string title, string? message, string? linkUrl, CancellationToken ct = default)
+    {
+        UserNotifications.Add((userId, type, title));
+        return Task.CompletedTask;
+    }
+
+    public Task<List<NotificationDto>> ListAsync(long userId, bool isAdmin, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<int> UnreadCountAsync(long userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task MarkReadAsync(long userId, bool isAdmin, long id, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task MarkAllReadAsync(long userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
 }
