@@ -32,7 +32,13 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
             <tbody>
               @for (o of result()?.items ?? []; track o.orderId) {
                 <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" (click)="open(o)">
-                  <td class="px-4 py-2 text-slate-800">{{ o.orderNumber }}<div class="text-xs text-slate-400">{{ o.firstItemName }}</div></td>
+                  <td class="px-4 py-2 text-slate-800">
+                    {{ o.orderNumber }}
+                    @if (o.isTest) {
+                      <span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 align-middle">TEST</span>
+                    }
+                    <div class="text-xs text-slate-400">{{ o.firstItemName }}</div>
+                  </td>
                   <td class="px-4 py-2 text-slate-500">{{ (o.placedAt || o.createdAt) | date:'dd MMM yy' }}</td>
                   <td class="px-4 py-2 text-slate-500">{{ o.itemCount }}</td>
                   <td class="px-4 py-2 text-slate-700">{{ o.totalAmount | currency:'INR':'symbol':'1.0-0' }}</td>

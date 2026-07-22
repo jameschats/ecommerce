@@ -48,4 +48,5 @@ public sealed record OrderDto(
 
 public sealed record OrderListItem(
     long orderId, string orderNumber, string status, decimal totalAmount, int itemCount,
-    string? firstItemName, string? firstItemImage, DateTime? placedAt, DateTime createdAt);
+    string? firstItemName, string? firstItemImage, DateTime? placedAt, DateTime createdAt,
+    bool isTest);

@@ -456,7 +456,7 @@ public sealed class OrderService : IOrderService
                 _db.OrderItems.Where(i => i.OrderId == o.OrderId).OrderBy(i => i.OrderItemId).Select(i => i.ProductName).FirstOrDefault(),
                 _db.OrderItems.Where(i => i.OrderId == o.OrderId).OrderBy(i => i.OrderItemId)
                     .Select(i => _db.ProductImages.Where(im => im.ProductId == i.ProductId).OrderByDescending(im => im.IsPrimary).Select(im => im.Url).FirstOrDefault()).FirstOrDefault(),
-                o.PlacedAt, o.CreatedAt))
+                o.PlacedAt, o.CreatedAt, o.IsTest))
             .ToListAsync(ct);
 
     public async Task<OrderDto?> GetAsync(long orderId, long? userId, bool isAdmin, CancellationToken ct = default)
@@ -506,7 +506,7 @@ public sealed class OrderService : IOrderService
                 o.OrderId, o.OrderNumber, o.Status, o.TotalAmount,
                 _db.OrderItems.Count(i => i.OrderId == o.OrderId),
                 _db.OrderItems.Where(i => i.OrderId == o.OrderId).OrderBy(i => i.OrderItemId).Select(i => i.ProductName).FirstOrDefault(),
-                null, o.PlacedAt, o.CreatedAt))
+                null, o.PlacedAt, o.CreatedAt, o.IsTest))
             .ToListAsync(ct);
         return new PagedResult<OrderListItem> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };
     }

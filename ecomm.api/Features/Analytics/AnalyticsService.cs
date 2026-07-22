@@ -1,4 +1,5 @@
 using ecomm.api.Data.Context;
+using ecomm.api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Analytics;
@@ -49,6 +50,12 @@ public sealed class AnalyticsService : IAnalyticsService
     private readonly EcommerceDbContext _db;
     public AnalyticsService(EcommerceDbContext db) => _db = db;
 
+    /// <summary>
+    /// Real customer orders for this tenant. Test orders from the merchant's "try a test order"
+    /// walkthrough are excluded here, once, so no individual report has to remember to do it.
+    /// </summary>
+    private IQueryable<Order> Orders => _db.Orders.Where(o => o.TenantId == Tenant && !o.IsTest);
+
     // ---------------- Activity widget ----------------
     public async Task<AnalyticsSummaryDto> SummaryAsync(CancellationToken ct = default)
     {
@@ -56,7 +63,7 @@ public sealed class AnalyticsService : IAnalyticsService
         var today = now.Date;
         var weekAgo = today.AddDays(-6);
 
-        var sold = _db.Orders.Where(o => o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt != null);
+        var sold = Orders.Where(o => SoldStatuses.Contains(o.Status) && o.PlacedAt != null);
         var ordersToday = await sold.CountAsync(o => o.PlacedAt >= today, ct);
         var ordersWeek = await sold.CountAsync(o => o.PlacedAt >= weekAgo, ct);
         var revenueToday = await sold.Where(o => o.PlacedAt >= today).SumAsync(o => (decimal?)o.TotalAmount, ct) ?? 0m;
@@ -66,7 +73,7 @@ public sealed class AnalyticsService : IAnalyticsService
         var signupsWeek = await _db.Users.CountAsync(u => u.TenantId == Tenant && !u.IsDeleted && u.CreatedAt >= weekAgo, ct);
 
         var lowStock = await _db.Inventory.CountAsync(i => i.AvailableQty <= i.ReorderLevel, ct);
-        var pending = await _db.Orders.CountAsync(o => o.TenantId == Tenant && (o.Status == "Paid" || o.Status == "Confirmed"), ct);
+        var pending = await Orders.CountAsync(o => o.Status == "Paid" || o.Status == "Confirmed", ct);
 
         var topSearches = await _db.PopularSearches.AsNoTracking()
             .Where(p => p.TenantId == Tenant)
@@ -81,8 +88,8 @@ public sealed class AnalyticsService : IAnalyticsService
     // ---------------- Sales dashboard ----------------
     public async Task<SalesDashboardDto> SalesDashboardAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
-        var sold = _db.Orders.Where(o => o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt >= from && o.PlacedAt <= to);
-        var returned = _db.Orders.Where(o => o.TenantId == Tenant && o.Status == "Returned" && o.PlacedAt >= from && o.PlacedAt <= to);
+        var sold = Orders.Where(o => SoldStatuses.Contains(o.Status) && o.PlacedAt >= from && o.PlacedAt <= to);
+        var returned = Orders.Where(o => o.Status == "Returned" && o.PlacedAt >= from && o.PlacedAt <= to);
 
         // Sales over time (by day).
         var rawSeries = await sold
@@ -107,8 +114,8 @@ public sealed class AnalyticsService : IAnalyticsService
 
         // New vs returning: a customer is "new" if their FIRST sold order (all-time) falls in this range.
         var customerIds = await sold.Select(o => o.UserId).Distinct().ToListAsync(ct);
-        var firstDates = await _db.Orders
-            .Where(o => o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt != null && customerIds.Contains(o.UserId))
+        var firstDates = await Orders
+            .Where(o => SoldStatuses.Contains(o.Status) && o.PlacedAt != null && customerIds.Contains(o.UserId))
             .GroupBy(o => o.UserId)
             .Select(g => new { UserId = g.Key, First = g.Min(o => o.PlacedAt!.Value) })
             .ToListAsync(ct);
@@ -136,10 +143,10 @@ public sealed class AnalyticsService : IAnalyticsService
     {
         var cartsWithItems = await _db.Carts
             .CountAsync(c => c.TenantId == Tenant && c.CreatedAt >= from && c.CreatedAt <= to && c.Items.Any(), ct);
-        var ordersPlaced = await _db.Orders
-            .CountAsync(o => o.TenantId == Tenant && o.Status != "Draft" && o.PlacedAt >= from && o.PlacedAt <= to, ct);
-        var ordersPaid = await _db.Orders
-            .CountAsync(o => o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt >= from && o.PlacedAt <= to, ct);
+        var ordersPlaced = await Orders
+            .CountAsync(o => o.Status != "Draft" && o.PlacedAt >= from && o.PlacedAt <= to, ct);
+        var ordersPaid = await Orders
+            .CountAsync(o => SoldStatuses.Contains(o.Status) && o.PlacedAt >= from && o.PlacedAt <= to, ct);
 
         decimal PctOf(int n) => cartsWithItems > 0 ? Math.Round((decimal)n / cartsWithItems * 100m, 1) : 0m;
         decimal Step(int n, int prev) => prev > 0 ? Math.Round((decimal)n / prev * 100m, 1) : 0m;
@@ -182,7 +189,7 @@ public sealed class AnalyticsService : IAnalyticsService
 
     private Task<List<SoldLine>> SoldLinesAsync(DateTime startUtc, DateTime endUtc, CancellationToken ct) =>
         (from oi in _db.OrderItems
-         join o in _db.Orders on oi.OrderId equals o.OrderId
+         join o in Orders on oi.OrderId equals o.OrderId
          join p in _db.Products on oi.ProductId equals p.ProductId
          where o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt >= startUtc && o.PlacedAt <= endUtc
          select new SoldLine(
@@ -213,7 +220,7 @@ public sealed class AnalyticsService : IAnalyticsService
     {
         DateTime startUtc = from, endUtc = to;
         var raw = await (from oi in _db.OrderItems
-                         join o in _db.Orders on oi.OrderId equals o.OrderId
+                         join o in Orders on oi.OrderId equals o.OrderId
                          where o.TenantId == Tenant && o.PlacedAt >= startUtc && o.PlacedAt <= endUtc
                          select new { oi.ProductId, oi.ProductName, o.Status, oi.Quantity }).ToListAsync(ct);
         return raw.GroupBy(x => new { x.ProductId, x.ProductName }).Select(g =>

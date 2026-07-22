@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import {
   AttributeDef,
   Dashboard,
+  TestOrderResult,
   ImportJobResult,
   InventoryImportResult,
   InventoryRow,
@@ -171,5 +172,10 @@ export class AdminCatalogService {
   // ----- Admin home dashboard -----
   getDashboard(): Observable<Dashboard> {
     return this.unwrap(this.http.get<ApiResponse<Dashboard>>(`${this.base}/dashboard`));
+  }
+
+  /** Places a real (but flagged) order so the merchant can watch the whole flow work. */
+  placeTestOrder(): Observable<TestOrderResult> {
+    return this.unwrap(this.http.post<ApiResponse<TestOrderResult>>(`${this.base}/test-order`, {}));
   }
 }

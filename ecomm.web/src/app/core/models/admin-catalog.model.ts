@@ -149,12 +149,17 @@ export interface DashboardSummary {
 }
 export interface ChecklistItem {
   key: string; label: string; description: string; done: boolean; actionLabel: string; actionLink: string;
+  /** Optional live detail (connected domain, provider, product count) shown beside the row. */
+  currentValue?: string | null;
 }
 export interface Dashboard {
   summary: DashboardSummary;
   checklist: ChecklistItem[];
   checklistDone: number;
   checklistTotal: number;
+}
+export interface TestOrderResult {
+  orderId: number; orderNumber: string; productName: string; totalAmount: number;
 }
 
 export interface InventoryImportResult {

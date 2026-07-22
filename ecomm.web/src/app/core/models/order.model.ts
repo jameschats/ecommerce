@@ -122,4 +122,6 @@ export interface OrderListItem {
   firstItemImage: string | null;
   placedAt: string | null;
   createdAt: string;
+  /** Placed by the merchant's test-order walkthrough — excluded from analytics. */
+  isTest?: boolean;
 }

@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
 import { AnnouncementService } from '../../core/services/announcement.service';
+import { BillingService } from '../../core/services/billing.service';
 import { Announcement } from '../../core/models/superadmin.model';
 
 @Component({
@@ -35,6 +36,19 @@ import { Announcement } from '../../core/models/superadmin.model';
         </div>
       </aside>
       <main class="flex-1 overflow-auto">
+        @if (trialDaysLeft(); as days) {
+          <div class="flex items-center gap-3 px-6 py-2.5 text-sm border-b"
+               [class]="days <= 3 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-100 border-slate-200 text-slate-600'">
+            <span class="flex-1">
+              @if (days > 0) {
+                Trial expires in <span class="font-semibold">{{ days }}</span> {{ days === 1 ? 'day' : 'days' }}.
+              } @else {
+                <span class="font-semibold">Your trial has ended.</span> Subscribe to keep your store online.
+              }
+            </span>
+            <a routerLink="/admin/billing" class="font-medium underline shrink-0">Subscribe</a>
+          </div>
+        }
         @for (a of visibleAnnouncements(); track a.id) {
           <div class="flex items-start gap-3 px-6 py-3 text-sm border-b" [class]="bannerClass(a.level)">
             <span class="flex-1"><span class="font-semibold">{{ a.title }}</span> — {{ a.body }}</span>
@@ -50,6 +64,7 @@ export class AdminLayoutComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly announcementsSvc = inject(AnnouncementService);
+  private readonly billing = inject(BillingService);
 
   readonly umamiUrl = UMAMI_DASHBOARD_URL;
 
@@ -57,8 +72,19 @@ export class AdminLayoutComponent implements OnInit {
   private readonly dismissed = signal<Set<number>>(this.loadDismissed());
   readonly visibleAnnouncements = () => this.announcements().filter((a) => !this.dismissed().has(a.id));
 
+  /**
+   * Whole days left in the trial, or null when there's no trial to show. Deliberately not dismissable —
+   * it's a countdown, and hiding it defeats the point. `0` renders as "trial has ended".
+   */
+  readonly trialDaysLeft = signal<number | null>(null);
+
   ngOnInit(): void {
     this.announcementsSvc.active().subscribe((a) => this.announcements.set(a));
+    this.billing.current().subscribe((sub) => {
+      if (!sub?.isInTrial || !sub.currentPeriodEnd) return;
+      const msLeft = new Date(sub.currentPeriodEnd).getTime() - Date.now();
+      this.trialDaysLeft.set(Math.max(0, Math.ceil(msLeft / 86_400_000)));
+    });
   }
 
   dismiss(id: number): void {
