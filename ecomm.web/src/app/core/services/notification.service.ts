@@ -84,6 +84,8 @@ export class NotificationService {
       if (!n.isRead) this.unreadCount.update((c) => c + 1);
     });
 
+    conn.on('conversationMessage', (m: LiveConversationMessage) => this.liveMessage.set(m));
+
     this.connection = conn;
     try { await conn.start(); } catch { this.connection = null; }
   }
@@ -92,4 +94,29 @@ export class NotificationService {
     this.connection?.stop().catch(() => {});
     this.connection = null;
   }
+
+  // ---- Live conversations ----
+  /** Last message pushed for any joined conversation; components filter by id. */
+  readonly liveMessage = signal<LiveConversationMessage | null>(null);
+
+  /**
+   * Subscribe to live messages on a conversation. The server checks the caller is a party to it,
+   * so a rejected join simply yields no pushes — the thread still loads over HTTP either way.
+   */
+  async joinConversation(id: number): Promise<void> {
+    await this.connect();
+    try { await this.connection?.invoke('JoinConversation', id); } catch { /* falls back to polling-free HTTP reads */ }
+  }
+
+  async leaveConversation(id: number): Promise<void> {
+    try { await this.connection?.invoke('LeaveConversation', id); } catch { /* ignore */ }
+  }
+}
+
+export interface LiveConversationMessage {
+  conversationId: number;
+  messageId: number;
+  authorType: 'Shopper' | 'Merchant' | 'Platform';
+  body: string;
+  createdAt: string;
 }

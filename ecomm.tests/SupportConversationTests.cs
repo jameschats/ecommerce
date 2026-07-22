@@ -18,7 +18,48 @@ public class SupportConversationTests
     private static (EcommerceDbContext db, SupportService svc) Setup(long tenantId = 1)
     {
         var db = TestDb.New(tenantId);
-        return (db, new SupportService(db, new FixedTenant(tenantId)));
+        return (db, new SupportService(db, new FixedTenant(tenantId), new RecordingRealtime()));
+    }
+
+    private static (EcommerceDbContext db, SupportService svc, RecordingRealtime live) SetupWithRealtime(long tenantId = 1)
+    {
+        var db = TestDb.New(tenantId);
+        var live = new RecordingRealtime();
+        return (db, new SupportService(db, new FixedTenant(tenantId), live), live);
+    }
+
+    [Fact]
+    public async Task An_internal_note_is_never_pushed_live_but_a_real_reply_is()
+    {
+        var (db, svc, live) = SetupWithRealtime();
+        using var _ = db;
+        await svc.CreateAsync("Help", "Something broke", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+        live.Pushed.Clear();   // ignore the opening message
+
+        await svc.AdminReplyAsync(id, "Probably their DNS", adminUserId: 1, isInternal: true, default);
+        Assert.Empty(live.Pushed);
+
+        await svc.AdminReplyAsync(id, "We're on it", adminUserId: 1, isInternal: false, default);
+        var pushed = Assert.Single(live.Pushed);
+        Assert.Equal("We're on it", pushed.Body);
+        Assert.Equal(MessageAuthorType.Platform, pushed.AuthorType);
+    }
+
+    [Fact]
+    public async Task A_pushed_message_is_saved_before_it_is_broadcast()
+    {
+        var (db, svc, live) = SetupWithRealtime();
+        using var _ = db;
+        await svc.CreateAsync("Help", "Something broke", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+
+        await svc.ReplyAsync(id, "Any update?", userId: 4, default);
+
+        // The push carries a real database id, which only exists after the save.
+        var pushed = live.Pushed.Last();
+        Assert.True(pushed.MessageId > 0);
+        Assert.Contains(await db.SupportMessages.ToListAsync(), m => m.SupportMessageId == pushed.MessageId);
     }
 
     [Fact]

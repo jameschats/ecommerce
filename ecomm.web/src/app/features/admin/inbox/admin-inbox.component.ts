@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AiAssistService } from '../../../core/services/ai-assist.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { Conversation, ConversationService, ConversationThread } from '../../../core/services/conversation.service';
 import { PagedResult } from '../../../core/models/api-response.model';
 
@@ -123,6 +124,7 @@ import { PagedResult } from '../../../core/models/api-response.model';
 })
 export class AdminInboxComponent implements OnInit {
   private readonly api = inject(ConversationService);
+  private readonly notifications = inject(NotificationService);
   readonly ai = inject(AiAssistService);
 
   readonly loading = signal(true);
@@ -143,6 +145,22 @@ export class AdminInboxComponent implements OnInit {
     { label: 'All', value: undefined as string | undefined },
   ];
 
+  constructor() {
+    // A pushed message appends to the open thread. The socket only ever accelerates what the
+    // HTTP read would have shown, so a missed push costs a refresh, not a message.
+    effect(() => {
+      const m = this.notifications.liveMessage();
+      const open = this.selected();
+      if (!m || !open || m.conversationId !== open.conversation.id) return;
+      if (open.messages.some((x) => x.id === m.messageId)) return;   // our own send, already rendered
+
+      this.selected.set({
+        ...open,
+        messages: [...open.messages, { id: m.messageId, authorType: m.authorType, body: m.body, createdAt: m.createdAt }],
+      });
+    });
+  }
+
   ngOnInit(): void {
     this.ai.ensureStatus();
     this.load();
@@ -157,7 +175,14 @@ export class AdminInboxComponent implements OnInit {
   open(c: Conversation): void {
     this.error.set(null);
     this.grounding.set([]);
-    this.api.adminThread(c.id).subscribe((t) => this.selected.set(t));
+
+    const previous = this.selected()?.conversation.id;
+    if (previous && previous !== c.id) void this.notifications.leaveConversation(previous);
+
+    this.api.adminThread(c.id).subscribe((t) => {
+      this.selected.set(t);
+      void this.notifications.joinConversation(c.id);
+    });
   }
 
   /**

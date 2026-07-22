@@ -53,7 +53,8 @@ public sealed class ShopperConversationService(
     INotificationFeedService feed,
     INotificationService notifications,
     ICurrentTenantService currentTenant,
-    IOptions<TenancyOptions> tenancy) : IShopperConversationService
+    IOptions<TenancyOptions> tenancy,
+    IConversationRealtime realtime) : IShopperConversationService
 {
     public const string ProtectorPurpose = "ecomm.conversation.reply.v1";
     private static readonly HashSet<string> Statuses = new(StringComparer.OrdinalIgnoreCase) { "Open", "Pending", "Closed" };
@@ -160,15 +161,19 @@ public sealed class ShopperConversationService(
             throw new AppException("Conversation not found.", StatusCodes.Status404NotFound);
 
         var now = DateTime.UtcNow;
-        db.SupportMessages.Add(new SupportMessage
+        var message = new SupportMessage
         {
             SupportTicketId = id, AuthorUserId = shopperUserId,
             AuthorType = MessageAuthorType.Shopper, Body = body, CreatedAt = now,
-        });
+        };
+        db.SupportMessages.Add(message);
         convo.LastMessageAt = now;
         if (convo.Status is "Closed" or "Pending") { convo.Status = "Open"; convo.ResolvedAt = null; }
         convo.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
+
+        await realtime.MessageAsync(
+            new LiveMessageDto(id, message.SupportMessageId, message.AuthorType, body, now), ct);
 
         await feed.NotifyAdminsAsync("Conversation", $"Reply on {convo.Reference ?? "a conversation"}",
             Truncate(body, 120), $"/admin/inbox/{id}", ct);
@@ -212,16 +217,20 @@ public sealed class ShopperConversationService(
             ?? throw new AppException("Conversation not found.", StatusCodes.Status404NotFound);
 
         var now = DateTime.UtcNow;
-        db.SupportMessages.Add(new SupportMessage
+        var message = new SupportMessage
         {
             SupportTicketId = id, AuthorUserId = merchantUserId,
             AuthorType = MessageAuthorType.Merchant, Body = body, CreatedAt = now,
-        });
+        };
+        db.SupportMessages.Add(message);
         convo.LastMessageAt = now;
         convo.FirstResponseAt ??= now;
         if (convo.Status == "Open") convo.Status = "Pending";   // awaiting the shopper
         convo.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
+
+        await realtime.MessageAsync(
+            new LiveMessageDto(id, message.SupportMessageId, message.AuthorType, body, now), ct);
 
         if (convo.ShopperUserId is { } uid)
             await feed.NotifyUserAsync(uid, "Conversation", "Reply from the store", Truncate(body, 120), "/account/conversations", ct);

@@ -26,7 +26,8 @@ public class ShopperConversationTests
         var svc = new ShopperConversationService(
             db, DataProtectionProvider.Create("ecomm-tests"), feed, email,
             new FixedTenant(tenantId),
-            Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online", DefaultTenantId = 1 }));
+            Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online", DefaultTenantId = 1 }),
+            new RecordingRealtime());
         return (db, svc, feed, email);
     }
 

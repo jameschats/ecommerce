@@ -11,7 +11,7 @@ public class SupportServiceTests
     {
         var tenant = new FixedTenant(tenantId);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        return (db, new SupportService(db, tenant), tenant);
+        return (db, new SupportService(db, tenant, new RecordingRealtime()), tenant);
     }
 
     [Fact]

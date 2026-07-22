@@ -161,3 +161,18 @@ public sealed class ContactTestFeed : INotificationFeedService
     public Task MarkReadAsync(long userId, bool isAdmin, long id, CancellationToken ct = default) => throw new NotSupportedException();
     public Task MarkAllReadAsync(long userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Records live pushes instead of opening a socket. Tests assert on the persisted rows — the push
+/// is an accelerator, so what matters here is only that it's attempted for the right messages.
+/// </summary>
+public sealed class RecordingRealtime : IConversationRealtime
+{
+    public List<LiveMessageDto> Pushed { get; } = [];
+
+    public Task MessageAsync(LiveMessageDto message, CancellationToken ct = default)
+    {
+        Pushed.Add(message);
+        return Task.CompletedTask;
+    }
+}

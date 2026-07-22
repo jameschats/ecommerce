@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,7 +38,8 @@ public interface ISupportService
 /// Platform methods read cross-tenant via IgnoreQueryFilters and write through BeginScope so a reply/note
 /// lands on the ticket's tenant. Internal notes are never returned to the merchant thread.
 /// </summary>
-public sealed class SupportService(EcommerceDbContext db, ICurrentTenantService tenant) : ISupportService
+public sealed class SupportService(
+    EcommerceDbContext db, ICurrentTenantService tenant, IConversationRealtime realtime) : ISupportService
 {
     private static readonly HashSet<string> Statuses = new(StringComparer.OrdinalIgnoreCase) { "Open", "Pending", "Closed" };
     private static readonly HashSet<string> Priorities = new(StringComparer.OrdinalIgnoreCase) { "Low", "Normal", "High", "Urgent" };
@@ -84,16 +86,21 @@ public sealed class SupportService(EcommerceDbContext db, ICurrentTenantService 
         var ticket = await db.SupportTickets.FirstOrDefaultAsync(t => t.SupportTicketId == ticketId, ct)
                      ?? throw new AppException("Ticket not found.", StatusCodes.Status404NotFound);
         var now = DateTime.UtcNow;
-        db.SupportMessages.Add(new SupportMessage
+        var message = new SupportMessage
         {
             SupportTicketId = ticketId, AuthorUserId = userId,
             AuthorType = MessageAuthorType.Merchant, FromPlatform = false,
             Body = body, CreatedAt = now,
-        });
+        };
+        db.SupportMessages.Add(message);
         ticket.LastMessageAt = now;
         if (ticket.Status == "Closed") { ticket.Status = "Open"; ticket.ResolvedAt = null; }   // a merchant reply reopens
         ticket.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
+
+        // Saved first, pushed second — see IConversationRealtime.
+        await realtime.MessageAsync(
+            new LiveMessageDto(ticketId, message.SupportMessageId, message.AuthorType, body, now), ct);
     }
 
     public async Task<IReadOnlyList<TicketDto>> QueueAsync(string? status, CancellationToken ct)
@@ -117,14 +124,16 @@ public sealed class SupportService(EcommerceDbContext db, ICurrentTenantService 
         var ticket = await db.SupportTickets.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.SupportTicketId == ticketId, ct)
                      ?? throw new AppException("Ticket not found.", StatusCodes.Status404NotFound);
         var now = DateTime.UtcNow;
+        SupportMessage? message = null;
         using (tenant.BeginScope(ticket.TenantId))
         {
-            db.SupportMessages.Add(new SupportMessage
+            message = new SupportMessage
             {
                 SupportTicketId = ticketId, AuthorUserId = adminUserId,
                 AuthorType = MessageAuthorType.Platform, FromPlatform = true,
                 IsInternalNote = isInternal, Body = body, CreatedAt = now,
-            });
+            };
+            db.SupportMessages.Add(message);
             if (!isInternal)
             {
                 ticket.LastMessageAt = now;
@@ -135,6 +144,11 @@ public sealed class SupportService(EcommerceDbContext db, ICurrentTenantService 
             db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = ticket.TenantId, Action = isInternal ? "SupportNote" : "SupportReply", Detail = $"#{ticketId}", CreatedAt = now });
             await db.SaveChangesAsync(ct);
         }
+
+        // Internal notes are platform-only and must never be pushed to a merchant's open thread.
+        if (!isInternal)
+            await realtime.MessageAsync(
+                new LiveMessageDto(ticketId, message.SupportMessageId, message.AuthorType, body, now), ct);
     }
 
     public async Task SetStatusAsync(long ticketId, string status, long adminUserId, CancellationToken ct)
