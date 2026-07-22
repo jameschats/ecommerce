@@ -143,6 +143,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/banners', label: 'Banners' },
       { path: '/admin/files', label: 'Files' },
       { path: '/admin/preferences', label: 'Preferences' },
+      { path: '/admin/faq', label: 'FAQs' },
     ] },
     { title: 'Analytics', links: [
       { path: '/admin/analytics', label: 'Analytics' },
