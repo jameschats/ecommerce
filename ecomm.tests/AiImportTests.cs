@@ -29,7 +29,7 @@ public class AiImportTests
         db.SaveChanges();
         var ai = new CannedAi(aiResponse);
         var credits = new AiCreditService(db, ai, new HttpContextAccessor());
-        return new AiImportService(db, credits, ai, new ProductImportService(db));
+        return new AiImportService(db, credits, ai, new ProductImportService(db, new ecomm.api.Features.Plans.EntitlementService(db)));
     }
 
     private static MemoryStream CsvStream() => new(Encoding.UTF8.GetBytes(Csv));

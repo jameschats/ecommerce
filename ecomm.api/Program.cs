@@ -152,6 +152,7 @@ builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderLookupService, ecomm.
 builder.Services.AddScoped<ecomm.api.Features.Faqs.IFaqService, ecomm.api.Features.Faqs.FaqService>();
 builder.Services.AddScoped<ecomm.api.Features.Support.ISupportDraftService, ecomm.api.Features.Support.SupportDraftService>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.IConversationRealtime, ecomm.api.Features.Notifications.ConversationRealtime>();
+builder.Services.AddScoped<ecomm.api.Features.Plans.IEntitlementService, ecomm.api.Features.Plans.EntitlementService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();

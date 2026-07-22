@@ -23,8 +23,13 @@ public sealed class ProductService : IProductService
 {
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
+    private readonly ecomm.api.Features.Plans.IEntitlementService _entitlements;
 
-    public ProductService(EcommerceDbContext db) => _db = db;
+    public ProductService(EcommerceDbContext db, ecomm.api.Features.Plans.IEntitlementService entitlements)
+    {
+        _db = db;
+        _entitlements = entitlements;
+    }
 
     public async Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default)
     {
@@ -106,6 +111,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductDetailDto> CreateAsync(SaveProductRequest req, long? userId, CancellationToken ct = default)
     {
         Validate(req);
+        await _entitlements.EnsureCanAddProductsAsync(1, ct);   // plan ceiling — 402 with an upgrade message
         await EnsureCategoryExists(req.CategoryId, ct);
         var sku = req.Sku.Trim();
         if (await _db.Products.AnyAsync(p => p.TenantId == Tenant && p.Sku == sku, ct))

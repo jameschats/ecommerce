@@ -32,7 +32,13 @@ public sealed class ProductImportService : IProductImportService
 
     private readonly EcommerceDbContext _db;
 
-    public ProductImportService(EcommerceDbContext db) => _db = db;
+    private readonly ecomm.api.Features.Plans.IEntitlementService _entitlements;
+
+    public ProductImportService(EcommerceDbContext db, ecomm.api.Features.Plans.IEntitlementService entitlements)
+    {
+        _db = db;
+        _entitlements = entitlements;
+    }
 
     public byte[] Template()
     {
@@ -108,6 +114,10 @@ public sealed class ProductImportService : IProductImportService
         var failed = new List<ImportJobItemDto>();
         int total = 0, success = 0, fail = 0;
 
+        // Read the plan ceiling once rather than re-counting the catalogue per row. Rows that don't
+        // fit fail individually, so an oversized file still imports what it can instead of all-or-nothing.
+        var remainingSlots = await _entitlements.RemainingProductSlotsAsync(ct);
+
         for (var row = 2; row <= lastRow; row++)
         {
             if (ws.Row(row).IsEmpty()) continue;
@@ -116,7 +126,8 @@ public sealed class ProductImportService : IProductImportService
 
             try
             {
-                await ImportRowAsync(ws, row, columns, Cell, now, ct);
+                var wasNew = await ImportRowAsync(ws, row, columns, Cell, now, ct, remainingSlots);
+                if (wasNew && remainingSlots is { } left) remainingSlots = left - 1;
                 _db.ImportJobItems.Add(new ImportJobItem { ImportJobId = job.ImportJobId, RowNumber = row, Status = "Success", CreatedAt = now });
                 success++;
             }
@@ -142,7 +153,8 @@ public sealed class ProductImportService : IProductImportService
         return new ImportResultDto(ToDto(job), failed);
     }
 
-    private async Task ImportRowAsync(IXLWorksheet ws, int row, Dictionary<string, int> columns, Func<string, string> cell, DateTime now, CancellationToken ct)
+    /// <summary>Imports one row. Returns true when it created a new product (so the caller can count it against the plan).</summary>
+    private async Task<bool> ImportRowAsync(IXLWorksheet ws, int row, Dictionary<string, int> columns, Func<string, string> cell, DateTime now, CancellationToken ct, int? remainingSlots = null)
     {
         var sku = cell("sku");
         var name = cell("name");
@@ -190,6 +202,8 @@ public sealed class ProductImportService : IProductImportService
 
         if (isNew)
         {
+            if (remainingSlots is <= 0)
+                throw new InvalidOperationException("Your plan's product limit has been reached — upgrade to import more.");
             product.Slug = await UniqueProductSlug(name, ct);
             _db.Products.Add(product);
         }
@@ -207,6 +221,7 @@ public sealed class ProductImportService : IProductImportService
 
         await _db.SaveChangesAsync(ct);
         await ApplyAttributeColumns(ws, row, columns, product.ProductId, now, ct);
+        return isNew;
     }
 
     private async Task ApplyAttributeColumns(IXLWorksheet ws, int row, Dictionary<string, int> columns, long productId, DateTime now, CancellationToken ct)

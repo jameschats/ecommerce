@@ -26,7 +26,7 @@ public class AiMigrationTests
         db.TenantSubscriptions.Add(new TenantSubscription { PlanId = 1, Status = "Trial", CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
         var ai = new CannedAi(aiResponse);
-        return new AiImportService(db, new AiCreditService(db, ai, new HttpContextAccessor()), ai, new ProductImportService(db));
+        return new AiImportService(db, new AiCreditService(db, ai, new HttpContextAccessor()), ai, new ProductImportService(db, new ecomm.api.Features.Plans.EntitlementService(db)));
     }
 
     private static MemoryStream Stream(string csv) => new(Encoding.UTF8.GetBytes(csv));
