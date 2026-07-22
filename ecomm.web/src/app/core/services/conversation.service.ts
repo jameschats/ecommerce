@@ -31,6 +31,12 @@ export interface ConversationThread {
   replyToken: string | null;
 }
 
+export interface SupportDraft {
+  draft: string;
+  /** What the suggestion was built from, so the merchant can judge it rather than trust it. */
+  groundedOn: string[];
+}
+
 export interface StartConversationRequest {
   subject: string;
   message: string;
@@ -80,5 +86,9 @@ export class ConversationService {
   }
   setStatus(id: number, status: string): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/admin/inbox/${id}/status`, { status });
+  }
+  /** Suggests a reply for the merchant to edit — never sends it. */
+  draft(id: number): Observable<SupportDraft> {
+    return this.unwrap(this.http.post<ApiResponse<SupportDraft>>(`${this.base}/admin/inbox/${id}/draft`, {}));
   }
 }

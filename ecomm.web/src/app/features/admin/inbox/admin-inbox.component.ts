@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AiAssistService } from '../../../core/services/ai-assist.service';
 import { Conversation, ConversationService, ConversationThread } from '../../../core/services/conversation.service';
 import { PagedResult } from '../../../core/models/api-response.model';
 
@@ -87,11 +88,26 @@ import { PagedResult } from '../../../core/models/api-response.model';
 
                 <div class="pt-3 border-t border-slate-100">
                   <textarea [(ngModel)]="draft" name="draft" rows="3" class="input" placeholder="Write a reply…"></textarea>
+
+                  @if (grounding().length) {
+                    <p class="text-xs text-slate-500 mt-1.5">
+                      ✨ Suggested from {{ grounding().join(' · ') }} — <span class="text-slate-400">check it before sending.</span>
+                    </p>
+                  }
                   @if (error()) { <p class="text-sm text-red-600 mt-1">{{ error() }}</p> }
-                  <button type="button" (click)="send(t)" [disabled]="sending() || !draft.trim()"
-                          class="btn-primary mt-2 disabled:opacity-60">
-                    {{ sending() ? 'Sending…' : 'Send reply' }}
-                  </button>
+
+                  <div class="flex items-center gap-2 mt-2">
+                    <button type="button" (click)="send(t)" [disabled]="sending() || !draft.trim()"
+                            class="btn-primary disabled:opacity-60">
+                      {{ sending() ? 'Sending…' : 'Send reply' }}
+                    </button>
+                    @if (ai.enabled()) {
+                      <button type="button" (click)="suggest(t)" [disabled]="drafting()"
+                              class="btn-ghost border border-violet-200 text-violet-700 disabled:opacity-60">
+                        {{ drafting() ? 'Drafting…' : '✨ Suggest a reply' }}
+                      </button>
+                    }
+                  </div>
                 </div>
               </div>
             } @else {
@@ -107,9 +123,12 @@ import { PagedResult } from '../../../core/models/api-response.model';
 })
 export class AdminInboxComponent implements OnInit {
   private readonly api = inject(ConversationService);
+  readonly ai = inject(AiAssistService);
 
   readonly loading = signal(true);
   readonly sending = signal(false);
+  readonly drafting = signal(false);
+  readonly grounding = signal<string[]>([]);
   readonly error = signal<string | null>(null);
   readonly result = signal<PagedResult<Conversation> | null>(null);
   readonly selected = signal<ConversationThread | null>(null);
@@ -124,7 +143,10 @@ export class AdminInboxComponent implements OnInit {
     { label: 'All', value: undefined as string | undefined },
   ];
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.ai.ensureStatus();
+    this.load();
+  }
 
   setFilter(value: string | undefined): void {
     this.filter.set(value);
@@ -134,7 +156,30 @@ export class AdminInboxComponent implements OnInit {
 
   open(c: Conversation): void {
     this.error.set(null);
+    this.grounding.set([]);
     this.api.adminThread(c.id).subscribe((t) => this.selected.set(t));
+  }
+
+  /**
+   * Puts a suggestion in the reply box. Deliberately never sends: the merchant edits and ships it,
+   * so a wrong draft costs a few seconds rather than their credibility with a customer.
+   */
+  suggest(t: ConversationThread): void {
+    this.drafting.set(true);
+    this.error.set(null);
+    this.api.draft(t.conversation.id).subscribe({
+      next: (d) => {
+        this.draft = d.draft;
+        this.grounding.set(d.groundedOn ?? []);
+        this.drafting.set(false);
+      },
+      error: (e) => {
+        this.error.set(e?.status === 402
+          ? "You're out of AI credits — top up under AI credits to keep using suggestions."
+          : e?.error?.message ?? 'Could not draft a reply just now.');
+        this.drafting.set(false);
+      },
+    });
   }
 
   send(t: ConversationThread): void {

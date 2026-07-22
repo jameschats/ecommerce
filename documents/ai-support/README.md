@@ -165,10 +165,13 @@ Both parties hold a JWT, so `NotificationHub` needs extension rather than redesi
 
 ### C3. AI draft replies *(merchant-in-the-loop — build this before any autonomous bot)*
 
-- [ ] **Suggested reply** in the merchant inbox — grounded in the linked order, shipment, policies and FAQ; merchant edits and sends. **Zero hallucination risk, because a human ships every word.**
-- [ ] **Tone + brand voice** reused from the AI Growth brand kit — one setting, both modules.
-- [ ] **Metered per merchant action** via the existing `MeterAsync` — this fits the shipped credit model exactly, with no rethink needed.
-- [ ] **Capture the corpus** — every accepted/edited draft is labelled training and retrieval data. This is what makes C4 safe, and it is the real reason C3 comes first.
+- [x] **Suggested reply** ✅ **Built** — `POST /api/admin/inbox/{id}/draft`, a ✨ button in the inbox that fills the reply box. **It never sends.** The merchant edits and ships every word, so a wrong draft costs seconds rather than the store's credibility.
+- [x] **Grounding** ✅ — the thread, the linked order's real status, courier + tracking + latest scans, published FAQs, and the refund/shipping policies flattened from HTML to prose. The UI shows *what* the draft was built from ("3 messages · order ORD… (Shipped) · 2 courier scans · 7 published FAQs") so the merchant can judge it instead of trusting it.
+- [x] **Guardrails in the system prompt** ✅ — use only supplied facts; never promise a delivery date; never offer a refund, discount or exception (those are the merchant's to decide); say plainly when the context doesn't answer; no `[placeholder]` text. Locked by tests that assert the prompt's contents.
+- [x] **Never leaks** ✅ — internal notes and unpublished FAQs are excluded from the prompt, asserted by test.
+- [x] **Metered** ✅ — `MeterAsync(support-draft)` at **2 credits**; debit only on success, and `Ai:Provider=None` returns a clean 503 with the button hidden.
+- [ ] **Tone / brand voice** — reuse the AI Growth brand kit when G0 lands; today the prompt fixes a warm, plain register.
+- [ ] **Capture the corpus** — record which drafts were sent as-is vs edited. This is the labelled data that makes C4 safe, and the reason C3 comes first.
 
 ### C4. Shopper-facing bot *(guarded)*
 

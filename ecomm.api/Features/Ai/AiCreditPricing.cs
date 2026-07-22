@@ -13,6 +13,7 @@ public static class AiCreditPricing
     public const string ColumnMap = "column-map";
     public const string Page = "page";
     public const string SampleCatalog = "sample-catalog";
+    public const string SupportDraft = "support-draft";
 
     private static readonly IReadOnlyDictionary<string, int> Costs = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
@@ -20,6 +21,9 @@ public static class AiCreditPricing
         [Seo] = 1,
         [Category] = 1,
         [ColumnMap] = 2,
+        // A support draft reads the thread, the linked order and the FAQ corpus, so its prompt is
+        // larger than a rewrite — but it saves a merchant a real reply, so keep it cheap enough to use daily.
+        [SupportDraft] = 2,
         [Page] = 5,
         [SampleCatalog] = 25,
     };

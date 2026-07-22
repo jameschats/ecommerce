@@ -93,4 +93,11 @@ public sealed class ConversationAdminController(IShopperConversationService conv
         await convos.SetStatusAsync(id, request.Status, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Conversation updated."));
     }
+
+    /// <summary>
+    /// Suggest a reply for the merchant to edit. Never sends — the merchant always ships the words.
+    /// </summary>
+    [HttpPost("{id:long}/draft")]
+    public async Task<IActionResult> Draft(long id, [FromServices] ISupportDraftService drafts, CancellationToken ct)
+        => Ok(ApiResponse<SupportDraftDto>.Ok(await drafts.DraftReplyAsync(id, ct)));
 }
