@@ -285,4 +285,8 @@ Shipped: `Features/Support/` (to generalise), `INotificationService`, `IAiServic
 
 **Status:** 🟡 **C0 ✅** (migration `250`) · **C1 ✅ end-to-end** (migration `251`) — model, shopper threads, merchant inbox and shopper views all built 2026-07-22. A shopper can now hold a real conversation with a store, signed-in or not.
 
-**Not yet done in C1:** attachments, and the email round-trip (the reply *link* works; the email that carries it needs a `NotificationTemplate` — see C0's note). **Next:** C1b live chat on the authenticated axes, or C2 grounding gaps if the bot is the priority.
+**Email round-trip ✅ built** (migration `252`) — a merchant reply now emails the shopper. Signed-in shoppers get an account link; **anonymous shoppers get the signed token link, which is their only way back into the thread** — without this the anonymous path was decorative.
+
+> ⚠️ **Fixed a live bug while doing it.** `NotificationTemplates` are per-tenant, seeded for tenant 1 only (migration `024`), and onboarding never copied them — so **every store created through signup had zero templates** and `NotificationService` silently logged "no active template" and returned false. Those merchants' customers had never received an order confirmation, shipping notice, cancellation or password-reset email. Confirmed on the dev database: tenants 2/3/4 had 0 templates and 0 notification history. Migration `252` backfills every tenant; `OnboardingService` now seeds new ones.
+
+**Not yet done in C1:** attachments. **Next:** C1b live chat on the authenticated axes, or C2 grounding gaps if the bot is the priority.

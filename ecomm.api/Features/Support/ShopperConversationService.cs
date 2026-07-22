@@ -1,11 +1,13 @@
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
+using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Notifications;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ecomm.api.Features.Support;
 
@@ -46,7 +48,12 @@ public interface IShopperConversationService
 /// else, so a leaked link exposes one thread rather than an account.
 /// </summary>
 public sealed class ShopperConversationService(
-    EcommerceDbContext db, IDataProtectionProvider dp, INotificationFeedService feed) : IShopperConversationService
+    EcommerceDbContext db,
+    IDataProtectionProvider dp,
+    INotificationFeedService feed,
+    INotificationService notifications,
+    ICurrentTenantService currentTenant,
+    IOptions<TenancyOptions> tenancy) : IShopperConversationService
 {
     public const string ProtectorPurpose = "ecomm.conversation.reply.v1";
     private static readonly HashSet<string> Statuses = new(StringComparer.OrdinalIgnoreCase) { "Open", "Pending", "Closed" };
@@ -218,6 +225,55 @@ public sealed class ShopperConversationService(
 
         if (convo.ShopperUserId is { } uid)
             await feed.NotifyUserAsync(uid, "Conversation", "Reply from the store", Truncate(body, 120), "/account/conversations", ct);
+
+        // The email is the whole delivery mechanism for an anonymous shopper — without it they
+        // hold a reply token nothing ever hands them. Sending never throws (see NotificationService).
+        await NotifyShopperByEmailAsync(convo, body, ct);
+    }
+
+    private async Task NotifyShopperByEmailAsync(SupportTicket convo, string body, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(convo.ShopperEmail)) return;
+
+        // StoreName is set at signup, but stores predating onboarding don't have it — fall back to
+        // the tenant's own name before the generic wording.
+        var storeName = await db.TenantSettings.AsNoTracking()
+                .Where(s => s.Key == "StoreName").Select(s => s.Value).FirstOrDefaultAsync(ct)
+            ?? await db.Tenants.AsNoTracking()
+                .Where(t => t.TenantId == currentTenant.CurrentTenantId).Select(t => t.Name).FirstOrDefaultAsync(ct)
+            ?? "the store";
+
+        await notifications.SendEmailAsync("ConversationReply", convo.ShopperEmail!, new Dictionary<string, string>
+        {
+            ["CustomerName"] = convo.ShopperEmail!.Split('@')[0],
+            ["StoreName"] = storeName,
+            ["Subject"] = convo.Subject,
+            ["MessagePreview"] = Truncate(body, 300),
+            ["ThreadUrl"] = await BuildThreadUrlAsync(convo, ct),
+            ["Reference"] = convo.Reference ?? "",
+        }, ct);
+    }
+
+    /// <summary>
+    /// Signed-in shoppers get their account page; anonymous ones get the token link, which is the
+    /// only way back into their thread.
+    /// </summary>
+    private async Task<string> BuildThreadUrlAsync(SupportTicket convo, CancellationToken ct)
+    {
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == currentTenant.CurrentTenantId, ct);
+
+        var host = tenant is { CustomDomainVerified: true, CustomDomain: { Length: > 0 } cd }
+            ? cd
+            : tenant?.Slug is { Length: > 0 } slug && !string.IsNullOrEmpty(tenancy.Value.BaseDomain)
+                ? $"{slug}.{tenancy.Value.BaseDomain}"
+                : tenancy.Value.BaseDomain;
+
+        if (string.IsNullOrWhiteSpace(host)) return "/account/conversations";
+
+        return convo.ShopperUserId is not null
+            ? $"https://{host}/account/conversations"
+            : $"https://{host}/thread/{Protector.Protect(convo.SupportTicketId.ToString())}";
     }
 
     public async Task SetStatusAsync(long id, string status, CancellationToken ct = default)

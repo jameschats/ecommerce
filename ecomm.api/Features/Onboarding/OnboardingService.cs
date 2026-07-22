@@ -136,6 +136,7 @@ public sealed partial class OnboardingService(
             db.Settings.Add(new Setting { SettingKey = "CodEnabled", SettingValue = "true", DataType = "string", Category = "Billing", CreatedAt = now });
 
             await db.SaveChangesAsync(ct);
+            await SeedNotificationTemplatesAsync(newTenant.TenantId, ct);
 
             tokens = await auth.IssueTokensForUserAsync(user, ip, ct);
         }
@@ -203,6 +204,29 @@ public sealed partial class OnboardingService(
         const string alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
         var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(length);
         return string.Create(length, bytes, (span, b) => { for (var i = 0; i < span.Length; i++) span[i] = alphabet[b[i] % alphabet.Length]; });
+    }
+
+    /// <summary>
+    /// Copy the default tenant's message templates to a new store. Templates are per-tenant rows keyed by
+    /// Code+Channel, and <see cref="Features.Notifications.NotificationService"/> silently sends nothing when
+    /// one is missing — so without this a new store's customers get no order confirmation, shipping notice or
+    /// password-reset email at all. (Migration 252 backfills the stores created before this existed.)
+    /// </summary>
+    private async Task SeedNotificationTemplatesAsync(long tenantId, CancellationToken ct)
+    {
+        var defaults = await db.NotificationTemplates.IgnoreQueryFilters().AsNoTracking()
+            .Where(t => t.TenantId == tenancy.Value.DefaultTenantId)
+            .ToListAsync(ct);
+        if (defaults.Count == 0) return;
+
+        foreach (var d in defaults)
+            db.NotificationTemplates.Add(new NotificationTemplate
+            {
+                TenantId = tenantId, Code = d.Code, Channel = d.Channel,
+                Subject = d.Subject, Body = d.Body, IsActive = d.IsActive, CreatedAt = DateTime.UtcNow,
+            });
+
+        await db.SaveChangesAsync(ct);
     }
 
     private string BuildStoreUrl(string slug)
