@@ -128,7 +128,8 @@ export class AdminLayoutComponent implements OnInit {
     { title: 'Customers', links: [
       { path: '/admin/customers', label: 'Customers' },
       { path: '/admin/reviews', label: 'Reviews' },
-      { path: '/admin/messages', label: 'Messages' },
+      { path: '/admin/inbox', label: 'Inbox' },
+      { path: '/admin/messages', label: 'Contact form' },
     ] },
     { title: 'Discounts', links: [
       { path: '/admin/coupons', label: 'Discounts' },

@@ -1,13 +1,15 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Order } from '../../core/models/order.model';
+import { ConversationService } from '../../core/services/conversation.service';
 import { OrderService } from '../../core/services/order.service';
 import { orderStatusClass } from './order-status';
 
 @Component({
   selector: 'app-order-detail',
-  imports: [RouterLink, CurrencyPipe, DatePipe],
+  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule],
   template: `
     @if (loading()) {
       <p class="text-slate-400 text-sm">Loading…</p>
@@ -30,9 +32,24 @@ import { orderStatusClass } from './order-status';
           </div>
           <div class="flex gap-2">
             @if (o.invoiceNumber) { <button type="button" (click)="invoice(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Invoice PDF</button> }
+            <button type="button" (click)="askOpen.set(!askOpen())" class="btn-ghost border border-slate-300 text-sm">Ask about this order</button>
             @if (o.canCancel) { <button type="button" (click)="cancel(o.orderId)" [disabled]="busy()" class="text-sm px-3 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">Cancel order</button> }
           </div>
         </div>
+
+        @if (askOpen()) {
+          <div class="mb-5 bg-white rounded-xl border border-slate-200 p-4">
+            @if (askSent()) {
+              <p class="text-sm text-green-700">Message sent — we'll reply by email, and you can follow it in
+                <a routerLink="/account/conversations" class="underline">your messages</a>.</p>
+            } @else {
+              <label class="lbl">Ask about this order</label>
+              <textarea [(ngModel)]="askBody" name="askBody" rows="3" class="input" placeholder="What would you like to know?"></textarea>
+              <button type="button" (click)="ask(o.orderId, o.orderNumber)" [disabled]="asking() || !askBody.trim()"
+                      class="btn-primary mt-2 disabled:opacity-60">{{ asking() ? 'Sending…' : 'Send' }}</button>
+            }
+          </div>
+        }
 
         <div class="grid md:grid-cols-3 gap-5 items-start">
           <div class="md:col-span-2 bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
@@ -96,6 +113,23 @@ export class OrderDetailComponent implements OnInit {
   readonly order = signal<Order | null>(null);
   readonly loading = signal(true);
   readonly busy = signal(false);
+
+  private readonly convos = inject(ConversationService);
+  readonly askOpen = signal(false);
+  readonly asking = signal(false);
+  readonly askSent = signal(false);
+  askBody = '';
+
+  /** Starts a conversation already linked to this order, so the merchant has the context. */
+  ask(orderId: number, orderNumber: string): void {
+    const body = this.askBody.trim();
+    if (!body) return;
+    this.asking.set(true);
+    this.convos.start({ subject: `Question about order ${orderNumber}`, message: body, orderId }).subscribe({
+      next: () => { this.askBody = ''; this.askSent.set(true); this.asking.set(false); },
+      error: () => this.asking.set(false),
+    });
+  }
   readonly error = signal<string | null>(null);
   readonly justPlaced = signal(false);
 

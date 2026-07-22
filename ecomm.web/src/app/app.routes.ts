@@ -47,6 +47,7 @@ export const routes: Routes = [
       { path: 'orders/:id', loadComponent: () => import('./features/orders/order-detail.component').then((m) => m.OrderDetailComponent) },
       { path: 'wishlist', loadComponent: () => import('./features/account/wishlist.component').then((m) => m.WishlistComponent) },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
+      { path: 'conversations', loadComponent: () => import('./features/account/conversations.component').then((m) => m.AccountConversationsComponent) },
     ],
   },
   { path: 'signup', loadComponent: () => import('./features/onboarding/signup.component').then((m) => m.SignupComponent) },
@@ -75,6 +76,7 @@ export const routes: Routes = [
   { path: 'pages/:slug', loadComponent: () => import('./features/pages/page.component').then((m) => m.PageComponent) },
   { path: 'about', loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent) },
   { path: 'contact', loadComponent: () => import('./features/pages/contact/contact.component').then((m) => m.ContactComponent) },
+  { path: 'thread/:token', loadComponent: () => import('./features/pages/thread/thread.component').then((m) => m.ThreadComponent) },
   { path: 'faq', loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent) },
   {
     path: 'login',
@@ -120,6 +122,7 @@ export const routes: Routes = [
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
       { path: 'support', loadComponent: () => import('./features/admin/support/admin-support.component').then((m) => m.AdminSupportComponent) },
       { path: 'messages', loadComponent: () => import('./features/admin/messages/admin-messages.component').then((m) => m.AdminMessagesComponent) },
+      { path: 'inbox', loadComponent: () => import('./features/admin/inbox/admin-inbox.component').then((m) => m.AdminInboxComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'staff', loadComponent: () => import('./features/admin/staff/admin-staff.component').then((m) => m.AdminStaffComponent) },
       { path: 'billing', loadComponent: () => import('./features/admin/billing/admin-billing.component').then((m) => m.AdminBillingComponent) },

@@ -134,7 +134,8 @@ this module generalises. [ai-growth](../ai-growth/README.md) takes `240–249`.
 - [x] **Shopper threads** ✅ **Built** — `ShopperConversationService` over the same tables, optionally linked to an `OrderId`/`ProductId`. **An order id is only linked after checking the shopper owns it** — otherwise it's silently dropped, never trusted off the wire.
 - [x] **Shopper identity** ✅ **Built** — signed-in shoppers by `UserId`; anonymous by email + a **DataProtection-signed reply token** (`ecomm.conversation.reply.v1`), the same mechanism as the encrypted tenant secrets, so `dp-keys` surviving redeploys already matters. The token names **one conversation and nothing else**: a leaked link exposes one thread, not an account. A token signed by a different key ring is rejected.
 - [x] **Endpoints** ✅ — shopper: `POST /api/conversations` (anonymous, rate-limited), `GET /api/conversations` + `/{id}` (own threads only), `GET|POST /api/conversations/thread/{token}`. Merchant: `GET /api/admin/inbox`, `/{id}`, `POST /{id}/messages`, `PUT /{id}/status`, `GET /open-count`.
-- [ ] **Merchant inbox UI** — the API is done; the `admin/inbox` screen and the shopper's account view are the remaining piece.
+- [x] **Merchant inbox UI** ✅ **Built** — `/admin/inbox`: status-filtered list beside a thread panel, chat-style bubbles (customer left, store right), inline status change, and a link through to the linked order.
+- [x] **Shopper UI** ✅ **Built** — `/account/conversations` for signed-in shoppers, `/thread/:token` for anonymous ones (the emailed link; invalid tokens render a friendly dead-end rather than an error), and **"Ask about this order"** on the order detail page, which starts a thread already linked to that order.
 - [ ] **Email round-trip** — merchant replies land in the shopper's mail; `SmtpEmailSender` already sets a per-tenant `Reply-To`. Inbound email parsing is **out of scope** — a reply link back into the thread is enough.
 - [ ] **Response-time promise** — merchant sets it, storefront displays it ("usually replies within 4 hours"). Shown whenever live chat is unavailable.
 
@@ -282,4 +283,6 @@ Shipped: `Features/Support/` (to generalise), `INotificationService`, `IAiServic
 
 ---
 
-**Status:** 🟡 **C0 built** (migration `250`) · **C1 model generalised + triage fields built** (migration `251`) — both 2026-07-22. Next: shopper threads on the new `ShopperMerchant` axis (entry points, signed reply links, merchant inbox), then C1b live chat.
+**Status:** 🟡 **C0 ✅** (migration `250`) · **C1 ✅ end-to-end** (migration `251`) — model, shopper threads, merchant inbox and shopper views all built 2026-07-22. A shopper can now hold a real conversation with a store, signed-in or not.
+
+**Not yet done in C1:** attachments, and the email round-trip (the reply *link* works; the email that carries it needs a `NotificationTemplate` — see C0's note). **Next:** C1b live chat on the authenticated axes, or C2 grounding gaps if the bot is the priority.
