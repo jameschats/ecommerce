@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
 import { ProductListItem } from '../../../core/models/catalog.model';
-import { GeneratedImage, GrowthService, ImageStyle } from '../../../core/services/growth.service';
+import { GeneratedImage, GrowthService, ImageFormat, ImageStyle } from '../../../core/services/growth.service';
 
 @Component({
   selector: 'app-admin-growth-images',
@@ -48,6 +48,12 @@ import { GeneratedImage, GrowthService, ImageStyle } from '../../../core/service
             </div>
           </div>
           <div class="mt-3">
+            <label class="lbl">Format</label>
+            <select [(ngModel)]="format" name="format" class="input">
+              @for (f of formats(); track f.key) { <option [ngValue]="f.key">{{ f.label }}</option> }
+            </select>
+          </div>
+          <div class="mt-3">
             <label class="lbl">Anything to add? <span class="text-slate-400 font-normal">(optional)</span></label>
             <input [(ngModel)]="brief" name="brief" class="input" placeholder="e.g. Diwali gifting, warm tones" />
           </div>
@@ -88,6 +94,7 @@ export class AdminGrowthImagesComponent implements OnInit {
   private readonly catalog = inject(AdminCatalogService);
 
   readonly styles = signal<ImageStyle[]>([]);
+  readonly formats = signal<ImageFormat[]>([]);
   readonly products = signal<ProductListItem[]>([]);
   readonly result = signal<GeneratedImage | null>(null);
   readonly recent = signal<GeneratedImage[] | null>(null);
@@ -98,6 +105,7 @@ export class AdminGrowthImagesComponent implements OnInit {
 
   productId: number | null = null;
   style = '';
+  format = '';
   brief = '';
 
   ngOnInit(): void {
@@ -105,6 +113,7 @@ export class AdminGrowthImagesComponent implements OnInit {
       next: (s) => { this.styles.set(s); if (s.length) this.style = s[0].key; },
       error: (e) => { if (e?.status === 402) this.locked.set(true); },
     });
+    this.api.imageFormats().subscribe((f) => { this.formats.set(f); if (f.length) this.format = f[0].key; });
     this.catalog.listProducts({ page: 1, pageSize: 200 }).subscribe((r) => this.products.set(r.items));
     this.loadRecent();
   }
@@ -116,7 +125,7 @@ export class AdminGrowthImagesComponent implements OnInit {
     if (this.productId === null || !this.style) return;
     this.generating.set(true);
     this.error.set(null);
-    this.api.generateImage(this.productId, this.style, this.brief.trim() || null).subscribe({
+    this.api.generateImage(this.productId, this.style, this.format || null, this.brief.trim() || null).subscribe({
       next: (img) => { this.result.set(img); this.generating.set(false); this.loadRecent(); },
       error: (e) => {
         this.error.set(

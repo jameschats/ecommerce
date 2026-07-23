@@ -30,6 +30,7 @@ export interface CreateCampaignRequest {
   goal: string; name?: string | null; productId: number; brief?: string | null; language?: string | null;
 }
 export interface ImageStyle { key: string; label: string; description: string; }
+export interface ImageFormat { key: string; label: string; size: string; }
 export interface GeneratedImage { id: number; url: string; costInr: number; createdAt: string; }
 
 @Injectable({ providedIn: 'root' })
@@ -83,8 +84,11 @@ export class GrowthService {
   imageStyles(): Observable<ImageStyle[]> {
     return this.unwrap(this.http.get<ApiResponse<ImageStyle[]>>(`${this.base}/image/styles`));
   }
-  generateImage(productId: number, style: string, brief?: string | null): Observable<GeneratedImage> {
-    return this.unwrap(this.http.post<ApiResponse<GeneratedImage>>(`${this.base}/image`, { productId, style, brief }));
+  imageFormats(): Observable<ImageFormat[]> {
+    return this.unwrap(this.http.get<ApiResponse<ImageFormat[]>>(`${this.base}/image/formats`));
+  }
+  generateImage(productId: number, style: string, format: string | null, brief?: string | null): Observable<GeneratedImage> {
+    return this.unwrap(this.http.post<ApiResponse<GeneratedImage>>(`${this.base}/image`, { productId, style, format, brief }));
   }
   recentImages(): Observable<GeneratedImage[]> {
     return this.unwrap(this.http.get<ApiResponse<GeneratedImage[]>>(`${this.base}/image/recent`));

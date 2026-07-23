@@ -82,6 +82,9 @@ public sealed class GrowthController(
     [HttpGet("image/styles")]
     public IActionResult ImageStyles() => Ok(ApiResponse<IReadOnlyList<ImageStyleDto>>.Ok(images.Styles()));
 
+    [HttpGet("image/formats")]
+    public IActionResult ImageFormats() => Ok(ApiResponse<IReadOnlyList<ImageFormatDto>>.Ok(images.Formats()));
+
     [HttpPost("image")]
     public async Task<IActionResult> GenerateImage(GenerateImageRequest request, CancellationToken ct)
         => Ok(ApiResponse<GeneratedImageDto>.Ok(await images.GenerateAsync(request, UserId, ct), "Image generated."));

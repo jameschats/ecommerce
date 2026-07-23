@@ -9,12 +9,17 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.Growth;
 
 public sealed record ImageStyleDto(string Key, string Label, string Description);
-public sealed record GenerateImageRequest(long ProductId, string Style, string? Brief);
+public sealed record ImageFormatDto(string Key, string Label, string Size);
+public sealed record GenerateImageRequest(long ProductId, string Style, string? Format, string? Brief);
 public sealed record GeneratedImageDto(long Id, string Url, decimal CostInr, DateTime CreatedAt);
 
 public interface IGrowthImageService
 {
     IReadOnlyList<ImageStyleDto> Styles();
+
+    /// <summary>Platform-shaped output sizes (Instagram post, story, etc.) the merchant picks independently of style.</summary>
+    IReadOnlyList<ImageFormatDto> Formats();
+
     Task<GeneratedImageDto> GenerateAsync(GenerateImageRequest req, long? userId, CancellationToken ct = default);
     Task<IReadOnlyList<GeneratedImageDto>> RecentAsync(CancellationToken ct = default);
 }
@@ -44,8 +49,24 @@ public sealed class GrowthImageService(
 
     private static readonly Dictionary<string, StyleDef> ByKey = Defs.ToDictionary(d => d.Key, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Where the image will be posted → the output shape. Labelled by platform because that's how a
+    /// merchant thinks; the value is the size gpt-image-1 renders. Picked independently of style.
+    /// </summary>
+    private static readonly IReadOnlyList<ImageFormatDto> FormatDefs = new List<ImageFormatDto>
+    {
+        new("instagram-post", "Instagram / Facebook post (square)", "1024x1024"),
+        new("instagram-story", "Instagram / WhatsApp story (portrait)", "1024x1536"),
+        new("facebook-cover", "Facebook cover / website banner (landscape)", "1536x1024"),
+    };
+
+    private static readonly Dictionary<string, ImageFormatDto> FormatByKey =
+        FormatDefs.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyList<ImageStyleDto> Styles() =>
         Defs.Select(d => new ImageStyleDto(d.Key, d.Label, d.Description)).ToList();
+
+    public IReadOnlyList<ImageFormatDto> Formats() => FormatDefs;
 
     public async Task<GeneratedImageDto> GenerateAsync(GenerateImageRequest req, long? userId, CancellationToken ct = default)
     {
@@ -64,10 +85,13 @@ public sealed class GrowthImageService(
             (string.IsNullOrWhiteSpace(product.ShortDescription) ? "" : $". {product.ShortDescription}") +
             (string.IsNullOrWhiteSpace(req.Brief) ? "" : $". {req.Brief!.Trim()}");
         var prompt = $"{subject}. {style.Instruction}";
+        // The merchant's chosen platform format wins; otherwise the style's natural shape.
+        var size = req.Format is { Length: > 0 } fmt && FormatByKey.TryGetValue(fmt, out var format)
+            ? format.Size : style.Size;
 
         var (bytes, contentType, costMicros, url) = await credits.MeterImageAsync(AiCreditPricing.GrowthImage, async img =>
         {
-            var image = await img.GenerateAsync(new ImagePrompt(prompt, style.Size), ct);
+            var image = await img.GenerateAsync(new ImagePrompt(prompt, size), ct);
             using var stream = new MemoryStream(image.Bytes);
             var stored = await media.SaveAsync(stream, $"ai-{style.Key}-{req.ProductId}.png", image.ContentType, ct);
             return ((image.Bytes, image.ContentType, image.CostMicros, stored.Url), image);
