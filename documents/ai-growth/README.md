@@ -141,13 +141,14 @@ observability, so AI work starts after them. [ai-support](../ai-support/README.m
 - [ ] **Bulk generate** — select N products → queue one type each. Deferred with the scheduler (async, G0 remainder).
 - [ ] **`IPlatformConnector` seam** — `FetchProductsAsync` with `OwnPlatformConnector` (direct DB) and `CsvConnector` implementations. Shopify/Woo deferred, but the interface lands now so adding them later touches no calling code.
 
-### G2. Campaign builder
+### G2. Campaign builder ✅ **Built** *(migration `243`)*
 
-- [ ] **Goal picker** — *New Arrival · Festival Offer · Clearance · Restock · Weekend Promo* → one goal fans out to IG caption + FB post + WhatsApp message + email subject/body simultaneously.
-- [ ] **Per-channel review** — edit each independently before anything is scheduled.
-- [ ] **`GrowthCampaign`** record tying the generations together with status and scheduled time.
-- [ ] **Real sends for owned channels** — email and SMS via the existing `INotificationService`; audience from `Features/Customers/` segments, **consent-flag respected, opt-out honoured**.
-- [ ] **Export pack for unowned channels** — IG/FB/Pinterest/YouTube get a copy-ready caption + hashtags + downloadable asset + a checklist. No OAuth, no platform risk, ships in days not months.
+- [x] **Goal picker** — New arrival · Festival · Weekend sale · Back in stock · Clearance → one goal fans out to Instagram + Facebook + WhatsApp + email in a single action. Each goal is a preset brief; the merchant's note is appended.
+- [x] **Fan-out = four metered calls** — a campaign debits the four channel costs (16 credits total) and produces four editable `GrowthContent` rows linked by `CampaignId`. Verified live: 2000→1984, four on-brief Hinglish festival posts.
+- [x] **Fault-tolerant** — a channel that fails mid-fan-out (credits run out, provider hiccup) is reported per-channel and the successes are kept; the campaign is never lost. Locked by test.
+- [x] **`GrowthCampaign`** record + per-channel review/copy UI at `/admin/growth/campaigns`; recent campaigns listed and deletable.
+- [ ] **Real sends for owned channels** — email/SMS via `INotificationService`, audience from `Features/Customers/` segments with consent respected. *Deferred — needs SMTP live first, and a scheduler.*
+- [ ] **Export pack for unowned channels** — copy-ready caption + hashtags + asset + checklist. *Deferred with images (G4).*
 
 ### G3. Content calendar
 

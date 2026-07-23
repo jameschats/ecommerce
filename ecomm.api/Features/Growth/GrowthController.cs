@@ -14,7 +14,8 @@ namespace ecomm.api.Features.Growth;
 [Authorize(Roles = "Admin")]
 [RequiresFeature("growth")]
 [Route("api/admin/growth")]
-public sealed class GrowthController(IGrowthGenerationService gen, IBrandKitService brandKit) : ControllerBase
+public sealed class GrowthController(
+    IGrowthGenerationService gen, IBrandKitService brandKit, IGrowthCampaignService campaigns) : ControllerBase
 {
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -32,7 +33,7 @@ public sealed class GrowthController(IGrowthGenerationService gen, IBrandKitServ
 
     [HttpPost("generate")]
     public async Task<IActionResult> Generate(GenerateRequest request, CancellationToken ct)
-        => Ok(ApiResponse<GrowthContentDto>.Ok(await gen.GenerateAsync(request, UserId, ct), "Generated."));
+        => Ok(ApiResponse<GrowthContentDto>.Ok(await gen.GenerateAsync(request, UserId, ct: ct), "Generated."));
 
     [HttpGet("content")]
     public async Task<IActionResult> Library(
@@ -49,6 +50,30 @@ public sealed class GrowthController(IGrowthGenerationService gen, IBrandKitServ
     {
         await gen.DeleteAsync(id, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Removed."));
+    }
+
+    // ---- Campaigns (G2) ----
+
+    [HttpGet("goals")]
+    public IActionResult Goals() => Ok(ApiResponse<IReadOnlyList<GoalDto>>.Ok(campaigns.Goals()));
+
+    [HttpPost("campaigns")]
+    public async Task<IActionResult> CreateCampaign(CreateCampaignRequest request, CancellationToken ct)
+        => Ok(ApiResponse<CampaignDto>.Ok(await campaigns.CreateAsync(request, UserId, ct), "Campaign generated."));
+
+    [HttpGet("campaigns")]
+    public async Task<IActionResult> Campaigns([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(ApiResponse<PagedResult<CampaignSummaryDto>>.Ok(await campaigns.ListAsync(page, pageSize, ct)));
+
+    [HttpGet("campaigns/{id:long}")]
+    public async Task<IActionResult> Campaign(long id, CancellationToken ct)
+        => Ok(ApiResponse<CampaignDto>.Ok(await campaigns.GetAsync(id, ct)));
+
+    [HttpDelete("campaigns/{id:long}")]
+    public async Task<IActionResult> DeleteCampaign(long id, CancellationToken ct)
+    {
+        await campaigns.DeleteAsync(id, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Campaign removed."));
     }
 }
 

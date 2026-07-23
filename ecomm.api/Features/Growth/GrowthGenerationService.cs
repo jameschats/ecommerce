@@ -16,7 +16,7 @@ public sealed record GrowthContentDto(
 public interface IGrowthGenerationService
 {
     IReadOnlyList<GrowthTypeDto> Types();
-    Task<GrowthContentDto> GenerateAsync(GenerateRequest req, long? userId, CancellationToken ct = default);
+    Task<GrowthContentDto> GenerateAsync(GenerateRequest req, long? userId, long? campaignId = null, CancellationToken ct = default);
     Task<PagedResult<GrowthContentDto>> LibraryAsync(string? contentType, long? productId, int page, int pageSize, CancellationToken ct = default);
     Task<GrowthContentDto> UpdateAsync(long id, string body, string? title, string status, CancellationToken ct = default);
     Task DeleteAsync(long id, CancellationToken ct = default);
@@ -67,7 +67,7 @@ public sealed class GrowthGenerationService(
     public IReadOnlyList<GrowthTypeDto> Types() =>
         Defs.Select(d => new GrowthTypeDto(d.Key, d.Label, d.Description, AiCreditPricing.CostOf(d.Feature), d.NeedsProduct)).ToList();
 
-    public async Task<GrowthContentDto> GenerateAsync(GenerateRequest req, long? userId, CancellationToken ct = default)
+    public async Task<GrowthContentDto> GenerateAsync(GenerateRequest req, long? userId, long? campaignId = null, CancellationToken ct = default)
     {
         if (!ByKey.TryGetValue(req.ContentType ?? "", out var def))
             throw new AppException("Unknown content type.", StatusCodes.Status400BadRequest);
@@ -119,6 +119,7 @@ public sealed class GrowthGenerationService(
         {
             ContentType = def.Key,
             ProductId = def.NeedsProduct ? req.ProductId : null,
+            CampaignId = campaignId,
             Language = language,
             Title = title,
             Body = body,

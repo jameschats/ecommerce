@@ -136,6 +136,7 @@ export class AdminLayoutComponent implements OnInit {
     ] },
     { title: 'Marketing', links: [
       { path: '/admin/growth', label: 'Generate', exact: true },
+      { path: '/admin/growth/campaigns', label: 'Campaigns' },
       { path: '/admin/growth/library', label: 'Content library' },
       { path: '/admin/growth/brand-kit', label: 'Brand voice' },
     ] },

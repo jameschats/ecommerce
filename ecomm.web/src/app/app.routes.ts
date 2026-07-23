@@ -127,6 +127,7 @@ export const routes: Routes = [
       { path: 'faq', loadComponent: () => import('./features/admin/faq/admin-faq.component').then((m) => m.AdminFaqComponent) },
       { path: 'growth', loadComponent: () => import('./features/admin/growth/admin-growth-generate.component').then((m) => m.AdminGrowthGenerateComponent) },
       { path: 'growth/library', loadComponent: () => import('./features/admin/growth/admin-growth-library.component').then((m) => m.AdminGrowthLibraryComponent) },
+      { path: 'growth/campaigns', loadComponent: () => import('./features/admin/growth/admin-campaigns.component').then((m) => m.AdminCampaignsComponent) },
       { path: 'growth/brand-kit', loadComponent: () => import('./features/admin/growth/admin-brand-kit.component').then((m) => m.AdminBrandKitComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'staff', loadComponent: () => import('./features/admin/staff/admin-staff.component').then((m) => m.AdminStaffComponent) },

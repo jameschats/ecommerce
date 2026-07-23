@@ -155,6 +155,7 @@ builder.Services.AddScoped<ecomm.api.Features.Notifications.IConversationRealtim
 builder.Services.AddScoped<ecomm.api.Features.Plans.IEntitlementService, ecomm.api.Features.Plans.EntitlementService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IBrandKitService, ecomm.api.Features.Growth.BrandKitService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthGenerationService, ecomm.api.Features.Growth.GrowthGenerationService>();
+builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthCampaignService, ecomm.api.Features.Growth.GrowthCampaignService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();

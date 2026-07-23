@@ -19,6 +19,17 @@ export interface GenerateRequest {
   contentType: string; productId?: number | null; language?: string | null; brief?: string | null;
 }
 
+export interface Goal { key: string; label: string; description: string; }
+export interface CampaignChannel { channel: string; content: GrowthContent | null; error: string | null; }
+export interface Campaign {
+  id: number; name: string; goal: string; productId: number | null;
+  language: string; status: string; createdAt: string; channels: CampaignChannel[];
+}
+export interface CampaignSummary { id: number; name: string; goal: string; status: string; createdAt: string; pieces: number; }
+export interface CreateCampaignRequest {
+  goal: string; name?: string | null; productId: number; brief?: string | null; language?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GrowthService {
   private readonly http = inject(HttpClient);
@@ -47,5 +58,22 @@ export class GrowthService {
   }
   remove(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/content/${id}`);
+  }
+
+  // ----- Campaigns (G2) -----
+  goals(): Observable<Goal[]> {
+    return this.unwrap(this.http.get<ApiResponse<Goal[]>>(`${this.base}/goals`));
+  }
+  createCampaign(req: CreateCampaignRequest): Observable<Campaign> {
+    return this.unwrap(this.http.post<ApiResponse<Campaign>>(`${this.base}/campaigns`, req));
+  }
+  campaigns(page = 1, pageSize = 20): Observable<PagedResult<CampaignSummary>> {
+    return this.unwrap(this.http.get<ApiResponse<PagedResult<CampaignSummary>>>(`${this.base}/campaigns?page=${page}&pageSize=${pageSize}`));
+  }
+  campaign(id: number): Observable<Campaign> {
+    return this.unwrap(this.http.get<ApiResponse<Campaign>>(`${this.base}/campaigns/${id}`));
+  }
+  removeCampaign(id: number): Observable<unknown> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.base}/campaigns/${id}`);
   }
 }
