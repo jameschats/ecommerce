@@ -129,14 +129,16 @@ observability, so AI work starts after them. [ai-support](../ai-support/README.m
 - [ ] **Second text provider** — wire Gemini Flash or DeepSeek behind `IAiService` purely to prove the seam holds and to establish a cost floor for high-volume actions like bulk generation.
 - [ ] **Super-admin credit-pack editor** — the other gap parked in V2; packs are SQL-seeded only today.
 
-### G1. Text generation — the sellable MVP
+### G1. Text generation — the sellable MVP ✅ **Built** *(migrations `240–242`)*
 
-- [ ] **Nine content types**, credit costs in parens: **Instagram Caption** (3) · **Facebook Post** (3) · **WhatsApp Broadcast** (2) · **Email Campaign** (8) · **Blog Article** (20) · **Product Description** (5) · **SEO Meta** (1, *already built* — reuse `AiImproveService.SeoAsync`) · **Google Ads Copy** (5) · **Festival Offer** (3).
-- [ ] **`GrowthPromptTemplate`** — seeded per type, admin-editable, versioned. Prompts carry the brand kit and real product data.
-- [ ] **Language selector** — English · Hindi · Tamil · Telugu · **Hinglish**. Hinglish is the differentiator; it is how Indian SMBs actually write to customers.
-- [ ] **Generate → review → edit → save** — never auto-apply, matching the shipped guardrail.
-- [ ] **Content library** — every generation stored, filterable by product/type/date, re-editable, copy-to-clipboard.
-- [ ] **Bulk generate** — select N products → queue one content type for each via the scheduler.
+- [x] **Seven content types**, credit costs in parens: **Instagram Caption** (3) · **Facebook Post** (3) · **WhatsApp Broadcast** (2) · **Email Campaign** (8, subject + body) · **Product Description** (5) · **Google Ads Copy** (5) · **Festival Offer** (3, no product — uses a brief). *Blog Article deferred to G5 (no `Article` destination yet); SEO Meta already ships as `AiImproveService.SeoAsync`.*
+- [x] **Content types as data** — each is a record (key, credit cost, prompt shape, product-or-brief). Adding one is a single entry; no `GrowthPromptTemplate` table needed for the MVP.
+- [x] **Brand kit** (`GrowthBrandKit`) — tone · language · audience · emoji · hashtags · do-not-say, rendered into every prompt via `BrandKitService.PromptFragmentAsync`. Editable at `/admin/growth/brand-kit`.
+- [x] **Language selector** — English · Hindi · Tamil · Telugu · **Hinglish**, overridable per generation. Verified: Hinglish output is genuinely Hinglish ("Jaldi karein, offer limited time ke liye hai!").
+- [x] **Generate → review → edit → copy/keep** — never auto-published; every generation saved to `GrowthContents` so nothing is paid for twice.
+- [x] **Content library** — `/admin/growth/library`, filterable by type, copy-to-clipboard, editable, discardable.
+- [x] **Gated** — `[RequiresFeature("growth")]`; on `growth`/`pro`/`enterprise` plans (migration `242`), Starter shows an upgrade card. Metered via `MeterAsync` (debit on success only), verified: balance 2000→1997 after one 3-credit Instagram caption.
+- [ ] **Bulk generate** — select N products → queue one type each. Deferred with the scheduler (async, G0 remainder).
 - [ ] **`IPlatformConnector` seam** — `FetchProductsAsync` with `OwnPlatformConnector` (direct DB) and `CsvConnector` implementations. Shopify/Woo deferred, but the interface lands now so adding them later touches no calling code.
 
 ### G2. Campaign builder

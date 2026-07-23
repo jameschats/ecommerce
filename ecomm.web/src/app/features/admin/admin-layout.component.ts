@@ -134,6 +134,11 @@ export class AdminLayoutComponent implements OnInit {
     { title: 'Discounts', links: [
       { path: '/admin/coupons', label: 'Discounts' },
     ] },
+    { title: 'Marketing', links: [
+      { path: '/admin/growth', label: 'Generate', exact: true },
+      { path: '/admin/growth/library', label: 'Content library' },
+      { path: '/admin/growth/brand-kit', label: 'Brand voice' },
+    ] },
     { title: 'Online Store', links: [
       { path: '/admin/themes', label: 'Themes' },
       { path: '/admin/theme', label: 'Theme colours' },
