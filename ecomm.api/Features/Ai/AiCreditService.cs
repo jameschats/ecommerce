@@ -23,6 +23,12 @@ public interface IAiCreditService
     /// one save. If the AI call throws, nothing is debited. Throws 402 when the tenant is out of credits.
     /// </summary>
     Task<T> MeterAsync<T>(string feature, Func<IAiService, Task<(T Result, AiCompletion Usage)>> action, CancellationToken ct = default);
+
+    /// <summary>
+    /// As <see cref="MeterAsync{T}"/>, but for image generation, which returns a real rupee cost instead of
+    /// token usage. That cost is recorded verbatim in the ledger so image margins can be tracked precisely.
+    /// </summary>
+    Task<T> MeterImageAsync<T>(string feature, Func<IImageAiService, Task<(T Result, ImageResult Usage)>> action, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -31,7 +37,7 @@ public interface IAiCreditService
 /// balance is seeded lazily from the tenant's plan allowance (<c>Plan.AiCredits</c>) on first touch.
 /// </summary>
 public sealed class AiCreditService(
-    EcommerceDbContext db, IAiService ai, IHttpContextAccessor http) : IAiCreditService
+    EcommerceDbContext db, IAiService ai, IImageAiService imageAi, IHttpContextAccessor http) : IAiCreditService
 {
     private long? CurrentUserId =>
         long.TryParse(http.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
@@ -84,6 +90,27 @@ public sealed class AiCreditService(
         {
             Feature = feature, Credits = -cost, Tokens = usage.TotalTokens, Model = usage.Model,
             CostMicros = ai.EstimateCostMicros(usage), UserId = CurrentUserId, CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync(ct);
+        return result;
+    }
+
+    public async Task<T> MeterImageAsync<T>(string feature, Func<IImageAiService, Task<(T Result, ImageResult Usage)>> action, CancellationToken ct = default)
+    {
+        if (!imageAi.Enabled) throw new AppException("Image generation isn't enabled on this platform.", 503);
+        var cost = AiCreditPricing.CostOf(feature);
+        var credit = await EnsureCreditAsync(ct);
+        if (credit.Balance < cost)
+            throw new AppException($"You need {cost} AI credit{(cost == 1 ? "" : "s")} for this, but have {credit.Balance}. Top up to continue.", 402);
+
+        var (result, usage) = await action(imageAi);   // if it throws, nothing below runs (no debit)
+
+        credit.Balance -= cost;
+        credit.UpdatedAt = DateTime.UtcNow;
+        db.AiUsageLogs.Add(new AiUsageLog
+        {
+            Feature = feature, Credits = -cost, Tokens = null, Model = usage.Model,
+            CostMicros = usage.CostMicros, UserId = CurrentUserId, CreatedAt = DateTime.UtcNow,
         });
         await db.SaveChangesAsync(ct);
         return result;

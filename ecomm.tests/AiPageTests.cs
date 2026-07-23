@@ -31,7 +31,7 @@ public class AiPageTests
         db.Plans.Add(new Plan { PlanId = 1, Name = "P", Slug = "p", AiCredits = 100, IsActive = true });
         db.TenantSubscriptions.Add(new TenantSubscription { PlanId = 1, Status = "Trial", CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
-        var credits = new AiCreditService(db, new CannedAi(aiResponse), new HttpContextAccessor());
+        var credits = new AiCreditService(db, new CannedAi(aiResponse), new ecomm.api.Features.Ai.NullImageAiService(), new HttpContextAccessor());
         return new AiPageService(credits, new CmsService(db));
     }
 

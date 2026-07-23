@@ -25,6 +25,11 @@ public static class AiCreditPricing
     public const string GrowthFestival = "growth-festival";
     public const string GrowthGoogleAds = "growth-google-ads";
 
+    // AI Growth — image generation (POC). Real cost is ~₹4-7 per image (100x a text call), so this is
+    // priced far higher than text and tracked precisely via AiUsageLog.CostMicros. Re-tune once real
+    // margin is visible.
+    public const string GrowthImage = "growth-image";
+
     private static readonly IReadOnlyDictionary<string, int> Costs = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
         [ImproveText] = 1,
@@ -43,6 +48,7 @@ public static class AiCreditPricing
         [GrowthGoogleAds] = 5,
         [GrowthProductDescription] = 5,
         [GrowthEmail] = 8,
+        [GrowthImage] = 20,
     };
 
     /// <summary>Credit cost of a feature (defaults to 1 for anything unlisted).</summary>

@@ -156,6 +156,7 @@ builder.Services.AddScoped<ecomm.api.Features.Plans.IEntitlementService, ecomm.a
 builder.Services.AddScoped<ecomm.api.Features.Growth.IBrandKitService, ecomm.api.Features.Growth.BrandKitService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthGenerationService, ecomm.api.Features.Growth.GrowthGenerationService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthCampaignService, ecomm.api.Features.Growth.GrowthCampaignService>();
+builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthImageService, ecomm.api.Features.Growth.GrowthImageService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();
@@ -188,6 +189,11 @@ else
 // AI (V2 AI-0): provider-agnostic text generation, config-gated (Ai:Provider None|OpenAI — mirrors the
 // SMS/Shiprocket pattern), plus the credit ledger + metering wrapper. Disabled by default (None → NullAiService).
 builder.Services.Configure<ecomm.api.Features.Ai.AiOptions>(builder.Configuration.GetSection(ecomm.api.Features.Ai.AiOptions.SectionName));
+// Image generation reuses the text key unless its own is set, so enabling images is just Ai:ImageProvider=OpenAI.
+builder.Services.PostConfigure<ecomm.api.Features.Ai.AiOptions>(o =>
+{
+    if (string.IsNullOrWhiteSpace(o.Image.ApiKey)) o.Image.ApiKey = o.OpenAi.ApiKey;
+});
 if ((builder.Configuration["Ai:Provider"] ?? "None").Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddScoped<ecomm.api.Features.Ai.IAiService>(sp => new ecomm.api.Features.Ai.OpenAiService(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("openai"),
@@ -195,6 +201,14 @@ if ((builder.Configuration["Ai:Provider"] ?? "None").Equals("OpenAI", StringComp
         sp.GetRequiredService<ILogger<ecomm.api.Features.Ai.OpenAiService>>()));
 else
     builder.Services.AddScoped<ecomm.api.Features.Ai.IAiService, ecomm.api.Features.Ai.NullAiService>();
+// Image provider — config-gated the same way (Ai:ImageProvider None|OpenAI); Gemini/Imagen slots in later.
+if ((builder.Configuration["Ai:ImageProvider"] ?? "None").Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<ecomm.api.Features.Ai.IImageAiService>(sp => new ecomm.api.Features.Ai.OpenAiImageService(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("openai-image"),
+        sp.GetRequiredService<IOptions<ecomm.api.Features.Ai.AiOptions>>(),
+        sp.GetRequiredService<ILogger<ecomm.api.Features.Ai.OpenAiImageService>>()));
+else
+    builder.Services.AddScoped<ecomm.api.Features.Ai.IImageAiService, ecomm.api.Features.Ai.NullImageAiService>();
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiCreditService, ecomm.api.Features.Ai.AiCreditService>();
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiImproveService, ecomm.api.Features.Ai.AiImproveService>();
 builder.Services.AddScoped<ecomm.api.Features.Ai.IAiCatalogService, ecomm.api.Features.Ai.AiCatalogService>();

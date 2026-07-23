@@ -29,6 +29,8 @@ export interface CampaignSummary { id: number; name: string; goal: string; statu
 export interface CreateCampaignRequest {
   goal: string; name?: string | null; productId: number; brief?: string | null; language?: string | null;
 }
+export interface ImageStyle { key: string; label: string; description: string; }
+export interface GeneratedImage { id: number; url: string; costInr: number; createdAt: string; }
 
 @Injectable({ providedIn: 'root' })
 export class GrowthService {
@@ -75,5 +77,16 @@ export class GrowthService {
   }
   removeCampaign(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/campaigns/${id}`);
+  }
+
+  // ----- Images (beta) -----
+  imageStyles(): Observable<ImageStyle[]> {
+    return this.unwrap(this.http.get<ApiResponse<ImageStyle[]>>(`${this.base}/image/styles`));
+  }
+  generateImage(productId: number, style: string, brief?: string | null): Observable<GeneratedImage> {
+    return this.unwrap(this.http.post<ApiResponse<GeneratedImage>>(`${this.base}/image`, { productId, style, brief }));
+  }
+  recentImages(): Observable<GeneratedImage[]> {
+    return this.unwrap(this.http.get<ApiResponse<GeneratedImage[]>>(`${this.base}/image/recent`));
   }
 }

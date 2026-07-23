@@ -20,7 +20,7 @@ public class AiCreditTests
     }
 
     private static AiCreditService NewService(EcommerceDbContext db, bool aiEnabled = true) =>
-        new(db, new FakeAi(aiEnabled), new HttpContextAccessor());
+        new(db, new FakeAi(aiEnabled), new NullImageAiService(), new HttpContextAccessor());
 
     private static void SeedPlan(EcommerceDbContext db, int aiCredits)
     {

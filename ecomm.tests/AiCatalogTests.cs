@@ -29,7 +29,7 @@ public class AiCatalogTests
 
     private static AiCatalogService New(EcommerceDbContext db)
     {
-        var credits = new AiCreditService(db, new CannedAi(CatalogJson), new HttpContextAccessor());
+        var credits = new AiCreditService(db, new CannedAi(CatalogJson), new ecomm.api.Features.Ai.NullImageAiService(), new HttpContextAccessor());
         return new AiCatalogService(db, credits);
     }
 

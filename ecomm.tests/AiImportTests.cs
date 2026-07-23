@@ -28,7 +28,7 @@ public class AiImportTests
         db.TenantSubscriptions.Add(new TenantSubscription { PlanId = 1, Status = "Trial", CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
         var ai = new CannedAi(aiResponse);
-        var credits = new AiCreditService(db, ai, new HttpContextAccessor());
+        var credits = new AiCreditService(db, ai, new ecomm.api.Features.Ai.NullImageAiService(), new HttpContextAccessor());
         return new AiImportService(db, credits, ai, new ProductImportService(db, new ecomm.api.Features.Plans.EntitlementService(db)));
     }
 

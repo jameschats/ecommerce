@@ -15,7 +15,8 @@ namespace ecomm.api.Features.Growth;
 [RequiresFeature("growth")]
 [Route("api/admin/growth")]
 public sealed class GrowthController(
-    IGrowthGenerationService gen, IBrandKitService brandKit, IGrowthCampaignService campaigns) : ControllerBase
+    IGrowthGenerationService gen, IBrandKitService brandKit, IGrowthCampaignService campaigns,
+    IGrowthImageService images) : ControllerBase
 {
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -75,6 +76,19 @@ public sealed class GrowthController(
         await campaigns.DeleteAsync(id, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Campaign removed."));
     }
+
+    // ---- Image generation (POC) ----
+
+    [HttpGet("image/styles")]
+    public IActionResult ImageStyles() => Ok(ApiResponse<IReadOnlyList<ImageStyleDto>>.Ok(images.Styles()));
+
+    [HttpPost("image")]
+    public async Task<IActionResult> GenerateImage(GenerateImageRequest request, CancellationToken ct)
+        => Ok(ApiResponse<GeneratedImageDto>.Ok(await images.GenerateAsync(request, UserId, ct), "Image generated."));
+
+    [HttpGet("image/recent")]
+    public async Task<IActionResult> RecentImages(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<GeneratedImageDto>>.Ok(await images.RecentAsync(ct)));
 }
 
 public sealed record UpdateContentRequest(string Body, string? Title, string Status);

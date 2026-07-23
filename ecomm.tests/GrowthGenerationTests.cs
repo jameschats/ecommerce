@@ -175,6 +175,7 @@ public class GrowthGenerationTests
             return result;
         }
 
+        public Task<T> MeterImageAsync<T>(string feature, Func<IImageAiService, Task<(T, ImageResult)>> action, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<AiBalanceDto> GetBalanceAsync(CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<AiUsageDto>> GetUsageAsync(int take = 50, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<AiCreditPack?> GetPackAsync(int packId, CancellationToken ct = default) => throw new NotSupportedException();

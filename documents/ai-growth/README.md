@@ -156,15 +156,16 @@ observability, so AI work starts after them. [ai-support](../ai-support/README.m
 - [ ] **Festival calendar** — 30+ Indian festivals with lead-time nudges (*"Diwali is in 3 weeks — generate your collection campaign"*). This is the moat; global tools do not have it.
 - [ ] **Weekly content plan** — generate a 7-day mix (new arrival / styling tip / review / offer / behind-the-scenes) in one action.
 
-### G4. Image generation
+### G4. Image generation — 🧪 **POC built & assessed**
 
-**Do not start until G1 is generating revenue.** Costs real money per call.
+Tried early (out of doc order) to see whether generative images are usable and what they cost. **Verdict: yes, usable.** gpt-image-1 produced a clean studio product shot *and* a festival poster with **legible text** ("DESK CALENDAR 2026") and culturally accurate Diwali styling — marketing-grade, not the mangled-text output the doc feared from older diffusion models.
 
-- [ ] **`IImageAiService`** alongside `IAiService`, config-gated, off by default.
-- [ ] **Formats** — Poster (20) · Story 9:16 (20) · Square 1:1 (20) · Festival Creative (25) · Background Removal (10).
-- [ ] **Template-composited first** — brand kit + product photo + text overlay rendered server-side is near-free and often *better* than a diffusion model that mangles fabric and text. Treat generative image as the premium path, not the default.
-- [ ] **Async via scheduler + SignalR bell**, reserve-then-settle credits, refund on provider failure.
-- [ ] **Store to `IMediaStorage`** with a generated-asset library.
+- [x] **`IImageAiService`** alongside `IAiService`, config-gated by `Ai:ImageProvider` (None default), with `NullImageAiService`. OpenAI impl is format-agnostic (handles b64 or URL responses), defaults to **gpt-image-1**. A Gemini/Imagen impl drops in as another config value — no caller changes.
+- [x] **Four styles** — lifestyle · studio · festive poster (portrait) · flat-lay. Prompt built from real product name/category/description + the merchant's note.
+- [x] **Metered + real cost captured** — `MeterImageAsync` records the true rupee spend in `AiUsageLog.CostMicros` (≈ **₹3.50/image** at gpt-image-1 medium, ~100× a text call). Priced at 20 credits. Saved to `IMediaStorage`; a recent-images grid + per-image "cost to us".
+- [x] **Honest scope** — a generated image is an AI *impression* for posters/social, **not** an edit of the merchant's real photo. The UI says so.
+- [ ] **Async via scheduler + reserve-then-settle** — POC runs synchronously (30-55s request). Fine for a try; the real version wants the async pipeline + hard per-plan caps before wide rollout, since each call costs real money.
+- [ ] **Template-composited path** and **background removal** — still worth it as the near-free default, deferred.
 
 ### G5. Blog & SEO surface
 
