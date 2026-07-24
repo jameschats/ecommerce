@@ -41,3 +41,31 @@ public sealed record SaveProductRequest(
 public sealed record ProductQuery(
     string? Search, long? CategoryId, long? BrandId, string? Status, bool? IsFeatured,
     string? Sort, int Page = 1, int PageSize = 20);
+
+// ---------------------------------------------------------------------------
+// Quick-order price list (Phase 1). The whole catalogue in one payload, grouped
+// into category bands — see documents/stages-v2/design.md §5.
+//
+// Deliberately lean: 400+ rows ship in a single response, so every field here is
+// one the table actually renders. No slug, no description, no brand.
+// ---------------------------------------------------------------------------
+
+/// <summary>One row of the quick-order table.</summary>
+/// <param name="Sku">Shown as "Design No" — the identifier the trade actually uses.</param>
+/// <param name="Content">Pack unit ("1 Box (50 Pcs)"), from the optional `Content` attribute.</param>
+/// <param name="DiscountPercent">
+/// Derived from MRP vs price, never stored — so it cannot drift out of step with the
+/// prices it describes.
+/// </param>
+public sealed record PriceListItemDto(
+    long ProductId, string Sku, string Name, string? Content,
+    decimal Price, decimal? CompareAtPrice, int DiscountPercent,
+    string? ImageUrl, bool InStock);
+
+/// <summary>A full-width category band and the rows under it.</summary>
+public sealed record PriceListBandDto(
+    long CategoryId, string CategoryName, string CategorySlug,
+    string? ParentCategoryName, string Label,
+    IReadOnlyList<PriceListItemDto> Items);
+
+public sealed record PriceListDto(IReadOnlyList<PriceListBandDto> Bands, int TotalItems);

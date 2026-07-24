@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, filter, of, switchMap } from 'rxjs';
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
@@ -12,7 +12,7 @@ import { NotificationBellComponent } from './shared/notification-bell/notificati
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, NotificationBellComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NotificationBellComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -79,17 +79,6 @@ export class App implements OnInit {
     this.showSuggest.set(false);
     const q = this.searchText.trim();
     this.router.navigate(['/products'], { queryParams: q ? { search: q } : {} });
-  }
-
-  /** Maps a category slug to an icon key (presentation only — schema stays generic). */
-  iconKey(slug: string): string {
-    if (slug.includes('wall')) return 'wall';
-    if (slug.includes('desk')) return 'desk';
-    if (slug.includes('tent')) return 'tent';
-    if (slug.includes('pocket')) return 'pocket';
-    if (slug.includes('magnet')) return 'magnet';
-    if (slug.includes('mouse')) return 'mouse';
-    return 'tag';
   }
 
   logout(): void {

@@ -79,6 +79,36 @@
 }
 .menu-item:hover { background: rgb(248 250 252); }
 
+/* Primary navigation (Home / Order Now / About Us / Contact Us) */
+.nav-link {
+  display: inline-block;
+  white-space: nowrap;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgb(71 85 105);
+  border-bottom: 2px solid transparent;
+}
+.nav-link:hover { color: var(--color-primary, rgb(37 99 235)); }
+.nav-link-active {
+  color: var(--color-primary, rgb(37 99 235));
+  border-bottom-color: var(--color-primary, rgb(37 99 235));
+}
+
+/* Keyboard hint pills shown above the price list */
+.kbd {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: rgb(51 65 85);
+  background: rgb(241 245 249);
+  border: 1px solid rgb(203 213 225);
+  border-bottom-width: 2px;
+  border-radius: 0.25rem;
+}
+
 /* Vertical auto-scrolling (marquee) for testimonials */
 @keyframes marquee-up {
   from { transform: translateY(0); }

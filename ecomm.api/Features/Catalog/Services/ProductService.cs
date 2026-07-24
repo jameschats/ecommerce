@@ -12,6 +12,7 @@ namespace ecomm.api.Features.Catalog.Services;
 public interface IProductService
 {
     Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default);
+    Task<PriceListDto> GetPriceListAsync(CancellationToken ct = default);
     Task<ProductDetailDto?> GetByIdAsync(long id, CancellationToken ct = default);
     Task<ProductDetailDto?> GetBySlugAsync(string slug, CancellationToken ct = default);
     Task<ProductDetailDto> CreateAsync(SaveProductRequest req, long? userId, CancellationToken ct = default);
@@ -22,9 +23,73 @@ public interface IProductService
 public sealed class ProductService : IProductService
 {
     private const long Tenant = 1;
+
+    /// <summary>Attribute holding the pack unit shown in the price list's "Content" column.</summary>
+    private const string ContentAttributeName = "Content";
     private readonly EcommerceDbContext _db;
 
     public ProductService(EcommerceDbContext db) => _db = db;
+
+    /// <summary>
+    /// The entire active catalogue in one payload, grouped into category bands for the
+    /// quick-order table (design.md §5). Unpaged by design — a dealer tabs down the whole
+    /// price list, so paging it would break both the workflow and Ctrl+F.
+    /// </summary>
+    public async Task<PriceListDto> GetPriceListAsync(CancellationToken ct = default)
+    {
+        var rows = await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active")
+            .OrderBy(p => p.Category!.DisplayOrder).ThenBy(p => p.Category!.Name).ThenBy(p => p.Name)
+            .Select(p => new
+            {
+                p.ProductId,
+                p.Sku,
+                p.Name,
+                p.Price,
+                p.CompareAtPrice,
+                CategoryId = p.Category!.CategoryId,
+                CategoryName = p.Category!.Name,
+                CategorySlug = p.Category!.Slug,
+                CategoryOrder = p.Category!.DisplayOrder,
+                ParentCategoryName = p.Category!.Parent != null ? p.Category!.Parent.Name : null,
+                // Optional per-product pack unit. Either a predefined attribute value or free text.
+                Content = p.AttributeValues
+                    .Where(av => av.Attribute!.Name == ContentAttributeName)
+                    .Select(av => av.ValueText ?? (av.Value != null ? av.Value.Value : null))
+                    .FirstOrDefault(),
+                ImageUrl = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder)
+                    .Select(i => i.Url).FirstOrDefault(),
+                InStock = p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
+            })
+            .ToListAsync(ct);
+
+        var bands = rows
+            .GroupBy(r => new { r.CategoryId, r.CategoryName, r.CategorySlug, r.ParentCategoryName, r.CategoryOrder })
+            .OrderBy(g => g.Key.CategoryOrder).ThenBy(g => g.Key.CategoryName)
+            .Select(g => new PriceListBandDto(
+                g.Key.CategoryId,
+                g.Key.CategoryName,
+                g.Key.CategorySlug,
+                g.Key.ParentCategoryName,
+                // "WALL CALENDARS — 12 x 18" when the category has a parent, else just its own name.
+                g.Key.ParentCategoryName is null
+                    ? g.Key.CategoryName
+                    : $"{g.Key.ParentCategoryName} — {g.Key.CategoryName}",
+                g.Select(r => new PriceListItemDto(
+                    r.ProductId, r.Sku, r.Name, r.Content,
+                    r.Price, r.CompareAtPrice,
+                    DiscountPercent(r.Price, r.CompareAtPrice),
+                    r.ImageUrl, r.InStock)).ToList()))
+            .ToList();
+
+        return new PriceListDto(bands, rows.Count);
+    }
+
+    /// <summary>Whole-percent saving off MRP. Zero when there is no MRP or it is not above the price.</summary>
+    private static int DiscountPercent(decimal price, decimal? compareAt)
+        => compareAt is > 0 && compareAt > price
+            ? (int)Math.Round((compareAt.Value - price) / compareAt.Value * 100)
+            : 0;
 
     public async Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default)
     {

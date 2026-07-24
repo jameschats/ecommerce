@@ -9,6 +9,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
   },
   {
+    // "Order Now" — the quick-order price list without the home page's marketing.
+    path: 'order',
+    loadComponent: () => import('./features/order/order.component').then((m) => m.OrderComponent),
+  },
+  {
     path: 'products',
     loadComponent: () => import('./features/catalog/product-list/product-list.component').then((m) => m.ProductListComponent),
   },

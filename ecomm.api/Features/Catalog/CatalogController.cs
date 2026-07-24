@@ -44,6 +44,15 @@ public sealed class CatalogController : ControllerBase
         return Ok(ApiResponse<PagedResult<ProductListItemDto>>.Ok(result));
     }
 
+    /// <summary>
+    /// The whole active catalogue as category bands, for the quick-order table.
+    /// Unpaged on purpose (design.md §5) and identical for every visitor, so it benefits
+    /// from the anonymous output cache more than any other endpoint here.
+    /// </summary>
+    [HttpGet("price-list")]
+    public async Task<IActionResult> PriceList(CancellationToken ct)
+        => Ok(ApiResponse<PriceListDto>.Ok(await _products.GetPriceListAsync(ct)));
+
     [HttpGet("suggest")]
     public async Task<IActionResult> Suggest([FromQuery] string q, CancellationToken ct)
         => Ok(ApiResponse<List<string>>.Ok(await _search.SuggestAsync(q ?? string.Empty, ct)));

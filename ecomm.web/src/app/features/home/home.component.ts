@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { HomeSection } from '../../core/services/cms.service';
 import { SeoService } from '../../core/services/seo.service';
 import { ProductCardComponent } from '../../shared/product-card/product-card.component';
+import { QuickOrderTableComponent } from '../order/quick-order-table.component';
 import { HomeData } from './home.resolver';
 
 interface HeroSlide { image: string; title: string; subtitle: string; cta: string; link: string; }
@@ -14,7 +15,7 @@ interface Testimonial { name: string; company: string; rating: number; text: str
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, ProductCardComponent],
+  imports: [RouterLink, ProductCardComponent, QuickOrderTableComponent],
   templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit, OnDestroy {
