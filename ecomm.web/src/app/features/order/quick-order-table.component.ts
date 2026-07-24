@@ -14,6 +14,8 @@ import {
   PriceListItem,
   QuickOrderService,
 } from '../../core/services/quick-order.service';
+import { EstimateDrawerComponent } from './estimate-drawer.component';
+import { OrderFormComponent } from './order-form.component';
 
 /**
  * The quick-order price list — the core screen of Phase 1 (design.md §5).
@@ -25,7 +27,7 @@ import {
 @Component({
   selector: 'app-quick-order-table',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe],
+  imports: [CurrencyPipe, DecimalPipe, EstimateDrawerComponent, OrderFormComponent],
   templateUrl: './quick-order-table.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -42,6 +44,7 @@ export class QuickOrderTableComponent {
   readonly search = signal('');
   readonly selectedCategoryId = signal<number | null>(null);
   readonly collapsed = signal<ReadonlySet<number>>(new Set());
+  readonly drawerOpen = signal(false);
 
   readonly restored = this.quickOrder.restored;
   readonly lineCount = this.quickOrder.lineCount;
@@ -116,6 +119,17 @@ export class QuickOrderTableComponent {
   clearAll(): void {
     if (this.lineCount() === 0) return;
     this.quickOrder.clear();
+  }
+
+  openDrawer(): void {
+    if (this.lineCount() > 0) this.drawerOpen.set(true);
+  }
+
+  /** "Confirm estimate" closes the drawer and takes the buyer to the form below. */
+  onEstimateConfirmed(): void {
+    this.drawerOpen.set(false);
+    if (typeof document === 'undefined') return;
+    document.getElementById('order-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   resetFilters(): void {

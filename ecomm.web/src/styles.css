@@ -96,6 +96,30 @@
   border-bottom-color: var(--color-primary, rgb(37 99 235));
 }
 
+/* Order form fields */
+.form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(51 65 85);
+  margin-bottom: 0.3rem;
+}
+.form-input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: rgb(15 23 42);
+  background: #fff;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary, rgb(37 99 235));
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.15);
+}
+
 /* Keyboard hint pills shown above the price list */
 .kbd {
   display: inline-block;

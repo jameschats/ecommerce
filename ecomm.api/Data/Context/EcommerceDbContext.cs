@@ -73,6 +73,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Setting> Settings => Set<Setting>();
+    public DbSet<StateMinOrderAmount> StateMinOrderAmounts => Set<StateMinOrderAmount>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
@@ -291,6 +292,12 @@ public class EcommerceDbContext : DbContext
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
         });
         b.Entity<Setting>(e => { e.ToTable("Settings"); e.HasKey(x => x.SettingId); });
+        b.Entity<StateMinOrderAmount>(e =>
+        {
+            e.ToTable("StateMinOrderAmounts");
+            e.HasKey(x => x.StateMinOrderAmountId);
+            e.HasIndex(x => new { x.TenantId, x.StateName }).IsUnique();
+        });
         b.Entity<HomeBanner>(e =>
         {
             e.ToTable("HomeBanners");
