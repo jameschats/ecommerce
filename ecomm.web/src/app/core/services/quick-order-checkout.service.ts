@@ -45,6 +45,23 @@ export interface QuickOrderQuote {
   warnings: string[];
 }
 
+export interface PlacedOrder {
+  orderId: number;
+  orderNumber: string;
+  overallAmount: number;
+  status: string;
+}
+
+export interface PlaceQuickOrderRequest {
+  lines: { productId: number; quantity: number }[];
+  state: string;
+  city: string;
+  name: string;
+  mobile: string;
+  email: string;
+  address: string;
+}
+
 const EMPTY_QUOTE: QuickOrderQuote = {
   lines: [], itemCount: 0, totalUnits: 0, netTotal: 0, discountTotal: 0, subTotal: 0,
   minOrderAmount: 0, packingChargePct: 0, packingCharges: 0, roundOff: 0, overallAmount: 0,
@@ -87,5 +104,15 @@ export class QuickOrderCheckoutService {
         map((r) => r.data ?? EMPTY_QUOTE),
         catchError(() => of(EMPTY_QUOTE)),
       );
+  }
+
+  /**
+   * Places the order. Errors are deliberately NOT swallowed here — unlike quote(), a
+   * failure to place must surface to the buyer rather than degrade to an empty result.
+   */
+  place(req: PlaceQuickOrderRequest): Observable<PlacedOrder> {
+    return this.http
+      .post<ApiResponse<PlacedOrder>>(`${this.base}/place`, req)
+      .pipe(map((r) => r.data!));
   }
 }

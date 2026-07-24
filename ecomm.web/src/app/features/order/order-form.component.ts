@@ -1,12 +1,16 @@
 import { CurrencyPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
+  PlacedOrder,
   QuickOrderCheckoutService,
   QuickOrderQuote,
 } from '../../core/services/quick-order-checkout.service';
 import { QuickOrderService } from '../../core/services/quick-order.service';
+import { AuthService } from '../../core/services/auth.service';
+import { OtpGateComponent } from './otp-gate.component';
 
 /**
  * The order form at the foot of the price list (design.md §7).
@@ -18,7 +22,7 @@ import { QuickOrderService } from '../../core/services/quick-order.service';
 @Component({
   selector: 'app-order-form',
   standalone: true,
-  imports: [FormsModule, CurrencyPipe],
+  imports: [FormsModule, CurrencyPipe, RouterLink, OtpGateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section id="order-form" class="page-container py-8">
@@ -30,7 +34,25 @@ import { QuickOrderService } from '../../core/services/quick-order.service';
           </p>
         </div>
 
-        @if (!lineCount()) {
+        @if (placed(); as order) {
+          <div class="px-5 py-12 text-center">
+            <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center mx-auto text-2xl">✓</div>
+            <h3 class="mt-4 text-xl font-bold text-slate-900">Order placed</h3>
+            <p class="mt-1 text-slate-600">
+              Your order number is <span class="font-mono font-semibold text-slate-900">{{ order.orderNumber }}</span>
+            </p>
+            <p class="mt-1 text-2xl font-bold text-slate-900">
+              {{ order.overallAmount | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
+            </p>
+            <p class="mt-4 text-sm text-slate-500 max-w-md mx-auto">
+              Payment instructions — UPI QR and bank details — are the next step and will appear here.
+              We will contact you on the number you provided to confirm.
+            </p>
+            <a routerLink="/account/orders" class="inline-block mt-5 text-primary font-medium hover:underline">
+              View my orders
+            </a>
+          </div>
+        } @else if (!lineCount()) {
           <div class="px-5 py-12 text-center">
             <p class="font-medium text-slate-700">Your estimate is empty.</p>
             <p class="text-sm text-slate-500 mt-1">Enter a quantity against any item above to begin.</p>
@@ -136,10 +158,16 @@ import { QuickOrderService } from '../../core/services/quick-order.service';
                 </ul>
               }
 
+              @if (placeError()) {
+                <p class="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                  {{ placeError() }}
+                </p>
+              }
+
               <button type="button" (click)="submit()" [disabled]="!canSubmit()"
                       class="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300
                              disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition">
-                Submit order
+                {{ placing() ? 'Placing your order…' : 'Submit order' }}
               </button>
 
               <p class="mt-2 text-xs text-slate-500 text-center">
@@ -150,13 +178,23 @@ import { QuickOrderService } from '../../core/services/quick-order.service';
         }
       </div>
     </section>
+
+    <app-otp-gate
+      [open]="gateOpen()"
+      (cancelled)="gateOpen.set(false)"
+      (verified)="onVerified()" />
   `,
 })
 export class OrderFormComponent {
   private readonly quickOrder = inject(QuickOrderService);
   private readonly checkout = inject(QuickOrderCheckoutService);
+  private readonly auth = inject(AuthService);
 
   readonly lineCount = this.quickOrder.lineCount;
+  readonly gateOpen = signal(false);
+  readonly placing = signal(false);
+  readonly placeError = signal<string | null>(null);
+  readonly placed = signal<PlacedOrder | null>(null);
 
   readonly state = signal('');
   readonly city = signal('');
@@ -215,13 +253,53 @@ export class OrderFormComponent {
     });
   }
 
+  /**
+   * Submit → verify identity → place. If the buyer is already signed in the gate is
+   * skipped entirely; otherwise it opens and the order is placed the moment it closes
+   * successfully. The typed basket is untouched throughout — losing it at the login step
+   * would be the single most annoying thing this flow could do.
+   */
   submit(): void {
-    // The OTP login gate and order creation land in the next slice (design.md §7).
-    // Until then this is deliberately inert rather than pretending to place an order.
-    alert(
-      'Order placement is not wired up yet.\n\n' +
-        `Overall amount: ₹${this.quote().overallAmount.toFixed(2)}\n` +
-        'The next step adds mobile/email OTP verification and creates the order.',
-    );
+    if (!this.canSubmit()) return;
+    if (this.auth.isAuthenticated()) this.place();
+    else this.gateOpen.set(true);
+  }
+
+  onVerified(): void {
+    this.gateOpen.set(false);
+    this.place();
+  }
+
+  private place(): void {
+    this.placing.set(true);
+    this.placeError.set(null);
+
+    const lines = this.quickOrder.lines().map((l) => ({
+      productId: l.item.productId,
+      quantity: l.qty,
+    }));
+
+    this.checkout
+      .place({
+        lines,
+        state: this.state(),
+        city: this.city(),
+        name: this.name(),
+        mobile: this.mobile(),
+        email: this.email(),
+        address: this.address(),
+      })
+      .subscribe({
+        next: (result) => {
+          this.placing.set(false);
+          // Only clear the basket once the server has confirmed the order exists.
+          this.quickOrder.clear();
+          this.placed.set(result);
+        },
+        error: (e) => {
+          this.placing.set(false);
+          this.placeError.set(e?.error?.message ?? 'We could not place your order. Please try again.');
+        },
+      });
   }
 }

@@ -62,6 +62,31 @@ export class AuthService {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/email/verify/confirm`, { code }).pipe(map(() => void 0));
   }
 
+  // --- OTP login, used by the quick-order gate (design.md §7.2) -------------------
+  // These go through post() so the session is stored exactly the same way as any other
+  // login. Handling the token separately in the gate component would be a second, subtly
+  // different code path for the same thing.
+
+  requestEmailOtp(email: string): Observable<void> {
+    return this.http
+      .post<ApiResponse<unknown>>(`${this.base}/otp/email/request`, { email })
+      .pipe(map(() => void 0));
+  }
+
+  verifyEmailOtp(email: string, code: string): Observable<AuthResponse> {
+    return this.post('otp/email/verify', { email, code });
+  }
+
+  requestMobileOtp(phoneNumber: string): Observable<void> {
+    return this.http
+      .post<ApiResponse<unknown>>(`${this.base}/otp/request`, { phoneNumber })
+      .pipe(map(() => void 0));
+  }
+
+  verifyMobileOtp(phoneNumber: string, code: string): Observable<AuthResponse> {
+    return this.post('otp/verify', { phoneNumber, code });
+  }
+
   logout(): void {
     this.storage.clear();
     this.currentUser.set(null);

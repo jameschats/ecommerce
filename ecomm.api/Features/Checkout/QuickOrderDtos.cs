@@ -34,6 +34,14 @@ public sealed record QuickOrderQuoteDto(
 
 public sealed record StateMinOrderDto(string StateName, decimal MinOrderAmount);
 
+/// <summary>Delivery details captured on the order form, plus the basket.</summary>
+public sealed record PlaceQuickOrderRequest(
+    IReadOnlyList<QuickOrderLineRequest> Lines,
+    string State, string? City, string Name, string Mobile, string? Email, string Address);
+
+public sealed record PlaceQuickOrderResult(
+    long OrderId, string OrderNumber, decimal OverallAmount, string Status);
+
 /// <summary>Everything the order form needs to render before the buyer types anything.</summary>
 public sealed record QuickOrderConfigDto(
     decimal DefaultMinOrderAmount,

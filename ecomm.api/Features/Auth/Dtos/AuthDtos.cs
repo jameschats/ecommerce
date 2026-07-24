@@ -25,3 +25,6 @@ public sealed record AuthConfigResponse(IReadOnlyList<AuthProviderDto> Providers
 
 // --- Admin ---
 public sealed record UpdateAuthProviderRequest(bool IsEnabled, bool AllowRegistration, int DisplayOrder, string? ClientId);
+
+public sealed record EmailOtpRequestDto(string Email);
+public sealed record EmailOtpVerifyDto(string Email, string Code);

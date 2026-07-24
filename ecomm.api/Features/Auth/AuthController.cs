@@ -47,6 +47,18 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> OtpVerify(OtpVerifyDto request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.VerifyOtpAsync(request, Ip, ct)));
 
+    /// <summary>Email OTP login — the quick-order gate's default channel (free on Brevo).</summary>
+    [HttpPost("otp/email/request")]
+    public async Task<IActionResult> EmailOtpRequest(EmailOtpRequestDto request, CancellationToken ct)
+    {
+        await _auth.RequestEmailOtpAsync(request.Email, ct);
+        return Ok(ApiResponse<object>.Ok(new { sent = true }, "Verification code sent."));
+    }
+
+    [HttpPost("otp/email/verify")]
+    public async Task<IActionResult> EmailOtpVerify(EmailOtpVerifyDto request, CancellationToken ct)
+        => Ok(ApiResponse<AuthResponse>.Ok(await _auth.VerifyEmailOtpAsync(request.Email, request.Code, Ip, ct)));
+
     [HttpPost("google")]
     public async Task<IActionResult> Google(GoogleLoginRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.GoogleAsync(request, Ip, ct)));

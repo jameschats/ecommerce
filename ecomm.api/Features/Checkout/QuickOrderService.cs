@@ -1,4 +1,6 @@
+using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
+using ecomm.api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Checkout;
@@ -7,6 +9,7 @@ public interface IQuickOrderService
 {
     Task<QuickOrderConfigDto> GetConfigAsync(CancellationToken ct = default);
     Task<QuickOrderQuoteDto> QuoteAsync(QuickOrderQuoteRequest req, CancellationToken ct = default);
+    Task<PlaceQuickOrderResult> PlaceAsync(long userId, PlaceQuickOrderRequest req, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -137,6 +140,106 @@ public sealed class QuickOrderService : IQuickOrderService
             overall,
             lines.Count > 0 && subTotal >= minOrder,
             warnings);
+    }
+
+    /// <summary>
+    /// Creates the order from a re-priced basket (design.md §7).
+    ///
+    /// Re-quotes rather than trusting anything the client sent: prices, the minimum-order
+    /// rule and the total are all recomputed here, so a basket edited in flight — or simply
+    /// stale because prices changed while the buyer was typing — cannot produce an order at
+    /// the wrong amount.
+    /// </summary>
+    public async Task<PlaceQuickOrderResult> PlaceAsync(long userId, PlaceQuickOrderRequest req, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(req.Name)) throw new AppException("Name is required.");
+        if (string.IsNullOrWhiteSpace(req.Address)) throw new AppException("Delivery address is required.");
+        if (string.IsNullOrWhiteSpace(req.State)) throw new AppException("Delivery state is required.");
+
+        // The reference site's rule, and worth keeping — it keeps a lot of bad data out.
+        var mobile = new string((req.Mobile ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (mobile.Length != 10) throw new AppException("Enter a valid 10-digit mobile number.");
+
+        var quote = await QuoteAsync(new QuickOrderQuoteRequest(req.Lines, req.State), ct);
+
+        if (quote.Lines.Count == 0) throw new AppException("Your order is empty.");
+        if (!quote.MeetsMinimum)
+            throw new AppException($"Minimum order for {req.State} is ₹{quote.MinOrderAmount:N0}.");
+
+        var now = DateTime.UtcNow;
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+        var order = new Order
+        {
+            TenantId = Tenant,
+            UserId = userId,
+            OrderNumber = await NextOrderNumberAsync(ct),
+            // Awaiting a manual UPI/bank transfer that an admin confirms (design.md §8).
+            Status = "Pending",
+            Currency = "INR",
+            Subtotal = quote.SubTotal,
+            DiscountAmount = quote.DiscountTotal,
+            TaxAmount = 0m,                       // Prices are tax-inclusive in Phase 1 (design.md §14.1)
+            ShippingAmount = quote.PackingCharges,
+            TotalAmount = quote.OverallAmount,
+            // Free-text delivery details: Phase 1 ships by transport to the buyer's city,
+            // so the platform's address book and pincode serviceability are not used.
+            Notes = $"Name: {req.Name.Trim()}\nMobile: {mobile}\nEmail: {req.Email?.Trim()}\n"
+                  + $"State: {req.State}\nCity: {req.City?.Trim()}\nAddress: {req.Address.Trim()}\n"
+                  + $"Round off: {quote.RoundOff:0.00}",
+            PlacedAt = now,
+            CreatedAt = now,
+        };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync(ct);
+
+        foreach (var line in quote.Lines)
+        {
+            _db.OrderItems.Add(new OrderItem
+            {
+                OrderId = order.OrderId,
+                ProductId = line.ProductId,
+                Sku = line.Sku,
+                ProductName = line.Name,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                DiscountAmount = Round(((line.CompareAtPrice ?? line.UnitPrice) - line.UnitPrice) * line.Quantity),
+                TaxRate = 0m,
+                TaxAmount = 0m,
+                LineTotal = line.LineTotal,
+            });
+
+            // Reserve rather than deduct: stock is committed when the payment is confirmed
+            // and released if the order is cancelled, matching the platform's existing model.
+            var inventory = await _db.Inventory
+                .Where(i => i.TenantId == Tenant && i.ProductId == line.ProductId)
+                .OrderByDescending(i => i.AvailableQty)
+                .FirstOrDefaultAsync(ct);
+
+            if (inventory is not null)
+            {
+                var take = Math.Min(inventory.AvailableQty, line.Quantity);
+                inventory.AvailableQty -= take;
+                inventory.ReservedQty += take;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        return new PlaceQuickOrderResult(order.OrderId, order.OrderNumber, order.TotalAmount, order.Status);
+    }
+
+    /// <summary>
+    /// Sequential per-day order number. Generated inside the placement transaction, so two
+    /// concurrent orders cannot read the same count and collide.
+    /// </summary>
+    private async Task<string> NextOrderNumberAsync(CancellationToken ct)
+    {
+        var today = DateTime.UtcNow;
+        var prefix = $"DCS{today:yyMMdd}";
+        var todayCount = await _db.Orders.CountAsync(o => o.OrderNumber.StartsWith(prefix), ct);
+        return $"{prefix}{(todayCount + 1):D4}";
     }
 
     /// <summary>Per-state override if one exists, otherwise the global minimum.</summary>

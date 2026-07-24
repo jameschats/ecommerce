@@ -51,7 +51,15 @@ public sealed class OtpService : IOtpService
         if (recent is not null && recent.CreatedAt.AddSeconds(ResendCooldownSeconds) > now)
             throw new AppException("Please wait a moment before requesting another code.", StatusCodes.Status429TooManyRequests);
 
-        var code = RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+        // Mock mode differs from Live in exactly two ways: the code is a fixed known value
+        // instead of a random one, and it is never handed to a paid provider. Everything
+        // else below — hashing, expiry, cooldown, attempt limits, and the whole of
+        // VerifyAsync — is identical, so switching to Live is not the first time that
+        // logic runs. See design.md §9.1.
+        var mock = await IsMockAsync(channel, ct);
+        var code = mock
+            ? await MockCodeAsync(ct)
+            : RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
         _db.OtpVerifications.Add(new OtpVerification
         {
             Identifier = identifier,
@@ -64,6 +72,15 @@ public sealed class OtpService : IOtpService
         await _db.SaveChangesAsync(ct);
 
         var message = $"Your verification code is {code}. It expires in {ExpiryMinutes} minutes.";
+
+        if (mock)
+        {
+            // Deliberately logged at Warning: a mocked OTP in a running environment is
+            // something an operator should notice in the log, not have to go looking for.
+            _logger.LogWarning("[MOCK OTP/{Channel}] {Identifier}: {Code}", channel, identifier, code);
+            return;
+        }
+
         if (channel == "SMS")
         {
             await _sms.SendAsync(identifier, message, ct);
@@ -84,6 +101,37 @@ public sealed class OtpService : IOtpService
         {
             _logger.LogWarning("[DEV OTP/{Channel}] {Identifier}: {Code}", channel, identifier, code);
         }
+    }
+
+    /// <summary>
+    /// Whether this channel is mocked. Read from the database rather than configuration so
+    /// an admin can flip it without a redeploy (design.md §9.2). Unknown or missing values
+    /// fall back to <c>Mock</c>: a channel we cannot resolve should not be silently trying
+    /// to spend money on a paid provider.
+    /// </summary>
+    private async Task<bool> IsMockAsync(string channel, CancellationToken ct)
+    {
+        var key = channel == "SMS" ? "Channels.SmsMode" : "Channels.EmailMode";
+        var mode = await _db.Settings
+            .Where(s => s.SettingKey == key)
+            .Select(s => s.SettingValue)
+            .FirstOrDefaultAsync(ct);
+
+        return !string.Equals(mode, "Live", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The fixed test code. A setting rather than a literal, so it can be changed without
+    /// a deploy — and so it is obvious in the database that one exists.
+    /// </summary>
+    private async Task<string> MockCodeAsync(CancellationToken ct)
+    {
+        var code = await _db.Settings
+            .Where(s => s.SettingKey == "Channels.OtpMockCode")
+            .Select(s => s.SettingValue)
+            .FirstOrDefaultAsync(ct);
+
+        return string.IsNullOrWhiteSpace(code) ? "000000" : code;
     }
 
     public async Task<bool> VerifyAsync(string identifier, string purpose, string code, CancellationToken ct = default)

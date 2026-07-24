@@ -13,6 +13,8 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request, string? ip, CancellationToken ct = default);
     Task RequestOtpAsync(OtpRequestDto request, CancellationToken ct = default);
     Task<AuthResponse> VerifyOtpAsync(OtpVerifyDto request, string? ip, CancellationToken ct = default);
+    Task RequestEmailOtpAsync(string email, CancellationToken ct = default);
+    Task<AuthResponse> VerifyEmailOtpAsync(string email, string code, string? ip, CancellationToken ct = default);
     Task<AuthResponse> GoogleAsync(GoogleLoginRequest request, string? ip, CancellationToken ct = default);
     Task<AuthResponse> RefreshAsync(RefreshRequest request, string? ip, CancellationToken ct = default);
     Task RequestPasswordResetAsync(string email, CancellationToken ct = default);
@@ -198,6 +200,58 @@ public sealed class AuthService : IAuthService
         await RequireEnabledProviderAsync(AuthProviderNames.MobileOtp, ct);
         var phone = NormalizePhone(request.PhoneNumber);
         await _otp.RequestAsync(phone, "SMS", OtpPurpose.Login, ct);
+    }
+
+    /// <summary>
+    /// Email OTP login. Deliberately not gated on the Mobile-OTP provider flag: email OTP
+    /// is free on Brevo where SMS costs per message, so this is the channel the quick-order
+    /// login gate defaults to (design.md §9.6).
+    /// </summary>
+    public async Task RequestEmailOtpAsync(string email, CancellationToken ct = default)
+    {
+        var normalized = (email ?? string.Empty).Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalized) || !normalized.Contains('@'))
+            throw new AppException("Enter a valid email address.");
+
+        await _otp.RequestAsync(normalized, "Email", OtpPurpose.Login, ct);
+    }
+
+    public async Task<AuthResponse> VerifyEmailOtpAsync(string email, string code, string? ip, CancellationToken ct = default)
+    {
+        var normalized = (email ?? string.Empty).Trim().ToUpperInvariant();
+
+        var ok = await _otp.VerifyAsync(normalized, OtpPurpose.Login, code ?? "", ct);
+        if (!ok) throw new AppException("Invalid verification code.", StatusCodes.Status401Unauthorized);
+
+        var now = DateTime.UtcNow;
+        var user = await _db.Users.FirstOrDefaultAsync(
+            u => u.TenantId == DefaultTenantId && u.NormalizedEmail == normalized && !u.IsDeleted, ct);
+
+        // First order creates the account — by the time an order exists, so does a login,
+        // which is what makes "check my orders" work without a registration step.
+        if (user is null)
+        {
+            user = new User
+            {
+                TenantId = DefaultTenantId,
+                Email = email.Trim(),
+                NormalizedEmail = normalized,
+                EmailVerifiedAt = now,
+                IsActive = true,
+                CreatedAt = now,
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync(ct);
+            await AssignRoleAsync(user, CustomerRole, ct);
+        }
+        else if (user.EmailVerifiedAt is null)
+        {
+            user.EmailVerifiedAt = now;
+        }
+
+        user.LastLoginAt = now;
+        await _db.SaveChangesAsync(ct);
+        return await IssueTokensAsync(user, ip, ct);
     }
 
     public async Task<AuthResponse> VerifyOtpAsync(OtpVerifyDto request, string? ip, CancellationToken ct = default)
