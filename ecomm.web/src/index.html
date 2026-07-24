@@ -6,6 +6,10 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- Runtime config. Plain (non-module) script so it runs before the deferred Angular
+       bundle and window.__APP_CONFIG__ is set before any module reads it.
+       Replaced per environment by the deploy script — see documents/stages-v2/deployment.md. -->
+  <script src="config.js"></script>
 </head>
 <body>
   <app-root></app-root>

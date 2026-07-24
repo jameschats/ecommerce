@@ -15,33 +15,89 @@ Every path, port, service name and database below is deliberately distinct. Befo
 
 ## 1. Topology — two sites, one box
 
-| Resource | `calendarshop.online` (live — **do not touch**) | `daily.calendarshop.online` (this project) |
-|---|---|---|
-| Database | `ecommerce` | **`dailycalendarshop`** |
-| API port | ⬜ (believed `5080`) | ⬜ **`5081`** (proposed) |
-| systemd unit | ⬜ (e.g. `ecomm-api.service`) | **`dcs-api.service`** |
-| API files | ⬜ (e.g. `/var/www/ecomm/api`) | `/var/www/dcs/api` |
-| Web root | `/var/www/ecomm/web` | `/var/www/dcs/web` |
-| Uploads | `/var/www/ecomm/uploads` | `/var/www/dcs/uploads` |
-| Nginx site | ⬜ `sites-available/ecomm` | `sites-available/dcs` |
-| TLS cert | existing | new, via certbot for the subdomain |
-| Logs | `…/ecomm/api/logs` | `/var/www/dcs/api/logs` |
+⚠️ **There are three sites on this box**, not two: `wavcommerce.online`, `calendarshop.online`, and now this one. Port and service-name collisions are the main risk — run the discovery in §1.1 before choosing anything.
 
-**DNS:** an `A` record for `daily` → the VPS IP. Nothing else changes; the apex record is untouched.
+⚠️ **Each site is two processes, not one.** The frontend is Angular **SSR** (`outputMode: "server"`), so besides the .NET API there is a **Node/Express process** (`server.ts`) rendering pages. Nginx proxies to it rather than serving a static `index.html` — the build produces no static index, only `index.csr.html` and `index.server.html`.
+
+| Resource | Live sites (**do not touch**) | `daily.calendarshop.online` (this project) |
+|---|---|---|
+| Database | `ecommerce`, ⬜ wavcommerce's | **`dailycalendarshop`** |
+| .NET API port | ⬜ discover | ⬜ **pick a free one** (e.g. 5082) |
+| Node SSR port | ⬜ discover | ⬜ **pick a free one** (e.g. 4002) |
+| API service | ⬜ discover | `dcs-api.service` |
+| SSR service | ⬜ discover | `dcs-ssr.service` |
+| API files | ⬜ discover | `/var/www/dcs/api` |
+| Web build | ⬜ discover | `/var/www/dcs/web` (contains `browser/` + `server/`) |
+| Uploads | `/var/www/ecomm/uploads` | `/var/www/dcs/uploads` |
+| Nginx site | ⬜ discover | `sites-available/dcs` |
+| TLS cert | existing | new, via certbot for the subdomain |
+
+**DNS:** an `A` record for `daily` → the VPS IP. The apex and `wavcommerce.online` records are untouched.
 
 ---
 
-## 2. ⚠️ Fix this before deploying regularly: `api.config.ts`
+## 1.1 Discovery — run this first, paste the output back
 
-[tech-debt.md](../tech-debt.md#L63-L66) already flags it:
+Nothing below should be chosen until we know what is already taken. All read-only.
+
+```bash
+# --- what is listening, and which process owns it ---
+sudo ss -tlnp | sort -k4
+
+# --- nginx: which hostnames, which upstreams, which roots ---
+ls -l /etc/nginx/sites-enabled/
+sudo grep -rnE "server_name|proxy_pass|root " /etc/nginx/sites-enabled/
+
+# --- services and the ports baked into them ---
+systemctl list-units --type=service --state=running | grep -Ei 'dotnet|node|api|ssr|ecomm|wav|calendar'
+sudo grep -rnE "ASPNETCORE_URLS|ExecStart|Environment|PORT" /etc/systemd/system/*.service
+
+# --- running processes and their working dirs ---
+ps -eo pid,user,args | grep -Ei 'dotnet|node' | grep -v grep
+
+# --- databases already present ---
+mysql -u root -p -e "SHOW DATABASES;"
+
+# --- runtime + resources ---
+dotnet --list-runtimes; node -v; free -h; df -h /var/www
+```
+
+`free -h` matters: three .NET APIs plus three Node SSR processes on one VPS is six long-running runtimes. If the box is small, that is the constraint to find now rather than after deploying.
+
+---
+
+## 2. ✅ Runtime configuration — the `sed` hazard is fixed
+
+[tech-debt.md](../tech-debt.md#L63-L66) flagged the old approach:
 
 > *"Frontend `api.config.ts` uses `sed`-replaced constants (`API_BASE_URL`, `SITE_URL` = localhost, rewritten at deploy). Works, but a rebuild that skips the `sed` step silently points prod at localhost."*
 
-With **one** site that was a minor smell. With **two sites on one box and frequent deploys** it is a live hazard: a missed or mis-targeted `sed` points the new site at the old site's API — and it fails silently, serving the wrong data rather than erroring.
+With three sites on one box and frequent deploys that was a live hazard — a missed or mis-targeted `sed` points one site at another site's API, and fails *silently*.
 
-**Fix:** replace the build-time `sed` with a **runtime `config.json`** fetched before Angular bootstraps (or Angular file-replacement build configs). Each web root then carries its own config file, deployed with it, and there is no shared build-time state to get wrong.
+**Fixed.** `api.config.ts` now resolves its values at module load from `window.__APP_CONFIG__`, set by **`/config.js`** — a plain (non-module) script loaded from `index.html` before the Angular bundle:
 
-This is not optional polish. Do it in the first deploy slice, before the habit of frequent deploys forms around the fragile version.
+```js
+window.__APP_CONFIG__ = {
+  apiBaseUrl: 'https://daily.calendarshop.online/api',
+  siteUrl:    'https://daily.calendarshop.online',
+  umamiSrc: '', umamiWebsiteId: '', umamiDashboardUrl: '',
+};
+```
+
+**Why a synchronous global rather than an async `fetch('/config.json')`:** two services (`banner.service.ts`, `notification.service.ts`) derive `API_ORIGIN` from `API_BASE_URL` at **module top level**. An async loader resolves *after* those modules are evaluated, leaving them holding the localhost default — the same silent-wrong-target bug in a new costume. A global that is already set when the bundle runs has no ordering problem, and none of the ~26 importing files needed to change.
+
+**It now fails loudly.** If the site is served from a non-localhost origin while `API_BASE_URL` still points at localhost, the app logs a console error *and* renders a red banner naming the problem. The failure this file exists to prevent is no longer silent.
+
+**Two places must agree:**
+
+| Runtime | Config source |
+|---|---|
+| Browser | `/config.js` in the web root |
+| **Node SSR** | **environment variables** on `dcs-ssr.service` — `API_BASE_URL`, `SITE_URL`, `UMAMI_*` |
+
+`window` does not exist during SSR, so the same file falls back to `process.env`. **If the two disagree, server-rendered HTML and client hydration disagree** — wrong canonical URLs, and content that changes after load. Set both from the same values, in the same deploy step.
+
+> `public/config.js` is committed with **development** defaults and is copied into every build. The deploy overwrites it on the server. Because `rsync --delete` would otherwise restore the dev copy, **writing `config.js` must come after the rsync** — see §6.
 
 ---
 
@@ -89,20 +145,13 @@ WantedBy=multi-user.target
 server {
     server_name daily.calendarshop.online;
 
-    root /var/www/dcs/web;
-    index index.html;
+    # Keep the test site out of Google (§3.6)
+    add_header X-Robots-Tag "noindex, nofollow" always;
 
-    # Angular SSR/SPA
-    location / { try_files $uri $uri/ /index.html; }
-
-    # API
-    location /api/ {
-        proxy_pass http://localhost:5081;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    # Static build artefacts, served straight from disk
+    location /config.js { root /var/www/dcs/web/browser; expires -1; add_header Cache-Control "no-store"; }
+    location ~ ^/(favicon\.ico|robots\.txt)$ { root /var/www/dcs/web/browser; }
+    location /assets/ { root /var/www/dcs/web/browser; expires 30d; access_log off; }
 
     # Uploads — served directly, never wiped by a deploy
     location /uploads/ {
@@ -111,18 +160,64 @@ server {
         access_log off;
     }
 
+    # API
+    location /api/ {
+        proxy_pass http://localhost:5082;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Everything else → Angular SSR (Node). NOT try_files/index.html —
+    # an SSR build emits no static index.html, only index.csr.html + index.server.html.
+    location / {
+        proxy_pass http://localhost:4002;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     client_max_body_size 25M;   # ZIP image uploads (§10.2 of design.md)
 }
 ```
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/dcs /etc/nginx/sites-enabled/dcs
-sudo nginx -t          # ALWAYS. A bad config here takes the LIVE site down too.
+sudo nginx -t          # ALWAYS. A bad config here takes the LIVE sites down too.
 sudo systemctl reload nginx
 sudo certbot --nginx -d daily.calendarshop.online
 ```
 
-> `nginx -t` before every reload is not ceremony. Nginx is shared with the live site — a syntax error in *our* file breaks *their* site on reload.
+> `nginx -t` before every reload is not ceremony. Nginx is shared with two live sites — a syntax error in *our* file breaks *theirs* on reload.
+
+### 3.5b systemd — `/etc/systemd/system/dcs-ssr.service` (Angular SSR)
+
+The frontend is not static files; a Node process renders it.
+
+```ini
+[Unit]
+Description=DailyCalendarShop Angular SSR
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/dcs/web
+ExecStart=/usr/bin/node /var/www/dcs/web/server/server.mjs
+Restart=always
+RestartSec=10
+User=www-data
+Environment=NODE_ENV=production
+Environment=PORT=4002
+# Must match /config.js exactly — see §2
+Environment=API_BASE_URL=https://daily.calendarshop.online/api
+Environment=SITE_URL=https://daily.calendarshop.online
+
+[Install]
+WantedBy=multi-user.target
+```
+
+⬜ Confirm the server entry filename after the first build (`ls /var/www/dcs/web/server/`) — Angular names it `server.mjs` in recent versions, but verify rather than assume.
 
 ### 3.6 Keep the test site out of Google
 `daily.calendarshop.online` must serve `X-Robots-Tag: noindex` (and a disallow-all `robots.txt`). With 365 Phase-2 content pages, an indexed staging copy competes with the real site later. Add it to the nginx block now, while it is free.
@@ -161,24 +256,39 @@ Rules:
 # --- build locally ---
 dotnet publish ecomm.api/ecomm.api.csproj -c Release -o ./publish/api
 cd ecomm.web && npm ci && npm run build && cd ..
+# build output: ecomm.web/dist/ecomm-web/{browser,server}
 
-# --- ship ---
+# --- ship the API ---
 rsync -az --delete \
       --exclude 'appsettings.Production.json' \
       --exclude 'logs/' \
       ./publish/api/   <user>@<host>:/var/www/dcs/api/
 
-rsync -az --delete ./ecomm.web/dist/<app>/browser/  <user>@<host>:/var/www/dcs/web/
+# --- ship the frontend: BOTH browser/ and server/ (SSR needs the server bundle) ---
+rsync -az --delete ./ecomm.web/dist/ecomm-web/  <user>@<host>:/var/www/dcs/web/
 
-# --- migrate, then restart ---
+# --- write runtime config AFTER rsync (rsync --delete would restore the dev copy) ---
+ssh <user>@<host> 'cat > /var/www/dcs/web/browser/config.js' <<"EOF"
+window.__APP_CONFIG__ = {
+  apiBaseUrl: 'https://daily.calendarshop.online/api',
+  siteUrl:    'https://daily.calendarshop.online',
+  umamiSrc: '', umamiWebsiteId: '', umamiDashboardUrl: '',
+};
+EOF
+
+# --- migrate, then restart BOTH services ---
 ssh <user>@<host> 'mysql -u dcs -p dailycalendarshop < /tmp/03X_new.sql'
-ssh <user>@<host> 'sudo systemctl restart dcs-api && systemctl is-active dcs-api'
+ssh <user>@<host> 'sudo systemctl restart dcs-api dcs-ssr && systemctl is-active dcs-api dcs-ssr'
 
 # --- verify ---
-curl -fsS https://daily.calendarshop.online/api/health/ready   # expect: Healthy
+curl -fsS https://daily.calendarshop.online/api/health/ready    # expect: Healthy
+curl -fsS https://daily.calendarshop.online/ | head -20         # expect server-rendered HTML
+curl -fsS https://daily.calendarshop.online/config.js           # expect the PROD values, not localhost
 ```
 
-**`--delete` is the dangerous flag here.** It is correct for `web/` and `api/` (they should exactly match the build) and **catastrophic** if ever pointed at `uploads/` or at the `/var/www/ecomm/` tree. The script in §7 hard-codes its targets for exactly this reason.
+**`--delete` is the dangerous flag here.** It is correct for `web/` and `api/` (they should exactly match the build) and **catastrophic** if pointed at `uploads/` or anywhere under another site's tree. The script in §7 asserts its target for exactly this reason.
+
+**Do not forget `server/`.** The frontend deploy ships the whole `dist/ecomm-web/` directory, not just `browser/`. Copying only `browser/` leaves the SSR process running the previous build — the site keeps working, silently serving stale server-rendered pages, which is a genuinely confusing bug to chase.
 
 ---
 
