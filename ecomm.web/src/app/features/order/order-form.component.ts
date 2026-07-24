@@ -45,10 +45,14 @@ import { OtpGateComponent } from './otp-gate.component';
               {{ order.overallAmount | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
             </p>
             <p class="mt-4 text-sm text-slate-500 max-w-md mx-auto">
-              Payment instructions — UPI QR and bank details — are the next step and will appear here.
-              We will contact you on the number you provided to confirm.
+              Pay by UPI or bank transfer to complete your order. We will contact you on the
+              number you provided to confirm.
             </p>
-            <a routerLink="/account/orders" class="inline-block mt-5 text-primary font-medium hover:underline">
+            <a [routerLink]="['/order', order.orderId, 'pay']"
+               class="inline-block mt-5 bg-primary hover:bg-primary-dark text-white font-semibold px-6 py-2.5 rounded-lg transition">
+              Pay now
+            </a>
+            <a routerLink="/account/orders" class="block mt-3 text-sm text-primary hover:underline">
               View my orders
             </a>
           </div>

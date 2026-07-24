@@ -14,6 +14,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/order/order.component').then((m) => m.OrderComponent),
   },
   {
+    // Payment instructions for a placed order — UPI QR + bank details (design.md §8).
+    path: 'order/:orderId/pay',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/order/payment.component').then((m) => m.PaymentComponent),
+  },
+  {
     path: 'products',
     loadComponent: () => import('./features/catalog/product-list/product-list.component').then((m) => m.ProductListComponent),
   },
