@@ -1,11 +1,18 @@
-# DailyCalendarShop — Design Document (Phase 1)
+# DailyCalendarShop — Design Document
 
-**Status:** Draft 3 — written from Anna's WhatsApp notes + venuscrackers.in screenshots (24 Jul 2026).
-*Draft 2: per-channel Mock/Live configuration from admin (§9), WhatsApp moved into Phase 1 (§9.4), bulk image handling decided (§10.2), Phase 2 re-scoped as separate functionality (§16).*
+**Status:** Draft 4 — written from Anna's WhatsApp notes + venuscrackers.in screenshots (24 Jul 2026).
+
+**Two bodies of functionality, one website:**
+- **Part A — Phase 1 (§1–§16):** the wholesale calendar shop — a quick-order price list, manual UPI payment, spreadsheet-driven catalogue.
+- **Part B — Phase 2 (§17–§27):** the daily calendar content portal — a QR code on every printed sheet opening that day's video, திருக்குறள், பஞ்சாங்கம் and historical events.
+
+*Draft 2: per-channel Mock/Live configuration from admin (§9), WhatsApp moved into Phase 1 (§9.4), bulk image handling decided (§10.2).*
 *Draft 3: dropped the browser-console echo and Mock Outbox; email integrates with Brevo early (§9.3); WhatsApp Click-to-send confirmed as the launch mode (§9.4).*
-**Scope of this document:** **Phase 1 only.** Phase 2 will be appended after Phase 1 is agreed.
+*Draft 4: Phase 2 specified in full (Part B) — YouTube confirmed for video, per-day QR codes, date-keyed content model, day-by-day admin editor, bulk upload.*
+
 **Base platform:** this is the `DailyCalendarShop` branch of the `ecommerce` repo (Mini Flipkart). It reuses that codebase and schema; it does **not** merge back to `main`.
 **Database:** its own local MySQL schema `dailycalendarshop` (migrations 001–029 applied).
+**Domain:** `dailycalendarstore.in` (being purchased).
 
 ---
 
@@ -482,13 +489,217 @@ Sequential; each slice is independently demoable.
 
 ---
 
-## 16. Phase 2 — placeholder
+## 16. Phase 1 leftovers
 
-**Phase 2 is a different set of functionality living in the same website** — not a continuation of the ordering flow described here. It will be specified separately and appended to this document once Phase 1 is agreed.
-
-What that means for Phase 1 decisions: nothing here should assume the site only ever does wholesale quick-ordering. Keep the routing, navigation, theming and auth general enough that a second body of functionality can be added alongside rather than bolted on.
-
-Known Phase-1 leftovers that are *not* Phase 2, and still owed:
+Not Phase 2, but still owed after Phase 1 ships:
 - **Reports** — Anna to specify; the data is being captured from day one.
 - WhatsApp **Cloud API** upgrade from Click-to-send (settings flip, no rewrite).
 - Brevo **HTTP API** for bounce/open tracking, if email volume justifies it.
+
+---
+---
+
+# PART B — Phase 2: the Daily Calendar content portal
+
+**Different functionality, same website.** Phase 1 sells calendars. Phase 2 makes the *printed calendar itself* interactive: every daily tear-off sheet carries a **QR code**, and scanning it opens that day's page — a short video, a திருக்குறள், the day's பஞ்சாங்கம், and the historical events that fall on that date.
+
+Anna's framing: *"Another requirement which nobody had tried"* … *"It's like a newspaper."* That is the right ambition — this is the differentiator, not a feature.
+
+**Domain:** `dailycalendarstore.in` (Anna is purchasing it). ⚠️ Note this differs from the project/branch name *DailyCalendarShop* — worth confirming which name the brand actually uses, because it ends up on 365 printed sheets.
+
+---
+
+## 17. What a day page shows
+
+One page per date. Sections, in the order they matter to someone standing at a wall calendar with a phone:
+
+| Block | Content | Notes |
+|---|---|---|
+| **Date header** | Gregorian date, weekday, Tamil month + date, festival/special-day name | The anchor — must be unmistakable |
+| **Video** | One YouTube video, 2–3 minutes | §18 |
+| **திருக்குறள்** | Kural number (1–1330), the couplet in Tamil, meaning in Tamil, optionally English | Kural number is canonical — store it, it makes the data verifiable |
+| **பஞ்சாங்கம்** | Tithi, Nakshatra, Yogam, Karanam, Rahu Kalam, Yamagandam, Kuligai, sunrise, sunset | Structured fields, see §20 |
+| **Historical events** | "On this day in history" — several entries, year + description | Plural; multiple per day |
+| **Navigation** | ◀ previous day · calendar view · next day ▶ · Today | §19 |
+| **Shop link** | Quiet cross-link into the Phase 1 shop | This page is where the shop's organic traffic will come from |
+
+Every block is **optional and degrades gracefully** — a day with no video renders without a video slot, not with an empty box. This matters more than it sounds; see §22.
+
+---
+
+## 18. Video — YouTube. Yes, this is the right choice.
+
+**Decision: host on YouTube, store only the video ID, embed on the day page.** Admin pastes a YouTube link; we never touch a video file.
+
+**Why it is right:**
+- **Storage and bandwidth are free and unlimited.** 365 videos × 2–3 min is roughly 15–25 GB of source. Self-hosting that is affordable to *store* and painful to *serve* — the cost is streaming, not disk.
+- **Adaptive bitrate on Indian mobile networks.** This is the real argument. Someone scanning a paper calendar is on a phone, often on patchy 4G. YouTube drops to a lower rendition automatically; a self-hosted `<video>` tag just stalls. We would be rebuilding transcoding and a CDN to lose to YouTube.
+- **Non-technical upload.** Anna's content team already knows how to upload to YouTube. They do not need to learn our admin.
+- **The channel is itself an asset** — 365 daily videos building an audience and search presence, independent of the calendar.
+
+**What we must get right (the details that bite):**
+1. **Store the video ID, not the pasted URL.** People will paste `youtu.be/ABC`, `youtube.com/watch?v=ABC&t=42`, `youtube.com/shorts/ABC`, and links with tracking parameters. Normalize to the 11-character ID on save. Storing raw URLs guarantees a batch of broken embeds later.
+2. **Validate at save time.** Ping YouTube's oEmbed endpoint when the admin saves; if the ID does not resolve, reject it there and then. A typo must be caught in the admin screen, not by a customer holding a calendar.
+3. **Embed via `youtube-nocookie.com`** — privacy-enhanced mode, no tracking cookies until playback.
+4. **Use a facade, not a raw iframe.** A YouTube iframe pulls well over a megabyte of JavaScript before anything renders. Instead show the video thumbnail plus a play button, and load the real iframe only on tap. On a QR-scan-on-mobile-data page, this is the difference between fast and unusable.
+5. **Unlisted vs public** — see Q9. My view: **public**, so the channel and the SEO both compound.
+
+**When to revisit:** if YouTube branding, end-screen "recommended videos", or ads become unacceptable to the brand, the paid alternatives are Bunny Stream or Cloudflare Stream (a few dollars a month at this volume) — no ads, no branding, own player. The data model does not change: swap the ID column's meaning and the embed component. **Not worth it now.**
+
+---
+
+## 19. QR codes and printing
+
+This is the physical half of the feature, and it constrains the digital half.
+
+**Per-day QR, not one shared QR.** Each printed sheet gets its own code encoding its own date, so scanning the 14 March sheet opens 14 March. A single site-wide QR that always shows "today" would be cheaper to print but throws away the whole idea — and the idea is the point.
+
+**Short URLs matter for print.** A QR encoding a long URL needs more modules, which means finer printing, which means worse scan reliability on cheap calendar paper at small size. So the printed target is deliberately short:
+
+```
+dailycalendarstore.in/d/270314        →  14 March 2027
+```
+
+Rules: no query strings, no tracking parameters, no `https://www.` prefix in the encoded value, highest error-correction level the size allows, and a generous quiet zone. Anything scanned from newsprint-grade paper needs the margin.
+
+**Printer handoff.** The admin produces a **QR pack** for the print vendor: 365 (or 366) PNGs at print resolution, named by date (`2027-03-14.png`), plus a contact-sheet PDF for proofing. Generated server-side from the same library used for the Phase 1 UPI QR, so there is one QR implementation in the codebase.
+
+**Fallbacks that cost nothing:** a bare `dailycalendarstore.in/d/` with no date shows **today**. A date with no content shows a polite "content coming soon" page with working prev/next navigation — never a 404. Someone holding a physical product in their hand should never hit a dead end.
+
+---
+
+## 20. Navigation
+
+- **◀ Previous day / Next day ▶** — the primary movement, and keyboard-accessible (`←` / `→`).
+- **Calendar view** — a month grid; tap any date to jump. Days with content are visually distinct from empty ones. Month and year steppers.
+- **Today** — always one tap away.
+- **Swipe** left/right on mobile, matching the arrows.
+- URLs are clean and shareable: `/d/2027-03-14` canonical, `/d/270314` the short print form redirecting to it.
+
+---
+
+## 21. Data model
+
+**Key every row by the actual date, not by day-number.**
+
+> Day-of-year numbering (1–365) **breaks on leap years** — 2028 has 366 days, and every date after 29 February shifts by one. A `DATE` column has none of that problem and sorts, filters and ranges natively.
+
+New tables in migration `031_calendar_content.sql`:
+
+**`CalendarDays`** — one row per date
+| Column | Notes |
+|---|---|
+| `CalendarDayId` | PK |
+| `Date` | `DATE`, **unique**. The natural key |
+| `TamilMonth`, `TamilDate` | Tamil calendar labels |
+| `SpecialDayName` | Festival / observance, nullable |
+| `YouTubeVideoId` | 11-char ID, normalized on save |
+| `VideoTitle` | Caption shown under the player |
+| `KuralNumber` | 1–1330 |
+| `KuralText`, `KuralMeaningTamil`, `KuralMeaningEnglish` | |
+| `Status` | `Draft` / `Published` |
+| `CreatedAt`, `UpdatedAt`, `UpdatedBy` | |
+
+**`CalendarDayEvents`** — historical events, many per day
+`CalendarDayId`, `EventYear`, `Description`, `SortOrder`
+
+**`CalendarPanchangam`** — one row per day, structured
+`Tithi`, `Nakshatra`, `Yogam`, `Karanam`, `RahuKalamFrom/To`, `YamagandamFrom/To`, `KuligaiFrom/To`, `Sunrise`, `Sunset`, `Notes` (free text for anything not covered)
+
+> **பஞ்சாங்கம் is location-dependent** — Rahu Kalam and sunrise/sunset differ by city. We store one set of values and must **state the reference city on the page** (Chennai unless told otherwise). Publishing timings without saying where they apply is quietly wrong, and readers of a panchangam will notice.
+
+**Editions / repeating years.** Content is keyed by full date, so 2027 and 2028 coexist naturally. Historical events and kurals largely repeat year to year, so the admin gets a **"copy last year's content to this year"** action which clones events + kural and leaves video and panchangam blank for re-authoring. Without that, year two means retyping everything.
+
+---
+
+## 22. Admin — the day editor
+
+Exactly as asked: **navigate all 365 days, before and after, edit in place.**
+
+- Day editor with **◀ / ▶** stepping through dates, a date picker, and a jump-to-today.
+- All fields on one screen: video URL, kural, panchangam, events (add/remove rows), special day name.
+- **Live preview** of the public day page beside the form — this is content work, and content people need to see the result.
+- Video field accepts any YouTube URL form, normalizes it, validates it, and immediately shows the thumbnail so a wrong paste is obvious.
+- Save and **"save + next day"** — the single most useful button when working through a year.
+
+### 22.1 Content readiness — the real risk
+
+365 days × (video + kural + panchangam + events) is a very large amount of content, and *"built before, so that they can print it in coming days"* means the printing schedule depends on it. The likeliest failure of Phase 2 is not technical — it is that the content does not get finished.
+
+So the admin gets a **readiness dashboard**, and it is not optional:
+- Year grid, one cell per day, colour-coded by completeness (all blocks / partial / empty).
+- Counts per block: *"video 212/365 · kural 365/365 · panchangam 180/365 · events 341/365."*
+- Filter to "days missing a video", etc., and jump straight into editing them.
+- Export a gap list to share with the content team.
+
+---
+
+## 23. Admin — bulk upload
+
+Same pattern as the Phase 1 product import, and it reuses the same machinery (`ImportJobs` / `ImportJobItems`, dry-run preview, per-row error isolation).
+
+- **One row per date.** Columns: `Date`, `TamilMonth`, `TamilDate`, `SpecialDayName`, `YouTubeUrl`, `VideoTitle`, `KuralNumber`, `KuralText`, `KuralMeaningTamil`, `Tithi`, `Nakshatra`, `RahuKalamFrom`, `RahuKalamTo`, …, plus `Event1Year`/`Event1`, `Event2Year`/`Event2`, `Event3Year`/`Event3` for the repeating events.
+- **Upsert by `Date`.** Re-uploading a corrected sheet updates in place — this is how the content team will actually work.
+- **Dry-run preview before commit** — *"312 days updated, 53 new, 4 errors (rows …)"*.
+- **Export the whole year** to the same format, so editing happens in Excel and comes back.
+- After upload, the day-by-day navigation is immediately populated — upload, then step through Jan 1, Jan 2, … to review.
+
+### 23.1 ⚠️ The Tamil encoding trap — read this before choosing CSV
+
+> **Excel's default "Save as CSV" writes the system ANSI codepage, which destroys Tamil text.** A content person exports a sheet with திருக்குறள் in it, saves as CSV, and the file arrives as `????????`. This is not a theoretical risk — it is the single most likely way this import goes wrong, and it corrupts data silently.
+
+Therefore:
+- **`.xlsx` is the recommended format for calendar content**, because it is Unicode-safe by construction. The template we hand out is `.xlsx`.
+- CSV is still accepted, but **only UTF-8 with BOM** ("CSV UTF-8" in Excel's save dialog), and the importer **detects the encoding and refuses a file that is not valid UTF-8** with a clear message telling the user which format to save as. Rejecting loudly is far better than importing mojibake.
+- Round-trip test with real Tamil content is part of the acceptance criteria for this slice, not an afterthought.
+
+---
+
+## 24. Tamil typography and localization
+
+- Font: **Noto Sans Tamil** (self-hosted, subset), with a system fallback. Tamil in a Latin-metrics font looks broken and renders cramped.
+- Line height and font size need to be set **specifically for Tamil** — the glyphs are taller and denser than Latin; default Tailwind leading is too tight.
+- `lang="ta"` on Tamil blocks so browsers, screen readers and search engines handle them correctly.
+- Database is already `utf8mb4` ✓ — no change needed.
+- The UI chrome is bilingual; the content is Tamil-first.
+
+---
+
+## 25. SEO — an unplanned upside worth planning for
+
+365 pages of Thirukkural, panchangam and Tamil historical events is genuinely valuable indexable content, and there is real recurring search demand for "இன்றைய பஞ்சாங்கம்" and daily kural. The storefront is already SSR, so these pages are server-rendered for free.
+
+Worth doing while we are here: per-day `<title>`/meta, JSON-LD, a **sitemap covering all 365 day URLs**, and canonical URLs (short QR form → canonical date form). This also finally justifies the sitemap/robots work that has been deferred on the base platform.
+
+If this works, the content portal becomes the top of the funnel for the shop — which is why §17 puts a quiet shop cross-link on every day page.
+
+---
+
+## 26. Phase 2 build plan
+
+| Slice | What ships |
+|---|---|
+| **P2-1** Content model | Migration `031`, `CalendarDays` + events + panchangam, day CRUD API |
+| **P2-2** Day page | Public `/d/{date}` page, all blocks, graceful degradation, Tamil typography |
+| **P2-3** Navigation | Prev/next, calendar month view, today, swipe, short-URL redirect |
+| **P2-4** Video | YouTube ID normalization + oEmbed validation, nocookie facade embed |
+| **P2-5** Admin day editor | Day-by-day navigation, all fields, live preview, save + next |
+| **P2-6** Bulk upload | `.xlsx` primary + UTF-8 CSV with encoding guard, dry-run, export, template |
+| **P2-7** Readiness dashboard | Year completeness grid, per-block counts, gap export |
+| **P2-8** QR pack | Per-day QR generation, 365-file print export, contact-sheet PDF |
+| **P2-9** SEO | Per-day metadata, JSON-LD, sitemap, canonicals |
+| **P2-10** Year rollover | Copy-forward to next year, edition management |
+
+---
+
+## 27. Phase 2 open questions
+
+| # | Question | My recommendation |
+|---|---|---|
+| **Q9** | YouTube videos **public or unlisted**? | **Public.** The channel becomes an audience and a search asset. Unlisted only if the content is meant as a buyer-exclusive perk — which is a business call, not a technical one. |
+| **Q10** | Which **year/edition** are we building content for first, and when does printing start? | This sets the real deadline. The readiness dashboard (§22.1) exists to serve it. |
+| **Q11** | **Per-day QR** (365 different codes) confirmed with the printer? | Yes — but confirm early. It changes the print file the vendor needs, and it is much cheaper to discover now than after artwork is approved. |
+| **Q12** | Reference **city for பஞ்சாங்கம்** timings? | Chennai, stated on the page. If they want multiple cities, that is a bigger data model — flag before assuming. |
+| **Q13** | Is the panchangam **supplied as content** or expected to be **computed**? | Supplied — Anna said *"content will get from them"*. Computing panchangam correctly is an astronomy project, not a feature. |
+| **Q14** | Are future days **viewable before their date**, or revealed daily? | Viewable once published. Draft/Published status already gives the control; a hard date-lock adds complexity for little gain. |
+| **Q15** | Does the day page need **sharing** (WhatsApp share button)? | Yes — it is nearly free, and "share today's kural" is exactly how this spreads. |
