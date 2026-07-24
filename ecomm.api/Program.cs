@@ -110,6 +110,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.ITaxService, ecomm.api.Features.Checkout.TaxService>();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IShippingService, ecomm.api.Features.Checkout.ShippingService>();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IQuickOrderService, ecomm.api.Features.Checkout.QuickOrderService>();
+builder.Services.AddScoped<ecomm.api.Features.Payments.IManualPaymentService, ecomm.api.Features.Payments.ManualPaymentService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IInvoiceService, ecomm.api.Features.Orders.InvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderService, ecomm.api.Features.Orders.OrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();

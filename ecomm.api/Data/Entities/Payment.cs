@@ -11,4 +11,14 @@ public class Payment
     public string Currency { get; set; } = "INR";
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    // --- Manual UPI / bank transfer (design.md §8) ---
+    /// <summary>UPI or bank reference the buyer supplies. Their claim, not our confirmation.</summary>
+    public string? ReferenceNumber { get; set; }
+    public string? ProofImageUrl { get; set; }
+    /// <summary>When the buyer said they paid.</summary>
+    public DateTime? ReportedAt { get; set; }
+    /// <summary>When the shop verified the money arrived. Kept distinct from ReportedAt.</summary>
+    public DateTime? ConfirmedAt { get; set; }
+    public long? ConfirmedBy { get; set; }
 }
