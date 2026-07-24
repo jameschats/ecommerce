@@ -11,6 +11,8 @@
 
 Every path, port, service name and database below is distinct from theirs. The deploy script asserts its target rather than trusting the operator, because `/var/www/ecomm` and `/var/www/dailycal` are one careless tab-completion apart.
 
+> **Never paste a generated password into this file.** It is committed to GitHub. Secrets belong only in `/etc/dailycal/api.env` on the server (mode `600`, outside git). Every credential in this document is a `CHANGE-ME` placeholder by design.
+
 ---
 
 ## 1. What is already on the box
