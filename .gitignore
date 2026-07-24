@@ -28,3 +28,6 @@ documents/deployment.md
 documents/razorpay_test_api_keys_*.csv
 *.env
 secrets.json
+
+# Build output produced by deploy/deploy-dailycal.sh
+publish/

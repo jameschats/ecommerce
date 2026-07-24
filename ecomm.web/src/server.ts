@@ -9,8 +9,47 @@ import { join } from 'node:path';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
+/**
+ * Hostnames this server will render for. Angular 20+ rejects unknown hosts with a
+ * 400 to prevent SSRF, so a deployed site must declare its own hostname or every
+ * request fails.
+ *
+ * Resolved at runtime from `SITE_URL` (already set per environment for the same reason
+ * `config.js` exists) plus an optional `ALLOWED_HOSTS` override, rather than from
+ * `angular.json` — a build-time list would mean rebuilding the app per domain, which is
+ * exactly the coupling we removed when replacing the `sed` step.
+ */
+function resolveAllowedHosts(): string[] {
+  const hosts = new Set(['localhost', '127.0.0.1']);
+
+  for (const h of (process.env['ALLOWED_HOSTS'] ?? '').split(',')) {
+    const trimmed = h.trim();
+    if (trimmed) hosts.add(trimmed);
+  }
+
+  const siteUrl = process.env['SITE_URL'];
+  if (siteUrl) {
+    try {
+      hosts.add(new URL(siteUrl).hostname);
+    } catch {
+      console.warn(`[ssr] SITE_URL is not a valid URL: "${siteUrl}"`);
+    }
+  }
+
+  return [...hosts];
+}
+
+const allowedHosts = resolveAllowedHosts();
+console.log(`[ssr] allowedHosts: ${allowedHosts.join(', ')}`);
+
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+const angularApp = new AngularNodeAppEngine({
+  allowedHosts,
+  // Safe here specifically because this process binds to loopback and is only ever
+  // reachable through nginx, which sets these headers itself. It would NOT be safe on a
+  // publicly-bound port, where a client could forge them.
+  trustProxyHeaders: true,
+});
 
 /**
  * Example Express Rest API endpoints can be defined here.

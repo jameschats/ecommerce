@@ -96,7 +96,7 @@ mv web.new web
 chown -R www-data:www-data ${BASE}/api ${BASE}/web
 
 systemctl restart ${API_SERVICE} ${SSR_SERVICE}
-sleep 3
+sleep 2
 systemctl is-active ${API_SERVICE} ${SSR_SERVICE}
 EOF
 
@@ -104,7 +104,15 @@ EOF
 echo "==> Verifying"
 fail=0
 
-health=$(curl -fsS --max-time 20 "https://${DOMAIN}/api/health/ready" || echo "FAILED")
+# The API needs ~5s to come up (EF init + admin seeding), so poll rather than sleep a
+# fixed interval. A single immediate check races startup and reports a false failure.
+health="FAILED"
+for attempt in $(seq 1 20); do
+  health=$(curl -fsS --max-time 10 "https://${DOMAIN}/api/health/ready" 2>/dev/null || echo "FAILED")
+  [ "$health" = "Healthy" ] && break
+  printf '    waiting for API… (%s/20)\r' "$attempt"
+  sleep 3
+done
 echo "    health   : $health"
 [ "$health" = "Healthy" ] || fail=1
 
