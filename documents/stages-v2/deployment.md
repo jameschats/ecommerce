@@ -1,6 +1,6 @@
 # DailyCalendarShop — Deployment
 
-**Status:** values confirmed against the live server (24 Jul 2026). One gap remains — §11.
+**Status:** ready to execute. All values confirmed against the live server (24 Jul 2026); nginx config, systemd units and deploy script are written and committed under [`deploy/`](../../deploy/).
 **Target:** `daily.calendarshop.online` on `62.72.59.84` (Hostinger VPS, Ubuntu 24.04.4, `srv1788459`).
 
 ---
@@ -183,9 +183,25 @@ systemctl enable --now dailycal-api dailycal-ssr
 systemctl status dailycal-api dailycal-ssr --no-pager
 ```
 
-### 5.6 Nginx — `/etc/nginx/sites-available/dailycal`
+### 5.6 Nginx — [`deploy/nginx-dailycal.conf`](../../deploy/nginx-dailycal.conf)
 
-⬜ **Mirror the working `ecomm` config rather than this sketch** — see §11. Shape, from the discovered layout:
+Mirrored from the working `ecomm` config, which turned out to contain two things my earlier sketch was missing:
+
+1. **`location /hubs/` — the SignalR WebSocket proxy**, with `Upgrade` / `Connection "upgrade"` headers and `proxy_read_timeout 3600s`. The base platform's real-time notification bell runs over SignalR. **Without this block the hub silently fails or drops connections** — the kind of bug that gets blamed on the app for a week.
+2. **`proxy_http_version 1.1`** on every proxy block, plus the security header set (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS) and `gzip`.
+
+> **nginx `add_header` does not merge.** If any `location` block declares its own `add_header`, it *discards every header inherited from the server block*. So `X-Robots-Tag` goes at server level alongside the security headers — not inside a location. Neither config has a location-level `add_header` today; adding one later would silently strip the security headers.
+
+```bash
+cp deploy/nginx-dailycal.conf /etc/nginx/sites-available/dailycal
+ln -s /etc/nginx/sites-available/dailycal /etc/nginx/sites-enabled/dailycal
+nginx -t && systemctl reload nginx
+certbot --nginx -d daily.calendarshop.online
+```
+
+Certbot rewrites the file in place, adding the `listen 443 ssl` directives and the port-80 redirect block — exactly as it did for `ecomm`. Run it only after the DNS `A` record resolves.
+
+<details><summary>Config shape (see the file for the real thing)</summary>
 
 ```nginx
 server {
@@ -221,13 +237,7 @@ server {
     client_max_body_size 25M;   # ZIP image uploads (design.md §10.2)
 }
 ```
-
-```bash
-ln -s /etc/nginx/sites-available/dailycal /etc/nginx/sites-enabled/dailycal
-nginx -t                       # ALWAYS — see below
-systemctl reload nginx
-certbot --nginx -d daily.calendarshop.online
-```
+</details>
 
 > `nginx -t` before every reload is not ceremony. **Nginx is shared with two live sites** — a syntax error in *our* file breaks *theirs* on reload.
 
@@ -261,73 +271,47 @@ The deploy never writes that file. Nothing secret goes in `config.js` — it is 
 ## 8. Deploy (the routine loop)
 
 ```bash
-# --- build locally ---
-dotnet publish ecomm.api/ecomm.api.csproj -c Release -o ./publish/api
-cd ecomm.web && npm ci && npm run build && cd ..
-# output: ecomm.web/dist/ecomm-web/{browser,server}
-
-# --- ship the API ---
-rsync -az --delete --exclude 'logs/' \
-      ./publish/api/  root@62.72.59.84:/var/www/dailycal/api/
-
-# --- ship the frontend: BOTH browser/ and server/ ---
-rsync -az --delete \
-      ./ecomm.web/dist/ecomm-web/  root@62.72.59.84:/var/www/dailycal/web/
-
-# --- write runtime config AFTER rsync (--delete would restore the dev copy) ---
-ssh root@62.72.59.84 'cat > /var/www/dailycal/web/browser/config.js' <<'EOF'
-window.__APP_CONFIG__ = {
-  apiBaseUrl: 'https://daily.calendarshop.online/api',
-  siteUrl:    'https://daily.calendarshop.online',
-  umamiSrc: '', umamiWebsiteId: '', umamiDashboardUrl: '',
-};
-EOF
-
-# --- restart BOTH services ---
-ssh root@62.72.59.84 'systemctl restart dailycal-api dailycal-ssr && \
-                      systemctl is-active dailycal-api dailycal-ssr'
-
-# --- verify ---
-curl -fsS https://daily.calendarshop.online/api/health/ready   # expect: Healthy
-curl -fsS https://daily.calendarshop.online/ | head -20        # expect server-rendered HTML
-curl -fsS https://daily.calendarshop.online/config.js          # expect PROD values, not localhost
-curl -sI https://calendarshop.online/ | head -1                # confirm the live site is untouched
+./deploy/deploy-dailycal.sh
 ```
 
-**`--delete` is the dangerous flag.** Correct for `api/` and `web/` (they should exactly match the build), catastrophic if aimed at `uploads/` or another site's tree.
+That is the whole thing — [`deploy/deploy-dailycal.sh`](../../deploy/deploy-dailycal.sh). Run it from the repo root in **Git Bash**.
 
-**Do not ship only `browser/`.** The whole `dist/ecomm-web/` goes, including `server/`. Copying just `browser/` leaves SSR running the previous build — the site keeps working while silently serving stale server-rendered pages, which is a genuinely confusing bug to chase.
+**It ships a tar stream over ssh, not rsync.** `rsync` is not available in Git Bash on Windows (checked — only `ssh`, `scp` and `tar` are). That constraint produced a better design than the rsync version it replaced:
+
+| | rsync `--delete` | tar + atomic swap |
+|---|---|---|
+| Live dir during transfer | half-written | untouched until the swap |
+| Wrong-target blast radius | deletes the destination | extracts into `<dir>.new` |
+| Rollback | none | `<dir>.prev` is always there |
+
+Sequence: build → extract into `api.new` / `web.new` → `mv api → api.prev`, `mv api.new → api` → `chown` → restart both services → verify.
+
+**Guards, all enforced in code rather than comments:**
+- Refuses to run unless `BASE` is exactly `/var/www/dailycal`, and separately refuses any path inside `/var/www/ecomm`, `/var/www/wavcomm`, `/var/www/html` or `/etc`. Verified by pointing a copy at `/var/www/ecomm` — it aborts before building or opening ssh.
+- Only ever touches `api/` and `web/`. **`uploads/` and `/etc/dailycal/api.env` are never in scope.**
+- Fails if `dist/ecomm-web/server/` is missing, so an SSR-less build cannot ship.
+- Writes `config.js` into the build *before* upload, so there is no window where the deployed site holds dev values.
+
+**Verification is part of the deploy, not a follow-up.** It exits non-zero unless: `/api/health/ready` is `Healthy`, `config.js` does *not* contain `localhost`, the SSR route returns 200, **and both `calendarshop.online` and `wavcommerce.online` still return 200**. On failure it prints the exact rollback command. A deploy that reports success while the API is down is worse than one that fails loudly.
+
+> **`.gitattributes` forces `*.sh` to LF.** Git on Windows converts to CRLF on checkout by default, and a CRLF shell script fails on Linux with `\r: command not found` — a genuinely baffling error the first time you meet it.
 
 ---
 
-## 9. Deploy script — required behaviours
+## 9. Rollback
 
-`deploy-dailycal.sh` (⬜ to write) must:
-1. **Assert its target** — refuse to run if any destination path is not under `/var/www/dailycal/`. A guard clause, not a comment.
-2. **Never touch** `/var/www/dailycal/uploads/`, `/etc/dailycal/api.env`, or anything under `/var/www/ecomm/` or `/var/www/wavcomm/`.
-3. **Run `nginx -t`** before any reload.
-4. **Health-check after restart**, exiting non-zero if `/api/health/ready` is not `Healthy`. A deploy that reports success while the API is down is worse than one that fails loudly.
-5. **Print target host and paths** before acting.
+The previous build is always at `/var/www/dailycal/api.prev` and `web.prev`:
 
----
-
-## 10. Rollback
-
-Keep the previous build in `/var/www/dailycal/api.prev` and `web.prev`; rollback is a directory swap plus a restart.
+```bash
+ssh root@62.72.59.84 'cd /var/www/dailycal && rm -rf api web && \
+  mv api.prev api && mv web.prev web && systemctl restart dailycal-api dailycal-ssr'
+```
 
 **Migrations do not roll back** — forward-only by design. So deploy schema and code such that old code still works against the new schema where possible (add columns before using them; drop a release later). This matters once real order data exists.
 
 ---
 
-## 11. ⬜ Remaining gap
-
-**Need:** `cat /etc/nginx/sites-available/ecomm`
-
-The grep showed its shape — API on 5080 across three locations, SSR on 4000, a `location = /sitemap.xml` proxied to the API, certbot's 443 block and an 80→443 redirect — but not the full directives. I would rather **mirror a config already proven in production** than ship my reconstruction of it. Once I have it, §5.6 gets replaced with the real thing and `deploy-dailycal.sh` follows.
-
----
-
-## 12. First-deploy checklist
+## 10. First-deploy checklist
 
 There is no Phase 1 code yet — this branch differs from `main` only by a connection string and documents. **That makes now the ideal time to prove the pipeline, while a broken deploy costs nothing.**
 

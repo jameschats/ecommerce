@@ -1,0 +1,20 @@
+[Unit]
+Description=DailyCalendarShop Angular SSR
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/dailycal/web
+ExecStart=/usr/bin/node /var/www/dailycal/web/server/server.mjs
+Environment=NODE_ENV=production
+Environment=PORT=4020
+Environment=HOST=127.0.0.1
+# Must match /config.js exactly — SSR reads these, the browser reads config.js.
+# If they disagree, server-rendered HTML and client hydration disagree.
+Environment=API_BASE_URL=https://daily.calendarshop.online/api
+Environment=SITE_URL=https://daily.calendarshop.online
+Restart=always
+RestartSec=10
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
