@@ -8,11 +8,12 @@
 
 *Draft 2: per-channel Mock/Live configuration from admin (§9), WhatsApp moved into Phase 1 (§9.4), bulk image handling decided (§10.2).*
 *Draft 3: dropped the browser-console echo and Mock Outbox; email integrates with Brevo early (§9.3); WhatsApp Click-to-send confirmed as the launch mode (§9.4).*
-*Draft 4: Phase 2 specified in full (Part B) — YouTube confirmed for video, per-day QR codes, date-keyed content model, day-by-day admin editor, bulk upload.*
+*Draft 4: Phase 2 specified in full (Part B) — YouTube confirmed for video, date-keyed content model, day-by-day admin editor, bulk upload.*
+*Draft 5: **one QR code, not 365** — the page resolves today server-side (§19); domains and environments settled (§19.4).*
 
 **Base platform:** this is the `DailyCalendarShop` branch of the `ecommerce` repo (Mini Flipkart). It reuses that codebase and schema; it does **not** merge back to `main`.
 **Database:** its own local MySQL schema `dailycalendarshop` (migrations 001–029 applied).
-**Domain:** `dailycalendarstore.in` (being purchased).
+**Domains:** production `dailycalendarstore.in` (customer's, being purchased) · testing `daily.calendarshop.online` · see §19.4.
 
 ---
 
@@ -501,7 +502,7 @@ Not Phase 2, but still owed after Phase 1 ships:
 
 # PART B — Phase 2: the Daily Calendar content portal
 
-**Different functionality, same website.** Phase 1 sells calendars. Phase 2 makes the *printed calendar itself* interactive: every daily tear-off sheet carries a **QR code**, and scanning it opens that day's page — a short video, a திருக்குறள், the day's பஞ்சாங்கம், and the historical events that fall on that date.
+**Different functionality, same website.** Phase 1 sells calendars. Phase 2 makes the *printed calendar itself* interactive: every daily tear-off sheet carries the same **QR code**, and scanning it opens **today's** page — a short video, a திருக்குறள், the day's பஞ்சாங்கம், and the historical events that fall on that date. The sheet on display is today, so one smart page serves every sheet (§19).
 
 Anna's framing: *"Another requirement which nobody had tried"* … *"It's like a newspaper."* That is the right ambition — this is the differentiator, not a feature.
 
@@ -548,23 +549,65 @@ Every block is **optional and degrades gracefully** — a day with no video rend
 
 ---
 
-## 19. QR codes and printing
+## 19. QR code and printing — **one QR, and the page works out the date**
 
-This is the physical half of the feature, and it constrains the digital half.
-
-**Per-day QR, not one shared QR.** Each printed sheet gets its own code encoding its own date, so scanning the 14 March sheet opens 14 March. A single site-wide QR that always shows "today" would be cheaper to print but throws away the whole idea — and the idea is the point.
-
-**Short URLs matter for print.** A QR encoding a long URL needs more modules, which means finer printing, which means worse scan reliability on cheap calendar paper at small size. So the printed target is deliberately short:
+**Decision: a single QR code, printed identically on every sheet.** It points at one short URL; the page resolves *today* server-side and shows today's content.
 
 ```
-dailycalendarstore.in/d/270314        →  14 March 2027
+QR encodes:   dailycalendarstore.in/t
+              → 302 →  /d/2027-03-14      (today, resolved on the server)
 ```
 
-Rules: no query strings, no tracking parameters, no `https://www.` prefix in the encoded value, highest error-correction level the size allows, and a generous quiet zone. Anything scanned from newsprint-grade paper needs the margin.
+An earlier draft specified 365 different QR codes, one per sheet. **That was over-engineering, and this is better** — for a reason that is worth stating plainly:
 
-**Printer handoff.** The admin produces a **QR pack** for the print vendor: 365 (or 366) PNGs at print resolution, named by date (`2027-03-14.png`), plus a contact-sheet PDF for proofing. Generated server-side from the same library used for the Phase 1 UPI QR, so there is one QR implementation in the codebase.
+> On a daily tear-off calendar, **the sheet on display *is* today.** "Scan this sheet" and "show me today" are the same request 99% of the time. Printing 365 distinct codes buys almost nothing and introduces a genuinely catastrophic failure mode: if the print run misaligns by a single sheet, *every* QR in the batch points at the wrong day, and it is discovered by customers, after printing, with no fix short of a reprint.
 
-**Fallbacks that cost nothing:** a bare `dailycalendarstore.in/d/` with no date shows **today**. A date with no content shows a polite "content coming soon" page with working prev/next navigation — never a 404. Someone holding a physical product in their hand should never hit a dead end.
+What the single QR buys us:
+- **One artwork asset for the print vendor**, not 365 files to collate, proof and keep in register.
+- **No QR-to-date misalignment risk at all** — the failure mode above simply cannot happen.
+- **Corrections and reprints are trivial**, and the same artwork works for next year's edition.
+- **A much shorter encoded URL**, so fewer QR modules, so a code that scans reliably at small size on cheap calendar paper. This is a real gain, not a rounding error.
+- It still works if sheets are torn out of order, kept, or reordered.
+
+Per-day URLs (`/d/2027-03-14`) **still exist** — for navigation, sharing and SEO. We simply do not print them. Nothing in the data model (§21) changes, so if a special edition ever does want per-sheet codes, that is a print decision, not a rebuild.
+
+### 19.1 ⚠️ "Today" is now a correctness problem — get it right
+
+Making the page smart moves the risk from the printer to us. Three rules, all mandatory:
+
+1. **Resolve "today" on the server, in IST (`Asia/Kolkata`, UTC+5:30) — never from the device clock.** A server running UTC would roll the day over at 5:30 a.m. Indian time, which is exactly the kind of bug that is invisible in testing and obvious to every user for four months.
+2. **`/t` must never be cached.** The base platform has output caching enabled for anonymous reads, and the Phase 1 price list deliberately uses it. Applied naively here it would happily serve yesterday's page all day. So: `/t` is `no-store` and does nothing but redirect; the dated `/d/{date}` pages are freely cacheable because they are immutable for a given date. **Redirecting rather than rendering today's content at `/t` is what makes this safe** — and it gives every visitor a real, shareable, bookmarkable URL for the day they landed on.
+3. **The page states its own date prominently.** If someone has not torn sheets for three days, the paper says 11 March and the page says 14 March. That is fine and expected — but only if the page is unambiguous about which day it is showing, with prev/next right there to go back.
+
+### 19.2 Print spec
+
+- Encoded value: `dailycalendarstore.in/t` — no `https://www.`, no query string, no tracking parameters.
+- Highest error-correction level the print size allows, with a generous quiet zone. Calendar stock is not glossy and the code will be small.
+- Delivered to the vendor as a single high-resolution PNG plus SVG, generated from the same QR library used for the Phase 1 UPI QR — one QR implementation in the codebase, not two.
+- Print a **short human-readable URL beside the code** (`dailycalendarstore.in`). Not everyone scans, and a typed URL is a free fallback.
+
+### 19.4 Domains and environments
+
+| Environment | Domain | Notes |
+|---|---|---|
+| Local | `localhost:4200` / `:5080` | As today |
+| **Testing / staging** | **`daily.calendarshop.online`** | A subdomain, deliberately — see below |
+| Production | `dailycalendarstore.in` | Customer's domain, being purchased |
+
+**Why a subdomain rather than the `calendarshop.online` apex:**
+- The apex is (or will be) the **other CalendarShop project**. Pointing this project at it means one deployment stepping on the other — the same isolation we have kept for the branch and the database should hold for the hostname.
+- **Cookie collisions.** Anything set on `.calendarshop.online` is visible to every subdomain. Two projects with their own JWT/session cookies on a shared apex produce login bugs that are miserable to diagnose. On `daily.calendarshop.online` with **host-only cookies** (do *not* set a `Domain` attribute), the two are cleanly separated.
+- It costs nothing, needs only a DNS record, and mirrors the eventual production topology — a separate hostname — so we find hostname-coupling bugs in testing rather than on launch day.
+
+**Two rules that follow from having more than one domain:**
+1. **The site's base URL is configuration, never hardcoded.** The QR image, canonical URLs, sitemap entries and email links all derive from one setting. Moving to `dailycalendarstore.in` must be a config change, not a find-and-replace.
+2. **The testing domain must be `noindex` + `robots: disallow`.** With 365 content pages this is not housekeeping — if Google indexes the staging copy, it competes with the real site and the duplicate content is a genuine ranking problem. Ship the meta tag with the first deploy, not later.
+
+> ⚠️ **Do not print any QR code until the production domain is live and final.** The QR encodes the URL. A QR printed against the test domain is 365 days of paper pointing at the wrong site, and paper cannot be redeployed.
+
+### 19.3 Fallbacks that cost nothing
+- `/t` with content missing for today → the day page renders with whatever blocks exist, never an error.
+- A date with no content at all → a polite "content coming soon" page with working prev/next — **never a 404**. Someone holding a physical product in their hand should not hit a dead end.
 
 ---
 
@@ -574,7 +617,7 @@ Rules: no query strings, no tracking parameters, no `https://www.` prefix in the
 - **Calendar view** — a month grid; tap any date to jump. Days with content are visually distinct from empty ones. Month and year steppers.
 - **Today** — always one tap away.
 - **Swipe** left/right on mobile, matching the arrows.
-- URLs are clean and shareable: `/d/2027-03-14` canonical, `/d/270314` the short print form redirecting to it.
+- URLs are clean and shareable: `/d/2027-03-14` is canonical; `/t` resolves to today and redirects there (§19).
 
 ---
 
@@ -681,12 +724,12 @@ If this works, the content portal becomes the top of the funnel for the shop —
 |---|---|
 | **P2-1** Content model | Migration `031`, `CalendarDays` + events + panchangam, day CRUD API |
 | **P2-2** Day page | Public `/d/{date}` page, all blocks, graceful degradation, Tamil typography |
-| **P2-3** Navigation | Prev/next, calendar month view, today, swipe, short-URL redirect |
+| **P2-3** Navigation | Prev/next, calendar month view, swipe, and **`/t` → today** resolution in IST with the caching rules of §19.1 |
 | **P2-4** Video | YouTube ID normalization + oEmbed validation, nocookie facade embed |
 | **P2-5** Admin day editor | Day-by-day navigation, all fields, live preview, save + next |
 | **P2-6** Bulk upload | `.xlsx` primary + UTF-8 CSV with encoding guard, dry-run, export, template |
 | **P2-7** Readiness dashboard | Year completeness grid, per-block counts, gap export |
-| **P2-8** QR pack | Per-day QR generation, 365-file print export, contact-sheet PDF |
+| **P2-8** QR asset | Single QR (PNG + SVG) for the print vendor, print spec, scan testing on real stock |
 | **P2-9** SEO | Per-day metadata, JSON-LD, sitemap, canonicals |
 | **P2-10** Year rollover | Copy-forward to next year, edition management |
 
@@ -698,7 +741,7 @@ If this works, the content portal becomes the top of the funnel for the shop —
 |---|---|---|
 | **Q9** | YouTube videos **public or unlisted**? | **Public.** The channel becomes an audience and a search asset. Unlisted only if the content is meant as a buyer-exclusive perk — which is a business call, not a technical one. |
 | **Q10** | Which **year/edition** are we building content for first, and when does printing start? | This sets the real deadline. The readiness dashboard (§22.1) exists to serve it. |
-| **Q11** | **Per-day QR** (365 different codes) confirmed with the printer? | Yes — but confirm early. It changes the print file the vendor needs, and it is much cheaper to discover now than after artwork is approved. |
+| **Q11** | Does the **shop** (Phase 1) or the **daily content page** (Phase 2) own the site root on the production domain? | The domain is `dailycalendarstore.in` and the printed calendar is the mass-market artifact, so the content portal is the natural front door, with the shop at `/shop`. Worth a deliberate decision rather than a default. |
 | **Q12** | Reference **city for பஞ்சாங்கம்** timings? | Chennai, stated on the page. If they want multiple cities, that is a bigger data model — flag before assuming. |
 | **Q13** | Is the panchangam **supplied as content** or expected to be **computed**? | Supplied — Anna said *"content will get from them"*. Computing panchangam correctly is an astronomy project, not a feature. |
 | **Q14** | Are future days **viewable before their date**, or revealed daily? | Viewable once published. Draft/Published status already gives the control; a hard date-lock adds complexity for little gain. |
