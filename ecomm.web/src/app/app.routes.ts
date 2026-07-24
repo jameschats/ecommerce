@@ -83,6 +83,7 @@ export const routes: Routes = [
       { path: 'attributes', loadComponent: () => import('./features/admin/catalog/admin-attributes.component').then((m) => m.AdminAttributesComponent) },
       { path: 'inventory', loadComponent: () => import('./features/admin/inventory/admin-inventory.component').then((m) => m.AdminInventoryComponent) },
       { path: 'orders', loadComponent: () => import('./features/admin/orders/admin-orders.component').then((m) => m.AdminOrdersComponent) },
+      { path: 'payments', loadComponent: () => import('./features/admin/payments/admin-payments.component').then((m) => m.AdminPaymentsComponent) },
       { path: 'reviews', loadComponent: () => import('./features/admin/reviews/admin-reviews.component').then((m) => m.AdminReviewsComponent) },
       { path: 'coupons', loadComponent: () => import('./features/admin/coupons/admin-coupons.component').then((m) => m.AdminCouponsComponent) },
       { path: 'analytics', loadComponent: () => import('./features/admin/analytics/admin-analytics.component').then((m) => m.AdminAnalyticsComponent) },
