@@ -1,72 +1,80 @@
 # DailyCalendarShop — Deployment
 
-**Status:** Draft — the shape is right, the marked ⬜ values need filling in from the live server.
-**Scope:** deploying this project to **`daily.calendarshop.online`** on the **same VPS** that already runs the live `calendarshop.online`.
+**Status:** values confirmed against the live server (24 Jul 2026). One gap remains — §11.
+**Target:** `daily.calendarshop.online` on `62.72.59.84` (Hostinger VPS, Ubuntu 24.04.4, `srv1788459`).
 
 ---
 
 ## 0. The one rule
 
-> **`calendarshop.online` is live and belongs to a different project. Nothing in this document may touch it.**
+> **Two live sites already run on this box — `calendarshop.online` and `wavcommerce.online`. Nothing here may touch them.**
 
-Every path, port, service name and database below is deliberately distinct. Before running anything destructive, check which tree you are in. The paths differ by three characters (`ecomm` vs `dcs`) — that is thin, so the deploy script asserts its target rather than trusting the operator.
-
----
-
-## 1. Topology — two sites, one box
-
-⚠️ **There are three sites on this box**, not two: `wavcommerce.online`, `calendarshop.online`, and now this one. Port and service-name collisions are the main risk — run the discovery in §1.1 before choosing anything.
-
-⚠️ **Each site is two processes, not one.** The frontend is Angular **SSR** (`outputMode: "server"`), so besides the .NET API there is a **Node/Express process** (`server.ts`) rendering pages. Nginx proxies to it rather than serving a static `index.html` — the build produces no static index, only `index.csr.html` and `index.server.html`.
-
-| Resource | Live sites (**do not touch**) | `daily.calendarshop.online` (this project) |
-|---|---|---|
-| Database | `ecommerce`, ⬜ wavcommerce's | **`dailycalendarshop`** |
-| .NET API port | ⬜ discover | ⬜ **pick a free one** (e.g. 5082) |
-| Node SSR port | ⬜ discover | ⬜ **pick a free one** (e.g. 4002) |
-| API service | ⬜ discover | `dcs-api.service` |
-| SSR service | ⬜ discover | `dcs-ssr.service` |
-| API files | ⬜ discover | `/var/www/dcs/api` |
-| Web build | ⬜ discover | `/var/www/dcs/web` (contains `browser/` + `server/`) |
-| Uploads | `/var/www/ecomm/uploads` | `/var/www/dcs/uploads` |
-| Nginx site | ⬜ discover | `sites-available/dcs` |
-| TLS cert | existing | new, via certbot for the subdomain |
-
-**DNS:** an `A` record for `daily` → the VPS IP. The apex and `wavcommerce.online` records are untouched.
+Every path, port, service name and database below is distinct from theirs. The deploy script asserts its target rather than trusting the operator, because `/var/www/ecomm` and `/var/www/dailycal` are one careless tab-completion apart.
 
 ---
 
-## 1.1 Discovery — run this first, paste the output back
+## 1. What is already on the box
 
-Nothing below should be chosen until we know what is already taken. All read-only.
+Discovered, not assumed:
 
-```bash
-# --- what is listening, and which process owns it ---
-sudo ss -tlnp | sort -k4
+| | `ecomm` (CalendarShop) | `wavcomm` (WavCommerce) | `umami` |
+|---|---|---|---|
+| Domain | calendarshop.online | wavcommerce.online, `*.wavcommerce.online` | analytics.calendarshop.online |
+| .NET API | **5080** (127.0.0.1) | **5090** (127.0.0.1) | — |
+| Node SSR | **4000** | **4010** | — |
+| Docker | — | — | **3000** (127.0.0.1) |
+| Services | `ecomm-api`, `ecomm-ssr` | `wavcomm-api`, `wavcomm-ssr` | docker |
+| Root | `/var/www/ecomm` | `/var/www/wavcomm` | — |
+| Env file | `/etc/ecomm/api.env` | `/etc/wavcomm/api.env` | — |
+| Database | `ecommerce` | `wavcommerce` | — |
 
-# --- nginx: which hostnames, which upstreams, which roots ---
-ls -l /etc/nginx/sites-enabled/
-sudo grep -rnE "server_name|proxy_pass|root " /etc/nginx/sites-enabled/
+**Resources:** 7.8 GB RAM (5.5 GB available), 96 GB disk (88 GB free), .NET **9.0.17**, Node **v22.23.1**, nginx with certbot-managed TLS. A third stack fits comfortably.
 
-# --- services and the ports baked into them ---
-systemctl list-units --type=service --state=running | grep -Ei 'dotnet|node|api|ssr|ecomm|wav|calendar'
-sudo grep -rnE "ASPNETCORE_URLS|ExecStart|Environment|PORT" /etc/systemd/system/*.service
+**Conventions worth copying exactly:**
+- Ports step by **+10**: API `5080 → 5090 → 5100`, SSR `4000 → 4010 → 4020`.
+- Services are `<site>-api` / `<site>-ssr`, running as `www-data`.
+- API config comes from `EnvironmentFile=/etc/<site>/api.env` — **not** `appsettings.Production.json`.
+- SSR entry point is `/var/www/<site>/web/server/server.mjs`.
+- Nginx: a file in `sites-available/`, symlinked into `sites-enabled/`, proxying to `127.0.0.1:<port>`.
 
-# --- running processes and their working dirs ---
-ps -eo pid,user,args | grep -Ei 'dotnet|node' | grep -v grep
+---
 
-# --- databases already present ---
-mysql -u root -p -e "SHOW DATABASES;"
+## 2. Our slot
 
-# --- runtime + resources ---
-dotnet --list-runtimes; node -v; free -h; df -h /var/www
+| Resource | Value |
+|---|---|
+| Domain | `daily.calendarshop.online` |
+| .NET API port | **5100** |
+| Node SSR port | **4020** |
+| Services | `dailycal-api.service`, `dailycal-ssr.service` |
+| Root | `/var/www/dailycal/{api,web,uploads}` |
+| Env file | `/etc/dailycal/api.env` |
+| Database | `dailycalendarshop` |
+| DB user | `dailycal@localhost` (scoped to that one schema) |
+| Nginx | `sites-available/dailycal` |
+
+**DNS:** `A` record `daily.calendarshop.online → 62.72.59.84`. Add this **first** — certbot cannot issue a certificate until it resolves.
+
+---
+
+## 3. ⚠️ Finding: the SSR processes bind to all interfaces
+
+```
+LISTEN  *:4000    node   ecomm-ssr
+LISTEN  *:4010    node   wavcomm-ssr
 ```
 
-`free -h` matters: three .NET APIs plus three Node SSR processes on one VPS is six long-running runtimes. If the box is small, that is the constraint to find now rather than after deploying.
+Both listen on **every interface**, despite `Environment=HOST=127.0.0.1` in their unit files. The variable is ignored because Angular's generated `server.ts` calls `app.listen(port, callback)` with no host argument. The .NET APIs bind correctly to `127.0.0.1`; only the Node side is wrong.
+
+The firewall currently blocks external access to 4000/4010/5080/5090/3000 — verified from outside. So this is defence-in-depth, not an active breach. But it is one firewall rule away from exposing SSR directly, bypassing nginx's TLS, security headers and rate limiting.
+
+**Fixed in this repo** (`ecomm.web/src/server.ts`) — now `app.listen(port, process.env['HOST'] ?? '127.0.0.1', …)`. Our site will bind to loopback correctly.
+
+**Worth back-porting** to `ecomm` and `wavcomm` when either is next deployed. Not urgent, not ours to change unilaterally.
 
 ---
 
-## 2. ✅ Runtime configuration — the `sed` hazard is fixed
+## 4. Runtime configuration — the `sed` hazard is fixed
 
 [tech-debt.md](../tech-debt.md#L63-L66) flagged the old approach:
 
@@ -74,201 +82,200 @@ dotnet --list-runtimes; node -v; free -h; df -h /var/www
 
 With three sites on one box and frequent deploys that was a live hazard — a missed or mis-targeted `sed` points one site at another site's API, and fails *silently*.
 
-**Fixed.** `api.config.ts` now resolves its values at module load from `window.__APP_CONFIG__`, set by **`/config.js`** — a plain (non-module) script loaded from `index.html` before the Angular bundle:
+**Fixed.** `api.config.ts` now resolves its values at module load from `window.__APP_CONFIG__`, set by **`/config.js`** — a plain (non-module) script loaded from `index.html` before the Angular bundle.
 
-```js
-window.__APP_CONFIG__ = {
-  apiBaseUrl: 'https://daily.calendarshop.online/api',
-  siteUrl:    'https://daily.calendarshop.online',
-  umamiSrc: '', umamiWebsiteId: '', umamiDashboardUrl: '',
-};
-```
+**Why a synchronous global rather than an async `fetch('/config.json')`:** two services (`banner.service.ts`, `notification.service.ts`) derive `API_ORIGIN` from `API_BASE_URL` at **module top level**. An async loader resolves *after* those modules are evaluated, leaving them on the localhost default — the same silent bug in a new costume. A global that is already set when the bundle runs has no ordering problem, and none of the ~26 importing files needed to change.
 
-**Why a synchronous global rather than an async `fetch('/config.json')`:** two services (`banner.service.ts`, `notification.service.ts`) derive `API_ORIGIN` from `API_BASE_URL` at **module top level**. An async loader resolves *after* those modules are evaluated, leaving them holding the localhost default — the same silent-wrong-target bug in a new costume. A global that is already set when the bundle runs has no ordering problem, and none of the ~26 importing files needed to change.
-
-**It now fails loudly.** If the site is served from a non-localhost origin while `API_BASE_URL` still points at localhost, the app logs a console error *and* renders a red banner naming the problem. The failure this file exists to prevent is no longer silent.
+**It now fails loudly.** Served from a non-localhost origin while `API_BASE_URL` still points at localhost ⇒ console error *and* a red banner naming the problem.
 
 **Two places must agree:**
 
 | Runtime | Config source |
 |---|---|
-| Browser | `/config.js` in the web root |
-| **Node SSR** | **environment variables** on `dcs-ssr.service` — `API_BASE_URL`, `SITE_URL`, `UMAMI_*` |
+| Browser | `/config.js` in `/var/www/dailycal/web/browser/` |
+| Node SSR | environment variables on `dailycal-ssr.service` |
 
-`window` does not exist during SSR, so the same file falls back to `process.env`. **If the two disagree, server-rendered HTML and client hydration disagree** — wrong canonical URLs, and content that changes after load. Set both from the same values, in the same deploy step.
+`window` does not exist during SSR, so the same file falls back to `process.env`. **If the two disagree, server-rendered HTML and client hydration disagree** — wrong canonical URLs, content changing after load. Set both from the same values in the same deploy step.
 
-> `public/config.js` is committed with **development** defaults and is copied into every build. The deploy overwrites it on the server. Because `rsync --delete` would otherwise restore the dev copy, **writing `config.js` must come after the rsync** — see §6.
+> `public/config.js` is committed with **development** defaults and copied into every build. `rsync --delete` would restore that dev copy, so **config.js is written after the rsync** — see §8.
 
 ---
 
-## 3. One-time server setup
+## 5. One-time server setup
 
-Run once. Every command is scoped to the new tree.
+Paste as one block. Everything is scoped to the new tree.
 
 ```bash
-# 3.1 Directories
-sudo mkdir -p /var/www/dcs/{api,web,uploads}
-sudo chown -R www-data:www-data /var/www/dcs
+set -euo pipefail
 
-# 3.2 Database (server-side — the local dailycalendarshop DB does not travel)
-mysql -u root -p -e "CREATE DATABASE dailycalendarshop CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-# then apply migrations 001..029 in order (see §5)
+# 5.1 Directories
+mkdir -p /var/www/dailycal/{api,web,uploads}
+chown -R www-data:www-data /var/www/dailycal
 
-# 3.3 A dedicated DB user — do NOT reuse the live site's credentials
-mysql -u root -p -e "CREATE USER 'dcs'@'localhost' IDENTIFIED BY '<strong-password>'; \
-  GRANT ALL PRIVILEGES ON dailycalendarshop.* TO 'dcs'@'localhost'; FLUSH PRIVILEGES;"
+# 5.2 Database + a user scoped to this schema only
+mysql -u root -p <<'SQL'
+CREATE DATABASE IF NOT EXISTS dailycalendarshop
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'dailycal'@'localhost' IDENTIFIED BY 'CHANGE-ME-STRONG';
+GRANT ALL PRIVILEGES ON dailycalendarshop.* TO 'dailycal'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+
+# 5.3 API environment file (secrets live here, never in git)
+mkdir -p /etc/dailycal
+cat > /etc/dailycal/api.env <<'ENV'
+ASPNETCORE_ENVIRONMENT=Production
+ASPNETCORE_URLS=http://127.0.0.1:5100
+ConnectionStrings__Default=Server=localhost;Database=dailycalendarshop;Uid=dailycal;Pwd=CHANGE-ME-STRONG;CharSet=utf8mb4;
+Jwt__Key=CHANGE-ME-64-RANDOM-CHARS
+ENV
+chmod 600 /etc/dailycal/api.env
 ```
 
-**The DB user is scoped to one schema on purpose.** If this app is ever compromised or a migration is run against the wrong connection string, the grant is what stops it reaching the live `ecommerce` data.
+**The DB user is scoped to one schema deliberately.** If this app is compromised, or a migration is run against the wrong connection string, that grant is what stops it reaching live `ecommerce` or `wavcommerce` data.
 
-### 3.4 systemd — `/etc/systemd/system/dcs-api.service`
+**`utf8mb4_unicode_ci` matters** — Phase 2 stores Tamil (திருக்குறள், பஞ்சாங்கம்). Getting the collation wrong at creation is painful to correct later.
+
+### 5.4 `/etc/systemd/system/dailycal-api.service`
 ```ini
 [Unit]
-Description=DailyCalendarShop API
+Description=DailyCalendarShop .NET API
 After=network.target mysql.service
 
 [Service]
-WorkingDirectory=/var/www/dcs/api
-ExecStart=/usr/bin/dotnet /var/www/dcs/api/ecomm.api.dll
+WorkingDirectory=/var/www/dailycal/api
+ExecStart=/usr/bin/dotnet /var/www/dailycal/api/ecomm.api.dll
+EnvironmentFile=/etc/dailycal/api.env
 Restart=always
 RestartSec=10
 User=www-data
-Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://localhost:5081
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### 3.5 Nginx — `/etc/nginx/sites-available/dcs`
-```nginx
-server {
-    server_name daily.calendarshop.online;
-
-    # Keep the test site out of Google (§3.6)
-    add_header X-Robots-Tag "noindex, nofollow" always;
-
-    # Static build artefacts, served straight from disk
-    location /config.js { root /var/www/dcs/web/browser; expires -1; add_header Cache-Control "no-store"; }
-    location ~ ^/(favicon\.ico|robots\.txt)$ { root /var/www/dcs/web/browser; }
-    location /assets/ { root /var/www/dcs/web/browser; expires 30d; access_log off; }
-
-    # Uploads — served directly, never wiped by a deploy
-    location /uploads/ {
-        alias /var/www/dcs/uploads/;
-        expires 30d;
-        access_log off;
-    }
-
-    # API
-    location /api/ {
-        proxy_pass http://localhost:5082;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Everything else → Angular SSR (Node). NOT try_files/index.html —
-    # an SSR build emits no static index.html, only index.csr.html + index.server.html.
-    location / {
-        proxy_pass http://localhost:4002;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    client_max_body_size 25M;   # ZIP image uploads (§10.2 of design.md)
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/dcs /etc/nginx/sites-enabled/dcs
-sudo nginx -t          # ALWAYS. A bad config here takes the LIVE sites down too.
-sudo systemctl reload nginx
-sudo certbot --nginx -d daily.calendarshop.online
-```
-
-> `nginx -t` before every reload is not ceremony. Nginx is shared with two live sites — a syntax error in *our* file breaks *theirs* on reload.
-
-### 3.5b systemd — `/etc/systemd/system/dcs-ssr.service` (Angular SSR)
-
-The frontend is not static files; a Node process renders it.
-
+### 5.5 `/etc/systemd/system/dailycal-ssr.service`
 ```ini
 [Unit]
 Description=DailyCalendarShop Angular SSR
 After=network.target
 
 [Service]
-WorkingDirectory=/var/www/dcs/web
-ExecStart=/usr/bin/node /var/www/dcs/web/server/server.mjs
+WorkingDirectory=/var/www/dailycal/web
+ExecStart=/usr/bin/node /var/www/dailycal/web/server/server.mjs
+Environment=NODE_ENV=production
+Environment=PORT=4020
+Environment=HOST=127.0.0.1
+# Must match /config.js exactly — see §4
+Environment=API_BASE_URL=https://daily.calendarshop.online/api
+Environment=SITE_URL=https://daily.calendarshop.online
 Restart=always
 RestartSec=10
 User=www-data
-Environment=NODE_ENV=production
-Environment=PORT=4002
-# Must match /config.js exactly — see §2
-Environment=API_BASE_URL=https://daily.calendarshop.online/api
-Environment=SITE_URL=https://daily.calendarshop.online
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-⬜ Confirm the server entry filename after the first build (`ls /var/www/dcs/web/server/`) — Angular names it `server.mjs` in recent versions, but verify rather than assume.
-
-### 3.6 Keep the test site out of Google
-`daily.calendarshop.online` must serve `X-Robots-Tag: noindex` (and a disallow-all `robots.txt`). With 365 Phase-2 content pages, an indexed staging copy competes with the real site later. Add it to the nginx block now, while it is free.
-
----
-
-## 4. Secrets
-
-`appsettings.json` in the repo holds **dev placeholders only** and is committed. Production values (DB password, JWT key, Brevo SMTP password, MSG91 key, UPI details) must come from `appsettings.Production.json` **on the server, not in git**, or from environment variables in the systemd unit.
-
-The deploy must **never overwrite the server's `appsettings.Production.json`** — see the exclusion in §6.
-
----
-
-## 5. Database migrations
-
-Forward-only and numbered; each records itself in `__schema_migrations`.
-
 ```bash
-# Applied so far: 001–029 (base platform). Phase 1 adds 030, Phase 2 adds 031.
-for f in database/migrations/*.sql; do
-  mysql -u dcs -p dailycalendarshop < "$f"
-done
+systemctl daemon-reload
+systemctl enable --now dailycal-api dailycal-ssr
+systemctl status dailycal-api dailycal-ssr --no-pager
 ```
 
-Rules:
-- Always name the database explicitly. Never rely on a default.
-- Check `SELECT script_name FROM __schema_migrations` before and after.
-- **Never** edit an applied script — add a higher-numbered one.
+### 5.6 Nginx — `/etc/nginx/sites-available/dailycal`
+
+⬜ **Mirror the working `ecomm` config rather than this sketch** — see §11. Shape, from the discovered layout:
+
+```nginx
+server {
+    server_name daily.calendarshop.online;
+
+    # Testing domain — keep it out of Google (§5.7)
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    location /uploads/ {
+        alias /var/www/dailycal/uploads/;
+        expires 30d;
+        access_log off;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5100;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Everything else → Angular SSR. NOT try_files/index.html:
+    # an SSR build emits no static index.html, only index.csr.html + index.server.html.
+    location / {
+        proxy_pass http://127.0.0.1:4020;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    client_max_body_size 25M;   # ZIP image uploads (design.md §10.2)
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/dailycal /etc/nginx/sites-enabled/dailycal
+nginx -t                       # ALWAYS — see below
+systemctl reload nginx
+certbot --nginx -d daily.calendarshop.online
+```
+
+> `nginx -t` before every reload is not ceremony. **Nginx is shared with two live sites** — a syntax error in *our* file breaks *theirs* on reload.
+
+### 5.7 Keep the test domain out of Google
+The `X-Robots-Tag` above, plus a disallow-all `robots.txt`. With 365 Phase-2 content pages, an indexed staging copy competes with the real site later. Free now, expensive to undo.
 
 ---
 
-## 6. Deploy (the routine loop)
+## 6. Migrations
+
+```bash
+for f in database/migrations/*.sql; do
+  echo "==> $f"
+  mysql -u dailycal -p dailycalendarshop < "$f"
+done
+mysql -u dailycal -p dailycalendarshop -e "SELECT COUNT(*) FROM __schema_migrations;"   # expect 29
+```
+
+Forward-only and numbered; each records itself in `__schema_migrations`. Always name the database explicitly — never rely on a default. Never edit an applied script; add a higher-numbered one.
+
+---
+
+## 7. Secrets
+
+`appsettings.json` in the repo holds **dev placeholders only** and is committed. Production values live in `/etc/dailycal/api.env` (mode `600`, outside git): DB password, JWT key, Brevo SMTP password, MSG91 key, UPI details.
+
+The deploy never writes that file. Nothing secret goes in `config.js` — it is served to browsers.
+
+---
+
+## 8. Deploy (the routine loop)
 
 ```bash
 # --- build locally ---
 dotnet publish ecomm.api/ecomm.api.csproj -c Release -o ./publish/api
 cd ecomm.web && npm ci && npm run build && cd ..
-# build output: ecomm.web/dist/ecomm-web/{browser,server}
+# output: ecomm.web/dist/ecomm-web/{browser,server}
 
 # --- ship the API ---
+rsync -az --delete --exclude 'logs/' \
+      ./publish/api/  root@62.72.59.84:/var/www/dailycal/api/
+
+# --- ship the frontend: BOTH browser/ and server/ ---
 rsync -az --delete \
-      --exclude 'appsettings.Production.json' \
-      --exclude 'logs/' \
-      ./publish/api/   <user>@<host>:/var/www/dcs/api/
+      ./ecomm.web/dist/ecomm-web/  root@62.72.59.84:/var/www/dailycal/web/
 
-# --- ship the frontend: BOTH browser/ and server/ (SSR needs the server bundle) ---
-rsync -az --delete ./ecomm.web/dist/ecomm-web/  <user>@<host>:/var/www/dcs/web/
-
-# --- write runtime config AFTER rsync (rsync --delete would restore the dev copy) ---
-ssh <user>@<host> 'cat > /var/www/dcs/web/browser/config.js' <<"EOF"
+# --- write runtime config AFTER rsync (--delete would restore the dev copy) ---
+ssh root@62.72.59.84 'cat > /var/www/dailycal/web/browser/config.js' <<'EOF'
 window.__APP_CONFIG__ = {
   apiBaseUrl: 'https://daily.calendarshop.online/api',
   siteUrl:    'https://daily.calendarshop.online',
@@ -276,67 +283,62 @@ window.__APP_CONFIG__ = {
 };
 EOF
 
-# --- migrate, then restart BOTH services ---
-ssh <user>@<host> 'mysql -u dcs -p dailycalendarshop < /tmp/03X_new.sql'
-ssh <user>@<host> 'sudo systemctl restart dcs-api dcs-ssr && systemctl is-active dcs-api dcs-ssr'
+# --- restart BOTH services ---
+ssh root@62.72.59.84 'systemctl restart dailycal-api dailycal-ssr && \
+                      systemctl is-active dailycal-api dailycal-ssr'
 
 # --- verify ---
-curl -fsS https://daily.calendarshop.online/api/health/ready    # expect: Healthy
-curl -fsS https://daily.calendarshop.online/ | head -20         # expect server-rendered HTML
-curl -fsS https://daily.calendarshop.online/config.js           # expect the PROD values, not localhost
+curl -fsS https://daily.calendarshop.online/api/health/ready   # expect: Healthy
+curl -fsS https://daily.calendarshop.online/ | head -20        # expect server-rendered HTML
+curl -fsS https://daily.calendarshop.online/config.js          # expect PROD values, not localhost
+curl -sI https://calendarshop.online/ | head -1                # confirm the live site is untouched
 ```
 
-**`--delete` is the dangerous flag here.** It is correct for `web/` and `api/` (they should exactly match the build) and **catastrophic** if pointed at `uploads/` or anywhere under another site's tree. The script in §7 asserts its target for exactly this reason.
+**`--delete` is the dangerous flag.** Correct for `api/` and `web/` (they should exactly match the build), catastrophic if aimed at `uploads/` or another site's tree.
 
-**Do not forget `server/`.** The frontend deploy ships the whole `dist/ecomm-web/` directory, not just `browser/`. Copying only `browser/` leaves the SSR process running the previous build — the site keeps working, silently serving stale server-rendered pages, which is a genuinely confusing bug to chase.
+**Do not ship only `browser/`.** The whole `dist/ecomm-web/` goes, including `server/`. Copying just `browser/` leaves SSR running the previous build — the site keeps working while silently serving stale server-rendered pages, which is a genuinely confusing bug to chase.
 
 ---
 
-## 7. Deploy script — required behaviours
+## 9. Deploy script — required behaviours
 
-When written (⬜ TODO), `deploy-dcs.sh` must:
-1. **Assert its target** — refuse to run if the destination path is not under `/var/www/dcs/`. A guard clause, not a comment.
-2. **Never touch** `/var/www/dcs/uploads/`, `appsettings.Production.json`, or anything under `/var/www/ecomm/`.
+`deploy-dailycal.sh` (⬜ to write) must:
+1. **Assert its target** — refuse to run if any destination path is not under `/var/www/dailycal/`. A guard clause, not a comment.
+2. **Never touch** `/var/www/dailycal/uploads/`, `/etc/dailycal/api.env`, or anything under `/var/www/ecomm/` or `/var/www/wavcomm/`.
 3. **Run `nginx -t`** before any reload.
-4. **Health-check after restart** and exit non-zero if `/api/health/ready` is not `Healthy` — a deploy that reports success while the API is down is worse than one that fails loudly.
-5. **Print what it is about to do and to which host** before doing it.
+4. **Health-check after restart**, exiting non-zero if `/api/health/ready` is not `Healthy`. A deploy that reports success while the API is down is worse than one that fails loudly.
+5. **Print target host and paths** before acting.
 
 ---
 
-## 8. Rollback
+## 10. Rollback
 
-Keep the previous published API in `/var/www/dcs/api.prev` and the previous web build in `/var/www/dcs/web.prev`; rollback is a directory swap plus a service restart.
+Keep the previous build in `/var/www/dailycal/api.prev` and `web.prev`; rollback is a directory swap plus a restart.
 
-**Database migrations do not roll back** — they are forward-only by design. So a schema change and a code change should be deployed such that the *old code still works against the new schema* wherever possible (add columns before using them; drop columns a release later). This matters more once there is real order data.
+**Migrations do not roll back** — forward-only by design. So deploy schema and code such that old code still works against the new schema where possible (add columns before using them; drop a release later). This matters once real order data exists.
 
 ---
 
-## 9. First deploy — do it now, while the risk is zero
+## 11. ⬜ Remaining gap
 
-This branch currently differs from `main` only by a connection string and design documents. **There is no Phase 1 code yet.** That makes this the ideal moment to stand up the whole pipeline: DNS, nginx, TLS, systemd, database, deploy script and health check all get proven while a broken deploy costs nothing.
+**Need:** `cat /etc/nginx/sites-available/ecomm`
 
-Checklist:
-- [ ] DNS `A` record for `daily` → VPS
-- [ ] Directories + permissions (§3.1)
-- [ ] `dailycalendarshop` DB + scoped user, migrations 001–029 applied (§3.2, §5)
-- [ ] `appsettings.Production.json` on the server with real secrets (§4)
-- [ ] `dcs-api.service` running on 5081 (§3.4)
-- [ ] Nginx site + `nginx -t` + TLS (§3.5)
-- [ ] `noindex` on the test domain (§3.6)
-- [ ] `api.config.ts` runtime-config fix (§2)
-- [ ] `deploy-dcs.sh` with the guards in §7
+The grep showed its shape — API on 5080 across three locations, SSR on 4000, a `location = /sitemap.xml` proxied to the API, certbot's 443 block and an 80→443 redirect — but not the full directives. I would rather **mirror a config already proven in production** than ship my reconstruction of it. Once I have it, §5.6 gets replaced with the real thing and `deploy-dailycal.sh` follows.
+
+---
+
+## 12. First-deploy checklist
+
+There is no Phase 1 code yet — this branch differs from `main` only by a connection string and documents. **That makes now the ideal time to prove the pipeline, while a broken deploy costs nothing.**
+
+- [ ] DNS `A` record `daily` → `62.72.59.84`
+- [ ] Directories + ownership (§5.1)
+- [ ] DB + scoped user, migrations 001–029, count = 29 (§5.2, §6)
+- [ ] `/etc/dailycal/api.env` with real secrets, mode 600 (§5.3)
+- [ ] Both services enabled and active on 5100 / 4020 (§5.4, §5.5)
+- [ ] Nginx site + `nginx -t` + TLS (§5.6)
+- [ ] `noindex` confirmed (§5.7)
 - [ ] `/api/health/ready` returns `Healthy` over HTTPS
-- [ ] **Confirm `calendarshop.online` is still up and unchanged**
-
----
-
-## 10. ⬜ Needed from James
-
-| # | What | Why |
-|---|---|---|
-| 1 | SSH host / user — and whether I run the commands or hand you a script | Everything below the build step |
-| 2 | The current manual deploy steps for `calendarshop.online` | So the new script mirrors what already works, rather than inventing a second convention |
-| 3 | Existing API port + systemd unit name | To guarantee no collision (5081 is a proposal, not a checked fact) |
-| 4 | Existing nginx site filename | So we add a sibling, and never edit theirs |
-| 5 | Is `dotnet 9` runtime already installed on the box? | If yes, nothing to do; if it is SDK-only or older, one-time install |
-| 6 | Who owns DNS for `calendarshop.online` | To add the `daily` record |
+- [ ] `config.js` serves production values, not localhost
+- [ ] `ss -tlnp` shows SSR on **`127.0.0.1:4020`**, not `*:4020` (§3)
+- [ ] **`calendarshop.online` and `wavcommerce.online` still return 200**
