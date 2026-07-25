@@ -25,7 +25,7 @@ public sealed record ProductListItemDto(
     string Status, bool IsFeatured, string? PrimaryImageUrl, string CategoryName, string? BrandName, bool InStock);
 
 public sealed record ProductDetailDto(
-    long ProductId, string Sku, string Name, string Slug, string? ShortDescription, string? Description,
+    long ProductId, string Sku, string? DesignNo, string Name, string Slug, string? ShortDescription, string? Description,
     decimal Price, decimal? CompareAtPrice, decimal? CostPrice, string? HsnCode, string Status,
     bool IsFeatured, bool IsActive, long CategoryId, string CategoryName, long? BrandId, string? BrandName,
     int AvailableQty, bool InStock,
@@ -34,7 +34,7 @@ public sealed record ProductDetailDto(
     IReadOnlyList<ProductAttributeValueDto> Attributes);
 
 public sealed record SaveProductRequest(
-    string Sku, string Name, string? Slug, long CategoryId, long? BrandId, decimal Price,
+    string Sku, string? DesignNo, string Name, string? Slug, long CategoryId, long? BrandId, decimal Price,
     decimal? CompareAtPrice, decimal? CostPrice, string? ShortDescription, string? Description,
     string? HsnCode, string Status, bool IsFeatured, IReadOnlyList<ProductImageInput>? Images);
 

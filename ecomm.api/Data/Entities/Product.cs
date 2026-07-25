@@ -9,6 +9,14 @@ public class Product
     public long? BrandId { get; set; }
     public long? TaxRateId { get; set; }
     public string Sku { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Trade-facing design number — what the calendar business quotes and what image files
+    /// are named after. Distinct from <see cref="Sku"/>, which is the internal stock code.
+    /// Nullable: products predating the catalogue import have none, and the price list falls
+    /// back to SKU when it is blank.
+    /// </summary>
+    public string? DesignNo { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string? ShortDescription { get; set; }

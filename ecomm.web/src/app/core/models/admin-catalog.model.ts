@@ -28,6 +28,8 @@ export interface SaveBrandRequest {
 
 export interface SaveProductRequest {
   sku: string;
+  /** Trade-facing design number — what the price list shows and image files are named after. */
+  designNo?: string | null;
   name: string;
   slug?: string | null;
   categoryId: number;

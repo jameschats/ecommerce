@@ -1,6 +1,18 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
+import { API_BASE_URL } from '../../../core/api.config';
+import { ApiResponse } from '../../../core/models/api-response.model';
 import { ImportJobResult } from '../../../core/models/admin-catalog.model';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
+
+interface ZipImageResult {
+  filesInZip: number;
+  matched: number;
+  productsUpdated: number;
+  unmatched: string[];
+  skipped: string[];
+  productsWithoutImages: string[];
+}
 
 @Component({
   selector: 'app-admin-import',
@@ -49,11 +61,85 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
           </div>
         }
       </div>
+
+      <!-- Bulk product images, matched by Design No (design.md §10.2) -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <h2 class="font-medium text-slate-800 mb-2">Product images (ZIP)</h2>
+        <p class="text-sm text-slate-500">
+          Name each file after its <strong>Design No</strong>. For several images of one design,
+          add <code>-1</code>, <code>-2</code>, <code>-3</code> — the lowest number becomes the main image.
+        </p>
+        <pre class="mt-2 mb-3 text-xs bg-slate-50 border border-slate-200 rounded p-3 text-slate-600">DESK-1.jpg          one image for design DESK-1
+DESK-1-1.jpg        first image  (main)
+DESK-1-2.jpg        second image
+DESK-1-3.jpg        third image</pre>
+        <p class="text-xs text-slate-500 mb-3">
+          Accepts .jpg, .jpeg, .png and .webp. Matching ignores case. Files that match no design
+          number are listed back to you, never discarded silently.
+        </p>
+
+        <input type="file" accept=".zip" (change)="onZip($event)" class="block text-sm mb-3" />
+
+        <label class="flex items-center gap-2 text-sm text-slate-700 mb-3">
+          <input type="checkbox" [checked]="replaceExisting()" (change)="replaceExisting.set($any($event.target).checked)" class="w-4 h-4" />
+          Replace existing images on the designs in this ZIP
+        </label>
+
+        <button type="button" (click)="uploadZip()" [disabled]="!zipFile || zipUploading()" class="btn-primary">
+          {{ zipUploading() ? 'Uploading…' : 'Upload images' }}
+        </button>
+
+        @if (zipResult(); as z) {
+          <div class="mt-5 border-t border-slate-100 pt-4 text-sm space-y-2">
+            <p>
+              <span class="font-medium text-emerald-700">{{ z.matched }}</span> image(s) attached to
+              <span class="font-medium">{{ z.productsUpdated }}</span> design(s), from {{ z.filesInZip }} file(s).
+            </p>
+
+            @if (z.unmatched.length) {
+              <details class="rounded border border-amber-200 bg-amber-50 px-3 py-2">
+                <summary class="cursor-pointer text-amber-900 font-medium">
+                  {{ z.unmatched.length }} file(s) matched no design number
+                </summary>
+                <ul class="mt-2 text-amber-900 font-mono text-xs space-y-0.5">
+                  @for (u of z.unmatched; track u) { <li>{{ u }}</li> }
+                </ul>
+              </details>
+            }
+
+            @if (z.skipped.length) {
+              <details class="rounded border border-slate-200 px-3 py-2">
+                <summary class="cursor-pointer text-slate-700 font-medium">{{ z.skipped.length }} file(s) skipped</summary>
+                <ul class="mt-2 text-slate-600 text-xs space-y-0.5">
+                  @for (s of z.skipped; track s) { <li>{{ s }}</li> }
+                </ul>
+              </details>
+            }
+
+            @if (z.productsWithoutImages.length) {
+              <details class="rounded border border-slate-200 px-3 py-2">
+                <summary class="cursor-pointer text-slate-700 font-medium">
+                  {{ z.productsWithoutImages.length }} design(s) still have no image
+                </summary>
+                <ul class="mt-2 text-slate-600 font-mono text-xs space-y-0.5">
+                  @for (p of z.productsWithoutImages; track p) { <li>{{ p }}</li> }
+                </ul>
+              </details>
+            }
+          </div>
+        }
+      </div>
     </div>
   `,
 })
 export class AdminImportComponent {
   private readonly api = inject(AdminCatalogService);
+  private readonly http = inject(HttpClient);
+
+  readonly zipUploading = signal(false);
+  readonly zipResult = signal<ZipImageResult | null>(null);
+  readonly replaceExisting = signal(true);
+  zipFile: File | null = null;
 
   readonly uploading = signal(false);
   readonly result = signal<ImportJobResult | null>(null);
@@ -73,6 +159,39 @@ export class AdminImportComponent {
       next: (r) => { this.result.set(r); this.uploading.set(false); },
       error: (e) => { this.error.set(e?.error?.message ?? 'Import failed.'); this.uploading.set(false); },
     });
+  }
+
+  // --- bulk product images by Design No ---
+
+  onZip(event: Event): void {
+    this.zipFile = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.zipResult.set(null);
+  }
+
+  uploadZip(): void {
+    if (!this.zipFile || this.zipUploading()) return;
+    this.zipUploading.set(true);
+    this.error.set(null);
+    this.zipResult.set(null);
+
+    const form = new FormData();
+    form.append('file', this.zipFile);
+
+    this.http
+      .post<ApiResponse<ZipImageResult>>(
+        `${API_BASE_URL}/admin/products/images/zip?replaceExisting=${this.replaceExisting()}`,
+        form,
+      )
+      .subscribe({
+        next: (r) => {
+          this.zipResult.set(r.data ?? null);
+          this.zipUploading.set(false);
+        },
+        error: (e) => {
+          this.error.set(e?.error?.message ?? 'Image upload failed.');
+          this.zipUploading.set(false);
+        },
+      });
   }
 
   exportProducts(): void {

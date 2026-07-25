@@ -60,7 +60,7 @@ export class AdminProductFormComponent implements OnInit {
 
   private blank(): SaveProductRequest {
     return {
-      sku: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
+      sku: '', designNo: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
       shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false, images: [],
     };
   }
@@ -74,7 +74,7 @@ export class AdminProductFormComponent implements OnInit {
     this.api.getProduct(id).subscribe({
       next: (p: ProductDetail) => {
         this.form = {
-          sku: p.sku, name: p.name, categoryId: p.categoryId, brandId: p.brandId,
+          sku: p.sku, designNo: p.designNo ?? '', name: p.name, categoryId: p.categoryId, brandId: p.brandId,
           price: p.price, compareAtPrice: p.compareAtPrice, costPrice: p.costPrice,
           shortDescription: p.shortDescription, description: p.description, hsnCode: p.hsnCode,
           status: p.status, isFeatured: p.isFeatured,

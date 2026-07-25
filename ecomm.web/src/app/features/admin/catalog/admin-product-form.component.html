@@ -14,6 +14,13 @@
     <div class="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
       <div class="grid sm:grid-cols-2 gap-4">
         <div><label class="lbl">SKU</label><input [(ngModel)]="form.sku" class="input" /></div>
+        <div>
+          <label class="lbl">Design No</label>
+          <input [(ngModel)]="form.designNo" class="input" placeholder="Shown on the price list" />
+          <span class="text-xs text-slate-500 mt-1 block">
+            Name image files after this. Falls back to SKU if left blank.
+          </span>
+        </div>
         <div><label class="lbl">Name</label><input [(ngModel)]="form.name" class="input" /></div>
         <div>
           <label class="lbl">Category</label>

@@ -67,6 +67,8 @@ export interface ProductListItem {
 export interface ProductDetail {
   productId: number;
   sku: string;
+  /** Trade-facing design number. Distinct from SKU; blank on pre-import products. */
+  designNo?: string | null;
   name: string;
   slug: string;
   shortDescription: string | null;

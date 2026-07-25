@@ -43,7 +43,9 @@ public sealed class ProductService : IProductService
             .Select(p => new
             {
                 p.ProductId,
-                p.Sku,
+                // Design No is what the price list shows; SKU is the fallback for products
+                // that predate the catalogue import and have no design number yet.
+                Sku = p.DesignNo != null && p.DesignNo != "" ? p.DesignNo : p.Sku,
                 p.Name,
                 p.Price,
                 p.CompareAtPrice,
@@ -217,6 +219,7 @@ public sealed class ProductService : IProductService
 
         var now = DateTime.UtcNow;
         product.Sku = sku;
+        product.DesignNo = string.IsNullOrWhiteSpace(req.DesignNo) ? null : req.DesignNo.Trim();
         product.Name = req.Name.Trim();
         product.Slug = await UniqueSlugAsync(req.Slug ?? req.Name, id, ct);
         product.CategoryId = req.CategoryId;
@@ -259,7 +262,7 @@ public sealed class ProductService : IProductService
 
     private static Task<ProductDetailDto?> Project(IQueryable<Product> q, CancellationToken ct) =>
         q.Select(p => new ProductDetailDto(
-            p.ProductId, p.Sku, p.Name, p.Slug, p.ShortDescription, p.Description,
+            p.ProductId, p.Sku, p.DesignNo, p.Name, p.Slug, p.ShortDescription, p.Description,
             p.Price, p.CompareAtPrice, p.CostPrice, p.HsnCode, p.Status, p.IsFeatured, p.IsActive,
             p.CategoryId, p.Category!.Name, p.BrandId, p.Brand != null ? p.Brand.Name : null,
             p.InventoryRecords.Sum(i => i.AvailableQty), p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
