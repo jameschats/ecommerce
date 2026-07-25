@@ -37,6 +37,7 @@ interface ShopSettings {
   faviconUrl: string;
   siteName: string;
   siteNameAccent: string;
+  siteNameSize: string;
   logoUrl: string;
   footerLogoUrl: string;
   stateMinOrders: StateMinOrderRow[];
@@ -160,15 +161,37 @@ interface ShopSettings {
                 <input class="form-input flex-1" [(ngModel)]="m.siteName" placeholder="e.g. Calendar" />
                 <input class="form-input flex-1" [(ngModel)]="m.siteNameAccent" placeholder="Highlighted, e.g. Shop" />
               </div>
-              <!-- Live preview: the two boxes join with no space, and the second takes the
-                   theme's primary colour — easier to trust than a sentence describing it. -->
+              <!-- Live preview: the two boxes join with no space, the second takes the theme's
+                   primary colour, and it renders at the chosen size — easier to trust than a
+                   sentence describing it. -->
               @if (m.siteName || m.siteNameAccent) {
-                <span class="mt-2 block font-bold text-xl">{{ m.siteName }}<span class="text-primary">{{ m.siteNameAccent }}</span></span>
+                <span class="mt-2 block font-bold text-xl" [style.fontSize]="m.siteNameSize ? m.siteNameSize + 'rem' : null">
+                  {{ m.siteName }}<span class="text-primary">{{ m.siteNameAccent }}</span>
+                </span>
               }
               <span class="text-xs text-slate-500 mt-1 block">
                 Shown beside the logo in the header, in the footer and in the copyright line.
                 The second box is joined on with no space and drawn in your primary colour —
                 leave it blank for a single-colour name.
+              </span>
+
+              <!-- Size of the wordmark only, not the rest of the site. Kept here rather than
+                   on the Theme page because it is part of the name, and you want to see it
+                   against the name you just typed. -->
+              <span class="form-label mt-4 block">Name size</span>
+              <div class="flex flex-wrap gap-2">
+                @for (s of nameSizes; track s.value) {
+                  <button type="button" (click)="m.siteNameSize = s.value"
+                          class="px-3 py-1.5 rounded-lg border text-sm transition"
+                          [class]="(m.siteNameSize || '1.25') === s.value
+                            ? 'border-primary bg-primary/5 text-slate-900 font-medium'
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'">
+                    {{ s.label }}
+                  </button>
+                }
+              </div>
+              <span class="text-xs text-slate-500 mt-1 block">
+                Applies to the name in the header and footer only.
               </span>
             </label>
 
@@ -399,6 +422,15 @@ export class AdminShopSettingsComponent {
   readonly testOk = signal(false);
 
   /** Which image field is mid-upload, so only that button reads "Uploading…". */
+  /** Wordmark sizes in rem. 1.25 is text-xl, what the header used before this existed. */
+  readonly nameSizes = [
+    { value: '1.125', label: 'Small' },
+    { value: '1.25',  label: 'Default' },
+    { value: '1.5',   label: 'Large' },
+    { value: '1.75',  label: 'Extra large' },
+    { value: '2',     label: 'Huge' },
+  ];
+
   readonly uploading = signal<'faviconUrl' | 'logoUrl' | 'footerLogoUrl' | null>(null);
   readonly uploadError = signal<string | null>(null);
 

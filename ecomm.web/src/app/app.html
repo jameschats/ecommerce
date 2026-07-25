@@ -17,7 +17,8 @@
         @if (siteName() || siteNameAccent()) {
           <!-- Two-tone like the built-in mark: the accent is a separate setting because a
                single name string carries no split point to colour from. -->
-          <span class="font-bold text-xl">{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
+          <!-- text-xl is the default; the binding only overrides it once a size is chosen. -->
+          <span class="font-bold text-xl" [style.fontSize]="siteNameSize()">{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
         } @else if (!logoUrl()) {
           <!-- Unconfigured: the built-in two-tone wordmark, exactly as before. -->
           <span class="font-bold text-xl">Calendar<span class="text-primary">Shop</span></span>
@@ -131,7 +132,7 @@
         <a routerLink="/" class="flex items-center gap-2.5 font-bold text-xl text-white">
           @if (footerLogoUrl()) { <img [src]="footerLogoUrl()" [alt]="fullSiteName()" class="h-9 max-h-9 w-auto object-contain" /> }
           @if (siteName() || siteNameAccent()) {
-            <span>{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
+            <span [style.fontSize]="siteNameSize()">{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
           } @else if (!footerLogoUrl()) {
             <span>Calendar<span class="text-primary">Shop</span></span>
           }

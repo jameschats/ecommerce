@@ -19,7 +19,7 @@ public sealed record ShopSettingsDto(
     string EmailMode, string SmtpHost, int SmtpPort, string SmtpUsername,
     bool SmtpPasswordSet, string FromAddress, string FromName, string AdminNotifyTo,
     // Site identity — browser tab plus the storefront name and header logo
-    string BrowserTitle, string FaviconUrl, string SiteName, string SiteNameAccent,
+    string BrowserTitle, string FaviconUrl, string SiteName, string SiteNameAccent, string SiteNameSize,
     string LogoUrl, string FooterLogoUrl,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
@@ -36,7 +36,7 @@ public sealed record SaveShopSettingsRequest(
     /// receives it, so echoing an empty box back would silently wipe it.</summary>
     string? SmtpPassword,
     string? FromAddress, string? FromName, string? AdminNotifyTo,
-    string? BrowserTitle, string? FaviconUrl, string? SiteName, string? SiteNameAccent,
+    string? BrowserTitle, string? FaviconUrl, string? SiteName, string? SiteNameAccent, string? SiteNameSize,
     string? LogoUrl, string? FooterLogoUrl,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
 
@@ -94,6 +94,7 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Site.FaviconUrl"),
             Str(s, "Site.Name"),
             Str(s, "Site.NameAccent"),
+            Str(s, "Site.NameSize"),
             Str(s, "Site.LogoUrl"),
             Str(s, "Site.FooterLogoUrl"),
             states)));
@@ -137,6 +138,7 @@ public sealed class ShopSettingsController : ControllerBase
         await SetAsync("Site.FaviconUrl", req.FaviconUrl?.Trim() ?? "", ct);
         await SetAsync("Site.Name", req.SiteName?.Trim() ?? "", ct);
         await SetAsync("Site.NameAccent", req.SiteNameAccent?.Trim() ?? "", ct);
+        await SetAsync("Site.NameSize", req.SiteNameSize?.Trim() ?? "", ct);
         await SetAsync("Site.LogoUrl", req.LogoUrl?.Trim() ?? "", ct);
         await SetAsync("Site.FooterLogoUrl", req.FooterLogoUrl?.Trim() ?? "", ct);
 

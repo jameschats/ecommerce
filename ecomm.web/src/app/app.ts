@@ -46,6 +46,7 @@ export class App implements OnInit {
   readonly siteNameAccent = this.branding.siteNameAccent;
   readonly logoUrl = this.branding.logoUrl;
   readonly footerLogoUrl = this.branding.footerLogoUrl;
+  readonly siteNameSize = this.branding.siteNameSize;
 
   /** The two halves as one plain string, for alt text and the copyright line. */
   readonly fullSiteName = computed(() => `${this.siteName()}${this.siteNameAccent()}` || 'CalendarShop');

@@ -11,6 +11,7 @@ export interface SiteBranding {
   faviconUrl: string;
   siteName: string;
   siteNameAccent: string;
+  siteNameSize: string;
   logoUrl: string;
   footerLogoUrl: string;
   announcementText: string;
@@ -18,7 +19,7 @@ export interface SiteBranding {
 }
 
 const EMPTY: SiteBranding = {
-  browserTitle: '', faviconUrl: '', siteName: '', siteNameAccent: '',
+  browserTitle: '', faviconUrl: '', siteName: '', siteNameAccent: '', siteNameSize: '',
   logoUrl: '', footerLogoUrl: '',
   announcementText: '', priceValidUpto: '',
 };
@@ -63,6 +64,13 @@ export class BrandingService {
   readonly footerLogoUrl = signal('');
 
   /**
+   * Wordmark font size as a CSS length, or null to keep the built-in text-xl. How big the
+   * name wants to be depends on the name itself and on whether a logo sits beside it, so
+   * it is a setting rather than a fixed class.
+   */
+  readonly siteNameSize = signal<string | null>(null);
+
+  /**
    * Header announcement. Reuses the QuickOrder.AnnouncementText setting that already
    * existed in admin but was never displayed anywhere, with the price-validity date
    * appended so the two read as one sentence.
@@ -86,6 +94,11 @@ export class BrandingService {
   private apply(b: SiteBranding): void {
     this.siteName.set(b.siteName?.trim() ?? '');
     this.siteNameAccent.set(b.siteNameAccent?.trim() ?? '');
+
+    // Guard the range: this is written straight into a style binding, and a stray value
+    // would otherwise leave the header unreadable with no way to see why.
+    const size = Number(b.siteNameSize);
+    this.siteNameSize.set(Number.isFinite(size) && size >= 0.75 && size <= 3 ? `${size}rem` : null);
     this.logoUrl.set(b.logoUrl?.trim() ?? '');
     // Blank means "reuse the header logo", so every shop configured before this existed
     // keeps rendering exactly as it did.

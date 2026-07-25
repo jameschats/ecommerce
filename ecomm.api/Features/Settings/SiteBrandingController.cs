@@ -10,6 +10,8 @@ public sealed record SiteBrandingDto(
     string BrowserTitle, string FaviconUrl, string SiteName, string LogoUrl,
     /// <summary>Tail of the wordmark shown in the primary colour, concatenated onto SiteName.</summary>
     string SiteNameAccent,
+    /// <summary>Wordmark font size in rem. Empty keeps the built-in 1.25rem.</summary>
+    string SiteNameSize,
     /// <summary>Logo for the dark footer. Empty means reuse LogoUrl.</summary>
     string FooterLogoUrl,
     /// <summary>Header announcement — seasonal booking notices, price validity and the like.</summary>
@@ -38,6 +40,7 @@ public sealed class SiteBrandingController : ControllerBase
             .Where(s => s.SettingKey == "Site.BrowserTitle" || s.SettingKey == "Site.FaviconUrl"
                      || s.SettingKey == "Site.Name" || s.SettingKey == "Site.LogoUrl"
                      || s.SettingKey == "Site.NameAccent" || s.SettingKey == "Site.FooterLogoUrl"
+                     || s.SettingKey == "Site.NameSize"
                      || s.SettingKey == "QuickOrder.AnnouncementText"
                      || s.SettingKey == "QuickOrder.PriceValidUpto")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
@@ -50,6 +53,7 @@ public sealed class SiteBrandingController : ControllerBase
             Get("Site.Name"),
             Get("Site.LogoUrl"),
             Get("Site.NameAccent"),
+            Get("Site.NameSize"),
             Get("Site.FooterLogoUrl"),
             Get("QuickOrder.AnnouncementText"),
             Get("QuickOrder.PriceValidUpto"))));
