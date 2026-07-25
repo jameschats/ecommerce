@@ -10,7 +10,9 @@ import { NotificationService } from '../../core/services/notification.service';
   selector: 'app-notifications-page',
   imports: [DatePipe],
   template: `
-    <div class="max-w-2xl">
+    <!-- Centred: this page is shared by the customer account and the admin shell, and the
+         admin content area is far wider, which left the card stranded against the left edge. -->
+    <div class="max-w-3xl mx-auto">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold text-slate-800">Notifications</h2>
         <div class="flex items-center gap-3">
