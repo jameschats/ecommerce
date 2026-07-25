@@ -113,10 +113,9 @@
             <th class="px-3 py-2.5 font-semibold w-[70px]">Image</th>
             <th class="px-3 py-2.5 font-semibold w-[110px]">Design No</th>
             <th class="px-3 py-2.5 font-semibold">Product</th>
-            <th class="px-3 py-2.5 font-semibold w-[120px]">Content</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[90px]">MRP</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[80px]">Disc %</th>
-            <th class="px-3 py-2.5 font-semibold text-right w-[100px]">Our Price</th>
+            <th class="px-3 py-2.5 font-semibold text-right w-[120px]">Discounted Price</th>
             <th class="px-3 py-2.5 font-semibold text-center w-[110px]">Quantity</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[110px]">Total</th>
           </tr>
@@ -125,7 +124,7 @@
         @for (band of bands(); track trackBand($index, band); let bandIndex = $index) {
           <tbody>
             <tr>
-              <td colspan="9" class="p-0">
+              <td colspan="8" class="p-0">
                 <button type="button" (click)="toggleBand(band)"
                         class="w-full flex items-center gap-2 bg-primary text-white px-4 py-2 text-left font-semibold tracking-wide uppercase text-[13px]">
                   <span class="text-white/80 text-xs">{{ isCollapsed(band) ? '▸' : '▾' }}</span>
@@ -162,7 +161,6 @@
                       </span>
                     }
                   </td>
-                  <td class="px-3 py-2 text-slate-600">{{ item.content || '—' }}</td>
                   <td class="px-3 py-2 text-right text-slate-400">
                     @if (item.compareAtPrice) {
                       <span class="line-through">{{ item.compareAtPrice | number: '1.0-0' }}</span>
@@ -232,7 +230,6 @@
                     <p class="font-medium text-slate-800 leading-snug">{{ item.name }}</p>
                     <p class="text-xs text-slate-500 mt-0.5">
                       <span class="font-mono">{{ item.sku }}</span>
-                      @if (item.content) { <span> · {{ item.content }}</span> }
                     </p>
                     <div class="mt-1.5 flex items-center gap-2">
                       @if (item.compareAtPrice) {
