@@ -64,12 +64,14 @@ public sealed class OrderMailer : IOrderMailer
             {
                 var adminBody = Wrap($@"
 <h2 style=""margin:0 0 4px"">New order {order.OrderNumber}</h2>
-<p style=""margin:0 0 16px;color:#475569"">{order.TotalAmount:C0} · {items.Count} line(s)</p>
+<p style=""margin:0 0 16px;color:#475569"">₹{order.TotalAmount:N0} · {items.Count} line(s)</p>
 {ItemsTable(items, order)}
 <h3 style=""margin:20px 0 6px;font-size:15px"">Delivery details</h3>
 <pre style=""margin:0;font:13px/1.6 ui-monospace,monospace;white-space:pre-wrap;color:#334155"">{System.Net.WebUtility.HtmlEncode(order.Notes)}</pre>");
 
-                await _email.SendAsync(adminTo!, $"New order {order.OrderNumber} — {order.TotalAmount:C0}", adminBody, ct);
+                // ₹ written literally, not via :C — the server runs invariant culture, so
+                // :C0 renders the generic currency sign ¤ rather than a rupee symbol.
+                await _email.SendAsync(adminTo!, $"New order {order.OrderNumber} — ₹{order.TotalAmount:N0}", adminBody, ct);
             }
         }
         catch (Exception ex)

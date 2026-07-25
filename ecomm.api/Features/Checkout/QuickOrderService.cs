@@ -229,6 +229,8 @@ public sealed class QuickOrderService : IQuickOrderService
             }
         }
 
+        await SyncProfileAndAddressAsync(userId, req, mobile, now, ct);
+
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -238,6 +240,73 @@ public sealed class QuickOrderService : IQuickOrderService
         await _mailer.SendOrderPlacedAsync(order.OrderId, req.Email, ct);
 
         return new PlaceQuickOrderResult(order.OrderId, order.OrderNumber, order.TotalAmount, order.Status);
+    }
+
+    /// <summary>
+    /// Copies what the order form told us into the customer's profile and address book.
+    ///
+    /// A mobile-OTP account is created with nothing but a phone number, so "My account"
+    /// sits empty even though the buyer has just typed their name, email and address into
+    /// the order form. This fills those in.
+    ///
+    /// Blanks only — never overwrite something the customer has set themselves. A dealer
+    /// ordering on behalf of a shop may put the shop's name on the order, and that should
+    /// not silently rename their account.
+    /// </summary>
+    private async Task SyncProfileAndAddressAsync(
+        long userId, PlaceQuickOrderRequest req, string mobile, DateTime now, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId, ct);
+        if (user is null) return;
+
+        var name = req.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(user.FullName) && !string.IsNullOrWhiteSpace(name))
+            user.FullName = name;
+
+        var email = req.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrWhiteSpace(email) && email.Contains('@'))
+        {
+            user.Email = email;
+            user.NormalizedEmail = email.ToUpperInvariant();
+            // Deliberately NOT marked verified: they typed it into a form, they did not
+            // prove they can receive mail at it. Only an OTP against that address does.
+        }
+
+        if (string.IsNullOrWhiteSpace(user.PhoneNumber)) user.PhoneNumber = mobile;
+        user.UpdatedAt = now;
+
+        // Save the delivery address, unless the same one is already on file. Re-ordering
+        // every week should not leave a customer with fifty identical address rows.
+        var line1 = req.Address?.Trim() ?? string.Empty;
+        var city = req.City?.Trim() ?? string.Empty;
+        var state = req.State?.Trim() ?? string.Empty;
+        if (line1.Length == 0) return;
+
+        var exists = await _db.CustomerAddresses.AnyAsync(
+            a => a.UserId == userId && !a.IsDeleted
+                 && a.Line1 == line1 && a.City == city && a.State == state, ct);
+        if (exists) return;
+
+        var isFirst = !await _db.CustomerAddresses.AnyAsync(a => a.UserId == userId && !a.IsDeleted, ct);
+
+        _db.CustomerAddresses.Add(new CustomerAddress
+        {
+            TenantId = Tenant,
+            UserId = userId,
+            Label = "Delivery",
+            RecipientName = name,
+            Phone = mobile,
+            Line1 = line1,
+            City = city,
+            State = state,
+            // Phase 1 ships by transport to the buyer's city, so no pincode is collected
+            // (design.md §14.3). The column is non-null, hence the empty string.
+            Pincode = string.Empty,
+            Country = "India",
+            AddressType = "Both",
+            IsDefault = isFirst,
+            CreatedAt = now,
+        });
     }
 
     /// <summary>
