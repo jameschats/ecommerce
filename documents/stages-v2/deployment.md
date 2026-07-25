@@ -130,6 +130,7 @@ ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://127.0.0.1:5100
 ConnectionStrings__Default=Server=localhost;Database=dailycalendarshop;Uid=dailycal;Pwd=CHANGE-ME-STRONG;CharSet=utf8mb4;
 Jwt__Key=CHANGE-ME-64-RANDOM-CHARS
+Media__PublicBaseUrl=https://daily.calendarshop.online
 ENV
 chmod 600 /etc/dailycal/api.env
 ```
@@ -137,6 +138,8 @@ chmod 600 /etc/dailycal/api.env
 **The DB user is scoped to one schema deliberately.** If this app is compromised, or a migration is run against the wrong connection string, that grant is what stops it reaching live `ecommerce` or `wavcommerce` data.
 
 **`utf8mb4_unicode_ci` matters** — Phase 2 stores Tamil (திருக்குறள், பஞ்சாங்கம்). Getting the collation wrong at creation is painful to correct later.
+
+> ⚠️ **`Media__PublicBaseUrl` is not optional.** `appsettings.json` ships `http://localhost:5080`, which is right for development and silently wrong in production: uploaded images get absolute `localhost` URLs, which resolve to *the visitor's own machine*. Nothing errors — the admin sees the image because they uploaded it, and every customer sees a broken one. Set it per environment, and update it when the site moves to its production domain.
 
 ### 5.4 `/etc/systemd/system/dailycal-api.service`
 ```ini
