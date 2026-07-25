@@ -18,6 +18,8 @@ public sealed record ShopSettingsDto(
     // Email (Brevo SMTP)
     string EmailMode, string SmtpHost, int SmtpPort, string SmtpUsername,
     bool SmtpPasswordSet, string FromAddress, string FromName, string AdminNotifyTo,
+    // Browser tab
+    string BrowserTitle, string FaviconUrl,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
 
@@ -33,6 +35,7 @@ public sealed record SaveShopSettingsRequest(
     /// receives it, so echoing an empty box back would silently wipe it.</summary>
     string? SmtpPassword,
     string? FromAddress, string? FromName, string? AdminNotifyTo,
+    string? BrowserTitle, string? FaviconUrl,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
 
 public sealed record SendTestEmailRequest(string To);
@@ -85,6 +88,8 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Email.FromAddress"),
             Str(s, "Email.FromName"),
             Str(s, "Email.AdminNotifyTo"),
+            Str(s, "Site.BrowserTitle"),
+            Str(s, "Site.FaviconUrl"),
             states)));
     }
 
@@ -121,6 +126,9 @@ public sealed class ShopSettingsController : ControllerBase
         // it, so treating a blank field as "clear it" would wipe the key on every save.
         if (!string.IsNullOrWhiteSpace(req.SmtpPassword))
             await SetAsync("Email.SmtpPassword", req.SmtpPassword.Trim(), ct);
+
+        await SetAsync("Site.BrowserTitle", req.BrowserTitle?.Trim() ?? "", ct);
+        await SetAsync("Site.FaviconUrl", req.FaviconUrl?.Trim() ?? "", ct);
 
         // Per-state overrides are replaced wholesale — the admin screen always sends the
         // complete list, so a row removed there must disappear here.
@@ -168,6 +176,7 @@ public sealed class ShopSettingsController : ControllerBase
             .Where(x => x.SettingKey.StartsWith("QuickOrder.")
                      || x.SettingKey.StartsWith("Payment.")
                      || x.SettingKey.StartsWith("Email.")
+                     || x.SettingKey.StartsWith("Site.")
                      || x.SettingKey == "Channels.EmailMode")
             .ToDictionaryAsync(x => x.SettingKey, x => x.SettingValue, ct);
 

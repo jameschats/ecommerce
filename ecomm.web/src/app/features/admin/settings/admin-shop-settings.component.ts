@@ -33,6 +33,8 @@ interface ShopSettings {
   fromAddress: string;
   fromName: string;
   adminNotifyTo: string;
+  browserTitle: string;
+  faviconUrl: string;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -135,6 +137,46 @@ interface ShopSettings {
             <span class="form-label">Prices valid up to</span>
             <input class="form-input" [(ngModel)]="m.priceValidUpto" placeholder="e.g. 31 July 2026" />
           </label>
+        </section>
+
+        <!-- ------------------------------ browser tab ------------------------------ -->
+        <section class="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
+          <h2 class="font-semibold text-slate-900">Browser tab</h2>
+          <p class="text-sm text-slate-500 mt-0.5">
+            The title and icon shown on the browser tab. Leave blank to keep the built-in defaults.
+          </p>
+
+          <div class="grid sm:grid-cols-2 gap-4 mt-4">
+            <label class="block">
+              <span class="form-label">Tab title</span>
+              <input class="form-input" [(ngModel)]="m.browserTitle" placeholder="e.g. DailyCalendarShop" />
+            </label>
+
+            <div>
+              <span class="form-label">Favicon</span>
+              <div class="flex items-center gap-3">
+                <span class="w-10 h-10 shrink-0 rounded border border-slate-200 bg-slate-50 grid place-items-center overflow-hidden">
+                  @if (m.faviconUrl) {
+                    <img [src]="m.faviconUrl" alt="Favicon preview" class="w-8 h-8 object-contain" />
+                  } @else {
+                    <span class="text-slate-300 text-xs">none</span>
+                  }
+                </span>
+                <input class="form-input flex-1" [(ngModel)]="m.faviconUrl" placeholder="Paste a URL, or upload →" />
+                <label class="shrink-0 cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-sm
+                              font-medium px-4 py-2.5 rounded-lg transition">
+                  {{ uploading() ? 'Uploading…' : 'Upload' }}
+                  <input type="file" accept="image/png,image/x-icon,image/svg+xml,image/jpeg"
+                         class="hidden" (change)="uploadFavicon($event, m)" />
+                </label>
+              </div>
+              <span class="text-xs text-slate-500 mt-1 block">
+                A square PNG works best — 32×32 or 64×64. Changes appear after a refresh;
+                browsers cache favicons aggressively, so use a hard refresh if it looks stale.
+              </span>
+              @if (uploadError()) { <span class="text-xs text-red-600 mt-1 block">{{ uploadError() }}</span> }
+            </div>
+          </div>
         </section>
 
         <!-- ------------------------------ email (Brevo) ------------------------------ -->
@@ -274,6 +316,9 @@ export class AdminShopSettingsComponent {
   readonly testResult = signal<string | null>(null);
   readonly testOk = signal(false);
 
+  readonly uploading = signal(false);
+  readonly uploadError = signal<string | null>(null);
+
   constructor() {
     this.http.get<ApiResponse<ShopSettings>>(this.url).subscribe({
       next: (r) => {
@@ -313,6 +358,35 @@ export class AdminShopSettingsComponent {
       error: (e) => {
         this.saving.set(false);
         this.error.set(e?.error?.message ?? 'Could not save settings.');
+      },
+    });
+  }
+
+  uploadFavicon(event: Event, m: ShopSettings): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.uploading.set(true);
+    this.uploadError.set(null);
+
+    const form = new FormData();
+    form.append('file', file);
+
+    this.http.post<ApiResponse<{ url: string }>>(`${API_BASE_URL}/media`, form).subscribe({
+      next: (r) => {
+        this.uploading.set(false);
+        if (r.data?.url) {
+          m.faviconUrl = r.data.url;
+          this.model.set({ ...m });
+        }
+        // Clear the input so re-selecting the same file fires change again.
+        input.value = '';
+      },
+      error: (e) => {
+        this.uploading.set(false);
+        this.uploadError.set(e?.error?.message ?? 'Upload failed.');
+        input.value = '';
       },
     });
   }

@@ -6,6 +6,7 @@ import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
 import { QuickOrderService } from './core/services/quick-order.service';
+import { BrandingService } from './core/services/branding.service';
 import { CatalogService } from './core/services/catalog.service';
 import { ThemeService } from './core/services/theme.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
@@ -36,6 +37,8 @@ export class App implements OnInit {
    * having a separate CartService-backed header cart introduced.
    */
   readonly estimateCount = inject(QuickOrderService).lineCount;
+
+  private readonly branding = inject(BrandingService);
   readonly displayName = computed(() => {
     const u = this.user();
     return u?.fullName || u?.email || u?.phoneNumber || 'Account';
@@ -54,6 +57,9 @@ export class App implements OnInit {
   ngOnInit(): void {
     this.webAnalytics.init();
     this.theme.load().subscribe();
+    // Tab title and favicon, configured from admin. Loaded here so it applies during SSR
+    // and the correct title is in the server-rendered HTML.
+    this.branding.load().subscribe();
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
 
     this.isAdminRoute.set(this.router.url.startsWith('/admin'));
