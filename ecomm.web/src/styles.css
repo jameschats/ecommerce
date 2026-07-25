@@ -87,31 +87,34 @@
 .menu-item:hover { background: rgb(248 250 252); }
 
 /*
- * Header announcement. Applied only when the text genuinely overflows its space —
- * see App.marqueeOverflows. Short notices stay still, which reads far better.
+ * Header announcement — a continuously scrolling notice.
+ *
+ * Two identical copies sit side by side, each forced to at least the strip's width by
+ * min-width. Both slide left by exactly their own width, so the second copy lands where
+ * the first began and the loop never shows a gap, whatever the length of the notice.
+ * Duration is set per-element from the measured width (App.marqueeSeconds) to hold a
+ * constant reading speed.
  */
 @keyframes announce-scroll {
   from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  to   { transform: translateX(-100%); }
 }
-.marquee {
-  display: inline-block;
+.marquee-group {
   animation: announce-scroll 24s linear infinite;
   will-change: transform;
 }
 /* Pause on hover so a passing notice can actually be read. */
-.marquee:hover { animation-play-state: paused; }
+.marquee-box:hover .marquee-group { animation-play-state: paused; }
 
 /* Moving text is a genuine accessibility problem for some readers, so honour the
    system preference and simply truncate instead. */
 @media (prefers-reduced-motion: reduce) {
-  .marquee {
+  .marquee-group {
     animation: none;
-    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .marquee > span { display: none; }
+  .marquee-group ~ .marquee-group { display: none; }
 }
 
 /* Primary navigation (Home / Order Now / About Us / Contact Us) */

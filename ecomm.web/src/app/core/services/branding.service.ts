@@ -10,13 +10,16 @@ export interface SiteBranding {
   browserTitle: string;
   faviconUrl: string;
   siteName: string;
+  siteNameAccent: string;
   logoUrl: string;
+  footerLogoUrl: string;
   announcementText: string;
   priceValidUpto: string;
 }
 
 const EMPTY: SiteBranding = {
-  browserTitle: '', faviconUrl: '', siteName: '', logoUrl: '',
+  browserTitle: '', faviconUrl: '', siteName: '', siteNameAccent: '',
+  logoUrl: '', footerLogoUrl: '',
   announcementText: '', priceValidUpto: '',
 };
 
@@ -46,6 +49,20 @@ export class BrandingService {
   readonly logoUrl = signal('');
 
   /**
+   * Tail of the wordmark drawn in the primary colour, joined to siteName with no separator.
+   * The built-in mark was two-tone ("Calendar" + "Shop"); a single configurable string has
+   * no split point, so the accent lives in its own setting rather than being guessed.
+   */
+  readonly siteNameAccent = signal('');
+
+  /**
+   * Logo for the dark footer, falling back to the header one. The header sits on white and
+   * the footer on slate-900, so a single image cannot suit both: remove the white plate that
+   * makes it a box in the footer, and dark artwork vanishes there instead.
+   */
+  readonly footerLogoUrl = signal('');
+
+  /**
    * Header announcement. Reuses the QuickOrder.AnnouncementText setting that already
    * existed in admin but was never displayed anywhere, with the price-validity date
    * appended so the two read as one sentence.
@@ -68,7 +85,11 @@ export class BrandingService {
 
   private apply(b: SiteBranding): void {
     this.siteName.set(b.siteName?.trim() ?? '');
+    this.siteNameAccent.set(b.siteNameAccent?.trim() ?? '');
     this.logoUrl.set(b.logoUrl?.trim() ?? '');
+    // Blank means "reuse the header logo", so every shop configured before this existed
+    // keeps rendering exactly as it did.
+    this.footerLogoUrl.set(b.footerLogoUrl?.trim() || (b.logoUrl?.trim() ?? ''));
 
     const parts = [b.announcementText?.trim(), b.priceValidUpto?.trim() ? `Prices valid up to ${b.priceValidUpto.trim()}` : '']
       .filter((p) => p);

@@ -8,6 +8,10 @@ namespace ecomm.api.Features.Settings;
 
 public sealed record SiteBrandingDto(
     string BrowserTitle, string FaviconUrl, string SiteName, string LogoUrl,
+    /// <summary>Tail of the wordmark shown in the primary colour, concatenated onto SiteName.</summary>
+    string SiteNameAccent,
+    /// <summary>Logo for the dark footer. Empty means reuse LogoUrl.</summary>
+    string FooterLogoUrl,
     /// <summary>Header announcement — seasonal booking notices, price validity and the like.</summary>
     string AnnouncementText, string PriceValidUpto);
 
@@ -33,6 +37,7 @@ public sealed class SiteBrandingController : ControllerBase
         var rows = await _db.Settings
             .Where(s => s.SettingKey == "Site.BrowserTitle" || s.SettingKey == "Site.FaviconUrl"
                      || s.SettingKey == "Site.Name" || s.SettingKey == "Site.LogoUrl"
+                     || s.SettingKey == "Site.NameAccent" || s.SettingKey == "Site.FooterLogoUrl"
                      || s.SettingKey == "QuickOrder.AnnouncementText"
                      || s.SettingKey == "QuickOrder.PriceValidUpto")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
@@ -44,6 +49,8 @@ public sealed class SiteBrandingController : ControllerBase
             Get("Site.FaviconUrl"),
             Get("Site.Name"),
             Get("Site.LogoUrl"),
+            Get("Site.NameAccent"),
+            Get("Site.FooterLogoUrl"),
             Get("QuickOrder.AnnouncementText"),
             Get("QuickOrder.PriceValidUpto"))));
     }

@@ -43,29 +43,29 @@ export class App implements OnInit {
 
   /** Header and footer wordmark, configured in admin → Shop & payment settings. */
   readonly siteName = this.branding.siteName;
+  readonly siteNameAccent = this.branding.siteNameAccent;
   readonly logoUrl = this.branding.logoUrl;
+  readonly footerLogoUrl = this.branding.footerLogoUrl;
+
+  /** The two halves as one plain string, for alt text and the copyright line. */
+  readonly fullSiteName = computed(() => `${this.siteName()}${this.siteNameAccent()}` || 'CalendarShop');
   readonly announcement = this.branding.announcement;
 
-  private readonly announceBox = viewChild<ElementRef<HTMLElement>>('announceBox');
   private readonly announceText = viewChild<ElementRef<HTMLElement>>('announceText');
 
   /**
-   * True only when the announcement is wider than the space available.
-   *
-   * A marquee that scrolls regardless is harder to read than static text and adds motion
-   * for no gain, so short notices simply sit still. Measured after render rather than
-   * guessed from character count, because the available width depends on the viewport
-   * and on how long the shop's name is.
+   * How long one full pass of the announcement takes. Derived from the measured width so
+   * the text always moves at the same reading speed — a fixed duration would crawl for a
+   * short notice and race for a long one.
    */
-  readonly marqueeOverflows = signal(false);
+  readonly marqueeSeconds = signal(24);
 
   private measureAnnouncement(): void {
-    const box = this.announceBox()?.nativeElement;
     const text = this.announceText()?.nativeElement;
-    if (!box || !text) return;
-    // Compare against the first copy only; once duplicated for looping, scrollWidth
-    // would always exceed the box and the answer would stick at true.
-    this.marqueeOverflows.set(text.scrollWidth > box.clientWidth + 4);
+    if (!text) return;
+    // ~60px per second reads comfortably; clamped so neither extreme becomes silly.
+    const seconds = text.offsetWidth / 60;
+    this.marqueeSeconds.set(Math.min(60, Math.max(12, Math.round(seconds))));
   }
 
   /**

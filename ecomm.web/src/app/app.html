@@ -11,9 +11,11 @@
     <div class="page-container flex items-center gap-4 h-14">
       <a routerLink="/" class="flex items-center gap-2.5 shrink-0">
         <!-- max-h-9 keeps the logo inside the 56px row, so --header-h stays 100px. -->
-        @if (logoUrl()) { <img [src]="logoUrl()" [alt]="siteName() || 'CalendarShop'" class="h-9 max-h-9 w-auto object-contain" /> }
-        @if (siteName()) {
-          <span class="font-bold text-xl">{{ siteName() }}</span>
+        @if (logoUrl()) { <img [src]="logoUrl()" [alt]="fullSiteName()" class="h-9 max-h-9 w-auto object-contain" /> }
+        @if (siteName() || siteNameAccent()) {
+          <!-- Two-tone like the built-in mark: the accent is a separate setting because a
+               single name string carries no split point to colour from. -->
+          <span class="font-bold text-xl">{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
         } @else if (!logoUrl()) {
           <!-- Unconfigured: the built-in two-tone wordmark, exactly as before. -->
           <span class="font-bold text-xl">Calendar<span class="text-primary">Shop</span></span>
@@ -21,22 +23,29 @@
       </a>
 
       <!--
-        Announcement, filling the space the search box used to occupy. Scrolls only when
-        the text is genuinely too long for the space (see marqueeOverflows) — a permanent
-        marquee on a short notice is just noise, and hard to read for no reason.
+        Announcement, filling the space the search box used to occupy. Always scrolls, so
+        the strip reads as a live notice rather than another line of header furniture.
+        Two copies, each at least as wide as the strip, make the loop seamless at any
+        length; the megaphone stays put while the text moves past it.
       -->
       @if (announcement()) {
-        <div #announceBox class="hidden md:flex flex-1 min-w-0 overflow-hidden mx-4"
+        <div class="hidden md:flex flex-1 min-w-0 items-center gap-2.5 mx-4"
              role="status" [attr.aria-label]="announcement()">
-          <p #announceText
-             class="whitespace-nowrap text-sm font-medium text-slate-600"
-             [class.marquee]="marqueeOverflows()">
-            {{ announcement() }}
-            @if (marqueeOverflows()) {
-              <!-- Second copy so the loop is seamless rather than snapping back. -->
-              <span class="pl-16" aria-hidden="true">{{ announcement() }}</span>
-            }
-          </p>
+          <span class="shrink-0 grid place-items-center w-7 h-7 rounded-full bg-primary/10 text-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z"/>
+              <path d="M15 8.5a4 4 0 0 1 0 7"/>
+              <path d="M18.5 6a7.5 7.5 0 0 1 0 12"/>
+            </svg>
+          </span>
+          <div class="marquee-box flex flex-1 min-w-0 overflow-hidden">
+            <p #announceText class="marquee-group shrink-0 min-w-full pr-16 whitespace-nowrap text-sm font-medium text-slate-700"
+               [style.animationDuration]="marqueeSeconds() + 's'">{{ announcement() }}</p>
+            <!-- Second copy so the loop is seamless rather than snapping back. -->
+            <p class="marquee-group shrink-0 min-w-full pr-16 whitespace-nowrap text-sm font-medium text-slate-700"
+               [style.animationDuration]="marqueeSeconds() + 's'" aria-hidden="true">{{ announcement() }}</p>
+          </div>
         </div>
       }
 
@@ -113,13 +122,15 @@
   <footer class="bg-slate-900 text-slate-300 mt-12">
     <div class="page-container py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
       <div class="col-span-2 md:col-span-1">
-        <!-- Same setting as the header — a rebrand that changed only one of the two would
-             read as a half-finished deploy. -->
+        <!-- Same name as the header — a rebrand that changed only one of the two would read
+             as a half-finished deploy. The logo is its own setting though: this strip is
+             slate-900, so it usually needs a light version of the mark. Falls back to the
+             header logo when none is set. -->
         <a routerLink="/" class="flex items-center gap-2.5 font-bold text-xl text-white">
-          @if (logoUrl()) { <img [src]="logoUrl()" [alt]="siteName() || 'CalendarShop'" class="h-9 max-h-9 w-auto object-contain" /> }
-          @if (siteName()) {
-            <span>{{ siteName() }}</span>
-          } @else if (!logoUrl()) {
+          @if (footerLogoUrl()) { <img [src]="footerLogoUrl()" [alt]="fullSiteName()" class="h-9 max-h-9 w-auto object-contain" /> }
+          @if (siteName() || siteNameAccent()) {
+            <span>{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
+          } @else if (!footerLogoUrl()) {
             <span>Calendar<span class="text-primary">Shop</span></span>
           }
         </a>
@@ -165,7 +176,7 @@
 
     <div class="border-t border-slate-800">
       <div class="page-container py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-        <p>© {{ year }} {{ siteName() || 'CalendarShop' }}. All rights reserved.</p>
+        <p>© {{ year }} {{ fullSiteName() }}. All rights reserved.</p>
         <div class="flex gap-4">
           <a href="#" class="hover:text-white">Privacy Policy</a>
           <a href="#" class="hover:text-white">Terms of Service</a>

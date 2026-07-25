@@ -36,7 +36,9 @@ interface ShopSettings {
   browserTitle: string;
   faviconUrl: string;
   siteName: string;
+  siteNameAccent: string;
   logoUrl: string;
+  footerLogoUrl: string;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -154,9 +156,19 @@ interface ShopSettings {
           <div class="grid sm:grid-cols-2 gap-4 mt-4">
             <label class="block">
               <span class="form-label">Site name</span>
-              <input class="form-input" [(ngModel)]="m.siteName" placeholder="e.g. CalendarShop" />
+              <div class="flex items-center gap-2">
+                <input class="form-input flex-1" [(ngModel)]="m.siteName" placeholder="e.g. Calendar" />
+                <input class="form-input flex-1" [(ngModel)]="m.siteNameAccent" placeholder="Highlighted, e.g. Shop" />
+              </div>
+              <!-- Live preview: the two boxes join with no space, and the second takes the
+                   theme's primary colour — easier to trust than a sentence describing it. -->
+              @if (m.siteName || m.siteNameAccent) {
+                <span class="mt-2 block font-bold text-xl">{{ m.siteName }}<span class="text-primary">{{ m.siteNameAccent }}</span></span>
+              }
               <span class="text-xs text-slate-500 mt-1 block">
                 Shown beside the logo in the header, in the footer and in the copyright line.
+                The second box is joined on with no space and drawn in your primary colour —
+                leave it blank for a single-colour name.
               </span>
             </label>
 
@@ -179,8 +191,36 @@ interface ShopSettings {
                 </label>
               </div>
               <span class="text-xs text-slate-500 mt-1 block">
-                Sits before the name. Rendered 36px tall, so a wide transparent PNG works best.
-                Set a logo and leave the name blank to show the logo on its own.
+                Sits before the name on the white header. Rendered 36px tall, so a wide
+                transparent PNG works best. Set a logo and leave the name blank to show the
+                logo on its own.
+              </span>
+            </div>
+
+            <div>
+              <span class="form-label">Footer logo</span>
+              <!-- Previewed on the real footer colour. A mark that looks right on the white
+                   swatch above can be invisible here, which is the whole reason this is a
+                   separate setting. -->
+              <div class="flex items-center gap-3">
+                <span class="w-16 h-10 shrink-0 rounded border border-slate-700 bg-slate-900 grid place-items-center overflow-hidden">
+                  @if (m.footerLogoUrl || m.logoUrl) {
+                    <img [src]="m.footerLogoUrl || m.logoUrl" alt="Footer logo preview" class="max-w-full max-h-full object-contain" />
+                  } @else {
+                    <span class="text-slate-500 text-xs">none</span>
+                  }
+                </span>
+                <input class="form-input flex-1" [(ngModel)]="m.footerLogoUrl" placeholder="Blank = reuse header logo" />
+                <label class="shrink-0 cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-sm
+                              font-medium px-4 py-2.5 rounded-lg transition">
+                  {{ uploading() === 'footerLogoUrl' ? 'Uploading…' : 'Upload' }}
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+                         class="hidden" (change)="uploadImage($event, m, 'footerLogoUrl')" />
+                </label>
+              </div>
+              <span class="text-xs text-slate-500 mt-1 block">
+                The footer is dark, so a light or white version of the mark usually reads
+                best. Leave blank to reuse the header logo.
               </span>
             </div>
 
@@ -359,7 +399,7 @@ export class AdminShopSettingsComponent {
   readonly testOk = signal(false);
 
   /** Which image field is mid-upload, so only that button reads "Uploading…". */
-  readonly uploading = signal<'faviconUrl' | 'logoUrl' | null>(null);
+  readonly uploading = signal<'faviconUrl' | 'logoUrl' | 'footerLogoUrl' | null>(null);
   readonly uploadError = signal<string | null>(null);
 
   constructor() {
@@ -405,7 +445,7 @@ export class AdminShopSettingsComponent {
     });
   }
 
-  uploadImage(event: Event, m: ShopSettings, field: 'faviconUrl' | 'logoUrl'): void {
+  uploadImage(event: Event, m: ShopSettings, field: 'faviconUrl' | 'logoUrl' | 'footerLogoUrl'): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
