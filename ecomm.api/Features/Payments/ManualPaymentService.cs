@@ -107,12 +107,20 @@ public sealed class ManualPaymentService : IManualPaymentService
             _db.Payments.Add(payment);
         }
 
-        // The buyer *claims* payment; only an admin confirms it. Reporting never changes
-        // the order status — otherwise anyone could mark their own order paid.
         payment.ReferenceNumber = req.ReferenceNumber.Trim();
         payment.ProofImageUrl = req.ProofImageUrl;
         payment.ReportedAt = now;
         payment.Status = "Reported";
+
+        // Move the ORDER to PaymentReported too (design.md §8: PendingPayment →
+        // PaymentReported → Paid). Recording this only on the payment row left the admin
+        // order list unable to tell "waiting for the buyer to pay" from "buyer says they
+        // paid, needs checking" — which is the one distinction that queue exists to make.
+        //
+        // This is still only a claim: PaymentReported is not a paid state, it grants
+        // nothing, and only an admin confirmation moves it to Paid.
+        order.Status = "PaymentReported";
+        order.UpdatedAt = now;
 
         await _db.SaveChangesAsync(ct);
         return await GetDetailsAsync(orderId, userId, isAdmin: false, ct);

@@ -59,7 +59,7 @@ public sealed class AdminPaymentsController : ControllerBase
     public async Task<IActionResult> Pending(CancellationToken ct)
     {
         var rows = await _db.Orders
-            .Where(o => o.TenantId == 1 && o.Status == "Pending")
+            .Where(o => o.TenantId == 1 && (o.Status == "Pending" || o.Status == "PaymentReported"))
             .GroupJoin(_db.Payments, o => o.OrderId, p => p.OrderId, (o, ps) => new { o, ps })
             .SelectMany(x => x.ps.OrderByDescending(p => p.PaymentId).Take(1).DefaultIfEmpty(),
                 (x, p) => new PendingPaymentDto(
@@ -83,7 +83,10 @@ public sealed class AdminPaymentsController : ControllerBase
     /// committed (reserved → gone), which is the point of no return for that inventory.
     /// </summary>
     [HttpPost("{orderId:long}/confirm")]
-    public async Task<IActionResult> Confirm(long orderId, CancellationToken ct)
+    public async Task<IActionResult> Confirm(
+        long orderId,
+        [FromServices] Notifications.IOrderMailer mailer,
+        CancellationToken ct)
     {
         var adminId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : (long?)null;
 
@@ -132,6 +135,8 @@ public sealed class AdminPaymentsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+
+        await mailer.SendPaymentConfirmedAsync(orderId, ct);
 
         return Ok(ApiResponse<object>.Ok(new { orderId, status = order.Status }, "Payment confirmed."));
     }

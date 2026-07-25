@@ -29,14 +29,22 @@ public sealed class OtpService : IOtpService
     private readonly IPasswordHasher _hasher;
     private readonly ISmsSender _sms;
     private readonly INotificationService _notify;
+    private readonly IEmailSender _email;
     private readonly ILogger<OtpService> _logger;
 
-    public OtpService(EcommerceDbContext db, IPasswordHasher hasher, ISmsSender sms, INotificationService notify, ILogger<OtpService> logger)
+    public OtpService(
+        EcommerceDbContext db,
+        IPasswordHasher hasher,
+        ISmsSender sms,
+        INotificationService notify,
+        IEmailSender email,
+        ILogger<OtpService> logger)
     {
         _db = db;
         _hasher = hasher;
         _sms = sms;
         _notify = notify;
+        _email = email;
         _logger = logger;
     }
 
@@ -84,6 +92,25 @@ public sealed class OtpService : IOtpService
         if (channel == "SMS")
         {
             await _sms.SendAsync(identifier, message, ct);
+        }
+        else if (channel == "Email" && !EmailTemplates.ContainsKey(purpose))
+        {
+            // Purposes without a template — Login, chiefly — still have to be delivered.
+            // This previously fell through to the log-only branch below, so email OTP login
+            // silently never sent anything even with the channel Live: the code appeared in
+            // the server log and nowhere else.
+            await _email.SendAsync(
+                identifier,
+                $"{code} is your verification code",
+                $@"<div style=""font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:460px;
+                        margin:0 auto;padding:24px;color:#0f172a;line-height:1.55"">
+                     <p style=""margin:0 0 8px"">Your verification code is</p>
+                     <p style=""margin:0 0 16px;font-size:34px;font-weight:700;letter-spacing:6px"">{code}</p>
+                     <p style=""margin:0;color:#64748b;font-size:13px"">
+                       It expires in {ExpiryMinutes} minutes. If you did not request it, ignore this email.
+                     </p>
+                   </div>",
+                ct);
         }
         else if (channel == "Email" && EmailTemplates.TryGetValue(purpose, out var templateCode))
         {

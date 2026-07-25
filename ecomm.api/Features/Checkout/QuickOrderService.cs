@@ -34,8 +34,13 @@ public sealed class QuickOrderService : IQuickOrderService
     ];
 
     private readonly EcommerceDbContext _db;
+    private readonly Notifications.IOrderMailer _mailer;
 
-    public QuickOrderService(EcommerceDbContext db) => _db = db;
+    public QuickOrderService(EcommerceDbContext db, Notifications.IOrderMailer mailer)
+    {
+        _db = db;
+        _mailer = mailer;
+    }
 
     public async Task<QuickOrderConfigDto> GetConfigAsync(CancellationToken ct = default)
     {
@@ -226,6 +231,11 @@ public sealed class QuickOrderService : IQuickOrderService
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+
+        // After the commit, deliberately: the order exists whether or not the email goes
+        // out, and the mailer swallows its own failures so a mail problem can never fail
+        // an order the buyer has already been charged for in their own mind.
+        await _mailer.SendOrderPlacedAsync(order.OrderId, req.Email, ct);
 
         return new PlaceQuickOrderResult(order.OrderId, order.OrderNumber, order.TotalAmount, order.Status);
     }
