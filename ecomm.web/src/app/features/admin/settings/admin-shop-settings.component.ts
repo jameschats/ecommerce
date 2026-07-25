@@ -174,12 +174,12 @@ interface ShopSettings {
                 <label class="shrink-0 cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-sm
                               font-medium px-4 py-2.5 rounded-lg transition">
                   {{ uploading() === 'logoUrl' ? 'Uploading…' : 'Upload' }}
-                  <input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif"
                          class="hidden" (change)="uploadImage($event, m, 'logoUrl')" />
                 </label>
               </div>
               <span class="text-xs text-slate-500 mt-1 block">
-                Sits before the name. Rendered 36px tall, so a wide transparent PNG or SVG works best.
+                Sits before the name. Rendered 36px tall, so a wide transparent PNG works best.
                 Set a logo and leave the name blank to show the logo on its own.
               </span>
             </div>
@@ -203,7 +203,7 @@ interface ShopSettings {
                 <label class="shrink-0 cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-sm
                               font-medium px-4 py-2.5 rounded-lg transition">
                   {{ uploading() === 'faviconUrl' ? 'Uploading…' : 'Upload' }}
-                  <input type="file" accept="image/png,image/x-icon,image/svg+xml,image/jpeg"
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif"
                          class="hidden" (change)="uploadImage($event, m, 'faviconUrl')" />
                 </label>
               </div>
@@ -416,7 +416,7 @@ export class AdminShopSettingsComponent {
     const form = new FormData();
     form.append('file', file);
 
-    this.http.post<ApiResponse<{ url: string }>>(`${API_BASE_URL}/media`, form).subscribe({
+    this.http.post<ApiResponse<{ url: string }>>(`${API_BASE_URL}/admin/media`, form).subscribe({
       next: (r) => {
         this.uploading.set(null);
         if (r.data?.url) {

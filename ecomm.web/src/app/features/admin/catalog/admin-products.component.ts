@@ -154,7 +154,7 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
                   </td>
                 </tr>
               }
-              @if ((result()?.items?.length ?? 0) === 0) { <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No products found.</td></tr> }
+              @if ((result()?.items?.length ?? 0) === 0) { <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">No products found.</td></tr> }
             </tbody>
           </table>
         }

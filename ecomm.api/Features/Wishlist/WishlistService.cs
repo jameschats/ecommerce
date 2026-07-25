@@ -27,7 +27,7 @@ public sealed class WishlistService : IWishlistService
             .OrderByDescending(w => w.WishlistItemId)
             .Join(_db.Products.Where(p => !p.IsDeleted && p.IsActive), w => w.ProductId, p => p.ProductId, (w, p) => p)
             .Select(p => new ProductListItemDto(
-                p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
+                p.ProductId, p.Sku, p.DesignNo, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
                 p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
                 p.Category!.Name,
                 p.Brand != null ? p.Brand.Name : null,
