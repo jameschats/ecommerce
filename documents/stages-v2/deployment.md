@@ -141,6 +141,13 @@ chmod 600 /etc/dailycal/api.env
 
 > ⚠️ **`Media__PublicBaseUrl` is not optional.** `appsettings.json` ships `http://localhost:5080`, which is right for development and silently wrong in production: uploaded images get absolute `localhost` URLs, which resolve to *the visitor's own machine*. Nothing errors — the admin sees the image because they uploaded it, and every customer sees a broken one. Set it per environment, and update it when the site moves to its production domain.
 
+> ⚠️ **`Media__UploadPath` must be an absolute path outside the deploy tree.** It defaults to the relative `uploads`, which resolves against the API's content root — `/var/www/dailycal/api/uploads`. Two things go wrong:
+>
+> 1. **Nginx serves `/var/www/dailycal/uploads/`**, so every uploaded image 404s.
+> 2. **`api/` is the directory the deploy script swaps**, so *every deploy silently destroys every uploaded image.* The image rows survive in the database, pointing at files that no longer exist.
+>
+> Setting `Media__UploadPath=/var/www/dailycal/uploads` fixes both — `LocalDiskStorage` honours a rooted path. The uploads directory is a sibling of `api/` and `web/` precisely so the deploy never touches it.
+
 ### 5.4 `/etc/systemd/system/dailycal-api.service`
 ```ini
 [Unit]
