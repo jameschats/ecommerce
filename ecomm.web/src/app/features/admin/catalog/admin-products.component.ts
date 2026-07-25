@@ -1,5 +1,5 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { PagedResult } from '../../../core/models/api-response.model';
@@ -22,12 +22,93 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
           class="input max-w-sm" />
       </div>
 
+      <!-- Bulk action bar — appears only with a selection, so it never competes for
+           attention when there is nothing to act on. -->
+      @if (selectedCount() > 0) {
+        <div class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <span class="text-sm font-medium text-slate-800">{{ selectedCount() }} selected</span>
+          <button type="button" (click)="clearSelection()" class="text-sm text-primary hover:underline">Clear</button>
+
+          <span class="w-px h-5 bg-slate-300 mx-1"></span>
+
+          <select #statusSel class="h-8 rounded-lg border border-slate-300 text-sm px-2 bg-white">
+            <option value="">Set status…</option>
+            <option value="Active">Active</option>
+            <option value="Draft">Draft</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+          <button type="button" (click)="bulkStatus(statusSel.value); statusSel.value=''"
+                  class="btn-ghost border border-slate-300 h-8 text-sm">Apply</button>
+
+          <select #catSel class="h-8 rounded-lg border border-slate-300 text-sm px-2 bg-white">
+            <option value="">Move to category…</option>
+            @for (c of categories(); track c.categoryId) {
+              <option [value]="c.categoryId">{{ c.name }}</option>
+            }
+          </select>
+          <button type="button" (click)="bulkCategory(catSel.value); catSel.value=''"
+                  class="btn-ghost border border-slate-300 h-8 text-sm">Move</button>
+
+          <button type="button" (click)="priceOpen.set(!priceOpen())"
+                  class="btn-ghost border border-slate-300 h-8 text-sm">Change price…</button>
+
+          <button type="button" (click)="exportSelected()"
+                  class="btn-ghost border border-slate-300 h-8 text-sm">Export</button>
+
+          <button type="button" (click)="bulkDelete()"
+                  class="h-8 text-sm px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium ml-auto">
+            Delete
+          </button>
+        </div>
+
+        @if (priceOpen()) {
+          <div class="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div class="flex flex-wrap items-end gap-3">
+              <label class="block">
+                <span class="text-xs font-semibold text-slate-600 block mb-1">Field</span>
+                <select [(ngModel)]="priceField" class="h-9 rounded-lg border border-slate-300 text-sm px-2">
+                  <option value="price">Discounted price</option>
+                  <option value="mrp">MRP</option>
+                  <option value="cost">Cost price</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold text-slate-600 block mb-1">How</span>
+                <select [(ngModel)]="priceMode" class="h-9 rounded-lg border border-slate-300 text-sm px-2">
+                  <option value="set">Set to</option>
+                  <option value="byPercent">Change by %</option>
+                  <option value="byAmount">Change by ₹</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold text-slate-600 block mb-1">Value</span>
+                <input type="number" step="0.01" [(ngModel)]="priceAmount"
+                       class="h-9 w-32 rounded-lg border border-slate-300 text-sm px-2" />
+              </label>
+              <label class="flex items-center gap-1.5 text-sm text-slate-700 h-9">
+                <input type="checkbox" [(ngModel)]="priceRound" class="w-4 h-4" /> round to whole ₹
+              </label>
+              <button type="button" (click)="bulkPrice()" class="btn-primary h-9">Apply to {{ selectedCount() }}</button>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">
+              Use a negative value to reduce — e.g. <strong>Change by %</strong> of <strong>-10</strong> takes 10% off.
+            </p>
+          </div>
+        }
+      }
+
       <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
         @if (loading()) { <div class="p-10 text-center text-slate-400">Loading…</div> }
         @else {
           <table class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-500 text-left">
               <tr>
+                <th class="px-4 py-2 w-10">
+                  <input type="checkbox" class="w-4 h-4" [checked]="allOnPageSelected()"
+                         [indeterminate]="selectedCount() > 0 && !allOnPageSelected()"
+                         (change)="toggleAll($any($event.target).checked)"
+                         aria-label="Select all on this page" />
+                </th>
                 <th class="px-4 py-2">Product</th><th class="px-4 py-2">SKU</th>
                 <th class="px-4 py-2">Category</th><th class="px-4 py-2">Price</th>
                 <th class="px-4 py-2">Status</th><th class="px-4 py-2"></th>
@@ -35,7 +116,12 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
             </thead>
             <tbody>
               @for (p of result()?.items ?? []; track p.productId) {
-                <tr class="border-t border-slate-100">
+                <tr class="border-t border-slate-100" [class]="isSelected(p.productId) ? 'bg-primary/5' : ''">
+                  <td class="px-4 py-2">
+                    <input type="checkbox" class="w-4 h-4" [checked]="isSelected(p.productId)"
+                           (change)="toggleOne(p.productId, $any($event.target).checked)"
+                           [attr.aria-label]="'Select ' + p.name" />
+                  </td>
                   <td class="px-4 py-2">
                     <div class="flex items-center gap-2">
                       @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-9 h-9 rounded object-cover bg-slate-100" /> }
@@ -82,8 +168,120 @@ export class AdminProductsComponent implements OnInit {
   search = '';
   private page = 1;
 
+  // --- bulk selection -------------------------------------------------------
+  //
+  // Selection is kept across pages: a 400-design catalogue spans 20 pages, and losing
+  // the selection on every page change would make bulk actions useless at the scale
+  // they exist for.
+  readonly selected = signal<ReadonlySet<number>>(new Set());
+  readonly categories = signal<{ categoryId: number; name: string }[]>([]);
+
+  readonly priceOpen = signal(false);
+  priceField: 'price' | 'mrp' | 'cost' = 'price';
+  priceMode: 'set' | 'byPercent' | 'byAmount' = 'byPercent';
+  priceAmount: number | null = null;
+  priceRound = true;
+
+  readonly selectedCount = computed(() => this.selected().size);
+
+  readonly allOnPageSelected = computed(() => {
+    const items = this.result()?.items ?? [];
+    return items.length > 0 && items.every((i) => this.selected().has(i.productId));
+  });
+
   ngOnInit(): void {
     this.load();
+    this.api.listCategories().subscribe((c) => this.categories.set(c));
+  }
+
+  isSelected(id: number): boolean {
+    return this.selected().has(id);
+  }
+
+  toggleOne(id: number, checked: boolean): void {
+    this.selected.update((s) => {
+      const next = new Set(s);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  /** Selects or clears every row on the current page, leaving other pages alone. */
+  toggleAll(checked: boolean): void {
+    const items = this.result()?.items ?? [];
+    this.selected.update((s) => {
+      const next = new Set(s);
+      for (const i of items) {
+        if (checked) next.add(i.productId);
+        else next.delete(i.productId);
+      }
+      return next;
+    });
+  }
+
+  clearSelection(): void {
+    this.selected.set(new Set());
+    this.priceOpen.set(false);
+  }
+
+  // --- bulk actions ---------------------------------------------------------
+
+  bulkStatus(status: string): void {
+    if (!status) return;
+    this.runBulk({ action: 'Status', status });
+  }
+
+  bulkCategory(categoryId: string): void {
+    if (!categoryId) return;
+    this.runBulk({ action: 'Category', categoryId: Number(categoryId) });
+  }
+
+  bulkPrice(): void {
+    if (this.priceAmount === null || Number.isNaN(this.priceAmount)) {
+      this.error.set('Enter a value to apply.');
+      return;
+    }
+    const field = this.priceField === 'price' ? 'Price' : this.priceField === 'mrp' ? 'Mrp' : 'Cost';
+    this.runBulk({
+      action: field,
+      amount: this.priceAmount,
+      mode: this.priceMode === 'set' ? 'Set' : this.priceMode === 'byPercent' ? 'ByPercent' : 'ByAmount',
+      roundToWhole: this.priceRound,
+    });
+  }
+
+  bulkDelete(): void {
+    const n = this.selectedCount();
+    // Deleting many rows at once deserves an explicit confirmation, even though the
+    // delete is soft and recoverable in the database.
+    if (!confirm(`Delete ${n} product(s)? They will be hidden from the store and the price list.`)) return;
+    this.runBulk({ action: 'Delete' });
+  }
+
+  exportSelected(): void {
+    // The export endpoint covers the whole catalogue; selection-scoped export would need
+    // its own endpoint, so this is deliberately the full file rather than a silent lie
+    // about what was downloaded.
+    this.api.exportProducts().subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'products.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  private runBulk(body: Record<string, unknown>): void {
+    this.error.set(null);
+    this.api.bulkProducts({ productIds: [...this.selected()], ...body }).subscribe({
+      next: () => {
+        this.clearSelection();
+        this.load();
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'That bulk action failed.'),
+    });
   }
 
   load(): void {

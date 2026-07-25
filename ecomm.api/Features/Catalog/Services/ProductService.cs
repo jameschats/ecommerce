@@ -18,6 +18,7 @@ public interface IProductService
     Task<ProductDetailDto> CreateAsync(SaveProductRequest req, long? userId, CancellationToken ct = default);
     Task<ProductDetailDto?> UpdateAsync(long id, SaveProductRequest req, long? userId, CancellationToken ct = default);
     Task<bool> DeleteAsync(long id, CancellationToken ct = default);
+    Task<BulkProductActionResult> BulkAsync(BulkProductActionRequest req, CancellationToken ct = default);
 }
 
 public sealed class ProductService : IProductService
@@ -243,6 +244,118 @@ public sealed class ProductService : IProductService
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Applies one action to many products (design.md §10.3).
+    ///
+    /// Delete is soft, matching <see cref="DeleteAsync"/> — a bulk operation must not be
+    /// more destructive than doing the same thing one row at a time.
+    /// </summary>
+    public async Task<BulkProductActionResult> BulkAsync(BulkProductActionRequest req, CancellationToken ct = default)
+    {
+        var ids = (req.ProductIds ?? []).Distinct().ToList();
+        if (ids.Count == 0) throw new AppException("Select at least one product.");
+
+        var products = await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && ids.Contains(p.ProductId))
+            .ToListAsync(ct);
+
+        if (products.Count == 0) throw new AppException("None of those products were found.");
+
+        var now = DateTime.UtcNow;
+        string summary;
+
+        switch (req.Action?.ToLowerInvariant())
+        {
+            case "delete":
+                foreach (var p in products) { p.IsDeleted = true; p.IsActive = false; p.UpdatedAt = now; }
+                summary = $"{products.Count} product(s) deleted.";
+                break;
+
+            case "status":
+            {
+                var status = req.Status?.Trim();
+                if (status is not ("Active" or "Draft" or "Inactive"))
+                    throw new AppException("Status must be Active, Draft or Inactive.");
+                foreach (var p in products)
+                {
+                    p.Status = status;
+                    // Keep IsActive consistent with Status; the storefront filters on both,
+                    // so letting them disagree makes a product invisible for no clear reason.
+                    p.IsActive = status == "Active";
+                    p.UpdatedAt = now;
+                }
+                summary = $"{products.Count} product(s) set to {status}.";
+                break;
+            }
+
+            case "category":
+            {
+                if (req.CategoryId is not { } categoryId)
+                    throw new AppException("Choose a category.");
+                var exists = await _db.Categories.AnyAsync(
+                    c => c.CategoryId == categoryId && c.TenantId == Tenant && c.IsActive, ct);
+                if (!exists) throw new AppException("That category does not exist or is inactive.");
+
+                foreach (var p in products) { p.CategoryId = categoryId; p.UpdatedAt = now; }
+                summary = $"{products.Count} product(s) moved.";
+                break;
+            }
+
+            case "price":
+            case "mrp":
+            case "cost":
+            {
+                if (req.Amount is not { } amount) throw new AppException("Enter an amount.");
+                var mode = req.Mode?.ToLowerInvariant() ?? "set";
+
+                foreach (var p in products)
+                {
+                    var current = req.Action.ToLowerInvariant() switch
+                    {
+                        "price" => p.Price,
+                        "mrp" => p.CompareAtPrice ?? 0m,
+                        _ => p.CostPrice ?? 0m,
+                    };
+
+                    var next = mode switch
+                    {
+                        "byamount" => current + amount,
+                        "bypercent" => current * (1 + amount / 100m),
+                        _ => amount,
+                    };
+
+                    // A negative price is never a legitimate outcome — clamp rather than
+                    // write nonsense that would then be charged to a customer.
+                    next = Math.Max(0m, next);
+                    next = req.RoundToWhole
+                        ? Math.Round(next, 0, MidpointRounding.AwayFromZero)
+                        : Math.Round(next, 2, MidpointRounding.AwayFromZero);
+
+                    switch (req.Action.ToLowerInvariant())
+                    {
+                        case "price": p.Price = next; break;
+                        case "mrp": p.CompareAtPrice = next; break;
+                        default: p.CostPrice = next; break;
+                    }
+                    p.UpdatedAt = now;
+                }
+
+                var label = req.Action.ToLowerInvariant() switch
+                {
+                    "price" => "discounted price", "mrp" => "MRP", _ => "cost",
+                };
+                summary = $"{label} updated on {products.Count} product(s).";
+                break;
+            }
+
+            default:
+                throw new AppException($"Unknown bulk action '{req.Action}'.");
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return new BulkProductActionResult(products.Count, summary);
     }
 
     public async Task<bool> DeleteAsync(long id, CancellationToken ct = default)

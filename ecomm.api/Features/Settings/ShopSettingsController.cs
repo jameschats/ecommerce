@@ -18,8 +18,8 @@ public sealed record ShopSettingsDto(
     // Email (Brevo SMTP)
     string EmailMode, string SmtpHost, int SmtpPort, string SmtpUsername,
     bool SmtpPasswordSet, string FromAddress, string FromName, string AdminNotifyTo,
-    // Browser tab
-    string BrowserTitle, string FaviconUrl,
+    // Site identity — browser tab plus the storefront name and header logo
+    string BrowserTitle, string FaviconUrl, string SiteName, string LogoUrl,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
 
@@ -35,7 +35,7 @@ public sealed record SaveShopSettingsRequest(
     /// receives it, so echoing an empty box back would silently wipe it.</summary>
     string? SmtpPassword,
     string? FromAddress, string? FromName, string? AdminNotifyTo,
-    string? BrowserTitle, string? FaviconUrl,
+    string? BrowserTitle, string? FaviconUrl, string? SiteName, string? LogoUrl,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
 
 public sealed record SendTestEmailRequest(string To);
@@ -90,6 +90,8 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Email.AdminNotifyTo"),
             Str(s, "Site.BrowserTitle"),
             Str(s, "Site.FaviconUrl"),
+            Str(s, "Site.Name"),
+            Str(s, "Site.LogoUrl"),
             states)));
     }
 
@@ -129,6 +131,8 @@ public sealed class ShopSettingsController : ControllerBase
 
         await SetAsync("Site.BrowserTitle", req.BrowserTitle?.Trim() ?? "", ct);
         await SetAsync("Site.FaviconUrl", req.FaviconUrl?.Trim() ?? "", ct);
+        await SetAsync("Site.Name", req.SiteName?.Trim() ?? "", ct);
+        await SetAsync("Site.LogoUrl", req.LogoUrl?.Trim() ?? "", ct);
 
         // Per-state overrides are replaced wholesale — the admin screen always sends the
         // complete list, so a row removed there must disappear here.

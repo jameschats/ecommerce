@@ -125,6 +125,12 @@ export class AdminCatalogService {
   exportProducts(): Observable<Blob> {
     return this.http.get(`${this.base}/products/export`, { responseType: 'blob' });
   }
+  /** One action across many products — delete (soft), status, category, or a price revision. */
+  bulkProducts(body: Record<string, unknown>): Observable<{ affected: number; summary: string }> {
+    return this.unwrap(
+      this.http.post<ApiResponse<{ affected: number; summary: string }>>(`${this.base}/products/bulk`, body),
+    );
+  }
   downloadTemplate(): Observable<Blob> {
     return this.http.get(`${this.base}/products/import-template`, { responseType: 'blob' });
   }

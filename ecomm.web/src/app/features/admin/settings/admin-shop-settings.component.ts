@@ -35,6 +35,8 @@ interface ShopSettings {
   adminNotifyTo: string;
   browserTitle: string;
   faviconUrl: string;
+  siteName: string;
+  logoUrl: string;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -141,14 +143,47 @@ interface ShopSettings {
           </label>
         </section>
 
-        <!-- ------------------------------ browser tab ------------------------------ -->
+        <!-- ------------------------------ site identity ------------------------------ -->
         <section class="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
-          <h2 class="font-semibold text-slate-900">Browser tab</h2>
+          <h2 class="font-semibold text-slate-900">Site identity</h2>
           <p class="text-sm text-slate-500 mt-0.5">
-            The title and icon shown on the browser tab. Leave blank to keep the built-in defaults.
+            The name and logo in the storefront header and footer, and what the browser tab shows.
+            Leave any of these blank to keep the built-in defaults.
           </p>
 
           <div class="grid sm:grid-cols-2 gap-4 mt-4">
+            <label class="block">
+              <span class="form-label">Site name</span>
+              <input class="form-input" [(ngModel)]="m.siteName" placeholder="e.g. CalendarShop" />
+              <span class="text-xs text-slate-500 mt-1 block">
+                Shown beside the logo in the header, in the footer and in the copyright line.
+              </span>
+            </label>
+
+            <div>
+              <span class="form-label">Header logo</span>
+              <div class="flex items-center gap-3">
+                <span class="w-16 h-10 shrink-0 rounded border border-slate-200 bg-slate-50 grid place-items-center overflow-hidden">
+                  @if (m.logoUrl) {
+                    <img [src]="m.logoUrl" alt="Logo preview" class="max-w-full max-h-full object-contain" />
+                  } @else {
+                    <span class="text-slate-300 text-xs">none</span>
+                  }
+                </span>
+                <input class="form-input flex-1" [(ngModel)]="m.logoUrl" placeholder="Paste a URL, or upload →" />
+                <label class="shrink-0 cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-sm
+                              font-medium px-4 py-2.5 rounded-lg transition">
+                  {{ uploading() === 'logoUrl' ? 'Uploading…' : 'Upload' }}
+                  <input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                         class="hidden" (change)="uploadImage($event, m, 'logoUrl')" />
+                </label>
+              </div>
+              <span class="text-xs text-slate-500 mt-1 block">
+                Sits before the name. Rendered 36px tall, so a wide transparent PNG or SVG works best.
+                Set a logo and leave the name blank to show the logo on its own.
+              </span>
+            </div>
+
             <label class="block">
               <span class="form-label">Tab title</span>
               <input class="form-input" [(ngModel)]="m.browserTitle" placeholder="e.g. DailyCalendarShop" />
@@ -167,18 +202,22 @@ interface ShopSettings {
                 <input class="form-input flex-1" [(ngModel)]="m.faviconUrl" placeholder="Paste a URL, or upload →" />
                 <label class="shrink-0 cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-sm
                               font-medium px-4 py-2.5 rounded-lg transition">
-                  {{ uploading() ? 'Uploading…' : 'Upload' }}
+                  {{ uploading() === 'faviconUrl' ? 'Uploading…' : 'Upload' }}
                   <input type="file" accept="image/png,image/x-icon,image/svg+xml,image/jpeg"
-                         class="hidden" (change)="uploadFavicon($event, m)" />
+                         class="hidden" (change)="uploadImage($event, m, 'faviconUrl')" />
                 </label>
               </div>
               <span class="text-xs text-slate-500 mt-1 block">
                 A square PNG works best — 32×32 or 64×64. Changes appear after a refresh;
                 browsers cache favicons aggressively, so use a hard refresh if it looks stale.
               </span>
-              @if (uploadError()) { <span class="text-xs text-red-600 mt-1 block">{{ uploadError() }}</span> }
             </div>
           </div>
+
+          <p class="text-xs text-slate-500 mt-3">
+            The storefront caches branding for up to a minute, so give it a refresh after saving.
+          </p>
+          @if (uploadError()) { <span class="text-xs text-red-600 mt-1 block">{{ uploadError() }}</span> }
         </section>
 
         <!-- ------------------------------ email (Brevo) ------------------------------ -->
@@ -319,7 +358,8 @@ export class AdminShopSettingsComponent {
   readonly testResult = signal<string | null>(null);
   readonly testOk = signal(false);
 
-  readonly uploading = signal(false);
+  /** Which image field is mid-upload, so only that button reads "Uploading…". */
+  readonly uploading = signal<'faviconUrl' | 'logoUrl' | null>(null);
   readonly uploadError = signal<string | null>(null);
 
   constructor() {
@@ -365,12 +405,12 @@ export class AdminShopSettingsComponent {
     });
   }
 
-  uploadFavicon(event: Event, m: ShopSettings): void {
+  uploadImage(event: Event, m: ShopSettings, field: 'faviconUrl' | 'logoUrl'): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
-    this.uploading.set(true);
+    this.uploading.set(field);
     this.uploadError.set(null);
 
     const form = new FormData();
@@ -378,16 +418,16 @@ export class AdminShopSettingsComponent {
 
     this.http.post<ApiResponse<{ url: string }>>(`${API_BASE_URL}/media`, form).subscribe({
       next: (r) => {
-        this.uploading.set(false);
+        this.uploading.set(null);
         if (r.data?.url) {
-          m.faviconUrl = r.data.url;
+          m[field] = r.data.url;
           this.model.set({ ...m });
         }
         // Clear the input so re-selecting the same file fires change again.
         input.value = '';
       },
       error: (e) => {
-        this.uploading.set(false);
+        this.uploading.set(null);
         this.uploadError.set(e?.error?.message ?? 'Upload failed.');
         input.value = '';
       },

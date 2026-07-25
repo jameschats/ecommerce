@@ -43,6 +43,30 @@ public sealed record ProductQuery(
     string? Sort, int Page = 1, int PageSize = 20);
 
 // ---------------------------------------------------------------------------
+// Bulk actions on the admin product list.
+//
+// Editing 400 designs one at a time is not a workflow. These cover the operations that
+// are genuinely painful individually: retiring a range, moving designs between categories,
+// and annual price revisions.
+// ---------------------------------------------------------------------------
+
+/// <param name="Action">Delete | Status | Category | Price | Mrp | Cost</param>
+/// <param name="Mode">
+/// How <paramref name="Amount"/> applies to the price actions: <c>Set</c> replaces the
+/// value, <c>ByAmount</c> adds it (negative to reduce), <c>ByPercent</c> scales by it.
+/// </param>
+public sealed record BulkProductActionRequest(
+    IReadOnlyList<long> ProductIds,
+    string Action,
+    string? Status = null,
+    long? CategoryId = null,
+    decimal? Amount = null,
+    string? Mode = null,
+    bool RoundToWhole = false);
+
+public sealed record BulkProductActionResult(int Affected, string Summary);
+
+// ---------------------------------------------------------------------------
 // Quick-order price list (Phase 1). The whole catalogue in one payload, grouped
 // into category bands — see documents/stages-v2/design.md §5.
 //

@@ -47,4 +47,15 @@ public sealed class ProductsAdminController : ControllerBase
         var ok = await _products.DeleteAsync(id, ct);
         return ok ? Ok(ApiResponse<object>.Ok(new { deleted = true })) : NotFound(ApiResponse<object>.Fail("Product not found."));
     }
+
+    /// <summary>
+    /// One action applied to many products — delete, status, category, or a price/cost
+    /// revision. Delete here is soft, exactly as the single-product delete is.
+    /// </summary>
+    [HttpPost("bulk")]
+    public async Task<IActionResult> Bulk([FromBody] BulkProductActionRequest req, CancellationToken ct)
+    {
+        var result = await _products.BulkAsync(req, ct);
+        return Ok(ApiResponse<BulkProductActionResult>.Ok(result, result.Summary));
+    }
 }

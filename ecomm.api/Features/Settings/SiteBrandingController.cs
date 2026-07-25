@@ -6,12 +6,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Settings;
 
-public sealed record SiteBrandingDto(string BrowserTitle, string FaviconUrl);
+public sealed record SiteBrandingDto(string BrowserTitle, string FaviconUrl, string SiteName, string LogoUrl);
 
 /// <summary>
-/// Public branding — the browser tab title and favicon (design.md §10.3).
+/// Public branding — the browser tab title and favicon, plus the storefront name and
+/// header logo (design.md §10.3).
 ///
-/// Anonymous and output-cached: every visitor gets the same two strings, and this is
+/// Anonymous and output-cached: every visitor gets the same handful of strings, and this is
 /// fetched on the very first render, so it must not cost a database round trip per page.
 /// </summary>
 [ApiController]
@@ -27,11 +28,16 @@ public sealed class SiteBrandingController : ControllerBase
     public async Task<IActionResult> Branding(CancellationToken ct)
     {
         var rows = await _db.Settings
-            .Where(s => s.SettingKey == "Site.BrowserTitle" || s.SettingKey == "Site.FaviconUrl")
+            .Where(s => s.SettingKey == "Site.BrowserTitle" || s.SettingKey == "Site.FaviconUrl"
+                     || s.SettingKey == "Site.Name" || s.SettingKey == "Site.LogoUrl")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
 
+        string Get(string key) => rows.TryGetValue(key, out var v) ? v : "";
+
         return Ok(ApiResponse<SiteBrandingDto>.Ok(new SiteBrandingDto(
-            rows.TryGetValue("Site.BrowserTitle", out var t) ? t : "",
-            rows.TryGetValue("Site.FaviconUrl", out var f) ? f : "")));
+            Get("Site.BrowserTitle"),
+            Get("Site.FaviconUrl"),
+            Get("Site.Name"),
+            Get("Site.LogoUrl"))));
     }
 }

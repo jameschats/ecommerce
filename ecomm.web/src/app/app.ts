@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, filter, of, switchMap } from 'rxjs';
+import { filter } from 'rxjs';
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
@@ -14,7 +13,7 @@ import { NotificationBellComponent } from './shared/notification-bell/notificati
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, NotificationBellComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationBellComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -42,6 +41,10 @@ export class App implements OnInit {
   private readonly branding = inject(BrandingService);
   private readonly quickOrder = inject(QuickOrderService);
 
+  /** Header and footer wordmark, configured in admin → Shop & payment settings. */
+  readonly siteName = this.branding.siteName;
+  readonly logoUrl = this.branding.logoUrl;
+
   /**
    * Opens the estimate drawer. The drawer is rendered by the price-list table, so on a page
    * without it (About, Contact) we navigate to the price list first — previously this was a
@@ -63,11 +66,6 @@ export class App implements OnInit {
   readonly menuOpen = signal(false);
   readonly isAdminRoute = signal(false);
   readonly year = 2026;
-  searchText = '';
-
-  readonly suggestions = signal<string[]>([]);
-  readonly showSuggest = signal(false);
-  private readonly searchInput$ = new Subject<string>();
 
   ngOnInit(): void {
     this.webAnalytics.init();
@@ -81,33 +79,6 @@ export class App implements OnInit {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => this.isAdminRoute.set(e.urlAfterRedirects.startsWith('/admin')));
-
-    this.searchInput$
-      .pipe(
-        debounceTime(180),
-        distinctUntilChanged(),
-        switchMap((q) => (q.trim().length >= 2 ? this.catalog.suggest(q.trim()) : of([] as string[]))),
-      )
-      .subscribe((s) => {
-        this.suggestions.set(s);
-        this.showSuggest.set(s.length > 0);
-      });
-  }
-
-  onSearchInput(value: string): void {
-    this.searchInput$.next(value);
-  }
-
-  pickSuggestion(s: string): void {
-    this.searchText = s;
-    this.showSuggest.set(false);
-    this.search();
-  }
-
-  search(): void {
-    this.showSuggest.set(false);
-    const q = this.searchText.trim();
-    this.router.navigate(['/products'], { queryParams: q ? { search: q } : {} });
   }
 
   logout(): void {
