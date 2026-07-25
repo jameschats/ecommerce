@@ -65,6 +65,13 @@ export class QuickOrderService {
   /** True when quantities were restored from a previous session (drives the notice). */
   readonly restored = signal(false);
 
+  /**
+   * Whether the estimate drawer is open. Lives here rather than in the table component
+   * because the header's Estimate button has to open it too, and the header is outside
+   * the table's component tree.
+   */
+  readonly drawerOpen = signal(false);
+
   constructor() {
     this.loadFromStorage();
   }

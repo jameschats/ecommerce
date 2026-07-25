@@ -38,7 +38,22 @@ export class App implements OnInit {
    */
   readonly estimateCount = inject(QuickOrderService).lineCount;
 
+
   private readonly branding = inject(BrandingService);
+  private readonly quickOrder = inject(QuickOrderService);
+
+  /**
+   * Opens the estimate drawer. The drawer is rendered by the price-list table, so on a page
+   * without it (About, Contact) we navigate to the price list first — previously this was a
+   * plain link to /order, which did nothing at all when you were already on /order.
+   */
+  openEstimate(): void {
+    if (this.router.url.startsWith('/order') || this.router.url === '/') {
+      this.quickOrder.drawerOpen.set(true);
+      return;
+    }
+    void this.router.navigate(['/order']).then(() => this.quickOrder.drawerOpen.set(true));
+  }
   readonly displayName = computed(() => {
     const u = this.user();
     return u?.fullName || u?.email || u?.phoneNumber || 'Account';

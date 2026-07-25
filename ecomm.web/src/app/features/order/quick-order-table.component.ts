@@ -44,7 +44,7 @@ export class QuickOrderTableComponent {
   readonly search = signal('');
   readonly selectedCategoryId = signal<number | null>(null);
   readonly collapsed = signal<ReadonlySet<number>>(new Set());
-  readonly drawerOpen = signal(false);
+  readonly drawerOpen = this.quickOrder.drawerOpen;
 
   readonly restored = this.quickOrder.restored;
   readonly lineCount = this.quickOrder.lineCount;
