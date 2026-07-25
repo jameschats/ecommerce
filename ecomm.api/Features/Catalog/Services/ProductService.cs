@@ -110,7 +110,9 @@ public sealed class ProductService : IProductService
         {
             var s = query.Search.Trim();
             // MySQL FULLTEXT (boolean + prefix) on Name/ShortDescription/Description, with a LIKE fallback
-            // for SKUs and short tokens that full-text ignores.
+            // for SKUs, design numbers and short tokens that full-text ignores. Design No is matched
+            // because it is the identifier the admin list and the price list both show — a number you
+            // can read off the screen has to be a number you can search for.
             var tokens = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => t.Length >= 3).ToList();
             if (tokens.Count > 0)
             {
@@ -118,6 +120,7 @@ public sealed class ProductService : IProductService
                 q = q.Where(p =>
                     EF.Functions.Match(new[] { p.Name, p.ShortDescription!, p.Description! }, boolQuery, MySqlMatchSearchMode.Boolean) > 0
                     || p.Sku.Contains(s)
+                    || (p.DesignNo != null && p.DesignNo.Contains(s))
                     || p.Category!.Name.Contains(s)
                     || (p.Brand != null && p.Brand.Name.Contains(s))
                     || p.AttributeValues.Any(av =>
@@ -127,6 +130,7 @@ public sealed class ProductService : IProductService
             {
                 q = q.Where(p =>
                     p.Name.Contains(s) || p.Sku.Contains(s)
+                    || (p.DesignNo != null && p.DesignNo.Contains(s))
                     || p.Category!.Name.Contains(s)
                     || (p.Brand != null && p.Brand.Name.Contains(s))
                     || p.AttributeValues.Any(av =>
@@ -149,7 +153,7 @@ public sealed class ProductService : IProductService
         var items = await q
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(p => new ProductListItemDto(
-                p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
+                p.ProductId, p.Sku, p.DesignNo, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
                 p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
                 p.Category!.Name,
                 p.Brand != null ? p.Brand.Name : null,

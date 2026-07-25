@@ -18,49 +18,57 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
       <div class="mb-4">
-        <input [(ngModel)]="search" (keyup.enter)="applySearch()" placeholder="Search by name or SKU…"
+        <input [(ngModel)]="search" (keyup.enter)="applySearch()" placeholder="Search by name, design no or SKU…"
           class="input max-w-sm" />
       </div>
 
-      <!-- Bulk action bar — appears only with a selection, so it never competes for
-           attention when there is nothing to act on. -->
-      @if (selectedCount() > 0) {
-        <div class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5">
+      <!-- Bulk action bar — always visible so the available actions are discoverable
+           before anything is ticked; the controls stay disabled until there is a
+           selection to act on. -->
+      <div class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5"
+           [class]="hasSelection() ? 'border-primary/30 bg-primary/5' : 'border-slate-200 bg-slate-50'">
+        @if (hasSelection()) {
           <span class="text-sm font-medium text-slate-800">{{ selectedCount() }} selected</span>
           <button type="button" (click)="clearSelection()" class="text-sm text-primary hover:underline">Clear</button>
+        } @else {
+          <span class="text-sm text-slate-500">Select products to use bulk actions</span>
+        }
 
-          <span class="w-px h-5 bg-slate-300 mx-1"></span>
+        <span class="w-px h-5 bg-slate-300 mx-1"></span>
 
-          <select #statusSel class="h-8 rounded-lg border border-slate-300 text-sm px-2 bg-white">
-            <option value="">Set status…</option>
-            <option value="Active">Active</option>
-            <option value="Draft">Draft</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-          <button type="button" (click)="bulkStatus(statusSel.value); statusSel.value=''"
-                  class="btn-ghost border border-slate-300 h-8 text-sm">Apply</button>
+        <select #statusSel [disabled]="!hasSelection()"
+                class="h-8 py-0 rounded-lg border border-slate-300 text-sm px-2 bg-white disabled:opacity-50 disabled:cursor-not-allowed">
+          <option value="">Set status…</option>
+          <option value="Active">Active</option>
+          <option value="Draft">Draft</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+        <button type="button" (click)="bulkStatus(statusSel.value); statusSel.value=''" [disabled]="!hasSelection()"
+                class="inline-flex items-center h-8 px-3 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Apply</button>
 
-          <select #catSel class="h-8 rounded-lg border border-slate-300 text-sm px-2 bg-white">
-            <option value="">Move to category…</option>
-            @for (c of categories(); track c.categoryId) {
-              <option [value]="c.categoryId">{{ c.name }}</option>
-            }
-          </select>
-          <button type="button" (click)="bulkCategory(catSel.value); catSel.value=''"
-                  class="btn-ghost border border-slate-300 h-8 text-sm">Move</button>
+        <select #catSel [disabled]="!hasSelection()"
+                class="h-8 py-0 rounded-lg border border-slate-300 text-sm px-2 bg-white disabled:opacity-50 disabled:cursor-not-allowed">
+          <option value="">Move to category…</option>
+          @for (c of categories(); track c.categoryId) {
+            <option [value]="c.categoryId">{{ c.name }}</option>
+          }
+        </select>
+        <button type="button" (click)="bulkCategory(catSel.value); catSel.value=''" [disabled]="!hasSelection()"
+                class="inline-flex items-center h-8 px-3 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Move</button>
 
-          <button type="button" (click)="priceOpen.set(!priceOpen())"
-                  class="btn-ghost border border-slate-300 h-8 text-sm">Change price…</button>
+        <button type="button" (click)="priceOpen.set(!priceOpen())" [disabled]="!hasSelection()"
+                class="inline-flex items-center h-8 px-3 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Change price…</button>
 
-          <button type="button" (click)="exportSelected()"
-                  class="btn-ghost border border-slate-300 h-8 text-sm">Export</button>
+        <button type="button" (click)="exportSelected()" [disabled]="!hasSelection()"
+                class="inline-flex items-center h-8 px-3 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Export</button>
 
-          <button type="button" (click)="bulkDelete()"
-                  class="h-8 text-sm px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium ml-auto">
-            Delete
-          </button>
-        </div>
+        <button type="button" (click)="bulkDelete()" [disabled]="!hasSelection()"
+                class="inline-flex items-center h-8 px-3 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white ml-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-600">
+          Delete
+        </button>
+      </div>
 
+      @if (hasSelection()) {
         @if (priceOpen()) {
           <div class="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
             <div class="flex flex-wrap items-end gap-3">
@@ -88,7 +96,7 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
               <label class="flex items-center gap-1.5 text-sm text-slate-700 h-9">
                 <input type="checkbox" [(ngModel)]="priceRound" class="w-4 h-4" /> round to whole ₹
               </label>
-              <button type="button" (click)="bulkPrice()" class="btn-primary h-9">Apply to {{ selectedCount() }}</button>
+              <button type="button" (click)="bulkPrice()" class="btn-primary inline-flex items-center h-9">Apply to {{ selectedCount() }}</button>
             </div>
             <p class="text-xs text-slate-500 mt-2">
               Use a negative value to reduce — e.g. <strong>Change by %</strong> of <strong>-10</strong> takes 10% off.
@@ -109,7 +117,8 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
                          (change)="toggleAll($any($event.target).checked)"
                          aria-label="Select all on this page" />
                 </th>
-                <th class="px-4 py-2">Product</th><th class="px-4 py-2">SKU</th>
+                <th class="px-4 py-2">Product</th>
+                <th class="px-4 py-2">Design No</th><th class="px-4 py-2">SKU</th>
                 <th class="px-4 py-2">Category</th><th class="px-4 py-2">Price</th>
                 <th class="px-4 py-2">Status</th><th class="px-4 py-2"></th>
               </tr>
@@ -129,6 +138,9 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
                       @if (p.isFeatured) { <span class="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">Featured</span> }
                     </div>
                   </td>
+                  <!-- The identifier the price list and the customer's order both quote, so it
+                       reads darker than the SKU beside it. -->
+                  <td class="px-4 py-2 font-mono text-slate-700">{{ p.designNo || '—' }}</td>
                   <td class="px-4 py-2 text-slate-400">{{ p.sku }}</td>
                   <td class="px-4 py-2 text-slate-600">{{ p.categoryName }}</td>
                   <td class="px-4 py-2 text-slate-800">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</td>
@@ -183,6 +195,7 @@ export class AdminProductsComponent implements OnInit {
   priceRound = true;
 
   readonly selectedCount = computed(() => this.selected().size);
+  readonly hasSelection = computed(() => this.selectedCount() > 0);
 
   readonly allOnPageSelected = computed(() => {
     const items = this.result()?.items ?? [];

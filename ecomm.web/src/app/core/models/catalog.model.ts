@@ -52,6 +52,7 @@ export interface ProductAttributeValue {
 export interface ProductListItem {
   productId: number;
   sku: string;
+  designNo: string | null;
   name: string;
   slug: string;
   price: number;

@@ -30,17 +30,38 @@ public sealed class ProductImportController : ControllerBase
     public IActionResult Template()
         => File(_import.Template(), XlsxMime, "products-template.xlsx");
 
+    /// <summary>
+    /// Dry run — reports what the file would do without writing anything. A 400-row import
+    /// committed unseen is a genuinely dangerous button (design.md §10.1).
+    /// </summary>
+    [HttpPost("import/preview")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> Preview(IFormFile? file, CancellationToken ct)
+    {
+        Validate(file);
+        await using var stream = file!.OpenReadStream();
+        return Ok(ApiResponse<ImportPreviewDto>.Ok(await _import.PreviewAsync(stream, file.FileName, ct)));
+    }
+
     [HttpPost("import")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
     public async Task<IActionResult> Import(IFormFile? file, CancellationToken ct)
     {
-        if (file is null || file.Length == 0)
-            throw new AppException("Please upload a non-empty .xlsx file.");
-        if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-            throw new AppException("Only .xlsx files are supported.");
-
-        await using var stream = file.OpenReadStream();
+        Validate(file);
+        await using var stream = file!.OpenReadStream();
         var result = await _import.ImportAsync(stream, file.FileName, CurrentUserId, ct);
         return Ok(ApiResponse<ImportResultDto>.Ok(result, $"Imported {result.Job.SuccessRows}/{result.Job.TotalRows} rows."));
+    }
+
+    /// <summary>Both import endpoints accept the same formats, so the check lives in one place.</summary>
+    private static void Validate(IFormFile? file)
+    {
+        if (file is null || file.Length == 0)
+            throw new AppException("Please upload a non-empty .xlsx or .csv file.");
+
+        var ok = file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+              || file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase);
+        if (!ok) throw new AppException("Only .xlsx and .csv files are supported.");
     }
 
     /// <summary>

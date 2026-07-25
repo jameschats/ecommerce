@@ -27,6 +27,12 @@ public class Product
     public decimal? CostPrice { get; set; }
     public string Status { get; set; } = "Draft";   // Draft | Active | Inactive
     public bool IsFeatured { get; set; }
+
+    /// <summary>
+    /// Row order within a category band on the price list. Added by migration 030 so the
+    /// catalogue spreadsheet controls presentation order; 0 everywhere falls back to name.
+    /// </summary>
+    public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }
     public long? CreatedBy { get; set; }

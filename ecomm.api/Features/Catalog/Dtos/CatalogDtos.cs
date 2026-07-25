@@ -21,7 +21,7 @@ public sealed record ProductImageDto(long ProductImageId, string Url, string? Al
 public sealed record ProductImageInput(string Url, string? AltText, int DisplayOrder, bool IsPrimary, long? MediaFileId = null);
 
 public sealed record ProductListItemDto(
-    long ProductId, string Sku, string Name, string Slug, decimal Price, decimal? CompareAtPrice,
+    long ProductId, string Sku, string? DesignNo, string Name, string Slug, decimal Price, decimal? CompareAtPrice,
     string Status, bool IsFeatured, string? PrimaryImageUrl, string CategoryName, string? BrandName, bool InStock);
 
 public sealed record ProductDetailDto(

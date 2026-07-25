@@ -29,3 +29,16 @@ public sealed record ImportJobDto(
     long ImportJobId, string JobType, string? FileName, string Status,
     int TotalRows, int SuccessRows, int FailedRows, DateTime CreatedAt, DateTime? CompletedAt);
 public sealed record ImportResultDto(ImportJobDto Job, IReadOnlyList<ImportJobItemDto> FailedRows);
+
+/// <summary>
+/// Dry-run result: what an import *would* do, before anything is written (design.md §10.1).
+/// </summary>
+public sealed record ImportPreviewDto(
+    int TotalRows,
+    int NewProducts,
+    int UpdatedProducts,
+    int ErrorCount,
+    IReadOnlyList<ImportJobItemDto> Errors,
+    IReadOnlyList<string> NewCategories,
+    IReadOnlyList<string> Duplicates,
+    IReadOnlyList<string> AttributeColumns);
