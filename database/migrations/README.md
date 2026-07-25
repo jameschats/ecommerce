@@ -47,3 +47,8 @@ dotnet ef dbcontext scaffold "Server=localhost;Database=ecommerce;Uid=root;Pwd=a
 mysql -u <user> -p <database> < 001_init_schema_history.sql
 ```
 A small migration runner (apply-in-order, skip already-recorded) can be added later; the `__schema_migrations` table already supports it.
+
+
+Brevo
+jameschats@gmail.com
+Admin@123

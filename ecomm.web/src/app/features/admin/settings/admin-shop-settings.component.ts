@@ -23,6 +23,16 @@ interface ShopSettings {
   bankAccountNumber: string;
   bankIfsc: string;
   bankName: string;
+  emailMode: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUsername: string;
+  /** The password itself is never sent to the browser — only whether one is stored. */
+  smtpPasswordSet: boolean;
+  smtpPassword?: string;
+  fromAddress: string;
+  fromName: string;
+  adminNotifyTo: string;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -127,6 +137,83 @@ interface ShopSettings {
           </label>
         </section>
 
+        <!-- ------------------------------ email (Brevo) ------------------------------ -->
+        <section class="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-slate-900">Email (Brevo SMTP)</h2>
+              <p class="text-sm text-slate-500 mt-0.5">
+                In <strong>Mock</strong> nothing is sent — messages are written to the server log.
+                Switch to <strong>Live</strong> once the details below are correct.
+              </p>
+            </div>
+            <div class="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 shrink-0">
+              <button type="button" (click)="m.emailMode = 'Mock'"
+                      [class]="m.emailMode !== 'Live' ? 'mode-on' : 'mode-off'">Mock</button>
+              <button type="button" (click)="m.emailMode = 'Live'"
+                      [class]="m.emailMode === 'Live' ? 'mode-on-live' : 'mode-off'">Live</button>
+            </div>
+          </div>
+
+          @if (m.emailMode === 'Live' && (!m.smtpHost || !m.fromAddress || !m.smtpPasswordSet)) {
+            <p class="mt-3 text-sm rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900">
+              Live mode needs an SMTP host, an SMTP key and a verified from-address. Until then,
+              emails are logged and not sent.
+            </p>
+          }
+
+          <div class="grid sm:grid-cols-2 gap-3 mt-4">
+            <label class="block">
+              <span class="form-label">SMTP host</span>
+              <input class="form-input font-mono" [(ngModel)]="m.smtpHost" placeholder="smtp-relay.brevo.com" />
+            </label>
+            <label class="block">
+              <span class="form-label">Port</span>
+              <input type="number" class="form-input" [(ngModel)]="m.smtpPort" placeholder="587" />
+            </label>
+            <label class="block">
+              <span class="form-label">SMTP login</span>
+              <input class="form-input font-mono" [(ngModel)]="m.smtpUsername"
+                     placeholder="from Brevo → SMTP & API → SMTP" />
+            </label>
+            <label class="block">
+              <span class="form-label">
+                SMTP key
+                @if (m.smtpPasswordSet) { <span class="text-emerald-600 font-normal">· one is saved</span> }
+              </span>
+              <input type="password" class="form-input" [(ngModel)]="m.smtpPassword"
+                     [placeholder]="m.smtpPasswordSet ? 'Leave blank to keep the saved key' : 'Paste your Brevo SMTP key'" />
+            </label>
+            <label class="block">
+              <span class="form-label">From address</span>
+              <input class="form-input" [(ngModel)]="m.fromAddress" placeholder="orders@yourdomain.in" />
+              <span class="text-xs text-slate-500 mt-1 block">Must be a sender you have verified in Brevo.</span>
+            </label>
+            <label class="block">
+              <span class="form-label">From name</span>
+              <input class="form-input" [(ngModel)]="m.fromName" />
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="form-label">Send new-order alerts to</span>
+              <input class="form-input" [(ngModel)]="m.adminNotifyTo" placeholder="your@email.com" />
+            </label>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
+            <input class="form-input flex-1 min-w-[220px]" [(ngModel)]="testTo" placeholder="Send a test email to…" />
+            <button type="button" (click)="sendTest()" [disabled]="testing() || !testTo().includes('@')"
+                    class="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white font-medium px-4 py-2.5 rounded-lg transition">
+              {{ testing() ? 'Sending…' : 'Send test email' }}
+            </button>
+            <span class="text-xs text-slate-500 w-full">Save your changes first — the test uses the saved settings.</span>
+            @if (testResult()) {
+              <p class="w-full text-sm rounded px-3 py-2"
+                 [class]="testOk() ? 'text-emerald-800 bg-emerald-50 border border-emerald-200'
+                                   : 'text-red-700 bg-red-50 border border-red-200'">{{ testResult() }}</p>
+            }
+          </div>
+        </section>
+
         <!-- ------------------------------ per-state minimums ------------------------------ -->
         <section class="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
           <div class="flex items-center justify-between gap-3">
@@ -182,6 +269,11 @@ export class AdminShopSettingsComponent {
   readonly savedAt = signal(false);
   readonly error = signal<string | null>(null);
 
+  readonly testTo = signal('');
+  readonly testing = signal(false);
+  readonly testResult = signal<string | null>(null);
+  readonly testOk = signal(false);
+
   constructor() {
     this.http.get<ApiResponse<ShopSettings>>(this.url).subscribe({
       next: (r) => {
@@ -214,6 +306,8 @@ export class AdminShopSettingsComponent {
       next: (r) => {
         this.saving.set(false);
         this.savedAt.set(true);
+        // The response never carries the password back, so the field resets to blank —
+        // which is correct: blank means "keep what is stored".
         if (r.data) this.model.set(r.data);
       },
       error: (e) => {
@@ -221,5 +315,25 @@ export class AdminShopSettingsComponent {
         this.error.set(e?.error?.message ?? 'Could not save settings.');
       },
     });
+  }
+
+  sendTest(): void {
+    this.testing.set(true);
+    this.testResult.set(null);
+
+    this.http
+      .post<ApiResponse<unknown>>(`${this.url}/test-email`, { to: this.testTo().trim() })
+      .subscribe({
+        next: (r) => {
+          this.testing.set(false);
+          this.testOk.set(true);
+          this.testResult.set(r.message ?? 'Test email sent.');
+        },
+        error: (e) => {
+          this.testing.set(false);
+          this.testOk.set(false);
+          this.testResult.set(e?.error?.message ?? 'Could not send the test email.');
+        },
+      });
   }
 }

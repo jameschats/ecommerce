@@ -79,13 +79,14 @@ builder.Services.Configure<ecomm.api.Features.Media.MediaOptions>(builder.Config
 builder.Services.AddSingleton<ecomm.api.Features.Media.IMediaStorage, ecomm.api.Features.Media.LocalDiskStorage>();
 builder.Services.AddScoped<ecomm.api.Features.Media.IMediaService, ecomm.api.Features.Media.MediaService>();
 
-// Notifications — email sender selected by Email:Provider (Logging dev-stub | Smtp real).
+// Notifications — the sender resolves Mock/Live and its SMTP settings from the database on
+// every send (design.md §9.2), so an admin can switch it from a screen without a redeploy.
+// The old startup-time Email:Provider branch is gone; EmailOptions stays bound for the
+// legacy SmtpEmailSender, which remains in the codebase unused.
 builder.Services.Configure<ecomm.api.Features.Notifications.EmailOptions>(builder.Configuration.GetSection(ecomm.api.Features.Notifications.EmailOptions.SectionName));
-var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
-if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
-    builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.SmtpEmailSender>();
-else
-    builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.LoggingEmailSender>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.ConfiguredEmailSender>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender>(
+    sp => sp.GetRequiredService<ecomm.api.Features.Notifications.ConfiguredEmailSender>());
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationFeedService, ecomm.api.Features.Notifications.NotificationFeedService>();

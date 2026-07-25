@@ -127,6 +127,14 @@
   box-shadow: 0 0 0 3px rgb(37 99 235 / 0.15);
 }
 
+/* Mock / Live toggle in admin settings */
+.mode-on, .mode-on-live, .mode-off {
+  padding: 0.35rem 0.9rem; border-radius: 0.4rem; font-size: 0.8125rem; font-weight: 600;
+}
+.mode-on      { background: #fff; color: rgb(15 23 42); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+.mode-on-live { background: rgb(5 150 105); color: #fff; }
+.mode-off     { color: rgb(100 116 139); }
+
 /* Keyboard hint pills shown above the price list */
 .kbd {
   display: inline-block;

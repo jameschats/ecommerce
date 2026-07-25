@@ -15,6 +15,9 @@ public sealed record ShopSettingsDto(
     // Manual payment
     string UpiId, string UpiPayeeName,
     string BankAccountName, string BankAccountNumber, string BankIfsc, string BankName,
+    // Email (Brevo SMTP)
+    string EmailMode, string SmtpHost, int SmtpPort, string SmtpUsername,
+    bool SmtpPasswordSet, string FromAddress, string FromName, string AdminNotifyTo,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
 
@@ -25,7 +28,14 @@ public sealed record SaveShopSettingsRequest(
     string? AnnouncementText, string? PriceValidUpto,
     string? UpiId, string? UpiPayeeName,
     string? BankAccountName, string? BankAccountNumber, string? BankIfsc, string? BankName,
+    string? EmailMode, string? SmtpHost, int SmtpPort, string? SmtpUsername,
+    /// <summary>Null or empty leaves the stored password untouched — the screen never
+    /// receives it, so echoing an empty box back would silently wipe it.</summary>
+    string? SmtpPassword,
+    string? FromAddress, string? FromName, string? AdminNotifyTo,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
+
+public sealed record SendTestEmailRequest(string To);
 
 /// <summary>
 /// Shop and payment configuration for the quick-order flow (design.md §10.3).
@@ -66,6 +76,15 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Payment.BankAccountNumber"),
             Str(s, "Payment.BankIfsc"),
             Str(s, "Payment.BankName"),
+            Str(s, "Channels.EmailMode") is { Length: > 0 } em ? em : "Mock",
+            Str(s, "Email.SmtpHost"),
+            int.TryParse(Str(s, "Email.SmtpPort"), out var port) ? port : 587,
+            Str(s, "Email.SmtpUsername"),
+            // Never returned — the screen only needs to know whether one is stored.
+            Str(s, "Email.SmtpPassword").Length > 0,
+            Str(s, "Email.FromAddress"),
+            Str(s, "Email.FromName"),
+            Str(s, "Email.AdminNotifyTo"),
             states)));
     }
 
@@ -88,6 +107,20 @@ public sealed class ShopSettingsController : ControllerBase
         await SetAsync("Payment.BankAccountNumber", req.BankAccountNumber?.Trim() ?? "", ct);
         await SetAsync("Payment.BankIfsc", req.BankIfsc?.Trim().ToUpperInvariant() ?? "", ct);
         await SetAsync("Payment.BankName", req.BankName?.Trim() ?? "", ct);
+
+        await SetAsync("Channels.EmailMode",
+            string.Equals(req.EmailMode, "Live", StringComparison.OrdinalIgnoreCase) ? "Live" : "Mock", ct);
+        await SetAsync("Email.SmtpHost", req.SmtpHost?.Trim() ?? "", ct);
+        await SetAsync("Email.SmtpPort", (req.SmtpPort > 0 ? req.SmtpPort : 587).ToString(), ct);
+        await SetAsync("Email.SmtpUsername", req.SmtpUsername?.Trim() ?? "", ct);
+        await SetAsync("Email.FromAddress", req.FromAddress?.Trim() ?? "", ct);
+        await SetAsync("Email.FromName", req.FromName?.Trim() ?? "", ct);
+        await SetAsync("Email.AdminNotifyTo", req.AdminNotifyTo?.Trim() ?? "", ct);
+
+        // Only overwrite the password when one was actually supplied. The GET never returns
+        // it, so treating a blank field as "clear it" would wipe the key on every save.
+        if (!string.IsNullOrWhiteSpace(req.SmtpPassword))
+            await SetAsync("Email.SmtpPassword", req.SmtpPassword.Trim(), ct);
 
         // Per-state overrides are replaced wholesale — the admin screen always sends the
         // complete list, so a row removed there must disappear here.
@@ -113,9 +146,29 @@ public sealed class ShopSettingsController : ControllerBase
         return await Get(ct);
     }
 
+    /// <summary>
+    /// Sends a real test message with the saved settings. Save first — this reads what is
+    /// stored, not what is on screen, which is also what makes it a genuine end-to-end check.
+    /// </summary>
+    [HttpPost("test-email")]
+    public async Task<IActionResult> SendTestEmail(
+        [FromBody] SendTestEmailRequest req,
+        [FromServices] Notifications.ConfiguredEmailSender sender,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.To) || !req.To.Contains('@'))
+            throw new AppException("Enter a valid email address to send the test to.");
+
+        await sender.SendTestAsync(req.To.Trim(), ct);
+        return Ok(ApiResponse<object>.Ok(new { sent = true }, $"Test email sent to {req.To.Trim()}."));
+    }
+
     private async Task<Dictionary<string, string?>> LoadAsync(CancellationToken ct)
         => await _db.Settings
-            .Where(x => x.SettingKey.StartsWith("QuickOrder.") || x.SettingKey.StartsWith("Payment."))
+            .Where(x => x.SettingKey.StartsWith("QuickOrder.")
+                     || x.SettingKey.StartsWith("Payment.")
+                     || x.SettingKey.StartsWith("Email.")
+                     || x.SettingKey == "Channels.EmailMode")
             .ToDictionaryAsync(x => x.SettingKey, x => x.SettingValue, ct);
 
     /// <summary>Upsert — a key seeded by migration exists; one added later may not.</summary>
