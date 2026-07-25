@@ -5,6 +5,7 @@ import { Subject, debounceTime, distinctUntilChanged, filter, of, switchMap } fr
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
+import { QuickOrderService } from './core/services/quick-order.service';
 import { CatalogService } from './core/services/catalog.service';
 import { ThemeService } from './core/services/theme.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
@@ -28,6 +29,13 @@ export class App implements OnInit {
   readonly isAuthenticated = this.auth.isAuthenticated;
   readonly isAdmin = this.auth.isAdmin;
   readonly cartCount = this.cart.itemCount;
+
+  /**
+   * Line count of the quick-order estimate. The header badge reads from the same signal
+   * the price-list toolbar does, so the two can never disagree — which is the bug that
+   * having a separate CartService-backed header cart introduced.
+   */
+  readonly estimateCount = inject(QuickOrderService).lineCount;
   readonly displayName = computed(() => {
     const u = this.user();
     return u?.fullName || u?.email || u?.phoneNumber || 'Account';
