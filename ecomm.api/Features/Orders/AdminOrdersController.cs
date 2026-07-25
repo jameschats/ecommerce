@@ -44,17 +44,54 @@ public class AdminOrdersController : ControllerBase
         => Ok(ApiResponse<OrderDto>.Ok(await _orders.CancelOrderAsync(CurrentUserId ?? 0, id, request, true, ct), "Order cancelled."));
 
     [HttpPost("{id:long}/shipment")]
-    public async Task<IActionResult> CreateShipment(long id, CreateShipmentRequest request, CancellationToken ct)
+    public async Task<IActionResult> CreateShipment(
+        long id,
+        CreateShipmentRequest request,
+        [FromServices] Notifications.IOrderMailer mailer,
+        CancellationToken ct)
     {
         var dto = await _orders.CreateShipmentAsync(id, request, CurrentUserId, ct);
-        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
+        if (dto is null) return NotFound(ApiResponse<object>.Fail("Order not found."));
+
+        await mailer.SendDispatchedAsync(id, request.Courier, request.TrackingNumber, ct);
+        return Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
     }
 
     [HttpPost("{id:long}/deliver")]
-    public async Task<IActionResult> MarkDelivered(long id, CancellationToken ct)
+    public async Task<IActionResult> MarkDelivered(
+        long id,
+        [FromServices] Notifications.IOrderMailer mailer,
+        CancellationToken ct)
     {
         var dto = await _orders.MarkDeliveredAsync(id, CurrentUserId, ct);
-        return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Marked delivered."));
+        if (dto is null) return NotFound(ApiResponse<object>.Fail("Order not found."));
+
+        await mailer.SendDeliveredAsync(id, ct);
+        return Ok(ApiResponse<OrderDto>.Ok(dto, "Marked delivered — customer notified."));
+    }
+
+    /// <summary>
+    /// A pre-written WhatsApp message and a wa.me link for it (design.md §9.4).
+    ///
+    /// Click-to-send rather than the Cloud API: Meta's template approval takes days to
+    /// weeks and is outside our control, so launching on it would make their queue our
+    /// blocker. A human tapping send on a correct, pre-written message is fine at this
+    /// order volume, and switching to automated sending later changes nothing here.
+    /// </summary>
+    [HttpGet("{id:long}/whatsapp")]
+    public async Task<IActionResult> WhatsAppLink(
+        long id,
+        [FromQuery] string kind,
+        [FromServices] Notifications.IOrderMailer mailer,
+        CancellationToken ct)
+    {
+        var built = await mailer.BuildWhatsAppMessageAsync(id, kind ?? "placed", ct);
+        if (built is null)
+            return NotFound(ApiResponse<object>.Fail("No mobile number on this order."));
+
+        var (mobile, message) = built.Value;
+        var url = $"https://wa.me/{mobile}?text={Uri.EscapeDataString(message)}";
+        return Ok(ApiResponse<object>.Ok(new { mobile, message, url }));
     }
 
     [HttpGet("{id:long}/invoice")]

@@ -8,6 +8,15 @@ public interface IOrderMailer
 {
     Task SendOrderPlacedAsync(long orderId, string? customerEmail, CancellationToken ct = default);
     Task SendPaymentConfirmedAsync(long orderId, CancellationToken ct = default);
+    Task SendDispatchedAsync(long orderId, string? courier, string? trackingNumber, CancellationToken ct = default);
+    Task SendDeliveredAsync(long orderId, CancellationToken ct = default);
+
+    /// <summary>
+    /// The same message text the emails carry, as plain text for WhatsApp click-to-send
+    /// (design.md §9.4). Returns null when there is nothing sensible to send.
+    /// </summary>
+    Task<(string Mobile, string Message)?> BuildWhatsAppMessageAsync(
+        long orderId, string kind, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -87,8 +96,7 @@ public sealed class OrderMailer : IOrderMailer
             var order = await LoadAsync(orderId, ct);
             if (order is null) return;
 
-            var to = EmailFromNotes(order.Notes)
-                     ?? await _db.Users.Where(u => u.UserId == order.UserId).Select(u => u.Email).FirstOrDefaultAsync(ct);
+            var to = await RecipientAsync(order, ct);
             if (string.IsNullOrWhiteSpace(to)) return;
 
             var items = await _db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
@@ -109,7 +117,109 @@ public sealed class OrderMailer : IOrderMailer
         }
     }
 
+    public async Task SendDispatchedAsync(
+        long orderId, string? courier, string? trackingNumber, CancellationToken ct = default)
+    {
+        try
+        {
+            var order = await LoadAsync(orderId, ct);
+            if (order is null) return;
+
+            var to = await RecipientAsync(order, ct);
+            if (string.IsNullOrWhiteSpace(to)) return;
+
+            var tracking = string.IsNullOrWhiteSpace(trackingNumber)
+                ? ""
+                : $@"<p style=""margin:0 0 6px"">Tracking number:
+                       <strong style=""font-family:ui-monospace,monospace"">{System.Net.WebUtility.HtmlEncode(trackingNumber)}</strong></p>";
+
+            await _email.SendAsync(to!, $"Order {order.OrderNumber} has been dispatched", Wrap($@"
+<h2 style=""margin:0 0 4px"">Your order is on its way</h2>
+<p style=""margin:0 0 16px;color:#475569"">Order <strong>{order.OrderNumber}</strong></p>
+<p style=""margin:0 0 6px"">Courier: <strong>{System.Net.WebUtility.HtmlEncode(courier ?? "—")}</strong></p>
+{tracking}
+<p style=""margin:16px 0 0;color:#64748b;font-size:13px"">
+  Parcels travel by transport service to your city. You will be contacted when it is ready to collect.
+</p>"), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send dispatched email for order {OrderId}", orderId);
+        }
+    }
+
+    public async Task SendDeliveredAsync(long orderId, CancellationToken ct = default)
+    {
+        try
+        {
+            var order = await LoadAsync(orderId, ct);
+            if (order is null) return;
+
+            var to = await RecipientAsync(order, ct);
+            if (string.IsNullOrWhiteSpace(to)) return;
+
+            await _email.SendAsync(to!, $"Order {order.OrderNumber} delivered", Wrap($@"
+<h2 style=""margin:0 0 4px"">Delivered</h2>
+<p style=""margin:0 0 16px;color:#475569"">
+  Order <strong>{order.OrderNumber}</strong> has been marked delivered. Thank you for your business.
+</p>
+<p style=""margin:0;color:#64748b;font-size:13px"">
+  If anything is missing or damaged, reply to this email and we will sort it out.
+</p>"), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send delivered email for order {OrderId}", orderId);
+        }
+    }
+
+    public async Task<(string Mobile, string Message)?> BuildWhatsAppMessageAsync(
+        long orderId, string kind, CancellationToken ct = default)
+    {
+        var order = await LoadAsync(orderId, ct);
+        if (order is null) return null;
+
+        var mobile = FieldFromNotes(order.Notes, "Mobile");
+        if (string.IsNullOrWhiteSpace(mobile)) return null;
+
+        var name = FieldFromNotes(order.Notes, "Name") ?? "there";
+        var siteUrl = await SettingAsync("Site.Url", ct) ?? "https://daily.calendarshop.online";
+
+        var shipment = await _db.Shipments
+            .Where(s => s.OrderId == orderId)
+            .OrderByDescending(s => s.ShipmentId)
+            .FirstOrDefaultAsync(ct);
+
+        var message = kind switch
+        {
+            "placed" =>
+                $"Hi {name}, we have received your order {order.OrderNumber} for ₹{order.TotalAmount:N0}. "
+                + $"Please complete payment here: {siteUrl.TrimEnd('/')}/order/{orderId}/pay",
+            "paid" =>
+                $"Hi {name}, we have received your payment for order {order.OrderNumber} (₹{order.TotalAmount:N0}). "
+                + "We are preparing it for dispatch.",
+            "dispatched" =>
+                $"Hi {name}, your order {order.OrderNumber} has been dispatched"
+                + (string.IsNullOrWhiteSpace(shipment?.Courier) ? "" : $" via {shipment!.Courier}")
+                + (string.IsNullOrWhiteSpace(shipment?.TrackingNumber) ? "" : $". Tracking: {shipment!.TrackingNumber}")
+                + ".",
+            "delivered" =>
+                $"Hi {name}, your order {order.OrderNumber} has been marked delivered. Thank you for your business.",
+            _ => $"Hi {name}, an update on your order {order.OrderNumber}.",
+        };
+
+        // India-only in Phase 1, so a bare 10-digit number gets the country code.
+        var digits = new string(mobile.Where(char.IsDigit).ToArray());
+        if (digits.Length == 10) digits = "91" + digits;
+
+        return (digits, message);
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private async Task<string?> RecipientAsync(Order order, CancellationToken ct)
+        => FieldFromNotes(order.Notes, "Email")
+           ?? await _db.Users.Where(u => u.UserId == order.UserId).Select(u => u.Email).FirstOrDefaultAsync(ct);
 
     private Task<Order?> LoadAsync(long orderId, CancellationToken ct)
         => _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
@@ -125,14 +235,20 @@ public sealed class OrderMailer : IOrderMailer
     /// the account, because a dealer may order for someone else. Prefer it over the
     /// account address, which for a mobile-OTP login may not exist at all.
     /// </summary>
-    private static string? EmailFromNotes(string? notes)
+    private static string? FieldFromNotes(string? notes, string field)
     {
         if (string.IsNullOrWhiteSpace(notes)) return null;
+        var prefix = field + ":";
         foreach (var line in notes.Split('\n'))
         {
-            if (!line.StartsWith("Email:", StringComparison.OrdinalIgnoreCase)) continue;
-            var value = line["Email:".Length..].Trim();
-            return value.Contains('@') ? value : null;
+            if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            var value = line[prefix.Length..].Trim();
+            if (value.Length == 0) return null;
+            // An email field that is not an email is worse than none — it would send a
+            // customer's order details to whatever they mistyped.
+            return field.Equals("Email", StringComparison.OrdinalIgnoreCase) && !value.Contains('@')
+                ? null
+                : value;
         }
         return null;
     }

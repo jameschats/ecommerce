@@ -80,7 +80,13 @@ interface PendingPayment {
                   }
                 </td>
                 <td class="px-3 py-2.5 text-xs text-slate-600 whitespace-pre-line max-w-[260px]">{{ r.customerNotes }}</td>
-                <td class="px-3 py-2.5 text-right">
+                <td class="px-3 py-2.5 text-right whitespace-nowrap">
+                  <button type="button" (click)="whatsapp(r, 'placed')"
+                          title="Open WhatsApp with a pre-written payment reminder"
+                          class="bg-[#25D366] hover:brightness-95 text-white text-xs font-semibold
+                                 px-3 py-1.5 rounded transition mr-1.5">
+                    WhatsApp
+                  </button>
                   <button type="button" (click)="confirm(r)" [disabled]="busyId() === r.orderId"
                           class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white
                                  text-xs font-semibold px-3 py-1.5 rounded transition">
@@ -125,6 +131,30 @@ export class AdminPaymentsComponent {
         this.loading.set(false);
       },
     });
+  }
+
+  /**
+   * Opens WhatsApp with a pre-written message for this order (design.md §9.4).
+   *
+   * The window is opened synchronously before the request, then pointed at the URL when it
+   * returns — opening it inside the callback would be blocked as a popup, since by then the
+   * browser no longer sees it as a direct result of the click.
+   */
+  whatsapp(row: PendingPayment, kind: 'placed' | 'paid' | 'dispatched' | 'delivered'): void {
+    const win = window.open('', '_blank');
+
+    this.http
+      .get<ApiResponse<{ url: string }>>(`${API_BASE_URL}/admin/orders/${row.orderId}/whatsapp?kind=${kind}`)
+      .subscribe({
+        next: (r) => {
+          if (r.data?.url && win) win.location.href = r.data.url;
+          else win?.close();
+        },
+        error: (e) => {
+          win?.close();
+          this.error.set(e?.error?.message ?? 'Could not build the WhatsApp message.');
+        },
+      });
   }
 
   confirm(row: PendingPayment): void {
