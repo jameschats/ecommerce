@@ -1,5 +1,7 @@
-<!-- Sticky toolbar: category, search and live totals (design.md §5.4) -->
-<div class="sticky top-[60px] z-20 bg-white/95 backdrop-blur border-y border-slate-200 shadow-sm">
+<!-- Sticky toolbar: category, search and live totals (design.md §5.4).
+     Sticks directly below the header — offset comes from --header-h so the two cannot
+     drift apart when the header changes. -->
+<div class="sticky top-[var(--header-h)] z-20 bg-white/95 backdrop-blur border-y border-slate-200 shadow-sm">
   <div class="page-container py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
 
     <select

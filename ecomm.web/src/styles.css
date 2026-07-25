@@ -60,6 +60,13 @@
   margin-bottom: 0.25rem;
 }
 
+/*
+ * Height of the sticky storefront header: 56px logo row + 44px nav row.
+ * The price-list toolbar sticks directly below it, so the two must agree — a hardcoded
+ * offset in the table drifted out of step the moment the nav row was added.
+ */
+:root { --header-h: 100px; }
+
 /* Wide page container (Flipkart-style: use more of the viewport) */
 .page-container {
   width: 100%;

@@ -90,6 +90,7 @@ export const routes: Routes = [
       { path: 'suppliers', loadComponent: () => import('./features/admin/suppliers/admin-suppliers.component').then((m) => m.AdminSuppliersComponent) },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
+      { path: 'shop-settings', loadComponent: () => import('./features/admin/settings/admin-shop-settings.component').then((m) => m.AdminShopSettingsComponent) },
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
       { path: 'home-page', loadComponent: () => import('./features/admin/cms/admin-cms.component').then((m) => m.AdminCmsComponent) },
       { path: 'banners', loadComponent: () => import('./features/admin/cms/admin-banners.component').then((m) => m.AdminBannersComponent) },
