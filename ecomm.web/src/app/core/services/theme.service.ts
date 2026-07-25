@@ -36,6 +36,13 @@ export class ThemeService {
     root.style.setProperty('--color-primary-dark', this.darken(primary, 0.85));
     if (settings['SecondaryColor']) root.style.setProperty('--color-secondary', settings['SecondaryColor']);
     if (settings['Font']) root.style.setProperty('--app-font', `${settings['Font']}, system-ui, sans-serif`);
+
+    // Storefront text size. Set on :root so it inherits everywhere, but only the
+    // .app-text-scale subtree reads it — see styles.css. Anything unparseable or out of
+    // range falls back to 1 rather than producing an unreadable page.
+    const scale = Number(settings['TextScale']);
+    root.style.setProperty('--app-text-scale',
+      Number.isFinite(scale) && scale >= 0.5 && scale <= 2 ? String(scale) : '1');
   }
 
   private darken(hex: string, factor: number): string {

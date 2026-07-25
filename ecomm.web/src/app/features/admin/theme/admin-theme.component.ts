@@ -47,6 +47,29 @@ import { ThemeDto, ThemeService } from '../../../core/services/theme.service';
               </select>
             </div>
           </div>
+
+          <!-- Text size. Segmented rather than a dropdown so all five steps are visible at
+               once, and each label is drawn at the size it selects — the control is its own
+               preview. -->
+          <div>
+            <label class="lbl">Website text size</label>
+            <div class="flex flex-wrap gap-2">
+              @for (s of textSizes; track s.value) {
+                <button type="button" (click)="settings.TextScale = s.value"
+                        class="px-3 py-2 rounded-lg border transition"
+                        [class]="settings.TextScale === s.value
+                          ? 'border-primary bg-primary/5 text-slate-900'
+                          : 'border-slate-200 text-slate-600 hover:border-slate-300'">
+                  <span [style.fontSize]="0.875 * +s.value + 'rem'">{{ s.label }}</span>
+                </button>
+              }
+            </div>
+            <p class="text-xs text-slate-500 mt-1.5">
+              Applies to the customer-facing site only — these admin screens keep their own
+              sizing. Save to apply.
+            </p>
+          </div>
+
           <div>
             <label class="lbl">Logo</label>
             <div class="flex items-center gap-3">
@@ -83,7 +106,19 @@ export class AdminThemeComponent implements OnInit {
   readonly uploading = signal(false);
   readonly message = signal<string | null>(null);
 
-  settings = { PrimaryColor: '#2563eb', SecondaryColor: '#1e293b', Font: 'Inter', ButtonStyle: 'rounded', Logo: '' };
+  /** Stored as the multiplier itself, so the CSS needs no lookup table. */
+  readonly textSizes = [
+    { value: '0.9',   label: 'Compact' },
+    { value: '0.95',  label: 'Small' },
+    { value: '1',     label: 'Default' },
+    { value: '1.075', label: 'Large' },
+    { value: '1.15',  label: 'Extra large' },
+  ];
+
+  settings = {
+    PrimaryColor: '#2563eb', SecondaryColor: '#1e293b', Font: 'Inter',
+    ButtonStyle: 'rounded', Logo: '', TextScale: '1',
+  };
 
   ngOnInit(): void {
     this.http.get<ApiResponse<ThemeDto>>(this.base).subscribe({
@@ -95,6 +130,7 @@ export class AdminThemeComponent implements OnInit {
           Font: s['Font'] || this.settings.Font,
           ButtonStyle: s['ButtonStyle'] || this.settings.ButtonStyle,
           Logo: s['Logo'] ?? '',
+          TextScale: s['TextScale'] || '1',
         };
         this.loading.set(false);
       },
