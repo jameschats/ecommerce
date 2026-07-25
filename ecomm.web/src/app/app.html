@@ -20,6 +20,26 @@
         }
       </a>
 
+      <!--
+        Announcement, filling the space the search box used to occupy. Scrolls only when
+        the text is genuinely too long for the space (see marqueeOverflows) — a permanent
+        marquee on a short notice is just noise, and hard to read for no reason.
+      -->
+      @if (announcement()) {
+        <div #announceBox class="hidden md:flex flex-1 min-w-0 overflow-hidden mx-4"
+             role="status" [attr.aria-label]="announcement()">
+          <p #announceText
+             class="whitespace-nowrap text-sm font-medium text-slate-600"
+             [class.marquee]="marqueeOverflows()">
+            {{ announcement() }}
+            @if (marqueeOverflows()) {
+              <!-- Second copy so the loop is seamless rather than snapping back. -->
+              <span class="pl-16" aria-hidden="true">{{ announcement() }}</span>
+            }
+          </p>
+        </div>
+      }
+
       <div class="flex items-center gap-5 shrink-0 text-sm ml-auto">
         @if (isAuthenticated()) {
           <app-notification-bell />

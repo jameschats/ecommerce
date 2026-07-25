@@ -11,9 +11,14 @@ export interface SiteBranding {
   faviconUrl: string;
   siteName: string;
   logoUrl: string;
+  announcementText: string;
+  priceValidUpto: string;
 }
 
-const EMPTY: SiteBranding = { browserTitle: '', faviconUrl: '', siteName: '', logoUrl: '' };
+const EMPTY: SiteBranding = {
+  browserTitle: '', faviconUrl: '', siteName: '', logoUrl: '',
+  announcementText: '', priceValidUpto: '',
+};
 
 /**
  * Site identity, configured from admin: browser tab title and favicon, plus the storefront
@@ -40,6 +45,13 @@ export class BrandingService {
   readonly siteName = signal('');
   readonly logoUrl = signal('');
 
+  /**
+   * Header announcement. Reuses the QuickOrder.AnnouncementText setting that already
+   * existed in admin but was never displayed anywhere, with the price-validity date
+   * appended so the two read as one sentence.
+   */
+  readonly announcement = signal('');
+
   private branding$?: Observable<SiteBranding>;
 
   load(): Observable<SiteBranding> {
@@ -57,6 +69,10 @@ export class BrandingService {
   private apply(b: SiteBranding): void {
     this.siteName.set(b.siteName?.trim() ?? '');
     this.logoUrl.set(b.logoUrl?.trim() ?? '');
+
+    const parts = [b.announcementText?.trim(), b.priceValidUpto?.trim() ? `Prices valid up to ${b.priceValidUpto.trim()}` : '']
+      .filter((p) => p);
+    this.announcement.set(parts.join(' · '));
 
     if (b.browserTitle?.trim()) {
       this.browserTitle.set(b.browserTitle.trim());

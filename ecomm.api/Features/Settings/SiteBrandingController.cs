@@ -6,7 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Settings;
 
-public sealed record SiteBrandingDto(string BrowserTitle, string FaviconUrl, string SiteName, string LogoUrl);
+public sealed record SiteBrandingDto(
+    string BrowserTitle, string FaviconUrl, string SiteName, string LogoUrl,
+    /// <summary>Header announcement — seasonal booking notices, price validity and the like.</summary>
+    string AnnouncementText, string PriceValidUpto);
 
 /// <summary>
 /// Public branding — the browser tab title and favicon, plus the storefront name and
@@ -29,7 +32,9 @@ public sealed class SiteBrandingController : ControllerBase
     {
         var rows = await _db.Settings
             .Where(s => s.SettingKey == "Site.BrowserTitle" || s.SettingKey == "Site.FaviconUrl"
-                     || s.SettingKey == "Site.Name" || s.SettingKey == "Site.LogoUrl")
+                     || s.SettingKey == "Site.Name" || s.SettingKey == "Site.LogoUrl"
+                     || s.SettingKey == "QuickOrder.AnnouncementText"
+                     || s.SettingKey == "QuickOrder.PriceValidUpto")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
 
         string Get(string key) => rows.TryGetValue(key, out var v) ? v : "";
@@ -38,6 +43,8 @@ public sealed class SiteBrandingController : ControllerBase
             Get("Site.BrowserTitle"),
             Get("Site.FaviconUrl"),
             Get("Site.Name"),
-            Get("Site.LogoUrl"))));
+            Get("Site.LogoUrl"),
+            Get("QuickOrder.AnnouncementText"),
+            Get("QuickOrder.PriceValidUpto"))));
     }
 }

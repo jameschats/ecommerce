@@ -86,6 +86,34 @@
 }
 .menu-item:hover { background: rgb(248 250 252); }
 
+/*
+ * Header announcement. Applied only when the text genuinely overflows its space —
+ * see App.marqueeOverflows. Short notices stay still, which reads far better.
+ */
+@keyframes announce-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee {
+  display: inline-block;
+  animation: announce-scroll 24s linear infinite;
+  will-change: transform;
+}
+/* Pause on hover so a passing notice can actually be read. */
+.marquee:hover { animation-play-state: paused; }
+
+/* Moving text is a genuine accessibility problem for some readers, so honour the
+   system preference and simply truncate instead. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .marquee > span { display: none; }
+}
+
 /* Primary navigation (Home / Order Now / About Us / Contact Us) */
 .nav-link {
   display: inline-block;
