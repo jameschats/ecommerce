@@ -6,6 +6,7 @@ import {
   computed,
   inject,
   signal,
+  viewChild,
   viewChildren,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -15,6 +16,7 @@ import {
   QuickOrderService,
 } from '../../core/services/quick-order.service';
 import { EstimateDrawerComponent } from './estimate-drawer.component';
+import { ImageLightboxComponent } from './image-lightbox.component';
 import { OrderFormComponent } from './order-form.component';
 
 /**
@@ -27,8 +29,9 @@ import { OrderFormComponent } from './order-form.component';
 @Component({
   selector: 'app-quick-order-table',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe, EstimateDrawerComponent, OrderFormComponent],
+  imports: [CurrencyPipe, DecimalPipe, EstimateDrawerComponent, OrderFormComponent, ImageLightboxComponent],
   templateUrl: './quick-order-table.component.html',
+  host: { '(document:keydown)': 'onDocumentKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuickOrderTableComponent {
@@ -36,6 +39,25 @@ export class QuickOrderTableComponent {
 
   /** Every quantity input in DOM order — the basis for keyboard traversal. */
   private readonly qtyInputs = viewChildren<ElementRef<HTMLInputElement>>('qtyInput');
+  private readonly lightbox = viewChild(ImageLightboxComponent);
+
+  /** Opens the full-size view of a design. */
+  openImage(item: PriceListItem): void {
+    if (!item.imageUrl) return;
+    this.lightbox()?.show(item.productId, item.imageUrl, item.name, item.sku);
+  }
+
+  /**
+   * Escape and arrow keys drive the lightbox. Bound at document level because focus is on
+   * the overlay, not the table — and forwarded only while it is open, so the arrow keys
+   * keep moving between quantity inputs the rest of the time.
+   */
+  onDocumentKey(event: KeyboardEvent): void {
+    const box = this.lightbox();
+    if (!box?.open()) return;
+    box.handleKey(event);
+    if (['Escape', 'ArrowLeft', 'ArrowRight'].includes(event.key)) event.preventDefault();
+  }
 
   private readonly priceList = toSignal(this.quickOrder.getPriceList(), {
     initialValue: { bands: [], totalItems: 0 },
