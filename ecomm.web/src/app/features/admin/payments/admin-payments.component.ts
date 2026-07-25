@@ -28,6 +28,9 @@ interface PendingPayment {
   imports: [CurrencyPipe, DatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- The admin shell's <main> supplies no padding; each page wraps itself. Matches
+         the max-w-5xl mx-auto p-6 the other admin screens use. -->
+    <div class="max-w-5xl mx-auto p-6">
     <div class="flex items-baseline justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-slate-900">Payments to verify</h1>
@@ -103,6 +106,7 @@ interface PendingPayment {
     @if (error()) {
       <p class="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{{ error() }}</p>
     }
+    </div>
   `,
 })
 export class AdminPaymentsComponent {

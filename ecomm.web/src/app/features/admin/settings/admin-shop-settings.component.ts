@@ -50,6 +50,8 @@ interface ShopSettings {
   imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Wider than the 5xl the list pages use, because the body is a two-column grid. -->
+    <div class="max-w-6xl mx-auto p-6">
     <h1 class="text-xl font-bold text-slate-900">Shop &amp; payment settings</h1>
     <p class="text-sm text-slate-500 mt-0.5">
       Drives the order form totals and the customer payment page.
@@ -299,6 +301,7 @@ interface ShopSettings {
         @if (error()) { <span class="text-sm text-red-600">{{ error() }}</span> }
       </div>
     }
+    </div>
   `,
 })
 export class AdminShopSettingsComponent {
