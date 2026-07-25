@@ -56,7 +56,22 @@ rm -rf ./publish/api
 dotnet publish ecomm.api/ecomm.api.csproj -c Release -o ./publish/api
 
 echo "==> Building frontend"
-( cd ecomm.web && npm ci && npm run build )
+# npm ci wipes and reinstalls node_modules, which is slow on every deploy and fails
+# outright on Windows when a dev server holds a native .node binary open. Only reinstall
+# when the lockfile is actually newer than the installed tree.
+(
+  cd ecomm.web
+  if [ ! -d node_modules ]; then
+    echo "    node_modules missing — running npm ci"
+    npm ci
+  else
+    # Deliberately not reinstalling on every deploy. After changing package.json, run
+    # npm ci yourself first — with a dev server running, npm ci fails anyway because it
+    # deletes node_modules and cannot remove native .node binaries that are still open.
+    echo "    using existing node_modules (run npm ci yourself after a dependency change)"
+  fi
+  npm run build
+)
 
 WEB_DIST="ecomm.web/dist/ecomm-web"
 [ -d "$WEB_DIST/browser" ] || { echo "Missing $WEB_DIST/browser" >&2; exit 1; }
