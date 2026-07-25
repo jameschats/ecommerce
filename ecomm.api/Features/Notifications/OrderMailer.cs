@@ -30,12 +30,18 @@ public sealed class OrderMailer : IOrderMailer
 {
     private readonly EcommerceDbContext _db;
     private readonly IEmailSender _email;
+    private readonly INotificationFeedService _feed;
     private readonly ILogger<OrderMailer> _logger;
 
-    public OrderMailer(EcommerceDbContext db, IEmailSender email, ILogger<OrderMailer> logger)
+    public OrderMailer(
+        EcommerceDbContext db,
+        IEmailSender email,
+        INotificationFeedService feed,
+        ILogger<OrderMailer> logger)
     {
         _db = db;
         _email = email;
+        _feed = feed;
         _logger = logger;
     }
 
@@ -82,6 +88,20 @@ public sealed class OrderMailer : IOrderMailer
                 // :C0 renders the generic currency sign ¤ rather than a rupee symbol.
                 await _email.SendAsync(adminTo!, $"New order {order.OrderNumber} — ₹{order.TotalAmount:N0}", adminBody, ct);
             }
+
+            // In-app bell + admin notifications page. The base platform's own checkout does
+            // this; the quick-order path bypasses that service entirely, so it had to be
+            // wired here or the notifications page would stay permanently empty.
+            await _feed.NotifyAdminsAsync(
+                "NewOrder",
+                "New order received",
+                $"Order {order.OrderNumber} · ₹{order.TotalAmount:N0}",
+                "/admin/payments",
+                ct);
+
+            await _feed.NotifyUserAsync(
+                order.UserId, "OrderUpdate", "Order placed",
+                $"Order {order.OrderNumber} — payment pending", $"/order/{orderId}/pay", ct);
         }
         catch (Exception ex)
         {
@@ -110,6 +130,10 @@ public sealed class OrderMailer : IOrderMailer
 <p style=""margin:20px 0 0;color:#64748b;font-size:13px"">
   We will contact you with courier and tracking details once your order is dispatched.
 </p>"), ct);
+
+            await _feed.NotifyUserAsync(
+                order.UserId, "OrderUpdate", "Payment received",
+                $"Order {order.OrderNumber} confirmed", $"/account/orders", ct);
         }
         catch (Exception ex)
         {
@@ -141,6 +165,10 @@ public sealed class OrderMailer : IOrderMailer
 <p style=""margin:16px 0 0;color:#64748b;font-size:13px"">
   Parcels travel by transport service to your city. You will be contacted when it is ready to collect.
 </p>"), ct);
+
+            await _feed.NotifyUserAsync(
+                order.UserId, "OrderUpdate", "Order dispatched",
+                $"Order {order.OrderNumber} is on its way", "/account/orders", ct);
         }
         catch (Exception ex)
         {
