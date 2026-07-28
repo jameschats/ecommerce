@@ -1,6 +1,7 @@
 using ecomm.api.Common.Models;
 using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
+using ecomm.api.Features.ColorSwatches;
 using ecomm.api.Features.Search;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -18,18 +19,26 @@ public sealed class CatalogController : ControllerBase
     private readonly IBrandService _brands;
     private readonly IProductService _products;
     private readonly ISearchService _search;
+    private readonly IColorSwatchService _swatches;
 
-    public CatalogController(ICategoryService categories, IBrandService brands, IProductService products, ISearchService search)
+    public CatalogController(ICategoryService categories, IBrandService brands, IProductService products, ISearchService search, IColorSwatchService swatches)
     {
         _categories = categories;
         _brands = brands;
         _products = products;
         _search = search;
+        _swatches = swatches;
     }
 
     [HttpGet("categories")]
     public async Task<IActionResult> Categories(CancellationToken ct)
         => Ok(ApiResponse<List<CategoryDto>>.Ok(await _categories.GetAllAsync(activeOnly: true, ct)));
+
+    /// <summary>Colour name -&gt; hex lookup, used by the storefront to render swatch dots for
+    /// free-text variant colour values.</summary>
+    [HttpGet("color-swatches")]
+    public async Task<IActionResult> ColorSwatches(CancellationToken ct)
+        => Ok(ApiResponse<List<ColorSwatchDto>>.Ok(await _swatches.ListAsync(ct)));
 
     [HttpGet("brands")]
     public async Task<IActionResult> Brands(CancellationToken ct)

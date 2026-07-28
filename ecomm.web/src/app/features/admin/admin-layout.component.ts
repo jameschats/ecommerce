@@ -123,6 +123,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/attributes', label: 'Attributes' },
       { path: '/admin/inventory', label: 'Inventory' },
       { path: '/admin/suppliers', label: 'Suppliers' },
+      { path: '/admin/color-swatches', label: 'Colour swatches' },
       { path: '/admin/import', label: 'Import / Export' },
     ] },
     { title: 'Customers', links: [

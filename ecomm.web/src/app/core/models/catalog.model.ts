@@ -62,6 +62,9 @@ export interface ProductListItem {
   categoryName: string;
   brandName: string | null;
   inStock: boolean;
+  availableQty: number;
+  isLowStock: boolean;
+  colorOptions: string[];
 }
 
 export interface ProductDetail {

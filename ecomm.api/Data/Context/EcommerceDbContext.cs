@@ -108,6 +108,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<ProductSupplier> ProductSuppliers => Set<ProductSupplier>();
+    public DbSet<ColorSwatch> ColorSwatches => Set<ColorSwatch>();
 
     // --- V2: Plans & Subscriptions ---
     public DbSet<Plan> Plans => Set<Plan>();
@@ -406,6 +407,7 @@ public class EcommerceDbContext : DbContext
             e.HasKey(x => x.ProductSupplierId);
             e.Property(x => x.CostPrice).HasPrecision(12, 2);
         });
+        b.Entity<ColorSwatch>(e => { e.ToTable("ColorSwatches"); e.HasKey(x => x.ColorSwatchId); });
 
         // --- V2: Plans & Subscriptions ---
         b.Entity<Plan>(e =>

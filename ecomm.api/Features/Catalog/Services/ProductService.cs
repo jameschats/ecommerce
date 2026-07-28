@@ -90,7 +90,10 @@ public sealed class ProductService : IProductService
                 p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
                 p.Category!.Name,
                 p.Brand != null ? p.Brand.Name : null,
-                p.InventoryRecords.Sum(i => i.AvailableQty) > 0))
+                p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
+                p.InventoryRecords.Sum(i => i.AvailableQty),
+                p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
+                p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList()))
             .ToListAsync(ct);
 
         return new PagedResult<ProductListItemDto>

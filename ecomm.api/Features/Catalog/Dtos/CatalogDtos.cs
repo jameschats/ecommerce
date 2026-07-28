@@ -22,7 +22,8 @@ public sealed record ProductImageInput(string Url, string? AltText, int DisplayO
 
 public sealed record ProductListItemDto(
     long ProductId, string Sku, string Name, string Slug, decimal Price, decimal? CompareAtPrice,
-    string Status, bool IsFeatured, string? PrimaryImageUrl, string CategoryName, string? BrandName, bool InStock);
+    string Status, bool IsFeatured, string? PrimaryImageUrl, string CategoryName, string? BrandName, bool InStock,
+    int AvailableQty, bool IsLowStock, IReadOnlyList<string> ColorOptions);
 
 public sealed record ProductDetailDto(
     long ProductId, string Sku, string Name, string Slug, string? ShortDescription, string? Description,

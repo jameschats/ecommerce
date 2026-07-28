@@ -122,6 +122,7 @@ builder.Services.AddScoped<ecomm.api.Features.Coupons.ICouponService, ecomm.api.
 builder.Services.AddScoped<ecomm.api.Features.Wishlist.IWishlistService, ecomm.api.Features.Wishlist.WishlistService>();
 builder.Services.AddScoped<ecomm.api.Features.Analytics.IAnalyticsService, ecomm.api.Features.Analytics.AnalyticsService>();
 builder.Services.AddScoped<ecomm.api.Features.Suppliers.ISupplierService, ecomm.api.Features.Suppliers.SupplierService>();
+builder.Services.AddScoped<ecomm.api.Features.ColorSwatches.IColorSwatchService, ecomm.api.Features.ColorSwatches.ColorSwatchService>();
 
 // Inventory & Search
 builder.Services.AddScoped<ecomm.api.Features.Inventory.IInventoryService, ecomm.api.Features.Inventory.InventoryService>();

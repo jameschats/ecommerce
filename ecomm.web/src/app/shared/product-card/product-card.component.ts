@@ -1,8 +1,12 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ProductListItem } from '../../core/models/catalog.model';
+import { ColorSwatchService } from '../../core/services/color-swatch.service';
 import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.component';
+
+const MAX_SWATCHES_SHOWN = 5;
 
 @Component({
   selector: 'app-product-card',
@@ -38,6 +42,20 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
             <span class="text-xs text-slate-400 line-through">{{ product().compareAtPrice | currency:'INR':'symbol':'1.0-0' }}</span>
           }
         </div>
+        @if (swatches().length) {
+          <div class="flex items-center gap-1 mt-2">
+            @for (s of swatches(); track s.name) {
+              <span class="h-3.5 w-3.5 rounded-full border border-slate-300 shrink-0"
+                    [style.background-color]="s.hex ?? '#e5e7eb'" [title]="s.name"></span>
+            }
+            @if (extraColorCount() > 0) {
+              <span class="text-[11px] text-slate-400">+{{ extraColorCount() }}</span>
+            }
+          </div>
+        }
+        @if (product().inStock && product().isLowStock) {
+          <p class="text-[11px] font-medium text-amber-600 mt-1.5">Only {{ product().availableQty }} left</p>
+        }
       </div>
     </a>
   `,
@@ -45,9 +63,21 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
 export class ProductCardComponent {
   product = input.required<ProductListItem>();
 
+  private readonly swatchSvc = inject(ColorSwatchService);
+  private readonly allSwatches = toSignal(this.swatchSvc.list(), { initialValue: [] });
+
   readonly discount = computed(() => {
     const p = this.product();
     if (!p.compareAtPrice || p.compareAtPrice <= p.price) return 0;
     return Math.round((1 - p.price / p.compareAtPrice) * 100);
   });
+
+  /** Resolves each variant colour to a hex dot (or a neutral fallback if unmapped), capped for card width. */
+  readonly swatches = computed(() => {
+    const lookup = new Map(this.allSwatches().map((s) => [s.name.toLowerCase(), s.hexCode]));
+    return this.product().colorOptions.slice(0, MAX_SWATCHES_SHOWN)
+      .map((name) => ({ name, hex: lookup.get(name.toLowerCase()) ?? null }));
+  });
+
+  readonly extraColorCount = computed(() => Math.max(0, this.product().colorOptions.length - MAX_SWATCHES_SHOWN));
 }

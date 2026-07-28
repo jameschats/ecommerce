@@ -122,3 +122,101 @@ This is a multi-week track. It's the right investment — themes are the #1 "cho
 ## Non-goals
 - A *paid* theme marketplace (decided earlier — free prebuilt themes only).
 - Per-theme bespoke HTML/Liquid-style custom code (unmaintainable; tokens + variants instead).
+
+---
+
+## Addendum (2026-07-28) — Shopify Theme Store UX review
+
+Reviewed live Shopify admin screenshots (Online Store → theme list, Theme Store browse-all with filters,
+theme detail/preview, install flow, theme editor canvas) against our S1–S7 engine + `PrebuiltThemeRegistry`
+(9 themes) + `admin-theme-library.component.ts` (flat 3-col install grid). The T1–T6 "presentation depth"
+diagnosis above still stands as the #1 gap. Beyond that, five smaller gaps surfaced:
+
+### T7 — Theme Store browse/discovery page
+Shopify's theme store (1221 themes, screenshot-verified) is a filterable marketplace: left-rail facets for
+**Price** (Free 24 / Paid 1197), **Industry** (~20 checkboxes: Art, Auto, Bags, Beauty, Clothing, Electronics,
+Food and drink, Home, Jewelry, Kids, Pets, Sports, Toys, Wellness…), **Catalog size** — exactly four tiers,
+confirmed from the sidebar counts: **One Product** (26) · **Few (2-10)** (88) · **Some (11-100+)** (811) ·
+**Lots (500+)** (296) — plus a quick "Large catalogs"/"Small catalogs" shortcut in the top nav dropdown as a
+coarser alias of the same facet. **Features** (~20 tags with adoption counts, see T12 below). Each theme's
+detail page has a desktop/mobile preview toggle, a fullscreen expand, and a live scrollable iframe demo; price/
+like% badges sit above "View demo" / "Try theme" — the latter installs as a draft with a progress bar ("Adding
+X to your online store themes…").
+
+Our picker is a flat grid, category label only — no filters, no detail page, no fullscreen preview.
+
+**This directly answers "categorize themes large/small catalog"**: don't build the filter rail yet — at 9
+themes it'd return near-empty facets, worse UX than today's grid. Do it in two parts:
+1. **Now (cheap, independent of catalog size):** add a `CatalogFit` tag (`Small` | `Medium` | `Large`) to each
+   `PrebuiltTheme` — maps to which layout suits a curated few-SKU store (Boutique, Bloom — spacious, hero-led)
+   vs. a dense many-SKU store (Ignition, Bazaar — compact grids, department tiles). This is a data-model addition,
+   ~1 line per theme, and doubles as guidance text ("best for stores with 200+ products") even before any filter
+   UI exists. `Features` tags can accrue the same way as T2/T3 land (e.g. "carousel", "mega-menu").
+2. **Later (Phase D+, once the catalog is ≥15–20 themes):** build the filter rail + a real browse-all page +
+   fullscreen/mobile preview toggle on the existing preview-token iframe (that last part is cheap and can move
+   up independently — it doesn't need more themes).
+
+### T8 — Theme versioning/updates: not a gap
+Shopify shows "Version X.X.X available" because paid/free themes are vendor-maintained code the merchant didn't
+fork. Ours are **copy-on-install** (S6 deep-copies a bundle into the tenant's library) — editing never conflicts
+with an upstream push. This model is simpler and correct for a single-vendor library; skip building a version/
+update channel.
+
+### T9 — Import/export a theme (minor, low priority)
+Shopify supports uploading a theme .zip or importing from another store. No equivalent here. Only worth building
+if a real need shows up (merchant backup, or migrating a theme between two of our stores) — not before Phase D.
+
+### T10 — Block-level selection in the editor (confirmed gap)
+Screenshot-confirmed, not just inferred: clicking the **Heading block** *inside* an Image-banner section (not
+the section itself) opens a **block-scoped** right panel — rich-text toolbar (AI-assist icon · Bold · Italic ·
+Link), the field pre-selected, a "Heading size" dropdown, "Remove block" — while the left sidebar tree expands
+to show that section's individual blocks (Text / Heading / Buttons) as separately clickable rows. Separately,
+selecting a **section** (not a block) shows a small floating **in-canvas toolbar** right next to it on the
+canvas: an "Ask for changes" AI pill + duplicate/hide/delete icon buttons — distinct from the block-level right
+panel. So Shopify has two granularities: section-level (floating canvas toolbar + full settings panel) and
+block-level (inline canvas click + focused mini-panel).
+**Action:** check `admin-theme-editor.component.ts` — does it support selecting an individual block within a
+section's `Blocks` JSON array from the canvas, or only a flat per-section settings+blocks form? If it's the
+latter, this is a real authoring-UX gap. Rank below T1 (affects merchant editing comfort, not what shoppers see).
+
+### T11 — AI "describe your business" storefront generator (idea, not a gap)
+Shopify's Theme Store front page has a prompt box that generates tailored design options from a business
+description. This is separate from the in-canvas AI edit pill. Since AI Growth (G1 text-gen, G4 image-gen) is
+already shipped, the cheap version of this isn't a new AI system — it's "describe your business → recommend the
+closest prebuilt theme (using `Category`/`CatalogFit`) and pre-fill its hero copy/image via the existing G1/G4
+pipeline." Worth a line in a future V3/AI stage doc; explicitly out of scope for this theme-depth track.
+
+### T12 — Feature-adoption counts as a T3 priority signal (new, code-verified)
+The Theme Store's Features facet lists adoption counts out of 1221 themes — that's a ranked signal for which
+storefront capabilities are table-stakes vs. niche, worth reading directly into T2/T3 prioritization:
+
+**Near-universal (>80% of themes) — treat as baseline, not differentiators:**
+Sticky header (1202) · Color swatches (1181) · Mega menu (1171) · Quick view (1130) · Stock counter (1086) ·
+In-menu promos (1078) · Breadcrumbs (1075) · EU translations (1104) · Swatch filters (1001).
+
+**Cross-checked against our code (grep, not guesswork):**
+- ✅ **Sticky header** — exists (`Header` section has a `sticky` setting, on by default in every prebuilt theme).
+- ✅ **Breadcrumbs** — exists (`SectionTypeRegistry.cs:178`, dynamic section, live on product pages per S3).
+- ⬜ **Color swatches** (variant colour shown as a swatch dot on the product *card*, not just the PDP) — no
+  match anywhere in `ecomm.web/src/app`. Missing.
+- ⬜ **Mega menu** (multi-column dropdown nav with images/links) — `Header` only has `layout: standard|centered|
+  minimal`; no mega-menu block type. Missing — this is T5's territory (header variants).
+- ⬜ **Quick view** (product modal from a collection grid, no page nav) — no match. Missing.
+- ⬜ **Stock counter** ("Only 3 left") — no match. Missing.
+- ⬜ **Countdown/promo bar** — already flagged as not-yet-built in T3 above; the adoption count (965/1221, ~79%)
+  confirms it's worth prioritizing, not a nice-to-have.
+- ⬜ **Swatch filters** (filter a collection grid by colour swatch) — `CollectionGrid` is described only as
+  generic "columns/filters/sort" in the engine doc; no swatch-specific filter UI found.
+
+**Recommendation:** when sequencing T3 (expand section catalog) and T5 (header/footer variants), prioritize
+**color swatches on product cards, mega menu, quick view, and a countdown/promo bar** over lower-adoption
+items — they're present in 4 out of 5 real Shopify themes, so their absence reads as "unfinished," not
+"different design language." Lower-adoption ones (Sign in with Shop — Shopify-account-specific, skip entirely;
+Quantity pricing 347/1221 · Quick order list 240/1221 · Right-to-left 605/1221) are genuinely optional/niche —
+don't let them compete for the same sprint.
+
+### Net effect on sequencing
+T1–T6 (Phase A–E) is unchanged as the priority — it's what makes any theme look real. T7's `CatalogFit`/
+`Features` tags are cheap enough to fold into **Phase D** (author-the-remaining-themes) as you touch each
+theme's metadata anyway. The fullscreen/mobile preview toggle (part of T7) is cheap enough to do any time.
+T8 is a non-issue. T9–T11 are backlog, not blocking.
