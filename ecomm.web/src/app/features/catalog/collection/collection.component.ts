@@ -37,6 +37,7 @@ export class CollectionComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly collection = signal<PublicCollection | null>(null);
   readonly loading = signal(true);
@@ -48,7 +49,7 @@ export class CollectionComponent implements OnInit {
       this.catalog.getCollection(slug).subscribe((c) => {
         this.collection.set(c);
         this.loading.set(false);
-        if (c) this.seo.setMeta({ title: c.metaTitle?.trim() || `${c.name} — ${this.theme.storeName() || 'our store'}`, description: c.metaDescription?.trim() || c.description || c.name, url: `${SITE_URL}/collection/${c.slug}` });
+        if (c) this.seo.setMeta({ title: c.metaTitle?.trim() || `${c.name} — ${this.theme.storeName() || 'our store'}`, description: c.metaDescription?.trim() || c.description || c.name, url: `${this.siteUrl}/collection/${c.slug}` });
       });
     });
   }

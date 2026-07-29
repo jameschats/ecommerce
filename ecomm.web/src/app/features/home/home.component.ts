@@ -28,6 +28,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   private readonly seo = inject(SeoService);
   private readonly auth = inject(AuthService);
   private readonly theme = inject(ThemeService);
+  private readonly siteUrl = inject(SITE_URL);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly isAdmin = this.auth.isAdmin;
@@ -86,14 +87,14 @@ export class HomeComponent implements OnInit, OnDestroy {
       title: storeSeo?.title || `${name} — Shop online`,
       description: storeSeo?.description || `Shop ${name} — great products, fair prices and fast delivery.`,
       image: storeSeo?.image || undefined,
-      url: `${SITE_URL}/`,
+      url: `${this.siteUrl}/`,
     });
     this.seo.setJsonLd([
       {
-        '@context': 'https://schema.org', '@type': 'WebSite', name, url: SITE_URL,
-        potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
+        '@context': 'https://schema.org', '@type': 'WebSite', name, url: this.siteUrl,
+        potentialAction: { '@type': 'SearchAction', target: `${this.siteUrl}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
       },
-      { '@context': 'https://schema.org', '@type': 'Organization', name, url: SITE_URL },
+      { '@context': 'https://schema.org', '@type': 'Organization', name, url: this.siteUrl },
     ]);
 
     // Data is preloaded by homeResolver → present on first render (no reflow).

@@ -67,6 +67,7 @@ export class ContactComponent implements OnInit {
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
   private readonly contact = inject(ContactService);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly store = computed(() => this.theme.storeName() || 'our store');
   readonly sent = signal(false);
@@ -85,7 +86,7 @@ export class ContactComponent implements OnInit {
     this.seo.setMeta({
       title: `Contact us — ${name}`,
       description: `Get in touch with ${name} for help with orders, products or any other questions.`,
-      url: `${SITE_URL}/contact`,
+      url: `${this.siteUrl}/contact`,
     });
   }
 

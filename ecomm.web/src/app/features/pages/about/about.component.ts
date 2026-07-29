@@ -44,6 +44,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 export class AboutComponent implements OnInit {
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly store = computed(() => this.theme.storeName() || 'our store');
 
@@ -59,7 +60,7 @@ export class AboutComponent implements OnInit {
     this.seo.setMeta({
       title: `About us — ${name}`,
       description: `Learn about ${name} — quality products, fair prices and fast, reliable delivery.`,
-      url: `${SITE_URL}/about`,
+      url: `${this.siteUrl}/about`,
     });
   }
 }

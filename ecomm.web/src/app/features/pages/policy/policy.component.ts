@@ -25,6 +25,7 @@ export class PolicyComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly policy = signal<StorePolicy | null>(null);
   readonly loading = signal(true);
@@ -36,7 +37,7 @@ export class PolicyComponent implements OnInit {
       this.catalog.getPolicy(handle).subscribe((p) => {
         this.policy.set(p);
         this.loading.set(false);
-        if (p) this.seo.setMeta({ title: `${p.title} — ${this.theme.storeName() || 'Online Store'}`, description: p.title, url: `${SITE_URL}/policies/${handle}` });
+        if (p) this.seo.setMeta({ title: `${p.title} — ${this.theme.storeName() || 'Online Store'}`, description: p.title, url: `${this.siteUrl}/policies/${handle}` });
       });
     });
   }

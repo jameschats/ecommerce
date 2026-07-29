@@ -20,6 +20,7 @@ export class CollectionPageStore {
   private readonly router = inject(Router);
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly result = signal<PagedResult<ProductListItem> | null>(null);
   readonly categories = signal<Category[]>([]);
@@ -80,7 +81,7 @@ export class CollectionPageStore {
     const brand = this.theme.storeName() || 'our store';
     const title = cat ? `${cat.name} — ${brand}` : `Shop all products — ${brand}`;
     const description = cat?.description ?? `Browse ${cat?.name ?? 'our catalog'} at ${brand}. Great prices, fast delivery.`;
-    this.seo.setMeta({ title, description, url: SITE_URL + this.router.url });
+    this.seo.setMeta({ title, description, url: this.siteUrl + this.router.url });
   }
 
   applyFilters(extra: Record<string, string | number | null> = {}): void {

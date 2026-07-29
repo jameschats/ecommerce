@@ -44,6 +44,7 @@ export class FaqComponent implements OnInit {
   private readonly seo = inject(SeoService);
   private readonly theme = inject(ThemeService);
   private readonly http = inject(HttpClient);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly store = computed(() => this.theme.storeName() || 'our store');
   readonly open = signal<number>(0);
@@ -55,7 +56,7 @@ export class FaqComponent implements OnInit {
     this.seo.setMeta({
       title: `FAQ — ${name}`,
       description: `Answers to common questions about ordering, shipping, payment, returns and support at ${name}.`,
-      url: `${SITE_URL}/faq`,
+      url: `${this.siteUrl}/faq`,
     });
 
     this.http.get<ApiResponse<Faq[]>>(`${API_BASE_URL}/faq`).subscribe({

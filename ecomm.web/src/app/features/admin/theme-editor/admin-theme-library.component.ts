@@ -96,6 +96,7 @@ export class AdminThemeLibraryComponent implements OnInit {
   private readonly api = inject(ThemeLibraryService);
   private readonly theme = inject(ThemeService);
   private readonly doc = inject(DOCUMENT);
+  private readonly siteUrl = inject(SITE_URL);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
@@ -120,7 +121,7 @@ export class AdminThemeLibraryComponent implements OnInit {
   /** Storefront URL that renders this (draft) theme via its preview token — on THIS store's own
    *  host (admin runs on the store subdomain), not the build-time apex SITE_URL. */
   previewUrl(t: ThemeSummary): string {
-    const origin = this.doc.defaultView?.location?.origin || SITE_URL;
+    const origin = this.doc.defaultView?.location?.origin || this.siteUrl;
     return `${origin}/?preview=${t.previewToken}`;
   }
 

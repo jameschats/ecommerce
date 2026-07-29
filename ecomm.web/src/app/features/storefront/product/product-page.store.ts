@@ -25,6 +25,7 @@ export class ProductPageStore {
   private readonly reviewSvc = inject(ReviewService);
   private readonly auth = inject(AuthService);
   private readonly theme = inject(ThemeService);
+  private readonly siteUrl = inject(SITE_URL);
 
   readonly isAuthenticated = this.auth.isAuthenticated;
 
@@ -171,7 +172,7 @@ export class ProductPageStore {
   }
 
   private applySeo(p: ProductDetail): void {
-    const url = `${SITE_URL}/product/${p.slug}`;
+    const url = `${this.siteUrl}/product/${p.slug}`;
     const image = p.images.find((i) => i.isPrimary)?.url ?? p.images[0]?.url;
     this.seo.setMeta({ title: p.metaTitle?.trim() || `${p.name} — ${this.theme.storeName() || 'our store'}`, description: p.metaDescription?.trim() || p.shortDescription || p.name, image, url, type: 'product' });
     this.seo.setJsonLd([
@@ -187,8 +188,8 @@ export class ProductPageStore {
       {
         '@context': 'https://schema.org', '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-          { '@type': 'ListItem', position: 2, name: p.categoryName, item: `${SITE_URL}/products` },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: `${this.siteUrl}/` },
+          { '@type': 'ListItem', position: 2, name: p.categoryName, item: `${this.siteUrl}/products` },
           { '@type': 'ListItem', position: 3, name: p.name, item: url },
         ],
       },

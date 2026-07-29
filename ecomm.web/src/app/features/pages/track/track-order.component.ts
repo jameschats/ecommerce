@@ -82,6 +82,7 @@ interface OrderLookup {
 export class TrackOrderComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly seo = inject(SeoService);
+  private readonly siteUrl = inject(SITE_URL);
 
   orderNumber = '';
   email = '';
@@ -93,7 +94,7 @@ export class TrackOrderComponent implements OnInit {
     this.seo.setMeta({
       title: 'Track your order',
       description: 'Check the status of your order using your order number and email.',
-      url: `${SITE_URL}/track`,
+      url: `${this.siteUrl}/track`,
     });
   }
 
