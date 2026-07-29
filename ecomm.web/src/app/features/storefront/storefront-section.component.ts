@@ -304,6 +304,17 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
    *  gated by ThemeService.editorMode() so real shoppers never see any of this. */
   @HostBinding('attr.data-section-id') get sectionIdAttr(): number { return this.section().pageSectionId; }
   @HostBinding('class.theme-editor-selected') highlighted = false;
+  /** Belt-and-suspenders alongside the mousedown prevention below — some browsers can still
+   *  start a drag-selection before a JS handler gets a chance to run. */
+  @HostBinding('style.user-select') get editorUserSelect(): string | null { return this.theme.editorMode() ? 'none' : null; }
+  /** Native double-click/drag word-selection is resolved on mousedown, before any 'click' event
+   *  fires — preventDefault() on click alone (below) is too late to stop it. Confirmed live: a
+   *  double-click in the editor canvas highlighted a single word instead of just selecting the
+   *  section. Mousedown prevention stops the selection from ever starting; click still fires
+   *  normally afterwards (preventing a mousedown's default doesn't cancel the click). */
+  private readonly onEditorMouseDown = (event: MouseEvent) => {
+    event.preventDefault();
+  };
   private readonly onEditorClick = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -345,6 +356,7 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     // browser's deferred default action, so preventDefault() from an ancestor bubble listener
     // wouldn't stop it).
     if (typeof window !== 'undefined' && this.theme.editorMode()) {
+      this.elementRef.nativeElement.addEventListener('mousedown', this.onEditorMouseDown, { capture: true });
       this.elementRef.nativeElement.addEventListener('click', this.onEditorClick, { capture: true });
       window.addEventListener('message', this.onWindowMessage);
     }
@@ -353,6 +365,7 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.countdownTimer) clearInterval(this.countdownTimer);
     if (typeof window === 'undefined') return;
+    this.elementRef.nativeElement.removeEventListener('mousedown', this.onEditorMouseDown, { capture: true });
     this.elementRef.nativeElement.removeEventListener('click', this.onEditorClick, { capture: true });
     window.removeEventListener('message', this.onWindowMessage);
   }
