@@ -1,5 +1,5 @@
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -73,7 +73,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
 
         <!-- center: live preview -->
         <main class="flex-1 bg-slate-100 min-w-0">
-          @if (previewUrl()) { <iframe [src]="previewUrl()" class="w-full h-full border-0" title="preview"></iframe> }
+          @if (previewUrl()) { <iframe #previewFrame [src]="previewUrl()" class="w-full h-full border-0" title="preview"></iframe> }
         </main>
 
         <!-- right: theme settings, or settings for the selected section -->
@@ -173,7 +173,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                 <div class="flex items-center justify-between mb-2"><span class="lbl mb-0">{{ bt.label }}s</span>
                   <button type="button" (click)="addBlock(bt)" class="text-xs text-blue-600 hover:underline">+ Add</button></div>
                 @for (b of blocksArr; track $index) {
-                  <div class="border border-slate-200 rounded-lg p-2 mb-2">
+                  <div #blockCard class="border rounded-lg p-2 mb-2" [class]="$index === selectedBlockIndex() ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'">
                     <div class="flex justify-between text-xs text-slate-400 mb-1"><span>{{ bt.label }} {{ $index + 1 }}</span>
                       <button type="button" (click)="removeBlock($index)" class="text-red-500">×</button></div>
                     @for (f of bt.fields; track f.key) {
@@ -195,18 +195,23 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
     </div>
   `,
 })
-export class AdminThemeEditorComponent implements OnInit {
+export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   private readonly svc = inject(ThemeAuthoringService);
   private readonly library = inject(ThemeLibraryService);
   private readonly catalog = inject(CatalogService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly route = inject(ActivatedRoute);
 
+  @ViewChild('previewFrame') previewFrame?: ElementRef<HTMLIFrameElement>;
+  @ViewChildren('blockCard') blockCards?: QueryList<ElementRef<HTMLElement>>;
+
   readonly templates = signal<ThemeTemplateSummary[]>([]);
   readonly sections = signal<ThemeSectionAdmin[]>([]);
   readonly types = signal<SectionTypeSchema[]>([]);
   readonly activeKey = signal<string>('index');
   readonly selectedId = signal<number | null>(null);
+  /** T15: which block card is highlighted after a click-to-select-in-canvas from the preview iframe. */
+  readonly selectedBlockIndex = signal<number | null>(null);
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
   readonly previewUrl = signal<SafeResourceUrl | null>(null);
@@ -243,6 +248,30 @@ export class AdminThemeEditorComponent implements OnInit {
       this.schemes = this.parse(s['ColorSchemes'] ?? null, [] as ColorScheme[]);
     });
     this.selectTemplate('index');
+    if (typeof window !== 'undefined') window.addEventListener('message', this.onWindowMessage);
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') window.removeEventListener('message', this.onWindowMessage);
+  }
+
+  /** T15: a merchant clicked a section/block in the live preview iframe. */
+  private readonly onWindowMessage = (event: MessageEvent): void => {
+    if (typeof window === 'undefined' || event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (data?.type !== 'theme-editor:select') return;
+    const sec = this.sections().find((x) => x.id === data.sectionId);
+    if (!sec) return;   // the framed page may be showing a section outside the active template's list
+    this.select(sec);
+    this.selectedBlockIndex.set(typeof data.blockIndex === 'number' ? data.blockIndex : null);
+    if (typeof data.blockIndex === 'number') {
+      queueMicrotask(() => this.blockCards?.get(data.blockIndex)?.nativeElement.scrollIntoView({ block: 'nearest' }));
+    }
+  };
+
+  /** T15: mirror the current selection back into the preview iframe so it can outline that section. */
+  private postHighlight(sectionId: number | null): void {
+    this.previewFrame?.nativeElement.contentWindow?.postMessage({ type: 'theme-editor:highlight', sectionId }, window.location.origin);
   }
 
   toggleSettings(): void { this.settingsMode.update((v) => !v); }
@@ -285,6 +314,8 @@ export class AdminThemeEditorComponent implements OnInit {
     this.selectedId.set(s.id);
     this.settingsObj = this.parse(s.settings, {});
     this.blocksArr = this.parse(s.blocks, []);
+    this.selectedBlockIndex.set(null);
+    this.postHighlight(s.id);
   }
 
   addSection(type: string): void {

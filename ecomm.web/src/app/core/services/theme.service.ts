@@ -72,6 +72,14 @@ export class ThemeService {
     return m ? { preview: decodeURIComponent(m[1]) } : {};
   }
 
+  /** True when this page is rendered inside the theme editor's preview iframe (T15) — gates the
+   *  click-to-select overlay so real shoppers never see it. Requires BOTH a preview token AND
+   *  actually being framed, so opening a "Preview ↗" link in its own tab behaves normally. */
+  editorMode(): boolean {
+    const win = this.doc.defaultView;
+    return !!this.previewParams()['preview'] && !!win && win.self !== win.top;
+  }
+
   getTemplate(key: string): Observable<ThemeSection[]> {
     return this.getTemplateInfo(key).pipe(map((t) => t.sections));
   }

@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, ElementRef, HostBinding, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
 import { BuilderSection } from '../../core/services/cms.service';
@@ -88,7 +88,7 @@ import { ThemeService } from '../../core/services/theme.service';
           @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             @for (b of blocks(); track $index) {
-              <div class="text-center p-5 sf-card">
+              <div class="text-center p-5 sf-card" [attr.data-block-index]="$index">
                 @if (b.icon) { <div class="text-3xl">{{ b.icon }}</div> }
                 @if (b.heading) { <h3 class="font-semibold text-slate-900 mt-2">{{ b.heading }}</h3> }
                 @if (b.text) { <p class="text-sm text-slate-500 mt-1">{{ b.text }}</p> }
@@ -102,7 +102,7 @@ import { ThemeService } from '../../core/services/theme.service';
           @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
           <div class="grid gap-4" [class]="tileCols()">
             @for (b of blocks(); track $index) {
-              <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card">
+              <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card" [attr.data-block-index]="$index">
                 <div class="aspect-[4/5] bg-slate-100 overflow-hidden">
                   @if (b.image) { <img [src]="b.image" [alt]="b.label || ''" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
                 </div>
@@ -122,7 +122,7 @@ import { ThemeService } from '../../core/services/theme.service';
           @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             @for (b of blocks(); track $index) {
-              <a [href]="b.link || '/products'" class="relative block overflow-hidden min-h-[170px] sf-card"
+              <a [href]="b.link || '/products'" class="relative block overflow-hidden min-h-[170px] sf-card" [attr.data-block-index]="$index"
                  [style.background-color]="theme.resolveBg(b.colorScheme, b.backgroundColor, 'var(--color-secondary, #0f172a)')">
                 @if (b.image) { <img [src]="b.image" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
@@ -166,7 +166,7 @@ import { ThemeService } from '../../core/services/theme.service';
           @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-6">{{ s().heading }}</h2> }
           <div class="grid sm:grid-cols-3 gap-4">
             @for (b of blocks(); track $index) {
-              <div class="bg-white border border-slate-200 rounded-xl p-5">
+              <div class="bg-white border border-slate-200 rounded-xl p-5" [attr.data-block-index]="$index">
                 <div class="text-amber-400">{{ stars(b.rating) }}</div>
                 <p class="text-slate-600 mt-2">"{{ b.quote }}"</p>
                 <div class="text-sm font-medium text-slate-800 mt-3">— {{ b.author }}</div>
@@ -263,9 +263,11 @@ import { ThemeService } from '../../core/services/theme.service';
       }
     }
   `,
+  styles: [`:host.theme-editor-selected { outline: 2px solid #2563eb; outline-offset: -2px; }`],
 })
-export class StorefrontSectionComponent implements OnInit {
+export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly catalog = inject(CatalogService);
+  private readonly elementRef = inject(ElementRef<HTMLElement>);
   readonly theme = inject(ThemeService);
   readonly section = input.required<BuilderSection>();
 
@@ -276,6 +278,23 @@ export class StorefrontSectionComponent implements OnInit {
 
   readonly s = computed<any>(() => this.parse<any>(this.section().settings, {}));
   readonly blocks = computed<any[]>(() => this.parse<any[]>(this.section().blocks, []));
+
+  /** T15: click-to-select-in-canvas. Only active inside the theme editor's preview iframe —
+   *  gated by ThemeService.editorMode() so real shoppers never see any of this. */
+  @HostBinding('attr.data-section-id') get sectionIdAttr(): number { return this.section().pageSectionId; }
+  @HostBinding('class.theme-editor-selected') highlighted = false;
+  private readonly onEditorClick = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
+    const blockEl = target.closest('[data-block-index]') as HTMLElement | null;
+    const blockIndex = blockEl ? Number(blockEl.getAttribute('data-block-index')) : undefined;
+    window.parent.postMessage({ type: 'theme-editor:select', sectionId: this.section().pageSectionId, blockIndex }, window.location.origin);
+  };
+  private readonly onWindowMessage = (event: MessageEvent) => {
+    if (event.origin !== window.location.origin || event.data?.type !== 'theme-editor:highlight') return;
+    this.highlighted = event.data.sectionId === this.section().pageSectionId;
+  };
 
   ngOnInit(): void {
     const type = this.section().sectionType;
@@ -295,6 +314,22 @@ export class StorefrontSectionComponent implements OnInit {
         }).subscribe((r) => this.products.set(r.items));
       }
     }
+
+    // Capture phase, not bubble: routerLink/href navigation must be intercepted before it fires,
+    // not after — a bubble-phase listener on this host would run too late (RouterLink's own click
+    // handler lives on the anchor itself and triggers navigation imperatively, not via the
+    // browser's deferred default action, so preventDefault() from an ancestor bubble listener
+    // wouldn't stop it).
+    if (typeof window !== 'undefined' && this.theme.editorMode()) {
+      this.elementRef.nativeElement.addEventListener('click', this.onEditorClick, { capture: true });
+      window.addEventListener('message', this.onWindowMessage);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window === 'undefined') return;
+    this.elementRef.nativeElement.removeEventListener('click', this.onEditorClick, { capture: true });
+    window.removeEventListener('message', this.onWindowMessage);
   }
 
   stars(n: number): string { const r = Math.max(0, Math.min(5, Math.round(n || 0))); return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r); }
