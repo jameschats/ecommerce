@@ -94,7 +94,29 @@ in-canvas); keyboard support (Esc deselect, arrow reorder).
 - **"Explore free images" stock integration** — optional later (e.g. an Unsplash API proxy; licensing
   review needed); the media library + URL tab covers the need meanwhile.
 
+## Stated product requirements this plan serves (user, 2026-07-29)
+"Choose a theme → edit it **page by page, section by section, element by element**; themes for **small
+catalogs and large catalogs**." Mapping:
+- **Page by page** — templates-per-page-type already exist (S4); the E5 page navigator makes moving
+  between them Shopify-fluid, incl. choosing which sample product/collection a page previews with.
+- **Section by section** — shipped (T15 click-to-select); E1/E2 make it feel right (hover badges, live
+  edits, no reloads).
+- **Element by element** — two layers: *(cheap, in E3)* clicking an element (a heading, a button) inside
+  the canvas focuses **that field** in the panel — add `data-field` anchors alongside the existing
+  `data-block-index`, so a click maps to section → block → field; *(structural, = T17 theme blocks)*
+  Shopify can select "the Button" as a first-class thing because its sections are *composed of*
+  Heading/Button/Text blocks, while ours bundle those as flat settings on one section/block. T17
+  (already approved as its own milestone) is what makes elements true, reorderable, addable blocks —
+  E3's tree/panel UX is the interface it will slot into.
+- **Small-catalog vs large-catalog themes** — the T7 `CatalogFit` decision in the theme-store plan
+  (tag every prebuilt theme Small/Medium/Large, show it in the picker, filter later) plus T4 (author
+  more themes so both fits are genuinely covered: spacious hero-led themes for few products, dense
+  rail/department themes for many). Promoted from "fold in later" to a near-term milestone at the
+  user's request — it's catalog work on `PrebuiltThemeRegistry`, independent of E1–E6, can run in
+  parallel any time.
+
 ## Order & sizing
 E1 → E2 → E3 → E4 → E5 → E6. E1+E2 together produce the visceral "this feels like Shopify" difference;
-E3 is the deepest structural rework; E4–E6 are steady increments. Each milestone = its own plan → build →
+E3 is the deepest structural rework (and the natural home of element-level selection); E4–E6 are steady
+increments. The catalog-fit theme work (T4/T7) is parallel-track. Each milestone = its own plan → build →
 test → deploy cycle, like T13–T15 were.
