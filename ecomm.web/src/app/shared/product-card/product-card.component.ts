@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ProductListItem } from '../../core/models/catalog.model';
 import { ColorSwatchService } from '../../core/services/color-swatch.service';
+import { QuickViewService } from '../../core/services/quick-view.service';
 import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.component';
 
 const MAX_SWATCHES_SHOWN = 5;
@@ -32,6 +33,10 @@ const MAX_SWATCHES_SHOWN = 5;
         <div class="absolute top-2 right-2">
           <app-wishlist-button [productId]="product().productId" />
         </div>
+        <button type="button" (click)="$event.preventDefault(); $event.stopPropagation(); quickView.open(product().slug)"
+          class="absolute inset-x-0 bottom-0 bg-black/60 text-white text-xs font-medium text-center py-1.5 opacity-0 group-hover:opacity-100 transition">
+          Quick view
+        </button>
       </div>
       <div class="p-3">
         <p class="text-xs text-slate-400">{{ product().brandName ?? product().categoryName }}</p>
@@ -62,6 +67,7 @@ const MAX_SWATCHES_SHOWN = 5;
 })
 export class ProductCardComponent {
   product = input.required<ProductListItem>();
+  readonly quickView = inject(QuickViewService);
 
   private readonly swatchSvc = inject(ColorSwatchService);
   private readonly allSwatches = toSignal(this.swatchSvc.list(), { initialValue: [] });
