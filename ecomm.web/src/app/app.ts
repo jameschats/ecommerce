@@ -46,6 +46,23 @@ export class App implements OnInit {
   readonly categories = signal<Category[]>([]);
   readonly policyLinks = signal<{ handle: string; title: string }[]>([]);
   readonly menuOpen = signal(false);
+
+  /** Mega menu (T12): child categories grouped by parent, driving a hover dropdown in the
+   *  category bar. No merchant setup required — built from the same category tree the storefront
+   *  already fetches, not from Menu/MenuItem (whose admin editor can't save nested items today). */
+  readonly topLevelCategories = computed(() => this.categories().filter((c) => c.parentCategoryId === null));
+  private readonly categoryChildren = computed(() => {
+    const map = new Map<number, Category[]>();
+    for (const c of this.categories()) {
+      if (c.parentCategoryId === null) continue;
+      const list = map.get(c.parentCategoryId) ?? [];
+      list.push(c);
+      map.set(c.parentCategoryId, list);
+    }
+    return map;
+  });
+  readonly activeMegaMenu = signal<number | null>(null);
+  childrenOf(categoryId: number): Category[] { return this.categoryChildren().get(categoryId) ?? []; }
   readonly isAdminRoute = signal(false);
   // Storefront chrome is hidden on platform surfaces that bring their own: admin/super-admin/landing/signup
   // (route-based), and on the apex host entirely (the platform is never a store).
