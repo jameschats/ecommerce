@@ -1,4 +1,5 @@
-import { Component, ElementRef, HostBinding, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Component, ElementRef, HostBinding, OnDestroy, OnInit, PLATFORM_ID, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
 import { BuilderSection } from '../../core/services/cms.service';
@@ -148,6 +149,19 @@ import { ThemeService } from '../../core/services/theme.service';
           </div>
         </div>
       }
+      @case ('CountdownBar') {
+        <div class="py-3 px-4 flex flex-wrap items-center justify-center gap-3 text-sm font-medium text-center"
+             [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, '#111827')"
+             [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
+          @if (remaining(); as r) {
+            @if (s().heading) { <span>{{ s().heading }}</span> }
+            <span class="font-mono font-bold tabular-nums">{{ r.days }}d {{ r.hours }}h {{ r.mins }}m {{ r.secs }}s</span>
+          } @else {
+            <span>{{ s().expiredText || 'This offer has ended' }}</span>
+          }
+          @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="ml-2 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 font-medium">{{ s().buttonText }}</a> }
+        </div>
+      }
       @case ('RichText') {
         <div class="max-w-3xl mx-auto px-4 py-8 prose" [style.text-align]="s().align || 'left'" [innerHTML]="s().content"></div>
       }
@@ -268,6 +282,7 @@ import { ThemeService } from '../../core/services/theme.service';
 export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly catalog = inject(CatalogService);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   readonly theme = inject(ThemeService);
   readonly section = input.required<BuilderSection>();
 
@@ -278,6 +293,12 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
 
   readonly s = computed<any>(() => this.parse<any>(this.section().settings, {}));
   readonly blocks = computed<any[]>(() => this.parse<any[]>(this.section().blocks, []));
+
+  /** CountdownBar: Dd/Hh/Mm/Ss remaining, or null once expired. Computed synchronously in ngOnInit
+   *  (works identically server + browser) so SSR output already shows correct numbers; a browser-only
+   *  interval then keeps it ticking. */
+  readonly remaining = signal<{ days: number; hours: number; mins: number; secs: number } | null>(null);
+  private countdownTimer: ReturnType<typeof setInterval> | null = null;
 
   /** T15: click-to-select-in-canvas. Only active inside the theme editor's preview iframe —
    *  gated by ThemeService.editorMode() so real shoppers never see any of this. */
@@ -313,6 +334,9 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
           categoryId: cfg['source'] === 'category' && cfg['categoryId'] ? Number(cfg['categoryId']) : undefined,
         }).subscribe((r) => this.products.set(r.items));
       }
+    } else if (type === 'CountdownBar') {
+      this.tickCountdown();
+      if (this.isBrowser) this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
     }
 
     // Capture phase, not bubble: routerLink/href navigation must be intercepted before it fires,
@@ -327,9 +351,22 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
     if (typeof window === 'undefined') return;
     this.elementRef.nativeElement.removeEventListener('click', this.onEditorClick, { capture: true });
     window.removeEventListener('message', this.onWindowMessage);
+  }
+
+  private tickCountdown(): void {
+    const target = new Date(this.s()['endDateTime'] ?? '').getTime();
+    const diff = target - Date.now();
+    if (!target || diff <= 0) {
+      this.remaining.set(null);
+      if (this.countdownTimer) { clearInterval(this.countdownTimer); this.countdownTimer = null; }
+      return;
+    }
+    const secs = Math.floor(diff / 1000);
+    this.remaining.set({ days: Math.floor(secs / 86400), hours: Math.floor(secs / 3600) % 24, mins: Math.floor(secs / 60) % 60, secs: secs % 60 });
   }
 
   stars(n: number): string { const r = Math.max(0, Math.min(5, Math.round(n || 0))); return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r); }

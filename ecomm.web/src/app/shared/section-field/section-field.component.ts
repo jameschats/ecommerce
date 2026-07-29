@@ -34,6 +34,7 @@ type LinkType = 'product' | 'collection' | 'page' | 'external';
       @case ('color') { <input type="color" [ngModel]="value()" (ngModelChange)="value.set($event)" class="input h-9 w-16" /> }
       @case ('image') { <input [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" placeholder="https://…/image.jpg" /> }
       @case ('url') { <input type="url" [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" placeholder="https://…" /> }
+      @case ('datetime') { <input type="datetime-local" [ngModel]="toLocalInput(value())" (ngModelChange)="value.set(toUtcIso($event))" class="input w-full" /> }
       @case ('select') { <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">@for (o of schema().options ?? []; track o) { <option [value]="o">{{ o }}</option> }</select> }
 
       @case ('colorScheme') {
@@ -172,4 +173,19 @@ export class SectionFieldComponent implements OnInit {
   pickLinkProduct(p: ProductListItem): void { this.setLink(`/product/${p.slug}`); this.productResults.set([]); this.productQuery = ''; }
   setLink(v: string): void { this.value.set(v); }
   setLinkType(t: LinkType): void { this.linkType.set(t); if (t === 'external') this.value.set(''); }
+
+  /** Stored value is a UTC ISO string; <input type="datetime-local"> needs local "YYYY-MM-DDTHH:mm". */
+  toLocalInput(utcIso: unknown): string {
+    if (!utcIso || typeof utcIso !== 'string') return '';
+    const d = new Date(utcIso);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  /** Reverse: the input's local "YYYY-MM-DDTHH:mm" back to a UTC ISO string for storage — this is what
+   *  makes the countdown's target moment the same instant for every shopper regardless of their timezone. */
+  toUtcIso(localValue: string): string {
+    const d = new Date(localValue);
+    return isNaN(d.getTime()) ? '' : d.toISOString();
+  }
 }

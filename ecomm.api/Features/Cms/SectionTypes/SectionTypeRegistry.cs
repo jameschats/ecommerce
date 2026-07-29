@@ -7,6 +7,7 @@ public sealed record FieldSchema(
 // Type: text | textarea | richtext | number | boolean | color | image | url | select | category
 //     | product | collection | page | menu | link | range (Min/Max/Step apply to range only)
 //     | colorScheme (a theme-defined named palette — see Theme.Settings["ColorSchemes"])
+//     | datetime (stored as a UTC ISO 8601 string; editor converts to/from the visitor's local time)
 
 /// <summary>A block kind allowed inside a section (e.g. a hero Slide, a Testimonial item).</summary>
 public sealed record BlockTypeSchema(string Key, string Label, IReadOnlyList<FieldSchema> Fields);
@@ -149,6 +150,18 @@ public static class SectionTypeRegistry
             Settings:
             [
                 new("text", "Text", "text", "Free shipping over ₹499"),
+                new("backgroundColor", "Background colour", "color", "#111827"),
+                new("colorScheme", "Colour scheme", "colorScheme", Help: "Overrides the background colour above, if set."),
+            ], BlockTypes: []),
+
+        new("CountdownBar", "Countdown / promo bar", "megaphone", "A slim bar with a live countdown to a sale's end.",
+            Settings:
+            [
+                new("heading", "Heading", "text", "Sale ends in:"),
+                new("endDateTime", "Ends at", "datetime"),
+                new("expiredText", "Message after it ends", "text", "This offer has ended"),
+                new("buttonText", "Button text", "text"),
+                new("buttonLink", "Button link", "link"),
                 new("backgroundColor", "Background colour", "color", "#111827"),
                 new("colorScheme", "Colour scheme", "colorScheme", Help: "Overrides the background colour above, if set."),
             ], BlockTypes: []),
