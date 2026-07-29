@@ -9,6 +9,7 @@ import {
   BlockTypeSchema, SectionTypeSchema, ThemeAuthoringService, ThemeSectionAdmin, ThemeTemplateSummary,
 } from '../../../core/services/theme-authoring.service';
 import { SectionFieldComponent } from '../../../shared/section-field/section-field.component';
+import { ColorScheme } from '../../../core/services/theme.service';
 
 interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
 
@@ -101,6 +102,28 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                   <option value="rounded">Rounded</option><option value="pill">Pill</option><option value="square">Square</option>
                 </select></label>
             </div>
+
+            <div class="border-t border-slate-100 pt-3 mt-1 mb-3">
+              <div class="flex items-center justify-between mb-2">
+                <span class="lbl mb-0">Colour schemes</span>
+                <button type="button" (click)="addScheme()" class="text-xs text-blue-600 hover:underline">+ Add</button>
+              </div>
+              <p class="text-xs text-slate-400 mb-2">Named palettes sections can opt into (e.g. a dark promo band).</p>
+              @for (s of schemes; track s.key) {
+                <div class="border border-slate-200 rounded-lg p-2 mb-2">
+                  <div class="flex justify-between items-center mb-1">
+                    <input [(ngModel)]="s.name" class="input text-sm flex-1 mr-2" placeholder="Scheme name" />
+                    <button type="button" (click)="removeScheme(s)" class="text-red-500 text-xs">×</button>
+                  </div>
+                  <div class="grid grid-cols-4 gap-1">
+                    <label class="text-center"><span class="text-[10px] text-slate-400 block">Bg</span><input type="color" [(ngModel)]="s.background" class="input h-8 w-full" /></label>
+                    <label class="text-center"><span class="text-[10px] text-slate-400 block">Text</span><input type="color" [(ngModel)]="s.text" class="input h-8 w-full" /></label>
+                    <label class="text-center"><span class="text-[10px] text-slate-400 block">Button</span><input type="color" [(ngModel)]="s.button" class="input h-8 w-full" /></label>
+                    <label class="text-center"><span class="text-[10px] text-slate-400 block">Border</span><input type="color" [(ngModel)]="s.border" class="input h-8 w-full" /></label>
+                  </div>
+                </div>
+              }
+            </div>
             <div class="grid grid-cols-2 gap-3">
               <label class="block mb-3"><span class="lbl">Corners</span>
                 <select [(ngModel)]="themeSettings['Radius']" class="input w-full">
@@ -140,7 +163,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
             @for (f of schema()?.settings ?? []; track f.key) {
               <label class="block mb-3">
                 <span class="lbl">{{ f.label }}</span>
-                <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" />
+                <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" [colorSchemes]="schemes" />
                 @if (f.help) { <span class="text-xs text-slate-400">{{ f.help }}</span> }
               </label>
             }
@@ -155,7 +178,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                       <button type="button" (click)="removeBlock($index)" class="text-red-500">×</button></div>
                     @for (f of bt.fields; track f.key) {
                       <label class="block mb-1"><span class="text-xs text-slate-500">{{ f.label }}</span>
-                        <app-section-field [schema]="f" [(value)]="b[f.key]" />
+                        <app-section-field [schema]="f" [(value)]="b[f.key]" [colorSchemes]="schemes" />
                       </label>
                     }
                   </div>
@@ -193,6 +216,7 @@ export class AdminThemeEditorComponent implements OnInit {
   settingsObj: Record<string, any> = {};
   blocksArr: Record<string, any>[] = [];
   themeSettings: Record<string, string> = {};
+  schemes: ColorScheme[] = [];
   readonly fonts = [
     'Inter', 'Poppins', 'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'DM Sans', 'Work Sans', 'Nunito',
     'Space Grotesk', 'Archivo', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Cormorant Garamond', 'Lora',
@@ -214,7 +238,10 @@ export class AdminThemeEditorComponent implements OnInit {
     this.catalog.getProducts({ pageSize: 1 }).subscribe((r) => { this.sampleProductSlug = r.items[0]?.slug ?? ''; });
     this.library.get(this.themeId).subscribe((t) => { this.themeName.set(t.name); this.previewToken = t.previewToken; this.setPreview(); });
     this.svc.templates(this.themeId).subscribe((t) => this.templates.set(t));
-    this.svc.getSettings(this.themeId).subscribe((s) => this.themeSettings = { ...s });
+    this.svc.getSettings(this.themeId).subscribe((s) => {
+      this.themeSettings = { ...s };
+      this.schemes = this.parse(s['ColorSchemes'] ?? null, [] as ColorScheme[]);
+    });
     this.selectTemplate('index');
   }
 
@@ -222,11 +249,17 @@ export class AdminThemeEditorComponent implements OnInit {
 
   saveSettings(): void {
     this.saving.set(true);
+    this.themeSettings['ColorSchemes'] = JSON.stringify(this.schemes);
     this.svc.saveSettings(this.themeId, this.themeSettings).subscribe({
-      next: (s) => { this.themeSettings = { ...s }; this.saving.set(false); this.toast('Theme settings saved.'); this.reloadPreview(); },
+      next: (s) => { this.themeSettings = { ...s }; this.schemes = this.parse(s['ColorSchemes'] ?? null, [] as ColorScheme[]); this.saving.set(false); this.toast('Theme settings saved.'); this.reloadPreview(); },
       error: () => this.saving.set(false),
     });
   }
+
+  addScheme(): void {
+    this.schemes = [...this.schemes, { key: `scheme-${Date.now()}`, name: 'New scheme', background: '#111827', text: '#ffffff', button: '#2563eb', border: '#334155' }];
+  }
+  removeScheme(s: ColorScheme): void { this.schemes = this.schemes.filter((x) => x.key !== s.key); }
 
   selectTemplate(key: string): void {
     this.activeKey.set(key);

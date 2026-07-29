@@ -11,6 +11,9 @@ export interface ThemeDto {
   settings: Record<string, string>;
 }
 
+/** A named, reusable colour palette a merchant defines once and sections can opt into. */
+export interface ColorScheme { key: string; name: string; background: string; text: string; button: string; border: string; }
+
 /** One section from the published theme (a shared zone entry or template section). */
 export interface ThemeSection {
   id: number;
@@ -54,6 +57,9 @@ export class ThemeService {
   readonly announcement = signal<ThemeSection[]>([]);
   readonly header = signal<ThemeSection[]>([]);
   readonly footer = signal<ThemeSection[]>([]);
+
+  /** The theme's named colour schemes (T14), parsed from the "ColorSchemes" setting. */
+  readonly schemes = signal<ColorScheme[]>([]);
 
   /**
    * The published theme's section list for a page-type template (product/collection/cart/search/…).
@@ -133,6 +139,27 @@ export class ThemeService {
     root.style.setProperty('--card-hover-shadow', card.hover);
 
     if (settings['Favicon']) this.setFavicon(settings['Favicon']);
+
+    // --- Colour schemes (T14) — the only JSON-valued setting; guarded against malformed/missing data ---
+    try { this.schemes.set(settings['ColorSchemes'] ? JSON.parse(settings['ColorSchemes']) : []); }
+    catch { this.schemes.set([]); }
+  }
+
+  /** Look up a scheme by key (from a section's `colorScheme` setting), if any. */
+  getScheme(key: string | undefined | null): ColorScheme | undefined {
+    return key ? this.schemes().find((s) => s.key === key) : undefined;
+  }
+
+  /** Background colour precedence for a section: scheme (if set) → literal override → fallback.
+   *  Centralised so every section/block that supports a colour scheme resolves consistently
+   *  (previously each section repeated its own inline fallback, inconsistently). */
+  resolveBg(schemeKey: string | undefined | null, literal: string | undefined | null, fallback: string): string {
+    return this.getScheme(schemeKey)?.background || literal || fallback;
+  }
+
+  /** Text colour precedence: scheme → fallback (no literal text-colour field exists on any section). */
+  resolveText(schemeKey: string | undefined | null, fallback: string): string {
+    return this.getScheme(schemeKey)?.text || fallback;
   }
 
   // ---- token mappers ----

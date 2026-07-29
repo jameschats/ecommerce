@@ -6,6 +6,7 @@ public sealed record FieldSchema(
     decimal? Min = null, decimal? Max = null, decimal? Step = null);
 // Type: text | textarea | richtext | number | boolean | color | image | url | select | category
 //     | product | collection | page | menu | link | range (Min/Max/Step apply to range only)
+//     | colorScheme (a theme-defined named palette — see Theme.Settings["ColorSchemes"])
 
 /// <summary>A block kind allowed inside a section (e.g. a hero Slide, a Testimonial item).</summary>
 public sealed record BlockTypeSchema(string Key, string Label, IReadOnlyList<FieldSchema> Fields);
@@ -38,6 +39,7 @@ public static class SectionTypeRegistry
             [
                 new("style", "Layout", "select", "boxed", ["boxed", "split", "banner", "panels"]),
                 new("backgroundColor", "Background colour (panels)", "color", Help: "Centre-panel colour for the panels layout."),
+                new("colorScheme", "Colour scheme (panels)", "colorScheme", Help: "Overrides the background colour above, if set."),
                 new("autoplay", "Auto-play slides", "boolean", true),
                 new("intervalSec", "Seconds per slide", "range", 5, Min: 2, Max: 10, Step: 1),
             ],
@@ -122,6 +124,7 @@ public static class SectionTypeRegistry
                 new("buttonText", "Button text", "text"),
                 new("buttonLink", "Button link", "link"),
                 new("backgroundColor", "Background colour", "color", "#111827"),
+                new("colorScheme", "Colour scheme", "colorScheme", Help: "Overrides the background colour above, if set."),
             ], BlockTypes: []),
 
         new("TileGrid", "Image tiles", "grid", "A grid of image tiles with labels — categories, personas or lookbook shots.",
@@ -139,7 +142,7 @@ public static class SectionTypeRegistry
             Settings: [ new("heading", "Heading", "text") ],
             BlockTypes:
             [
-                new("Tile", "Promo", [ new("badge", "Badge", "text"), new("heading", "Heading", "text"), new("text", "Text", "text"), new("image", "Image", "image"), new("backgroundColor", "Background colour", "color"), new("link", "Link", "link") ]),
+                new("Tile", "Promo", [ new("badge", "Badge", "text"), new("heading", "Heading", "text"), new("text", "Text", "text"), new("image", "Image", "image"), new("backgroundColor", "Background colour", "color"), new("colorScheme", "Colour scheme", "colorScheme"), new("link", "Link", "link") ]),
             ], MaxBlocks: 6),
 
         new("Marquee", "Scrolling strip", "megaphone", "A slim auto-scrolling text strip for offers or brand personality.",
@@ -147,11 +150,17 @@ public static class SectionTypeRegistry
             [
                 new("text", "Text", "text", "Free shipping over ₹499"),
                 new("backgroundColor", "Background colour", "color", "#111827"),
+                new("colorScheme", "Colour scheme", "colorScheme", Help: "Overrides the background colour above, if set."),
             ], BlockTypes: []),
 
         // ---- Group sections (shared zones, one per theme) ----
         new("AnnouncementBar", "Announcement bar", "megaphone", "A thin bar above the header for promos/notices.",
-            Settings: [ new("backgroundColor", "Background colour", "color", "#111827"), new("autoplay", "Rotate messages", "boolean", true) ],
+            Settings:
+            [
+                new("backgroundColor", "Background colour", "color", "#111827"),
+                new("colorScheme", "Colour scheme", "colorScheme", Help: "Overrides the background colour above, if set."),
+                new("autoplay", "Rotate messages", "boolean", true),
+            ],
             BlockTypes: [ new("Message", "Message", [ new("text", "Text", "text"), new("link", "Link", "link") ]) ],
             MaxBlocks: 5, Kind: "group", Scope: ["announcement"]),
 

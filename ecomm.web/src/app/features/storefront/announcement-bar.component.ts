@@ -14,7 +14,7 @@ interface AnnouncementMessage { text: string; link?: string; }
   selector: 'app-announcement-bar',
   template: `
     @if (message(); as m) {
-      <div class="text-center text-sm py-2 px-4" [style.background-color]="bg()" style="color:#fff">
+      <div class="text-center text-sm py-2 px-4" [style.background-color]="bg()" [style.color]="textColor()">
         @if (m.link) {
           <a [href]="m.link" class="hover:underline">{{ m.text }}</a>
         } @else {
@@ -34,7 +34,8 @@ export class AnnouncementBarComponent implements OnInit, OnDestroy {
   private readonly messages = computed<AnnouncementMessage[]>(() =>
     this.parse<AnnouncementMessage[]>(this.section()?.blocks, []).filter((m) => m?.text));
 
-  readonly bg = computed(() => this.settings()['backgroundColor'] || '#111827');
+  readonly bg = computed(() => this.theme.resolveBg(this.settings()['colorScheme'], this.settings()['backgroundColor'], '#111827'));
+  readonly textColor = computed(() => this.theme.resolveText(this.settings()['colorScheme'], '#ffffff'));
   readonly index = signal(0);
   readonly message = computed<AnnouncementMessage | null>(() => {
     const list = this.messages();

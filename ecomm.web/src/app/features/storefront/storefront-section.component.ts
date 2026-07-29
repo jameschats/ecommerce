@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
 import { BuilderSection } from '../../core/services/cms.service';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
+import { ThemeService } from '../../core/services/theme.service';
 
 /**
  * Renders one storefront section from its type + settings/blocks JSON.
@@ -52,7 +53,9 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
               <section class="page-container py-6">
                 <div class="grid md:grid-cols-[1fr_1.7fr_1fr] gap-4 items-stretch">
                   @if (blocks()[1]; as l) { <div class="hidden md:block overflow-hidden sf-card"><img [src]="l.image" alt="" class="w-full h-full object-cover" /></div> }
-                  <div class="p-8 sm:p-10 flex flex-col justify-center text-white min-h-[320px] overflow-hidden" style="border-radius: var(--radius-card, 0.75rem)" [style.background-color]="s().backgroundColor || 'var(--color-primary)'">
+                  <div class="p-8 sm:p-10 flex flex-col justify-center min-h-[320px] overflow-hidden" style="border-radius: var(--radius-card, 0.75rem)"
+                       [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, 'var(--color-primary)')"
+                       [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
                     @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">{{ b.heading }}</h2> }
                     @if (b.subheading) { <p class="mt-3 text-white/85">{{ b.subheading }}</p> }
                     @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit">{{ b.buttonText }}</a> }
@@ -119,10 +122,11 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
           @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             @for (b of blocks(); track $index) {
-              <a [href]="b.link || '/products'" class="relative block overflow-hidden min-h-[170px] sf-card" [style.background-color]="b.backgroundColor || 'var(--color-secondary, #0f172a)'">
+              <a [href]="b.link || '/products'" class="relative block overflow-hidden min-h-[170px] sf-card"
+                 [style.background-color]="theme.resolveBg(b.colorScheme, b.backgroundColor, 'var(--color-secondary, #0f172a)')">
                 @if (b.image) { <img [src]="b.image" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
-                <div class="relative p-4 flex flex-col justify-end h-full min-h-[170px] text-white">
+                <div class="relative p-4 flex flex-col justify-end h-full min-h-[170px]" [style.color]="theme.resolveText(b.colorScheme, '#ffffff')">
                   @if (b.badge) { <span class="text-[11px] font-bold uppercase tracking-wide bg-white/90 text-slate-900 rounded px-1.5 py-0.5 w-fit mb-1.5">{{ b.badge }}</span> }
                   @if (b.heading) { <div class="font-bold leading-snug">{{ b.heading }}</div> }
                   @if (b.text) { <div class="text-xs text-white/80 mt-0.5">{{ b.text }}</div> }
@@ -133,7 +137,9 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
         </section>
       }
       @case ('Marquee') {
-        <div class="overflow-hidden py-2.5 text-white text-sm font-medium" [style.background-color]="s().backgroundColor || '#111827'">
+        <div class="overflow-hidden py-2.5 text-sm font-medium"
+             [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, '#111827')"
+             [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
           <div class="marquee-x flex whitespace-nowrap w-max">
             @for (i of ph; track i) {
               <span class="mx-6">{{ s().text || 'Free shipping over ₹499' }}</span><span class="opacity-50">✦</span>
@@ -170,7 +176,9 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
         </section>
       }
       @case ('CtaNewsletter') {
-        <section class="py-12 text-center text-white" [style.background-color]="s().backgroundColor || '#111827'">
+        <section class="py-12 text-center"
+                 [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, '#111827')"
+                 [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
           @if (s().heading) { <h2 class="text-2xl font-bold">{{ s().heading }}</h2> }
           @if (s().subtext) { <p class="mt-1 text-white/80">{{ s().subtext }}</p> }
           @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-4 px-6 py-2 rounded-lg bg-white text-slate-900 font-medium">{{ s().buttonText }}</a> }
@@ -258,6 +266,7 @@ import { Category, ProductListItem } from '../../core/models/catalog.model';
 })
 export class StorefrontSectionComponent implements OnInit {
   private readonly catalog = inject(CatalogService);
+  readonly theme = inject(ThemeService);
   readonly section = input.required<BuilderSection>();
 
   readonly products = signal<ProductListItem[]>([]);

@@ -7,6 +7,7 @@ import { CmsService, BuilderPage } from '../../core/services/cms.service';
 import { NavigationAdminService, Menu } from '../../core/services/navigation-admin.service';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { FieldSchema } from '../../core/services/theme-authoring.service';
+import { ColorScheme } from '../../core/services/theme.service';
 
 type LinkType = 'product' | 'collection' | 'page' | 'external';
 
@@ -35,6 +36,12 @@ type LinkType = 'product' | 'collection' | 'page' | 'external';
       @case ('url') { <input type="url" [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" placeholder="https://…" /> }
       @case ('select') { <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">@for (o of schema().options ?? []; track o) { <option [value]="o">{{ o }}</option> }</select> }
 
+      @case ('colorScheme') {
+        <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">
+          <option value="">—</option>
+          @for (s of colorSchemes(); track s.key) { <option [value]="s.key">{{ s.name }}</option> }
+        </select>
+      }
       @case ('category') {
         <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">
           <option value="">—</option>
@@ -119,6 +126,9 @@ export class SectionFieldComponent implements OnInit {
 
   readonly schema = input.required<FieldSchema>();
   readonly value = model<any>();
+  /** The current theme's named colour schemes — theme-scoped data the parent editor already
+   *  has loaded, not a fetchable catalog resource like the other pickers. */
+  readonly colorSchemes = input<ColorScheme[]>([]);
 
   readonly categories = signal<Category[]>([]);
   readonly collectionsList = signal<AdminCollection[]>([]);
