@@ -357,3 +357,8 @@ the confirmed, in-scope remaining work** — none of it blocked on anything else
 user wants live first. T16 (App Blocks) is explicitly not queued until a scope decision is made. **T17
 (theme blocks) is a new, real, sizeable architectural gap** — recommend its own milestone, not bundled into
 T13/T14. T18 (dynamic sources) is backlog. T19 (`visible_if`) is small — fold into T13's tail.
+
+**2026-07-29 update:** T13/T14/T15 + the T12 remainder (swatches, stock counter, countdown bar, quick view,
+mega menu) have all shipped. The next major track is the **editor experience itself** — see
+[v2-theme-editor-parity-plan.md](v2-theme-editor-parity-plan.md) (E1–E6), which supersedes/absorbs the
+editor-UX side of T15/T20 and sequences the remaining "edit store like Shopify" work.
