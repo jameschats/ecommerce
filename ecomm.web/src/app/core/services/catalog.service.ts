@@ -47,6 +47,14 @@ export class CatalogService {
     );
   }
 
+  /** Rich-shape (swatches/stock) product list for a collection — theme sections sourcing FeaturedProducts by collection. */
+  getCollectionMembers(collectionId: number, limit: number): Observable<ProductListItem[]> {
+    return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/collections/${collectionId}/members`, { params: { limit } }).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
+    );
+  }
+
   getPolicy(handle: string): Observable<StorePolicy | null> {
     return this.http.get<ApiResponse<StorePolicy>>(`${this.base}/policies/${encodeURIComponent(handle)}`).pipe(
       map((r) => r.data ?? null),

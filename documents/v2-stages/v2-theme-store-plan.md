@@ -1,5 +1,20 @@
 # Study & Plan — Real category themes (a Shopify-style theme store)
 
+> **STATUS CORRECTION (2026-07-29, first-hand code re-check):** The "why themes look simple" diagnosis
+> below is **stale**. Phase A (design tokens + real Google-Fonts loading + shared-component retrofit,
+> `4f0a862`), Phase B (section variants + flagship Ignition theme, `17ca883`), and TD4 (real mini-preview
+> thumbnails, `16a69cf`) were **already shipped** after this doc was written — the T1–T6 gap it describes
+> no longer exists in that form. Verified directly against code, not memory: `theme.service.ts` sets 20+
+> CSS vars (color ×4, typography ×6 incl. real `loadFonts()` Google-Fonts injection, layout ×2, shape/
+> radius ×4, card style ×3, favicon); `styles.css`'s `.sf-card`/`.btn-primary` genuinely consume them;
+> `SectionTypeRegistry.cs` has **27** registered section types (not "~7 static + a handful"); `Hero` has
+> 3 layout variants (boxed/split/banner), `FeaturedProducts` has 2 (grid/carousel), `Categories` has 3
+> (grid/cards/strip). **Two gaps from this doc remain real and confirmed** (see the addendum below): the
+> theme editor is still flat/section-level only (no click-to-select-in-canvas — T10), and the theme
+> browse/install UI is still a plain grid with no filters (T7). Treat the body below as **historical
+> context for why the token system exists**, not a current punch list — the addendum + this note are the
+> current source of truth.
+
 **Goal (user):** 5–10 genuinely distinct, category-tailored storefront themes (electronics, apparel, watches,
 restaurant/burger, grocery, beauty, home…) that look real like Shopify's (Ignite/Focal/Shapes) and carry the look
 across home · product · collection · cart. Later: grow the catalog.
@@ -215,8 +230,130 @@ items — they're present in 4 out of 5 real Shopify themes, so their absence re
 Quantity pricing 347/1221 · Quick order list 240/1221 · Right-to-left 605/1221) are genuinely optional/niche —
 don't let them compete for the same sprint.
 
+### T13 — Setting-type vocabulary is far narrower than Shopify's (new, doc-verified)
+Fetched `shopify.dev`'s actual input-settings reference (not inferred from screenshots). Shopify section
+schemas support ~30 field types; ours (`FieldSchema.Type` in `SectionTypeRegistry.cs` + the `@switch` in
+`admin-theme-editor.component.ts:142-150`) supports 10: `text|textarea|richtext|number|boolean|color|
+image|url|select|category`. Confirmed missing, in priority order (highest-impact first):
+- **Resource pickers**: `product`, `collection`, `page`, `blog`, `article`, `link_list` (menu picker), and
+  a proper combined `url` picker (product/collection/page/article, not a free-text URL field). Highest
+  priority — right now e.g. `FeaturedProducts.source` is a free-text field where a merchant types
+  `"bestsellers"` by convention; a real `select`/`collection` picker would be far less error-prone and is
+  what every Shopify theme does.
+- **`range`** (slider with min/max/step) — we approximate this with plain `number` inputs (e.g.
+  `FeaturedProducts.columns`); Shopify uses a slider UI. Cosmetic but very visible in the editor.
+- **`font_picker`** — we already have a fixed 15-font list rendered as a plain `<select>`
+  (`admin-theme-editor.component.ts:205-208`); a real font-picker UX (search/preview) is polish, not a
+  functional gap.
+- **`image_picker`** (with focal point + alt text) vs our plain `url`-as-text `image` field — no focal
+  point support today.
+- **`video`/`video_url`**, **`inline_richtext`**, **`checkbox`** (we only have `boolean`, fine as-is),
+  **`metaobject`** (no metaobject concept in our schema at all — skip, not applicable without that
+  primitive existing elsewhere in the platform).
+
+### T14 — Named colour schemes (theme-level primitive, not just a per-section colour field)
+Confirmed via docs: Shopify's `color_scheme`/`color_scheme_group`/`color_palette` types let a merchant
+define a handful of named palettes once (e.g. "Scheme 1: light", "Scheme 2: dark accent band") and then
+each *section* picks which scheme to render in — this is how a Shopify theme alternates light/dark bands
+down the homepage without per-section colour re-entry. This was already flagged as **open decision #2** in
+the original plan body above ("ship per-section colour schemes now… or a single palette first") — now
+confirmed as a real, named Shopify primitive worth adopting directly rather than inventing our own shape.
+Depends on T13 (needs a `color_scheme` field type) — sequence after it.
+
+### T15 — Editor click-to-select-in-canvas (T10, promoted — now committed, not just flagged)
+Confirmed first-hand (not from a subagent summary) by reading `admin-theme-editor.component.ts` directly:
+the editor is a flat whole-section form (`lines 139-153` settings loop, `155-173` always-expanded blocks
+loop) and the live preview is a bare `<iframe [src]="previewUrl()">` with **no interactivity at all** — no
+postMessage bridge, nothing clickable inside it. Shopify's editor lets a merchant click an element on the
+rendered page itself and jump straight to its settings.
+**Approach:** the storefront renderer (`storefront-section.component.ts`) already wraps every section in a
+predictable DOM structure — add a thin "editor mode" (activated via a preview-only query param/flag) that:
+(a) wraps each rendered section/block in a hoverable/clickable overlay with a `data-section-id`/
+`data-block-index` attribute, (b) on click, `postMessage`s the id back to the parent editor window,
+(c) the editor (`admin-theme-editor.component.ts`) listens for that message and calls `select()`/sets
+`selectedBlockIndex` — the flat form already exists as a target, this closes the "how do I get there"
+gap without redesigning the settings panel itself. This is the largest single UX investment in the backlog
+next to T13's picker fields — budget it as its own focused build, not a quick add.
+
+### T16 — App Blocks / Theme App Extensions: **flagged, not assumed in scope**
+Shopify's biggest structural feature we have *no* equivalent of: third-party **apps** can inject "app
+blocks" directly into any section via the theme editor (a reviews widget, a size-chart, an upsell block)
+with zero code changes to the theme, through a separate **Theme App Extensions** framework (its own CLI,
+sandboxed rendering, app-review/publish pipeline, a 300-block-per-theme cap). This is not "one more section
+type" — it is an entirely separate product capability: a third-party developer SDK + extension marketplace
++ sandboxing + review process, roughly comparable in scope to building a second product alongside the
+storefront/theme engine, not a feature to fold into the T1–T15 backlog.
+**This needs an explicit decision, not a default.** Our platform today is single-vendor-per-tenant SaaS —
+there's no third-party developer ecosystem building for *our* platform the way there is for Shopify's. Two
+honest paths: (a) **out of scope** — Shopify has this because it's a multi-million-merchant app
+marketplace; we don't need our own plugin ecosystem to be "sophisticated like Shopify" in the ways that
+matter to a merchant actually using the storefront/editor (T1–T15 cover all of those); (b) **in scope as a
+future, separate initiative** — if the long-term vision includes third-party developers extending tenant
+storefronts, that's its own multi-month platform project with its own plan doc, not a line item here.
+
+### T17 — Theme blocks vs. section blocks: we only have the model Shopify itself recommends dropping (new, spec-verified)
+Cross-referenced against `shopify-theme-architecture-spec.md` §5.5 (a full normative spec sourced from
+`shopify.dev`, more rigorous than the screenshot-based research above — treat it as the current source of
+truth for theme architecture questions going forward). Shopify has **three** kinds of blocks; the spec's own
+build guidance (§5.5.4, §14 decision #2) is blunt: *"Section blocks are the older, weaker model. If you're
+greenfield, consider shipping only theme blocks and skipping local blocks entirely."*
+
+| | Theme blocks (recommended) | Section blocks (**what we have**) | App blocks (out of scope — T16) |
+|---|---|---|---|
+| Defined | own file/schema, reusable across sections | inline in one section's schema, that section only | third-party extension |
+| Nestable | yes, up to 8 levels | no | within a supporting parent |
+
+Our `SectionTypeRegistry.cs` only implements the section-blocks model: each section's `BlockTypes` are
+locally scoped (e.g. `Hero`'s `Slide` block can't be reused inside `Multicolumn`), and there's no nesting.
+This is a real architectural gap, not a missing field type — closing it means introducing a reusable,
+independently-schema'd block library (a block has its own type/settings, is placeable inside *any* section
+that accepts `@theme`-equivalent blocks, and can nest inside itself). It's comparable in size to the T1/T2
+work already done for sections, but for blocks.
+**This needs a scope decision like App Blocks did — but note the difference:** App Blocks (T16) was scoped
+out because it's a third-party-developer-ecosystem feature we have no counterpart need for. Theme blocks are
+different — Shopify recommends them even for a **greenfield, single-vendor** build, because reusability and
+nesting are just better architecture, independent of any third-party angle. **Decided (2026-07-29): in
+scope, sequenced as its own dedicated milestone (own plan/EnterPlanMode session) after T13 and T15** — not
+squeezed into the current field-type work.
+
+### T18 — Dynamic sources: unbuilt, real, but not urgent
+Spec §6.6: binding a setting to a resource attribute (e.g. a heading auto-fills from `product.title`) or a
+custom field, instead of typing a literal value. We have no equivalent. Valuable (it's what turns section
+config from "static text" into "templated across a catalog"), but it's a bigger lift than T13's pickers and
+nothing in the current plan blocks on it. Backlog, revisit after T15/T17.
+
+### T19 — `visible_if` (conditional settings): small, worth folding into T13/T14 while there
+Spec §6.5: a setting can declare `visible_if` against *other stored setting values only* (no runtime
+context, no dynamic-source results) — deliberately a tiny, side-effect-free comparison grammar, not a general
+expression language. Directly relevant to the just-added `FeaturedProducts.categoryId`/`collectionId` fields
+in T13 — right now both show unconditionally even though only one applies depending on `source`. Small,
+contained addition; fold into the tail of T13 or do as an immediate follow-up, not a separate milestone.
+
+### T20 — Editor event contract for T15: adopt the spec's vocabulary, don't invent one
+T15 (editor click-to-select-in-canvas, still queued) sketched a generic postMessage bridge. Spec §8.3 gives
+an exact, battle-tested event surface instead: `shopify:section:{load,unload,select,deselect,reorder}` and
+`block:{select,deselect}`, plus a `load: true` flag distinguishing "re-rendered" from "merchant clicked."
+**When T15 is implemented, use this vocabulary** rather than a bespoke one — it's free rigor, already solves
+the "component re-init after DOM swap" problem the spec calls out (§8.3's point about idempotent init/
+teardown pairs) that a naive implementation would likely miss.
+
+### Noted, not actionable now
+- **§9 Partial-render API** (`?sections=`, bundled section rendering on cart mutations) solves a problem
+  specific to *server-rendered* Liquid themes avoiding full page reloads. We're an Angular SPA/SSR hybrid —
+  the client already does partial updates via component data-binding + API calls; this doesn't port 1:1.
+  The one idea worth stealing later: bundling "updated cart + header count + promo bar" into one API
+  response on add-to-cart, instead of three round trips — a response-shape optimization, not a new subsystem.
+- **§7 error policy** ("a section that throws renders as null, not a 500") is worth a quick first-hand check
+  against `storefront-section.component.ts` next time that file is touched — not verified either way yet.
+
 ### Net effect on sequencing
-T1–T6 (Phase A–E) is unchanged as the priority — it's what makes any theme look real. T7's `CatalogFit`/
-`Features` tags are cheap enough to fold into **Phase D** (author-the-remaining-themes) as you touch each
-theme's metadata anyway. The fullscreen/mobile preview toggle (part of T7) is cheap enough to do any time.
-T8 is a non-issue. T9–T11 are backlog, not blocking.
+T1/T2/T6 (tokens, variants, fonts) are **already shipped** (see the correction note at the top of this doc)
+— T3 (more section types), T4 (author more themes), T5 (header/footer variants) remain open. T7's
+`CatalogFit`/`Features` tags fold into T4 as you touch each theme's metadata anyway; the fullscreen/mobile
+preview toggle (part of T7) is cheap enough to do any time. T8 is a non-issue. T9, T11 are backlog. **T10/
+T15 (editor click-to-select, now spec-informed — see T20) and T12 (swatches ✅ done, stock counter ✅ done,
+mega menu/quick view/countdown bar still open) and T13/T14 (setting-type vocabulary + colour schemes) are
+the confirmed, in-scope remaining work** — none of it blocked on anything else, sequence by whichever the
+user wants live first. T16 (App Blocks) is explicitly not queued until a scope decision is made. **T17
+(theme blocks) is a new, real, sizeable architectural gap** — recommend its own milestone, not bundled into
+T13/T14. T18 (dynamic sources) is backlog. T19 (`visible_if`) is small — fold into T13's tail.

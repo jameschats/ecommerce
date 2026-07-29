@@ -2,8 +2,10 @@ namespace ecomm.api.Features.Cms.SectionTypes;
 
 /// <summary>A settings/block field. Type drives the builder input + validation.</summary>
 public sealed record FieldSchema(
-    string Key, string Label, string Type, object? Default = null, string[]? Options = null, string? Help = null);
+    string Key, string Label, string Type, object? Default = null, string[]? Options = null, string? Help = null,
+    decimal? Min = null, decimal? Max = null, decimal? Step = null);
 // Type: text | textarea | richtext | number | boolean | color | image | url | select | category
+//     | product | collection | page | menu | link | range (Min/Max/Step apply to range only)
 
 /// <summary>A block kind allowed inside a section (e.g. a hero Slide, a Testimonial item).</summary>
 public sealed record BlockTypeSchema(string Key, string Label, IReadOnlyList<FieldSchema> Fields);
@@ -37,7 +39,7 @@ public static class SectionTypeRegistry
                 new("style", "Layout", "select", "boxed", ["boxed", "split", "banner", "panels"]),
                 new("backgroundColor", "Background colour (panels)", "color", Help: "Centre-panel colour for the panels layout."),
                 new("autoplay", "Auto-play slides", "boolean", true),
-                new("intervalSec", "Seconds per slide", "number", 5),
+                new("intervalSec", "Seconds per slide", "range", 5, Min: 2, Max: 10, Step: 1),
             ],
             BlockTypes:
             [
@@ -47,7 +49,7 @@ public static class SectionTypeRegistry
                     new("heading", "Heading", "text"),
                     new("subheading", "Subheading", "textarea"),
                     new("buttonText", "Button text", "text"),
-                    new("buttonLink", "Button link", "url"),
+                    new("buttonLink", "Button link", "link"),
                 ]),
             ], MaxBlocks: 8),
 
@@ -63,10 +65,11 @@ public static class SectionTypeRegistry
             [
                 new("heading", "Heading", "text", "Featured"),
                 new("layout", "Layout", "select", "grid", ["grid", "carousel"]),
-                new("source", "Source", "select", "featured", ["featured", "newest", "bestsellers", "category"]),
+                new("source", "Source", "select", "featured", ["featured", "newest", "bestsellers", "category", "collection"]),
                 new("categoryId", "Category (if source = category)", "category"),
+                new("collectionId", "Collection (if source = collection)", "collection"),
                 new("count", "How many", "number", 8),
-                new("columns", "Columns", "number", 4),
+                new("columns", "Columns", "range", 4, Min: 1, Max: 6, Step: 1),
             ], BlockTypes: []),
 
         new("Multicolumn", "Feature columns", "grid", "A row of icon + heading + text tiles (USPs, how-it-works).",
@@ -96,7 +99,7 @@ public static class SectionTypeRegistry
                 new("heading", "Heading", "text"),
                 new("body", "Body", "textarea"),
                 new("buttonText", "Button text", "text"),
-                new("buttonLink", "Button link", "url"),
+                new("buttonLink", "Button link", "link"),
             ], BlockTypes: []),
 
         new("Testimonials", "Testimonials", "star", "Customer quotes.",
@@ -117,7 +120,7 @@ public static class SectionTypeRegistry
                 new("heading", "Heading", "text"),
                 new("subtext", "Subtext", "textarea"),
                 new("buttonText", "Button text", "text"),
-                new("buttonLink", "Button link", "url"),
+                new("buttonLink", "Button link", "link"),
                 new("backgroundColor", "Background colour", "color", "#111827"),
             ], BlockTypes: []),
 
@@ -129,14 +132,14 @@ public static class SectionTypeRegistry
             ],
             BlockTypes:
             [
-                new("Tile", "Tile", [ new("image", "Image", "image"), new("label", "Label", "text"), new("sublabel", "Sub-label", "text"), new("link", "Link", "url") ]),
+                new("Tile", "Tile", [ new("image", "Image", "image"), new("label", "Label", "text"), new("sublabel", "Sub-label", "text"), new("link", "Link", "link") ]),
             ], MaxBlocks: 6),
 
         new("PromoTiles", "Promo tiles", "tag", "Deal tiles with a badge and heading over an image or colour.",
             Settings: [ new("heading", "Heading", "text") ],
             BlockTypes:
             [
-                new("Tile", "Promo", [ new("badge", "Badge", "text"), new("heading", "Heading", "text"), new("text", "Text", "text"), new("image", "Image", "image"), new("backgroundColor", "Background colour", "color"), new("link", "Link", "url") ]),
+                new("Tile", "Promo", [ new("badge", "Badge", "text"), new("heading", "Heading", "text"), new("text", "Text", "text"), new("image", "Image", "image"), new("backgroundColor", "Background colour", "color"), new("link", "Link", "link") ]),
             ], MaxBlocks: 6),
 
         new("Marquee", "Scrolling strip", "megaphone", "A slim auto-scrolling text strip for offers or brand personality.",
@@ -149,7 +152,7 @@ public static class SectionTypeRegistry
         // ---- Group sections (shared zones, one per theme) ----
         new("AnnouncementBar", "Announcement bar", "megaphone", "A thin bar above the header for promos/notices.",
             Settings: [ new("backgroundColor", "Background colour", "color", "#111827"), new("autoplay", "Rotate messages", "boolean", true) ],
-            BlockTypes: [ new("Message", "Message", [ new("text", "Text", "text"), new("link", "Link", "url") ]) ],
+            BlockTypes: [ new("Message", "Message", [ new("text", "Text", "text"), new("link", "Link", "link") ]) ],
             MaxBlocks: 5, Kind: "group", Scope: ["announcement"]),
 
         new("Header", "Header", "layout", "Logo, navigation, search and cart.",
@@ -159,7 +162,7 @@ public static class SectionTypeRegistry
                 new("showSearch", "Show search", "boolean", true),
                 new("showCart", "Show cart", "boolean", true),
                 new("sticky", "Stick to top on scroll", "boolean", true),
-                new("menuHandle", "Menu", "text", "main"),
+                new("menuHandle", "Menu", "menu", "main"),
             ], BlockTypes: [], Kind: "group", Scope: ["header"]),
 
         new("Footer", "Footer", "layout", "Link columns, socials and legal.",
@@ -205,7 +208,7 @@ public static class SectionTypeRegistry
         new("SearchResults", "Search results", "grid", "Results for the current query.",
             Settings: [ new("columns", "Columns", "number", 4) ], BlockTypes: [], Kind: "dynamic", Scope: ["search"]),
         new("EmptyState", "Empty state", "info", "Shown when there's nothing to display (404 / empty cart / no results).",
-            Settings: [ new("heading", "Heading", "text"), new("body", "Body", "textarea"), new("buttonText", "Button text", "text"), new("buttonLink", "Button link", "url") ],
+            Settings: [ new("heading", "Heading", "text"), new("body", "Body", "textarea"), new("buttonText", "Button text", "text"), new("buttonLink", "Button link", "link") ],
             BlockTypes: [], Kind: "dynamic", Scope: ["404", "cart", "search"]),
     };
 

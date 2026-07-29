@@ -52,4 +52,11 @@ public sealed class CollectionPublicController(ICollectionService collections) :
         var c = await collections.GetBySlugAsync(slug, ct);
         return c is null ? NotFound(ApiResponse<object>.Fail("Collection not found.")) : Ok(ApiResponse<PublicCollectionDto>.Ok(c));
     }
+
+    /// <summary>Rich-shape (swatches/stock) product list for a theme section sourcing from this
+    /// collection by id — e.g. FeaturedProducts with source=collection.</summary>
+    [HttpGet("{id:long}/members")]
+    public async Task<IActionResult> Members(long id, [FromQuery] int limit, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<ecomm.api.Features.Catalog.Dtos.ProductListItemDto>>.Ok(
+            await collections.MembersForStorefrontAsync(id, limit <= 0 ? 8 : limit, ct)));
 }

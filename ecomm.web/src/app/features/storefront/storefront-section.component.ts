@@ -275,12 +275,16 @@ export class StorefrontSectionComponent implements OnInit {
     } else if (type === 'FeaturedProducts' || type === 'ProductGrid') {
       const cfg: Record<string, any> = this.s();
       const count = Number(cfg['count']) || 8;
-      this.catalog.getProducts({
-        pageSize: count,
-        isFeatured: cfg['source'] === 'featured' ? true : undefined,
-        sort: cfg['source'] === 'newest' ? 'newest' : cfg['source'] === 'bestsellers' ? 'bestsellers' : undefined,
-        categoryId: cfg['source'] === 'category' && cfg['categoryId'] ? Number(cfg['categoryId']) : undefined,
-      }).subscribe((r) => this.products.set(r.items));
+      if (cfg['source'] === 'collection' && cfg['collectionId']) {
+        this.catalog.getCollectionMembers(Number(cfg['collectionId']), count).subscribe((items) => this.products.set(items));
+      } else {
+        this.catalog.getProducts({
+          pageSize: count,
+          isFeatured: cfg['source'] === 'featured' ? true : undefined,
+          sort: cfg['source'] === 'newest' ? 'newest' : cfg['source'] === 'bestsellers' ? 'bestsellers' : undefined,
+          categoryId: cfg['source'] === 'category' && cfg['categoryId'] ? Number(cfg['categoryId']) : undefined,
+        }).subscribe((r) => this.products.set(r.items));
+      }
     }
   }
 

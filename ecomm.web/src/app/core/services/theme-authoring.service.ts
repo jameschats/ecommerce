@@ -4,7 +4,10 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 
-export interface FieldSchema { key: string; label: string; type: string; default?: unknown; options?: string[]; help?: string; }
+export interface FieldSchema {
+  key: string; label: string; type: string; default?: unknown; options?: string[]; help?: string;
+  min?: number; max?: number; step?: number;
+}
 export interface BlockTypeSchema { key: string; label: string; fields: FieldSchema[]; }
 export interface SectionTypeSchema {
   key: string; label: string; icon: string; description: string | null;

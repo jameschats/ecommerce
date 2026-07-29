@@ -4,6 +4,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Catalog.Dtos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,9 @@ public interface ICollectionService
     Task<CollectionDto> UpdateAsync(long id, SaveCollectionRequest req, CancellationToken ct = default);
     Task DeleteAsync(long id, CancellationToken ct = default);
     Task<IReadOnlyList<CollectionProductDto>> MembersAsync(long id, bool activeOnly, CancellationToken ct = default);
+    /// <summary>Active members projected to the same rich shape the storefront's product grids use
+    /// (swatches, stock, etc.) — for a theme section sourcing its products from a Collection.</summary>
+    Task<IReadOnlyList<ProductListItemDto>> MembersForStorefrontAsync(long id, int limit, CancellationToken ct = default);
     Task SetManualMembersAsync(long id, IReadOnlyList<long> productIds, CancellationToken ct = default);
     Task<PublicCollectionDto?> GetBySlugAsync(string slug, CancellationToken ct = default);
 }
@@ -91,6 +95,24 @@ public sealed class CollectionService(EcommerceDbContext db) : ICollectionServic
     {
         var c = await db.Collections.FirstOrDefaultAsync(x => x.CollectionId == id, ct) ?? throw NotFound();
         return await ProjectAsync(MembersQuery(c, activeOnly), ct);
+    }
+
+    public async Task<IReadOnlyList<ProductListItemDto>> MembersForStorefrontAsync(long id, int limit, CancellationToken ct = default)
+    {
+        var c = await db.Collections.FirstOrDefaultAsync(x => x.CollectionId == id, ct) ?? throw NotFound();
+        return await MembersQuery(c, activeOnly: true)
+            .OrderByDescending(p => p.IsFeatured).ThenBy(p => p.ProductId)
+            .Take(limit)
+            .Select(p => new ProductListItemDto(
+                p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
+                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
+                p.Category!.Name,
+                p.Brand != null ? p.Brand.Name : null,
+                p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
+                p.InventoryRecords.Sum(i => i.AvailableQty),
+                p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
+                p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList()))
+            .ToListAsync(ct);
     }
 
     public async Task SetManualMembersAsync(long id, IReadOnlyList<long> productIds, CancellationToken ct = default)

@@ -8,6 +8,7 @@ import { ThemeLibraryService } from '../../../core/services/theme-library.servic
 import {
   BlockTypeSchema, SectionTypeSchema, ThemeAuthoringService, ThemeSectionAdmin, ThemeTemplateSummary,
 } from '../../../core/services/theme-authoring.service';
+import { SectionFieldComponent } from '../../../shared/section-field/section-field.component';
 
 interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
 
@@ -18,7 +19,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
  */
 @Component({
   selector: 'app-admin-theme-editor',
-  imports: [FormsModule, RouterLink, DragDropModule],
+  imports: [FormsModule, RouterLink, DragDropModule, SectionFieldComponent],
   template: `
     <div class="h-screen flex flex-col">
       <header class="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
@@ -139,15 +140,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
             @for (f of schema()?.settings ?? []; track f.key) {
               <label class="block mb-3">
                 <span class="lbl">{{ f.label }}</span>
-                @switch (f.type) {
-                  @case ('textarea') { <textarea [(ngModel)]="settingsObj[f.key]" rows="3" class="input w-full"></textarea> }
-                  @case ('richtext') { <textarea [(ngModel)]="settingsObj[f.key]" rows="5" class="input w-full font-mono text-xs" placeholder="<p>HTML — scripts are stripped</p>"></textarea> }
-                  @case ('boolean') { <input type="checkbox" [(ngModel)]="settingsObj[f.key]" /> }
-                  @case ('number') { <input type="number" [(ngModel)]="settingsObj[f.key]" class="input w-full" /> }
-                  @case ('color') { <input type="color" [(ngModel)]="settingsObj[f.key]" class="input h-9 w-16" /> }
-                  @case ('select') { <select [(ngModel)]="settingsObj[f.key]" class="input w-full">@for (o of f.options ?? []; track o) { <option [value]="o">{{ o }}</option> }</select> }
-                  @default { <input [(ngModel)]="settingsObj[f.key]" class="input w-full" /> }
-                }
+                <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" />
                 @if (f.help) { <span class="text-xs text-slate-400">{{ f.help }}</span> }
               </label>
             }
@@ -162,9 +155,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                       <button type="button" (click)="removeBlock($index)" class="text-red-500">×</button></div>
                     @for (f of bt.fields; track f.key) {
                       <label class="block mb-1"><span class="text-xs text-slate-500">{{ f.label }}</span>
-                        @if (f.type === 'textarea') { <textarea [(ngModel)]="b[f.key]" rows="2" class="input w-full text-sm"></textarea> }
-                        @else if (f.type === 'number') { <input type="number" [(ngModel)]="b[f.key]" class="input w-full text-sm" /> }
-                        @else { <input [(ngModel)]="b[f.key]" class="input w-full text-sm" /> }
+                        <app-section-field [schema]="f" [(value)]="b[f.key]" />
                       </label>
                     }
                   </div>
