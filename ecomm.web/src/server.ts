@@ -10,6 +10,13 @@ import { join } from 'node:path';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
+// Nginx reverse-proxies every deploy (localhost only, same box) and forwards X-Forwarded-*
+// headers. Without telling Express to trust them, Angular's SSR engine treats the request as
+// untrustworthy and silently falls back to serving the static (unrendered) index.html instead
+// of throwing — reproduced directly: identical request without X-Forwarded-For renders fully,
+// with it (exactly what nginx always sends) renders an empty shell. 'loopback' trusts only
+// 127.0.0.1/::1, matching the actual deployment (nginx and this Node process on the same host).
+app.set('trust proxy', 'loopback');
 const angularApp = new AngularNodeAppEngine();
 
 /**
