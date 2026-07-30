@@ -39,6 +39,12 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
         </div>
         <div class="flex items-center gap-2">
           @if (message()) { <span class="text-xs text-green-600">{{ message() }}</span> }
+          <div class="flex rounded-lg border border-slate-300 overflow-hidden text-sm">
+            <button type="button" (click)="device.set('desktop')" title="Desktop preview"
+                    class="px-2.5 py-1" [class]="device() === 'desktop' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'">🖥</button>
+            <button type="button" (click)="device.set('mobile')" title="Mobile preview"
+                    class="px-2.5 py-1" [class]="device() === 'mobile' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'">📱</button>
+          </div>
           <button type="button" (click)="toggleSettings()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50"
                   [class.bg-slate-100]="settingsMode()">⚙ Theme settings</button>
           <button type="button" (click)="reloadPreview()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">↻ Preview</button>
@@ -68,12 +74,20 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
               @for (t of types(); track t.key) { <option [value]="t.key">{{ t.label }}</option> }
             </select>
             <button type="button" (click)="addSection(picker.value); picker.value=''" class="btn-primary w-full mt-2 text-sm">Add</button>
+            @if (pendingInsertBefore(); as pi) {
+              <p class="text-xs text-blue-600 mt-1.5">
+                Adding above “{{ pi.title || pi.sectionType }}” —
+                <button type="button" class="underline" (click)="pendingInsertBefore.set(null)">cancel</button>
+              </p>
+            }
           </div>
         </aside>
 
-        <!-- center: live preview -->
-        <main class="flex-1 bg-slate-100 min-w-0">
-          @if (previewUrl()) { <iframe #previewFrame [src]="previewUrl()" class="w-full h-full border-0" title="preview"></iframe> }
+        <!-- center: live preview (framed to 390px in mobile mode) -->
+        <main class="flex-1 bg-slate-100 min-w-0" [class.py-3]="device() === 'mobile'">
+          <div class="h-full mx-auto" [class]="device() === 'mobile' ? 'max-w-[390px] rounded-xl border border-slate-300 shadow-lg overflow-hidden bg-white' : 'w-full'">
+            @if (previewUrl()) { <iframe #previewFrame [src]="previewUrl()" class="w-full h-full border-0" title="preview"></iframe> }
+          </div>
         </main>
 
         <!-- right: theme settings, or settings for the selected section -->
@@ -163,7 +177,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
             @for (f of schema()?.settings ?? []; track f.key) {
               <label class="block mb-3">
                 <span class="lbl">{{ f.label }}</span>
-                <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" [colorSchemes]="schemes" />
+                <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" [colorSchemes]="schemes" (valueChange)="onFieldEdit()" />
                 @if (f.help) { <span class="text-xs text-slate-400">{{ f.help }}</span> }
               </label>
             }
@@ -178,7 +192,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                       <button type="button" (click)="removeBlock($index)" class="text-red-500">×</button></div>
                     @for (f of bt.fields; track f.key) {
                       <label class="block mb-1"><span class="text-xs text-slate-500">{{ f.label }}</span>
-                        <app-section-field [schema]="f" [(value)]="b[f.key]" [colorSchemes]="schemes" />
+                        <app-section-field [schema]="f" [(value)]="b[f.key]" [colorSchemes]="schemes" (valueChange)="onFieldEdit()" />
                       </label>
                     }
                   </div>
@@ -186,7 +200,10 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
               </div>
             }
 
-            <button type="button" (click)="save(sec)" [disabled]="saving()" class="btn-primary w-full mt-3">{{ saving() ? 'Saving…' : 'Save section' }}</button>
+            <div class="sticky bottom-0 bg-white border-t border-slate-100 -mx-4 px-4 pt-2 pb-1 mt-3">
+              @if (dirty()) { <p class="text-[11px] text-amber-600 mb-1">Unsaved changes — shown live in the preview, saved when you click Save</p> }
+              <button type="button" (click)="save(sec)" [disabled]="saving()" class="btn-primary w-full">{{ saving() ? 'Saving…' : 'Save section' }}</button>
+            </div>
           } @else {
             <div class="text-slate-400 text-sm text-center p-8">Select or add a section to edit it.</div>
           }
@@ -212,6 +229,13 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   readonly selectedId = signal<number | null>(null);
   /** T15: which block card is highlighted after a click-to-select-in-canvas from the preview iframe. */
   readonly selectedBlockIndex = signal<number | null>(null);
+  /** E2: unsaved edits exist for the selected section (already streamed live to the canvas). */
+  readonly dirty = signal(false);
+  /** E1: set by the canvas "+ Add section" pill — where the next added section should land. */
+  readonly pendingInsertBefore = signal<ThemeSectionAdmin | null>(null);
+  /** E1: preview device frame. */
+  readonly device = signal<'desktop' | 'mobile'>('desktop');
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
   readonly previewUrl = signal<SafeResourceUrl | null>(null);
@@ -252,26 +276,67 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.draftTimer) clearTimeout(this.draftTimer);
     if (typeof window !== 'undefined') window.removeEventListener('message', this.onWindowMessage);
   }
 
-  /** T15: a merchant clicked a section/block in the live preview iframe. */
+  /** T15/E1: a merchant clicked a section/block, a toolbar action, or an insert pill in the preview. */
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (typeof window === 'undefined' || event.origin !== window.location.origin) return;
     const data = event.data;
-    if (data?.type !== 'theme-editor:select') return;
-    const sec = this.sections().find((x) => x.id === data.sectionId);
-    if (!sec) return;   // the framed page may be showing a section outside the active template's list
-    this.select(sec);
-    this.selectedBlockIndex.set(typeof data.blockIndex === 'number' ? data.blockIndex : null);
-    if (typeof data.blockIndex === 'number') {
-      queueMicrotask(() => this.blockCards?.get(data.blockIndex)?.nativeElement.scrollIntoView({ block: 'nearest' }));
+    if (data?.type === 'theme-editor:select') {
+      const sec = this.sections().find((x) => x.id === data.sectionId);
+      if (!sec || !this.select(sec)) return;   // not in the active template, or a dirty draft was kept
+      this.selectedBlockIndex.set(typeof data.blockIndex === 'number' ? data.blockIndex : null);
+      this.postHighlight(sec.id, this.selectedBlockIndex());
+      if (typeof data.blockIndex === 'number') {
+        queueMicrotask(() => this.blockCards?.get(data.blockIndex)?.nativeElement.scrollIntoView({ block: 'nearest' }));
+      }
+    } else if (data?.type === 'theme-editor:action') {
+      const sec = this.sections().find((x) => x.id === data.sectionId);
+      if (!sec) return;
+      if (data.action === 'toggleHide') this.toggleHide(sec);
+      else if (data.action === 'duplicate') this.duplicate(sec);
+      else if (data.action === 'delete') this.remove(sec);
+    } else if (data?.type === 'theme-editor:insert') {
+      const sec = this.sections().find((x) => x.id === data.beforeSectionId);
+      if (sec) this.pendingInsertBefore.set(sec);
     }
   };
 
-  /** T15: mirror the current selection back into the preview iframe so it can outline that section. */
-  private postHighlight(sectionId: number | null): void {
-    this.previewFrame?.nativeElement.contentWindow?.postMessage({ type: 'theme-editor:highlight', sectionId }, window.location.origin);
+  private postToPreview(message: unknown): void {
+    this.previewFrame?.nativeElement.contentWindow?.postMessage(message, window.location.origin);
+  }
+
+  /** Mirror the current selection into the preview so it outlines the section (and block, when set). */
+  private postHighlight(sectionId: number | null, blockIndex: number | null = null): void {
+    this.postToPreview({ type: 'theme-editor:highlight', sectionId, blockIndex });
+  }
+
+  /** E2: any field edit → mark dirty + debounce-stream the draft into the canvas (live preview). */
+  onFieldEdit(): void {
+    this.dirty.set(true);
+    if (this.draftTimer) clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => this.postDraft(), 250);
+  }
+
+  private postDraft(): void {
+    const sec = this.selected();
+    if (!sec) return;
+    this.postToPreview({
+      type: 'theme-editor:update-section', sectionId: sec.id,
+      settings: JSON.stringify(this.settingsObj), blocks: JSON.stringify(this.blocksArr),
+    });
+  }
+
+  /** E2: guard against silently losing a dirty draft; reverts the canvas to last-saved on discard. */
+  private confirmDiscard(): boolean {
+    if (!this.dirty()) return true;
+    if (typeof window !== 'undefined' && !window.confirm('Discard unsaved changes to this section?')) return false;
+    const prev = this.selected();
+    if (prev) this.postToPreview({ type: 'theme-editor:update-section', sectionId: prev.id, settings: prev.settings, blocks: prev.blocks });
+    this.dirty.set(false);
+    return true;
   }
 
   toggleSettings(): void { this.settingsMode.update((v) => !v); }
@@ -291,6 +356,7 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   removeScheme(s: ColorScheme): void { this.schemes = this.schemes.filter((x) => x.key !== s.key); }
 
   selectTemplate(key: string): void {
+    if (!this.confirmDiscard()) return;
     this.activeKey.set(key);
     this.selectedId.set(null);
     this.svc.sectionTypes(key).subscribe((t) => this.types.set(t));
@@ -310,17 +376,32 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   schema(): SectionTypeSchema | null { const s = this.selected(); return s ? this.types().find((t) => t.key === s.sectionType) ?? null : null; }
   blockType(): BlockTypeSchema | null { return this.schema()?.blockTypes?.[0] ?? null; }
 
-  select(s: ThemeSectionAdmin): void {
+  select(s: ThemeSectionAdmin): boolean {
+    if (!this.confirmDiscard()) return false;
     this.selectedId.set(s.id);
     this.settingsObj = this.parse(s.settings, {});
     this.blocksArr = this.parse(s.blocks, []);
     this.selectedBlockIndex.set(null);
     this.postHighlight(s.id);
+    return true;
   }
 
   addSection(type: string): void {
     if (!type) return;
-    this.svc.addSection(this.themeId, this.activeKey(), type).subscribe((sec) => { this.loadSections(); setTimeout(() => this.select(sec), 200); this.reloadPreview(); });
+    this.svc.addSection(this.themeId, this.activeKey(), type).subscribe((sec) => {
+      const before = this.pendingInsertBefore();
+      this.pendingInsertBefore.set(null);
+      const finish = () => { this.loadSections(); setTimeout(() => this.select(sec), 200); this.reloadPreview(); };
+      if (before) {
+        // E1: canvas "+ Add section" — place the new section above the one whose pill was clicked.
+        const ids = this.sections().map((s) => s.id).filter((id) => id !== sec.id);
+        const idx = ids.indexOf(before.id);
+        ids.splice(idx < 0 ? ids.length : idx, 0, sec.id);
+        this.svc.reorder(this.themeId, this.activeKey(), ids).subscribe(finish);
+      } else {
+        finish();
+      }
+    });
   }
 
   drop(e: CdkDragDrop<ThemeSectionAdmin[]>): void {
@@ -335,14 +416,23 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     this.svc.updateSection(sec.id, {
       title: sec.title, settings: JSON.stringify(this.settingsObj), blocks: JSON.stringify(this.blocksArr),
       isVisible: sec.isVisible, startsAt: null, endsAt: null,
-    }).subscribe(() => { this.saving.set(false); this.toast('Saved.'); this.loadSections(); this.reloadPreview(); });
+    }).subscribe(() => {
+      this.saving.set(false);
+      this.dirty.set(false);
+      this.toast('Saved.');
+      this.loadSections();
+      // E2: no iframe reload — the canvas already renders this data live; re-post the saved values
+      // so its override matches what was persisted. Structural ops (add/delete/reorder/hide/template
+      // switch) still reload, since page composition comes from the server list.
+      this.postDraft();
+    });
   }
 
   toggleHide(sec: ThemeSectionAdmin): void {
     this.svc.updateSection(sec.id, { title: sec.title, settings: sec.settings, blocks: sec.blocks, isVisible: !sec.isVisible, startsAt: null, endsAt: null })
       .subscribe(() => { this.loadSections(); this.reloadPreview(); });
   }
-  duplicate(sec: ThemeSectionAdmin): void { this.svc.duplicateSection(sec.id).subscribe(() => this.loadSections()); }
+  duplicate(sec: ThemeSectionAdmin): void { this.svc.duplicateSection(sec.id).subscribe(() => { this.loadSections(); this.reloadPreview(); }); }
   remove(sec: ThemeSectionAdmin): void {
     if (typeof window !== 'undefined' && !window.confirm('Delete this section?')) return;
     this.svc.deleteSection(sec.id).subscribe(() => { this.selectedId.set(null); this.loadSections(); this.reloadPreview(); });
@@ -352,8 +442,12 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     const b: Record<string, any> = {};
     for (const f of bt.fields) b[f.key] = f.default ?? '';
     this.blocksArr = [...this.blocksArr, b];
+    this.onFieldEdit();
   }
-  removeBlock(i: number): void { this.blocksArr = this.blocksArr.filter((_, idx) => idx !== i); }
+  removeBlock(i: number): void {
+    this.blocksArr = this.blocksArr.filter((_, idx) => idx !== i);
+    this.onFieldEdit();
+  }
 
   reloadPreview(): void { this.setPreview(true); }
   private setPreview(bust = false): void {

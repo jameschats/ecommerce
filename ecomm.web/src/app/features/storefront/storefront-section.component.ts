@@ -24,7 +24,7 @@ import { ThemeService } from '../../core/services/theme.service';
               <section class="relative min-h-[360px] sm:min-h-[440px] flex items-center bg-slate-900"
                        [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
                 <div class="absolute inset-0" style="background:linear-gradient(90deg, rgba(0,0,0,0.72), rgba(0,0,0,0.15))"></div>
-                <div class="relative page-container text-white">
+                <div class="relative page-container text-white" [attr.data-block-index]="0">
                   <div class="max-w-xl">
                     @if (b.heading) { <h2 class="text-4xl sm:text-5xl font-extrabold leading-tight">{{ b.heading }}</h2> }
                     @if (b.subheading) { <p class="mt-3 text-white/85 text-lg">{{ b.subheading }}</p> }
@@ -38,7 +38,7 @@ import { ThemeService } from '../../core/services/theme.service';
             @if (blocks()[0]; as b) {
               <section class="page-container py-8">
                 <div class="grid md:grid-cols-2 items-stretch rounded-2xl overflow-hidden" style="background:var(--color-secondary,#0f172a)">
-                  <div class="p-10 flex flex-col justify-center text-white">
+                  <div class="p-10 flex flex-col justify-center text-white" [attr.data-block-index]="0">
                     @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-bold">{{ b.heading }}</h2> }
                     @if (b.subheading) { <p class="mt-3 text-white/80">{{ b.subheading }}</p> }
                     @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit">{{ b.buttonText }}</a> }
@@ -53,15 +53,15 @@ import { ThemeService } from '../../core/services/theme.service';
             @if (blocks()[0]; as b) {
               <section class="page-container py-6">
                 <div class="grid md:grid-cols-[1fr_1.7fr_1fr] gap-4 items-stretch">
-                  @if (blocks()[1]; as l) { <div class="hidden md:block overflow-hidden sf-card"><img [src]="l.image" alt="" class="w-full h-full object-cover" /></div> }
-                  <div class="p-8 sm:p-10 flex flex-col justify-center min-h-[320px] overflow-hidden" style="border-radius: var(--radius-card, 0.75rem)"
+                  @if (blocks()[1]; as l) { <div class="hidden md:block overflow-hidden sf-card" [attr.data-block-index]="1"><img [src]="l.image" alt="" class="w-full h-full object-cover" /></div> }
+                  <div class="p-8 sm:p-10 flex flex-col justify-center min-h-[320px] overflow-hidden" style="border-radius: var(--radius-card, 0.75rem)" [attr.data-block-index]="0"
                        [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, 'var(--color-primary)')"
                        [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
                     @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">{{ b.heading }}</h2> }
                     @if (b.subheading) { <p class="mt-3 text-white/85">{{ b.subheading }}</p> }
                     @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit">{{ b.buttonText }}</a> }
                   </div>
-                  @if (blocks()[2]; as r) { <div class="hidden md:block overflow-hidden sf-card"><img [src]="r.image" alt="" class="w-full h-full object-cover" /></div> }
+                  @if (blocks()[2]; as r) { <div class="hidden md:block overflow-hidden sf-card" [attr.data-block-index]="2"><img [src]="r.image" alt="" class="w-full h-full object-cover" /></div> }
                 </div>
               </section>
             }
@@ -69,7 +69,7 @@ import { ThemeService } from '../../core/services/theme.service';
           @default {
             <section class="relative">
               @for (b of blocks(); track $index) {
-                <div class="relative min-h-[320px] flex items-center justify-center text-center bg-slate-900 text-white"
+                <div class="relative min-h-[320px] flex items-center justify-center text-center bg-slate-900 text-white" [attr.data-block-index]="$index"
                      [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
                   <div class="bg-black/30 absolute inset-0"></div>
                   <div class="relative p-8 max-w-2xl">
@@ -276,8 +276,54 @@ import { ThemeService } from '../../core/services/theme.service';
         </section>
       }
     }
+
+    <!-- E1 editor-canvas overlays (never rendered for real shoppers). data-editor-toolbar marks
+         elements the capture-phase click/mousedown interceptors must leave alone so these
+         buttons' own (click) handlers fire. -->
+    @if (theme.editorMode()) {
+      <button type="button" data-editor-toolbar class="te-insert" (click)="postInsert()">＋ Add section</button>
+      @if (highlighted()) {
+        <div class="te-toolbar" data-editor-toolbar>
+          <button type="button" (click)="postAction('toggleHide')">Hide</button>
+          <button type="button" (click)="postAction('duplicate')">Duplicate</button>
+          <button type="button" class="te-danger" (click)="postAction('delete')">Delete</button>
+        </div>
+      }
+    }
   `,
-  styles: [`:host.theme-editor-selected { outline: 2px solid #2563eb; outline-offset: -2px; }`],
+  styles: [`
+    /* T15/E1 editor-canvas affordances — every rule is scoped under .theme-editor-canvas, which is
+       only set in editor mode, so none of this exists for real shoppers. */
+    :host(.theme-editor-canvas) { display: block; position: relative; }
+    :host(.theme-editor-selected) { outline: 2px solid #2563eb; outline-offset: -2px; }
+    :host(.theme-editor-canvas:hover) { outline: 1px dashed #93c5fd; outline-offset: -1px; }
+    :host(.theme-editor-canvas:hover)::before {
+      content: attr(data-section-label);
+      position: absolute; top: 0; left: 0; z-index: 30;
+      background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; line-height: 1;
+      padding: 4px 8px; border-radius: 0 0 6px 0; pointer-events: none; white-space: nowrap;
+    }
+    :host(.theme-editor-canvas) [data-block-index]:hover { outline: 1px dashed #60a5fa; outline-offset: -1px; }
+    :host(.theme-editor-canvas) .theme-editor-selected-block { outline: 2px solid #2563eb; outline-offset: -2px; }
+    .te-toolbar {
+      position: absolute; top: 6px; right: 6px; z-index: 31; display: flex; gap: 2px;
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px;
+      box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+    }
+    .te-toolbar button {
+      font-size: 11px; font-weight: 500; color: #334155; padding: 4px 8px; border-radius: 6px;
+      background: transparent; border: 0; cursor: pointer; font-family: inherit;
+    }
+    .te-toolbar button:hover { background: #f1f5f9; }
+    .te-toolbar button.te-danger { color: #dc2626; }
+    .te-insert {
+      display: none; position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%); z-index: 31;
+      background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; font-family: inherit;
+      padding: 4px 10px; border-radius: 9999px; border: 0; cursor: pointer;
+      box-shadow: 0 2px 8px rgb(0 0 0 / 0.2); white-space: nowrap;
+    }
+    :host(.theme-editor-canvas:hover) .te-insert { display: block; }
+  `],
 })
 export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly catalog = inject(CatalogService);
@@ -291,8 +337,11 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   /** Placeholder tiles shown when a section has no catalog data yet (fresh store / preview). */
   readonly ph = [0, 1, 2, 3];
 
-  readonly s = computed<any>(() => this.parse<any>(this.section().settings, {}));
-  readonly blocks = computed<any[]>(() => this.parse<any[]>(this.section().blocks, []));
+  /** E2: live draft/saved data pushed from the theme editor — takes precedence over the
+   *  section input so edits render instantly without an iframe reload or host changes. */
+  private readonly override = signal<{ settings: string | null; blocks: string | null } | null>(null);
+  readonly s = computed<any>(() => this.parse<any>(this.override()?.settings ?? this.section().settings, {}));
+  readonly blocks = computed<any[]>(() => this.parse<any[]>(this.override()?.blocks ?? this.section().blocks, []));
 
   /** CountdownBar: Dd/Hh/Mm/Ss remaining, or null once expired. Computed synchronously in ngOnInit
    *  (works identically server + browser) so SSR output already shows correct numbers; a browser-only
@@ -300,22 +349,38 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   readonly remaining = signal<{ days: number; hours: number; mins: number; secs: number } | null>(null);
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** T15: click-to-select-in-canvas. Only active inside the theme editor's preview iframe —
-   *  gated by ThemeService.editorMode() so real shoppers never see any of this. */
+  /** T15/E1: click-to-select-in-canvas + hover affordances. Only active inside the theme editor's
+   *  preview iframe — gated by ThemeService.editorMode() so real shoppers never see any of this. */
   @HostBinding('attr.data-section-id') get sectionIdAttr(): number { return this.section().pageSectionId; }
-  @HostBinding('class.theme-editor-selected') highlighted = false;
+  /** Editor-mode marker class: all E1 canvas CSS (hover outline, name badge, block outlines,
+   *  toolbar/insert visibility) is scoped under it. */
+  @HostBinding('class.theme-editor-canvas') get canvasMode(): boolean { return this.theme.editorMode(); }
+  /** Name badge content, shown on hover via CSS content: attr(data-section-label). */
+  @HostBinding('attr.data-section-label') get sectionLabel(): string | null {
+    return this.theme.editorMode() ? (this.section().title || this.section().sectionType) : null;
+  }
+  /** Signal, not a plain field: this is mutated from a raw window 'message' listener, and the app
+   *  runs zoneless — a plain field write there never schedules change detection (the original T15
+   *  version had exactly that bug: the selection outline never appeared). */
+  readonly highlighted = signal(false);
+  @HostBinding('class.theme-editor-selected') get isSelected(): boolean { return this.highlighted(); }
   /** Belt-and-suspenders alongside the mousedown prevention below — some browsers can still
    *  start a drag-selection before a JS handler gets a chance to run. */
   @HostBinding('style.user-select') get editorUserSelect(): string | null { return this.theme.editorMode() ? 'none' : null; }
+
+  /** Our own overlay buttons (toolbar, insert pill) must be exempt from the canvas interceptors,
+   *  or their Angular (click) handlers would never fire. */
+  private static isToolbarTarget(event: Event): boolean {
+    return !!(event.target as HTMLElement).closest('[data-editor-toolbar]');
+  }
   /** Native double-click/drag word-selection is resolved on mousedown, before any 'click' event
-   *  fires — preventDefault() on click alone (below) is too late to stop it. Confirmed live: a
-   *  double-click in the editor canvas highlighted a single word instead of just selecting the
-   *  section. Mousedown prevention stops the selection from ever starting; click still fires
-   *  normally afterwards (preventing a mousedown's default doesn't cancel the click). */
+   *  fires — preventDefault() on click alone (below) is too late to stop it. */
   private readonly onEditorMouseDown = (event: MouseEvent) => {
+    if (StorefrontSectionComponent.isToolbarTarget(event)) return;
     event.preventDefault();
   };
   private readonly onEditorClick = (event: MouseEvent) => {
+    if (StorefrontSectionComponent.isToolbarTarget(event)) return;
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
@@ -324,9 +389,31 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     window.parent.postMessage({ type: 'theme-editor:select', sectionId: this.section().pageSectionId, blockIndex }, window.location.origin);
   };
   private readonly onWindowMessage = (event: MessageEvent) => {
-    if (event.origin !== window.location.origin || event.data?.type !== 'theme-editor:highlight') return;
-    this.highlighted = event.data.sectionId === this.section().pageSectionId;
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (data?.type === 'theme-editor:highlight') {
+      const mine = data.sectionId === this.section().pageSectionId;
+      this.highlighted.set(mine);
+      this.setBlockHighlight(mine && typeof data.blockIndex === 'number' ? data.blockIndex : null);
+    } else if (data?.type === 'theme-editor:update-section' && data.sectionId === this.section().pageSectionId) {
+      this.override.set({ settings: data.settings ?? null, blocks: data.blocks ?? null });
+    }
   };
+
+  /** E1: outline the selected block in-canvas. Direct DOM class toggling (not a binding) because
+   *  the target elements are arbitrary per-section markup identified only by data-block-index. */
+  private setBlockHighlight(index: number | null): void {
+    const host = this.elementRef.nativeElement as HTMLElement;
+    host.querySelectorAll('.theme-editor-selected-block').forEach((el) => el.classList.remove('theme-editor-selected-block'));
+    if (index !== null) host.querySelector(`[data-block-index="${index}"]`)?.classList.add('theme-editor-selected-block');
+  }
+
+  postAction(action: 'toggleHide' | 'duplicate' | 'delete'): void {
+    window.parent.postMessage({ type: 'theme-editor:action', sectionId: this.section().pageSectionId, action }, window.location.origin);
+  }
+  postInsert(): void {
+    window.parent.postMessage({ type: 'theme-editor:insert', beforeSectionId: this.section().pageSectionId }, window.location.origin);
+  }
 
   ngOnInit(): void {
     const type = this.section().sectionType;
