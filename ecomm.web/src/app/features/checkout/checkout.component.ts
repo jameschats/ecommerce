@@ -20,7 +20,7 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
 
       @if (cartEmpty()) {
         <div class="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-500">
-          Your cart is empty. <a routerLink="/products" class="text-primary hover:underline">Browse products</a>.
+          Your cart is empty. <a routerLink="/order" class="text-primary hover:underline">Browse products</a>.
         </div>
       } @else {
         <div class="grid lg:grid-cols-3 gap-6 items-start">

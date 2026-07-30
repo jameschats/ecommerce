@@ -46,7 +46,7 @@ import { SeoService } from '../../../core/services/seo.service';
       <div class="mt-12 bg-gradient-to-br from-primary to-primary-dark rounded-2xl px-8 py-10 text-center text-white">
         <h2 class="text-2xl font-bold">Ready to design your 2026 calendar?</h2>
         <p class="mt-2 text-white/85">Pick a style, add your photos, and we'll handle the rest.</p>
-        <a routerLink="/products" class="inline-block mt-5 bg-white text-primary-dark font-medium px-6 py-2.5 rounded-lg hover:bg-slate-100 transition">Shop calendars</a>
+        <a routerLink="/order" class="inline-block mt-5 bg-white text-primary-dark font-medium px-6 py-2.5 rounded-lg hover:bg-slate-100 transition">Shop calendars</a>
       </div>
     </section>
   `,

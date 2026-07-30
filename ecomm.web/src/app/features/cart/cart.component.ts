@@ -19,7 +19,7 @@ import { CartService } from '../../core/services/cart.service';
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
           </div>
           <p class="text-slate-500">Your cart is empty.</p>
-          <a routerLink="/products" class="inline-block mt-5 btn-primary px-5 py-2.5">Continue shopping</a>
+          <a routerLink="/order" class="inline-block mt-5 btn-primary px-5 py-2.5">Continue shopping</a>
         </div>
       } @else {
         <div class="grid lg:grid-cols-3 gap-6 items-start">
@@ -60,7 +60,7 @@ import { CartService } from '../../core/services/cart.service';
             @if (taxMode() === 'Inclusive') { <p class="text-xs text-slate-400 mt-1">Inclusive of all taxes</p> }
             <button type="button" (click)="checkout()" [disabled]="!canCheckout()" class="btn-primary w-full mt-4 py-3 disabled:opacity-50 disabled:cursor-not-allowed">Proceed to checkout</button>
             @if (checkoutNote()) { <p class="text-xs text-amber-600 mt-2 text-center">{{ checkoutNote() }}</p> }
-            <a routerLink="/products" class="block text-center text-sm text-primary hover:underline mt-3">Continue shopping</a>
+            <a routerLink="/order" class="block text-center text-sm text-primary hover:underline mt-3">Continue shopping</a>
             @if (error(); as e) { <p class="text-xs text-red-600 mt-2 text-center">{{ e }}</p> }
           </div>
         </div>

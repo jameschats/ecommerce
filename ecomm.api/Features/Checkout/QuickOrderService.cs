@@ -263,16 +263,39 @@ public sealed class QuickOrderService : IQuickOrderService
         if (string.IsNullOrWhiteSpace(user.FullName) && !string.IsNullOrWhiteSpace(name))
             user.FullName = name;
 
+        // Email and phone are unique per tenant (uq_users_tenant_email, uq_users_tenant_phone),
+        // so neither can be claimed here without first checking nobody else holds it. Filling
+        // in a blank profile is a convenience; a duplicate throws on SaveChanges inside the
+        // order transaction and takes the whole order down with it. That is exactly what
+        // happened to a customer signed in by email OTP who typed the mobile number their
+        // older account already owned: every attempt to order failed with "An unexpected
+        // error occurred" and nothing explained why.
+        //
+        // When the value is taken we simply leave the profile field blank. The order itself
+        // carries the name, email and mobile from the form regardless, so nothing the buyer
+        // typed is lost — only the optional profile back-fill is skipped.
         var email = req.Email?.Trim();
         if (string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrWhiteSpace(email) && email.Contains('@'))
         {
-            user.Email = email;
-            user.NormalizedEmail = email.ToUpperInvariant();
-            // Deliberately NOT marked verified: they typed it into a form, they did not
-            // prove they can receive mail at it. Only an OTP against that address does.
+            var normalized = email.ToUpperInvariant();
+            var emailTaken = await _db.Users.AnyAsync(
+                u => u.TenantId == Tenant && u.UserId != userId && u.NormalizedEmail == normalized, ct);
+            if (!emailTaken)
+            {
+                user.Email = email;
+                user.NormalizedEmail = normalized;
+                // Deliberately NOT marked verified: they typed it into a form, they did not
+                // prove they can receive mail at it. Only an OTP against that address does.
+            }
         }
 
-        if (string.IsNullOrWhiteSpace(user.PhoneNumber)) user.PhoneNumber = mobile;
+        if (string.IsNullOrWhiteSpace(user.PhoneNumber) && !string.IsNullOrWhiteSpace(mobile))
+        {
+            var phoneTaken = await _db.Users.AnyAsync(
+                u => u.TenantId == Tenant && u.UserId != userId && u.PhoneNumber == mobile, ct);
+            if (!phoneTaken) user.PhoneNumber = mobile;
+        }
+
         user.UpdatedAt = now;
 
         // Save the delivery address, unless the same one is already on file. Re-ordering

@@ -17,7 +17,7 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
     } @else if (!visible().length) {
       <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
         <p class="text-slate-500">Your wishlist is empty.</p>
-        <a routerLink="/products" class="text-primary hover:underline text-sm">Browse products</a>
+        <a routerLink="/order" class="text-primary hover:underline text-sm">Browse products</a>
       </div>
     } @else {
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
