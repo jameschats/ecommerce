@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CatalogService } from '../../../core/services/catalog.service';
+import { BuilderPage, CmsService } from '../../../core/services/cms.service';
 import { ThemeLibraryService } from '../../../core/services/theme-library.service';
 import {
   BlockTypeSchema, SectionTypeSchema, ThemeAuthoringService, ThemeSectionAdmin, ThemeTemplateSummary,
@@ -24,18 +25,46 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
   template: `
     <div class="h-screen flex flex-col">
       <header class="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 relative">
           <a routerLink="/admin/themes" class="text-slate-500 hover:text-slate-800 text-sm">← Themes</a>
           <span class="font-semibold text-slate-800">{{ themeName() || 'Theme editor' }}</span>
-          <select [ngModel]="activeKey()" (ngModelChange)="selectTemplate($event)" class="input text-sm py-1">
-            @for (g of grouped(); track g.group) {
-              <optgroup [label]="g.group">
+          <button type="button" (click)="toggleNavigator()" class="input text-sm py-1 flex items-center gap-1.5">
+            {{ activeLabel() }} <span class="text-slate-400 text-xs">▾</span>
+          </button>
+
+          @if (navigatorOpen()) {
+            <!-- Invisible full-screen backdrop closes the panel on outside click (same pattern as admin-orders' modal). -->
+            <div class="fixed inset-0 z-40" (click)="navigatorOpen.set(false)"></div>
+            <div class="absolute top-full left-24 mt-1 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-[70vh] overflow-auto" (click)="$event.stopPropagation()">
+              <div class="p-2 sticky top-0 bg-white border-b border-slate-100">
+                <input [ngModel]="navigatorSearch()" (ngModelChange)="navigatorSearch.set($event)" placeholder="Search online store" class="input w-full text-sm" autofocus />
+              </div>
+              @for (g of filteredGroups(); track g.group) {
+                <div class="px-3 pt-2 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{{ g.group }}</div>
                 @for (t of g.templates; track t.templateKey) {
-                  <option [value]="t.templateKey">{{ t.label }}{{ t.sectionCount ? ' (' + t.sectionCount + ')' : '' }}</option>
+                  <button type="button" (click)="selectTemplate(t.templateKey); navigatorOpen.set(false)"
+                          class="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 flex items-center justify-between"
+                          [class.text-slate-900]="t.templateKey === activeKey()" [class.font-medium]="t.templateKey === activeKey()">
+                    <span>{{ t.label }}</span>
+                    @if (t.sectionCount) { <span class="text-xs text-slate-400">{{ t.sectionCount }}</span> }
+                  </button>
                 }
-              </optgroup>
-            }
-          </select>
+              }
+              @if (filteredPages().length) {
+                <div class="px-3 pt-2 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide border-t border-slate-100 mt-1">Pages</div>
+                @for (p of filteredPages(); track p.pageId) {
+                  <a [routerLink]="['/admin/pages', p.pageId, 'build']" (click)="navigatorOpen.set(false)"
+                     class="block px-3 py-1.5 text-sm hover:bg-slate-50 truncate">{{ p.title }}</a>
+                }
+              }
+              @if (matchesSearch('Products')) {
+                <a routerLink="/admin/products" class="block px-3 py-1.5 text-sm hover:bg-slate-50 border-t border-slate-100 mt-1">Products →</a>
+              }
+              @if (matchesSearch('Collections')) {
+                <a routerLink="/admin/categories" class="block px-3 py-1.5 text-sm hover:bg-slate-50">Collections →</a>
+              }
+            </div>
+          }
         </div>
         <div class="flex items-center gap-2">
           @if (message()) { <span class="text-xs text-green-600">{{ message() }}</span> }
@@ -216,6 +245,7 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   private readonly svc = inject(ThemeAuthoringService);
   private readonly library = inject(ThemeLibraryService);
   private readonly catalog = inject(CatalogService);
+  private readonly cms = inject(CmsService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly route = inject(ActivatedRoute);
 
@@ -261,6 +291,33 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     return order.filter((g) => byGroup.has(g)).map((g) => ({ group: g, templates: byGroup.get(g)! }));
   });
   readonly activeLabel = computed(() => this.templates().find((t) => t.templateKey === this.activeKey())?.label ?? this.activeKey());
+
+  /** Page navigator (Shopify-parity "Home page ▾"): search across templates + real content pages,
+   *  plus jump-off shortcuts to Products/Collections — those aren't theme-authored, so they leave the
+   *  editor for the existing catalog admin screens rather than trying to enumerate every item here. */
+  readonly navigatorOpen = signal(false);
+  readonly navigatorSearch = signal('');
+  readonly pages = signal<BuilderPage[]>([]);
+  toggleNavigator(): void {
+    if (!this.navigatorOpen() && this.pages().length === 0) this.cms.listPages().subscribe((p) => this.pages.set(p));
+    this.navigatorSearch.set('');
+    this.navigatorOpen.update((v) => !v);
+  }
+  matchesSearch(label: string): boolean {
+    const q = this.navigatorSearch().trim().toLowerCase();
+    return !q || label.toLowerCase().includes(q);
+  }
+  readonly filteredGroups = computed<TemplateGroup[]>(() => {
+    const q = this.navigatorSearch().trim().toLowerCase();
+    if (!q) return this.grouped();
+    return this.grouped()
+      .map((g) => ({ group: g.group, templates: g.templates.filter((t) => t.label.toLowerCase().includes(q)) }))
+      .filter((g) => g.templates.length > 0);
+  });
+  readonly filteredPages = computed<BuilderPage[]>(() => {
+    const q = this.navigatorSearch().trim().toLowerCase();
+    return q ? this.pages().filter((p) => p.title.toLowerCase().includes(q)) : this.pages();
+  });
 
   ngOnInit(): void {
     this.themeId = Number(this.route.snapshot.paramMap.get('themeId'));
