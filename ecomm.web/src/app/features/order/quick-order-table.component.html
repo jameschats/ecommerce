@@ -121,7 +121,7 @@
         <thead class="bg-slate-50 text-slate-600">
           <tr class="text-left">
             <th class="px-3 py-2.5 font-semibold w-[70px]">Image</th>
-            <th class="px-3 py-2.5 font-semibold text-right w-[150px]">Design No</th>
+            <th class="px-3 py-2.5 font-semibold text-center w-[150px]">Design No</th>
             <th class="px-3 py-2.5 font-semibold">Product</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[90px]">MRP</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[80px]">Disc %</th>
@@ -175,11 +175,10 @@
                   </td>
                   <!-- The number a dealer reads out on the phone, so it is set like the
                        discount rather than as small grey monospace: same weight, a step
-                       larger than the rest of the row, and right-aligned so it sits against
-                       the product it belongs to.
+                       larger than the rest of the row, and centred in its column.
                        text-primary rather than a literal blue — brand colour comes from the
                        Theme Engine, so this follows a change made in admin. -->
-                  <td class="px-3 py-2 text-right text-base font-semibold text-primary">{{ item.sku }}</td>
+                  <td class="px-3 py-2 text-center text-base font-semibold text-primary">{{ item.sku }}</td>
                   <td class="px-3 py-2">
                     <span class="font-medium text-slate-800">{{ item.name }}</span>
                     @if (!item.inStock) {
