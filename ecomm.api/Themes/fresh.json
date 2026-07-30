@@ -1,0 +1,93 @@
+{
+  "key": "fresh",
+  "sortOrder": 5,
+  "name": "Fresh",
+  "category": "Grocery",
+  "catalogFit": "Large",
+  "features": ["usp-columns", "category-cards", "carousel", "cta"],
+  "description": "Aisle-first layout with a delivery promo for everyday essentials.",
+  "settings": {
+    "PrimaryColor": "#16a34a",
+    "SecondaryColor": "#166534",
+    "AccentColor": "#16a34a",
+    "Font": "Inter",
+    "HeadingFont": "Nunito",
+    "ButtonStyle": "rounded",
+    "Radius": "round",
+    "CardStyle": "shadow",
+    "Density": "cozy",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1600&q=80", "heading": "Fresh to your door", "subheading": "Everyday essentials and just-picked produce — delivered fast.", "buttonText": "Start shopping", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "Groceries made easy" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free delivery", "text": "On orders over ₹499" },
+            { "icon": "🥬", "heading": "Farm fresh", "text": "Sourced daily" },
+            { "icon": "⏰", "heading": "Same-day slots", "text": "Order by noon" },
+            { "icon": "💳", "heading": "Secure checkout", "text": "Pay your way" }
+          ]
+        },
+        {
+          "type": "Categories", "title": "Category strip",
+          "settings": { "heading": "Shop by aisle", "style": "cards" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Today's picks", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Free delivery over ₹499", "subtext": "Fresh to your door, fast.", "buttonText": "Start shopping", "buttonLink": "/products", "backgroundColor": "#166534" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "New this week", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#166534", "autoplay": true },
+          "blocks": [ { "text": "Fresh to your door — free delivery over ₹499", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "standard", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Fresh. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

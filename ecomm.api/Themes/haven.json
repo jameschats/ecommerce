@@ -1,0 +1,93 @@
+{
+  "key": "haven",
+  "sortOrder": 7,
+  "name": "Haven",
+  "category": "Home & Living",
+  "catalogFit": "Medium",
+  "features": ["usp-columns", "category-cards", "carousel", "image-with-text"],
+  "description": "Warm, homely layout for furniture, decor and living.",
+  "settings": {
+    "PrimaryColor": "#a16207",
+    "SecondaryColor": "#44403c",
+    "AccentColor": "#a16207",
+    "Font": "Inter",
+    "HeadingFont": "Lora",
+    "ButtonStyle": "rounded",
+    "Radius": "soft",
+    "CardStyle": "bordered",
+    "Density": "spacious",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1600&q=80", "heading": "Make it home", "subheading": "Pieces you'll love for years, at honest prices.", "buttonText": "Shop the look", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "Why Haven" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "🛠️", "heading": "Free assembly", "text": "On select furniture" },
+            { "icon": "🌳", "heading": "Built to last", "text": "Solid, timeless design" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day peace of mind" }
+          ]
+        },
+        {
+          "type": "Categories", "title": "Category strip",
+          "settings": { "heading": "Shop by room", "style": "cards" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "New in", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Image with text",
+          "settings": { "image": "", "imageSide": "left", "heading": "Built to last", "body": "Solid materials, timeless design — furniture that grows with you.", "buttonText": "Learn more", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Bestsellers", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#44403c", "autoplay": true },
+          "blocks": [ { "text": "Free assembly on select furniture", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "standard", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Haven. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

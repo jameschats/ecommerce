@@ -1,0 +1,106 @@
+{
+  "key": "bazaar",
+  "sortOrder": 9,
+  "name": "Bazaar",
+  "category": "Everything Store",
+  "catalogFit": "Large",
+  "features": ["promo-tiles", "department-tiles", "carousel", "usp-columns", "cta"],
+  "description": "Dense, deals-first marketplace look for stores that sell a bit of everything.",
+  "settings": {
+    "PrimaryColor": "#ea580c",
+    "SecondaryColor": "#0f172a",
+    "AccentColor": "#ea580c",
+    "Font": "Inter",
+    "HeadingFont": "Archivo",
+    "ButtonStyle": "rounded",
+    "Radius": "soft",
+    "CardStyle": "bordered",
+    "Density": "compact",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1534452203293-494d7ddbf7e0?auto=format&fit=crop&w=1600&q=80", "heading": "Everything you need. One place.", "subheading": "Thousands of products, daily deals and fast delivery.", "buttonText": "Shop today's deals", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "PromoTiles", "title": "Promo tiles",
+          "settings": { "heading": "Today's deals" },
+          "blocks": [
+            { "badge": "Up to 40% off", "heading": "Electronics", "image": "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=800&q=80", "link": "/products" },
+            { "badge": "From ₹199", "heading": "Fashion", "image": "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=800&q=80", "link": "/products" },
+            { "badge": "Up to 30% off", "heading": "Home & living", "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80", "link": "/products" }
+          ]
+        },
+        {
+          "type": "TileGrid", "title": "Image tiles",
+          "settings": { "heading": "Shop by department", "columns": "3" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80", "label": "Grocery", "sublabel": "Everyday essentials", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=800&q=80", "label": "Beauty", "sublabel": "Skincare & more", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80", "label": "Sports & fitness", "sublabel": "Gear up", "link": "/products" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Best sellers", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "Shop with confidence" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "💳", "heading": "Secure payments", "text": "UPI, cards & COD" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day, no fuss" },
+            { "icon": "💬", "heading": "Real support", "text": "Humans, not bots" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Fresh finds", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Deals drop daily", "subtext": "Don't miss tomorrow's steals — check back often.", "buttonText": "Browse all deals", "buttonLink": "/products", "backgroundColor": "#0f172a" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#0f172a", "autoplay": true },
+          "blocks": [ { "text": "Deals refresh daily · Free shipping over ₹499", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "standard", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Bazaar. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

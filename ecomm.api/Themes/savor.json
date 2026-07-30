@@ -1,0 +1,103 @@
+{
+  "key": "savor",
+  "sortOrder": 4,
+  "name": "Savor",
+  "category": "Food & Drink",
+  "catalogFit": "Medium",
+  "features": ["pantry-tiles", "carousel", "marquee", "usp-columns", "cta"],
+  "description": "Appetite-first food and beverage store — rich photography and bold colour blocks.",
+  "settings": {
+    "PrimaryColor": "#b91c1c",
+    "SecondaryColor": "#7f1d1d",
+    "AccentColor": "#b91c1c",
+    "Font": "Inter",
+    "HeadingFont": "Poppins",
+    "ButtonStyle": "rounded",
+    "Radius": "round",
+    "CardStyle": "shadow",
+    "Density": "cozy",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=80", "heading": "Savor every last bite", "subheading": "Small-batch flavours and pantry heroes, delivered fresh to your door.", "buttonText": "Shop the range", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "TileGrid", "title": "Image tiles",
+          "settings": { "heading": "Shop the pantry", "columns": "4" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80", "label": "Coffee & brews", "sublabel": "", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&fit=crop&w=800&q=80", "label": "Snacks", "sublabel": "", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=800&q=80", "label": "Sauces & spice", "sublabel": "", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=800&q=80", "label": "Fresh picks", "sublabel": "", "link": "/products" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Customer favourites", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "Small batch ✦ Big flavour ✦ Made with love", "backgroundColor": "#7f1d1d" },
+          "blocks": []
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "From our kitchen" },
+          "blocks": [
+            { "icon": "👨‍🍳", "heading": "Small-batch", "text": "Made in real kitchens" },
+            { "icon": "🌿", "heading": "Real ingredients", "text": "Nothing artificial" },
+            { "icon": "🚚", "heading": "Fresh delivery", "text": "Over ₹499, on us" },
+            { "icon": "↩️", "heading": "Loved or refunded", "text": "No questions asked" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Just landed", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Join the taste club", "subtext": "First dibs on new flavours and 10% off your first box.", "buttonText": "Join now", "buttonLink": "/products", "backgroundColor": "#7f1d1d" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#7f1d1d", "autoplay": true },
+          "blocks": [ { "text": "Fresh batches every week · Free delivery over ₹499", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "standard", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Savor. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

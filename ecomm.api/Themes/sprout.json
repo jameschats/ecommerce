@@ -1,0 +1,106 @@
+{
+  "key": "sprout",
+  "sortOrder": 8,
+  "name": "Sprout",
+  "category": "Kids & Toys",
+  "catalogFit": "Medium",
+  "features": ["panel-hero", "marquee", "image-tiles", "carousel", "usp-columns", "cta"],
+  "description": "Playful, rounded kids store — three-panel hero, scrolling strip and joyful tiles.",
+  "settings": {
+    "PrimaryColor": "#7c3aed",
+    "SecondaryColor": "#4c1d95",
+    "AccentColor": "#7c3aed",
+    "Font": "Nunito",
+    "HeadingFont": "Nunito",
+    "ButtonStyle": "pill",
+    "Radius": "round",
+    "CardStyle": "shadow",
+    "Density": "cozy",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "panels", "backgroundColor": "#7c3aed", "autoplay": false },
+          "blocks": [
+            { "image": "", "heading": "Explore the world of play", "subheading": "Toys, books and little wardrobes — endless joy, zero boredom.", "buttonText": "Shop toys", "buttonLink": "/products" },
+            { "image": "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=800&q=80" },
+            { "image": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80" }
+          ]
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "New arrivals every week ✦ Made to be loved ✦ Gift wrap included", "backgroundColor": "#7c3aed" },
+          "blocks": []
+        },
+        {
+          "type": "TileGrid", "title": "Image tiles",
+          "settings": { "heading": "Little favourites", "columns": "3" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=800&q=80", "label": "Toys & games", "sublabel": "For every age", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=800&q=80", "label": "Kids' clothing", "sublabel": "Play-proof", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1512076249812-fd58fb2c8748?auto=format&fit=crop&w=800&q=80", "label": "Books & learning", "sublabel": "Curious minds", "link": "/products" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Most loved", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "Grown-ups love us too" },
+          "blocks": [
+            { "icon": "🧸", "heading": "Safe materials", "text": "Tested & certified" },
+            { "icon": "🎁", "heading": "Gift wrap", "text": "Free on every order" },
+            { "icon": "🚚", "heading": "Fast delivery", "text": "Before the birthday" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day promise" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Just in", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Join the club", "subtext": "Birthday surprises and early access to new drops.", "buttonText": "Sign up", "buttonLink": "/products", "backgroundColor": "#4c1d95" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#4c1d95", "autoplay": true },
+          "blocks": [ { "text": "Free shipping over ₹499 · Gift wrap on every order 🎁", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "standard", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Sprout. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

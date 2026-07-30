@@ -1,0 +1,97 @@
+{
+  "key": "boutique",
+  "sortOrder": 3,
+  "name": "Boutique",
+  "category": "Fashion",
+  "catalogFit": "Small",
+  "features": ["persona-tiles", "carousel", "marquee", "image-with-text", "cta"],
+  "description": "Editorial apparel store — lifestyle hero, persona tiles and serif elegance.",
+  "settings": {
+    "PrimaryColor": "#d6336c",
+    "SecondaryColor": "#212529",
+    "AccentColor": "#d6336c",
+    "Font": "Poppins",
+    "HeadingFont": "Playfair Display",
+    "ButtonStyle": "pill",
+    "Radius": "round",
+    "CardStyle": "shadow",
+    "Density": "spacious",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1600&q=80", "heading": "The new season edit", "subheading": "Fresh silhouettes and timeless staples — made to be lived in.", "buttonText": "Shop new in", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "TileGrid", "title": "Image tiles",
+          "settings": { "heading": "Who are you shopping for?", "columns": "3" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80", "label": "For Her", "sublabel": "Dresses, tops & more", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80", "label": "For Him", "sublabel": "Shirts, tees & denim", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=800&q=80", "label": "For Kids", "sublabel": "Play-proof styles", "link": "/products" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "New arrivals", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "New drops every Friday ✦ Free returns, always", "backgroundColor": "#212529" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Image with text",
+          "settings": { "image": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Made to last", "body": "Thoughtfully designed, ethically made. Quality you can feel in every stitch.", "buttonText": "Learn more", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Trending now", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Join our list", "subtext": "Get 10% off your first order.", "buttonText": "Sign up", "buttonLink": "/products", "backgroundColor": "#212529" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#212529", "autoplay": true },
+          "blocks": [ { "text": "New season drops every week ✨", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "centered", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "simple", "showPolicies": true, "copyright": "© Boutique. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

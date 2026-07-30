@@ -1,0 +1,97 @@
+{
+  "key": "bloom",
+  "sortOrder": 6,
+  "name": "Bloom",
+  "category": "Beauty",
+  "catalogFit": "Small",
+  "features": ["ritual-tiles", "carousel", "usp-columns", "image-with-text", "cta"],
+  "description": "Soft, elegant look for beauty, skincare and wellness.",
+  "settings": {
+    "PrimaryColor": "#db2777",
+    "SecondaryColor": "#7c3aed",
+    "AccentColor": "#db2777",
+    "Font": "Poppins",
+    "HeadingFont": "Cormorant Garamond",
+    "ButtonStyle": "pill",
+    "Radius": "round",
+    "CardStyle": "flat",
+    "Density": "spacious",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1600&q=80", "heading": "Glow, naturally", "subheading": "Clean beauty made to make you feel good — inside and out.", "buttonText": "Discover", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "TileGrid", "title": "Image tiles",
+          "settings": { "heading": "Shop by ritual", "columns": "3" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80", "label": "Serums", "sublabel": "Targeted actives", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "label": "Moisturisers", "sublabel": "Barrier love", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80", "label": "Makeup", "sublabel": "Everyday glow", "link": "/products" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Bestsellers", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "The Bloom difference" },
+          "blocks": [
+            { "icon": "🌸", "heading": "Clean formulas", "text": "Kind to skin" },
+            { "icon": "🐰", "heading": "Cruelty-free", "text": "Always" },
+            { "icon": "🎁", "heading": "Free samples", "text": "With every order" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day promise" }
+          ]
+        },
+        {
+          "type": "ImageWithText", "title": "Image with text",
+          "settings": { "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Kind to you and the planet", "body": "Cruelty-free, dermatologically tested, thoughtfully packaged.", "buttonText": "Learn more", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Get 10% off", "subtext": "Join for tips, launches and a welcome treat.", "buttonText": "Join Bloom", "buttonLink": "/products", "backgroundColor": "#7c3aed" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#7c3aed", "autoplay": true },
+          "blocks": [ { "text": "Complimentary samples with every order 🌸", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "centered", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "simple", "showPolicies": true, "copyright": "© Bloom. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

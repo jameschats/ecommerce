@@ -1,0 +1,107 @@
+{
+  "key": "ignition",
+  "sortOrder": 2,
+  "name": "Ignition",
+  "category": "Electronics",
+  "catalogFit": "Large",
+  "features": ["promo-tiles", "department-tiles", "carousel", "usp-columns", "cta"],
+  "description": "Deal-led electronics superstore — dark hero, savings tiles and dense product rails.",
+  "settings": {
+    "PrimaryColor": "#2563eb",
+    "SecondaryColor": "#0b1220",
+    "AccentColor": "#2563eb",
+    "Font": "Inter",
+    "HeadingFont": "Space Grotesk",
+    "ButtonStyle": "square",
+    "Radius": "sharp",
+    "CardStyle": "elevated",
+    "Density": "compact",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=1600&q=80", "heading": "Sound. Vision. Power.", "subheading": "Flagship tech at prices that make sense — fast, free delivery included.", "buttonText": "Shop deals", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "PromoTiles", "title": "Promo tiles",
+          "settings": { "heading": "Today's top deals" },
+          "blocks": [
+            { "badge": "Save up to 35%", "heading": "Headphones & audio", "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80", "link": "/products" },
+            { "badge": "New drop", "heading": "Smart watches", "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80", "link": "/products" },
+            { "badge": "Save big", "heading": "Speakers & home audio", "image": "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80", "link": "/products" }
+          ]
+        },
+        {
+          "type": "TileGrid", "title": "Image tiles",
+          "settings": { "heading": "Shop by department", "columns": "4" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80", "label": "Phones", "sublabel": "Latest flagships", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80", "label": "Laptops", "sublabel": "Work + play", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80", "label": "Audio", "sublabel": "Immersive sound", "link": "/products" },
+            { "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80", "label": "Wearables", "sublabel": "Track everything", "link": "/products" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Best sellers", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "Why shop with us" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "🛡️", "heading": "2-year warranty", "text": "On all devices" },
+            { "icon": "↩️", "heading": "30-day returns", "text": "No questions asked" },
+            { "icon": "⚡", "heading": "Fast support", "text": "Real humans, 24/7" }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Members save more", "subtext": "Early access to launches and member-only deals.", "buttonText": "Become a member", "buttonLink": "/products", "backgroundColor": "#0b1220" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "New arrivals", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#0b1220", "autoplay": true },
+          "blocks": [ { "text": "Free shipping over ₹499 · Members get early access to every launch", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "standard", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Ignition. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}

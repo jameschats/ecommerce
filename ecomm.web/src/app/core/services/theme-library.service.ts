@@ -18,6 +18,9 @@ export interface PrebuiltThemeSummary {
   key: string;
   name: string;
   category: string;
+  /** Which store size the layout suits: Small | Medium | Large. */
+  catalogFit: string;
+  features: string[];
   description: string;
   primaryColor: string;
   secondaryColor: string;

@@ -24,4 +24,10 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
+  <!-- Prebuilt theme bundles: pure-data JSON, embedded so publish/deploy and the test project
+       need no extra file-copy steps. Loaded by PrebuiltThemeRegistry. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Themes\**\*.json" />
+  </ItemGroup>
+
 </Project>

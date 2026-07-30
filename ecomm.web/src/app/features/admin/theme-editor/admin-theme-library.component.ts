@@ -78,11 +78,19 @@ import { ThemeService } from '../../../core/services/theme.service';
                 </div>
               }
               <div class="p-4">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="font-semibold text-slate-800 text-sm">{{ p.name }}</span>
                   <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ p.category }}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{{ p.catalogFit }} catalog</span>
                 </div>
                 <p class="text-sm text-slate-600 mt-2">{{ p.description }}</p>
+                @if (p.features.length) {
+                  <div class="flex flex-wrap gap-1 mt-2">
+                    @for (f of p.features; track f) {
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-400 border border-slate-100">{{ f }}</span>
+                    }
+                  </div>
+                }
                 <button type="button" (click)="install(p)" [disabled]="busy()" class="btn-primary w-full mt-3 py-2 text-sm">Install</button>
               </div>
             </div>

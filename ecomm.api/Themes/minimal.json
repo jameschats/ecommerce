@@ -1,0 +1,81 @@
+{
+  "key": "minimal",
+  "sortOrder": 1,
+  "name": "Minimal",
+  "category": "General",
+  "catalogFit": "Medium",
+  "features": ["hero", "featured-products", "category-grid", "testimonials"],
+  "description": "Clean, neutral and content-first — works for any store.",
+  "settings": {
+    "PrimaryColor": "#111827",
+    "SecondaryColor": "#6b7280",
+    "AccentColor": "#111827",
+    "Font": "Inter",
+    "HeadingFont": "Inter",
+    "ButtonStyle": "rounded",
+    "Radius": "soft",
+    "CardStyle": "shadow",
+    "Density": "cozy",
+    "HeadingTransform": "none"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "autoplay": true, "intervalSec": 5 },
+          "blocks": [ { "image": "", "heading": "Welcome to our store", "subheading": "Great products, fair prices, fast delivery.", "buttonText": "Shop now", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Featured products",
+          "settings": { "heading": "Featured", "layout": "grid", "source": "featured", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Categories", "title": "Category strip",
+          "settings": { "heading": "Shop by category", "style": "grid" },
+          "blocks": []
+        },
+        {
+          "type": "Testimonials", "title": "Testimonials",
+          "settings": { "heading": "What customers say" },
+          "blocks": [
+            { "quote": "Great quality and quick delivery. Highly recommend!", "author": "Happy customer", "rating": 5 },
+            { "quote": "Exactly as described. Will order again.", "author": "Verified buyer", "rating": 5 }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        {
+          "type": "AnnouncementBar", "title": "Announcement bar",
+          "settings": { "backgroundColor": "#6b7280", "autoplay": true },
+          "blocks": [ { "text": "Free shipping on orders over ₹499", "link": "/products" } ]
+        }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        {
+          "type": "Header", "title": "Header",
+          "settings": { "layout": "minimal", "showSearch": true, "showCart": true, "sticky": true, "menuHandle": "main" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        {
+          "type": "Footer", "title": "Footer",
+          "settings": { "layout": "simple", "showPolicies": true, "copyright": "© Minimal. All rights reserved." },
+          "blocks": []
+        }
+      ]
+    }
+  ]
+}
