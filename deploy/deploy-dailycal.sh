@@ -138,15 +138,39 @@ else
   echo "    config.js: ok"
 fi
 
-ssr=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${DOMAIN}/")
+# `|| true` plus a :-000 default on every probe below: under `set -e`, a curl that cannot
+# connect exits non-zero and would abort the script mid-verification, before printing what
+# failed or the rollback command. curl already prints 000 itself in that case, so `|| true`
+# swallows only the exit status — `|| echo 000` would concatenate and show "000000".
+ssr=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${DOMAIN}/" || true)
+ssr=${ssr:-000}
 echo "    ssr      : HTTP $ssr"
 [ "$ssr" = "200" ] || fail=1
 
-# The live neighbours must be untouched.
+# The live neighbours must still serve — this asks "did my deploy break them?", and
+# nothing here writes to their trees or restarts their services.
+#
+# Judged on where a request lands, not on an exact 200. wavcommerce.online sends / to
+# /welcome, which is perfectly healthy, and testing for 200 reported that as a deploy
+# failure on a site this script never touches. A cried-wolf check is worse than none: it
+# trains you to ignore the one time it is real. The immediate code is still printed, so a
+# neighbour that starts redirecting stays visible rather than silently tolerated.
 for neighbour in calendarshop.online wavcommerce.online; do
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${neighbour}/")
-  echo "    $neighbour: HTTP $code"
-  [ "$code" = "200" ] || fail=1
+  first=$(curl -s  -o /dev/null -w '%{http_code}' --max-time 20 "https://${neighbour}/" || true)
+  final=$(curl -sL -o /dev/null -w '%{http_code}' --max-time 25 "https://${neighbour}/" || true)
+  first=${first:-000}
+  final=${final:-000}
+
+  if [ "$first" = "$final" ]; then
+    echo "    $neighbour: HTTP $final"
+  else
+    echo "    $neighbour: HTTP $first → $final"
+  fi
+
+  case "$final" in
+    2??) ;;
+    *)   echo "    $neighbour: NOT SERVING"; fail=1 ;;
+  esac
 done
 
 if [ "$fail" -ne 0 ]; then
