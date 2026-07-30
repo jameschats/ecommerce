@@ -35,6 +35,12 @@ public sealed class ProductService : IProductService
     /// The entire active catalogue in one payload, grouped into category bands for the
     /// quick-order table (design.md §5). Unpaged by design — a dealer tabs down the whole
     /// price list, so paging it would break both the workflow and Ctrl+F.
+    ///
+    /// Categories with their own page (Finished Calendar) are included here rather than
+    /// filtered out, and carry ShowInPriceList so each screen can pick its own bands. The
+    /// client indexes this payload to resolve the quantities it has stored and prunes
+    /// anything missing from it — so serving a narrowed list to one page would delete the
+    /// quantities typed on another.
     /// </summary>
     public async Task<PriceListDto> GetPriceListAsync(CancellationToken ct = default)
     {
@@ -54,6 +60,7 @@ public sealed class ProductService : IProductService
                 CategoryName = p.Category!.Name,
                 CategorySlug = p.Category!.Slug,
                 CategoryOrder = p.Category!.DisplayOrder,
+                CategoryShowInPriceList = p.Category!.ShowInPriceList,
                 ParentCategoryName = p.Category!.Parent != null ? p.Category!.Parent.Name : null,
                 // Optional per-product pack unit. Either a predefined attribute value or free text.
                 Content = p.AttributeValues
@@ -67,7 +74,7 @@ public sealed class ProductService : IProductService
             .ToListAsync(ct);
 
         var bands = rows
-            .GroupBy(r => new { r.CategoryId, r.CategoryName, r.CategorySlug, r.ParentCategoryName, r.CategoryOrder })
+            .GroupBy(r => new { r.CategoryId, r.CategoryName, r.CategorySlug, r.ParentCategoryName, r.CategoryOrder, r.CategoryShowInPriceList })
             .OrderBy(g => g.Key.CategoryOrder).ThenBy(g => g.Key.CategoryName)
             .Select(g => new PriceListBandDto(
                 g.Key.CategoryId,
@@ -78,6 +85,7 @@ public sealed class ProductService : IProductService
                 g.Key.ParentCategoryName is null
                     ? g.Key.CategoryName
                     : $"{g.Key.ParentCategoryName} — {g.Key.CategoryName}",
+                g.Key.CategoryShowInPriceList,
                 g.Select(r => new PriceListItemDto(
                     r.ProductId, r.Sku, r.Name, r.Content,
                     r.Price, r.CompareAtPrice,

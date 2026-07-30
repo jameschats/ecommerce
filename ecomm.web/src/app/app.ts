@@ -87,6 +87,22 @@ export class App implements OnInit {
   });
 
   readonly categories = signal<Category[]>([]);
+
+  /**
+   * Categories sold from a page of their own rather than the generic /category listing.
+   *
+   * Kept as an explicit map here instead of inferred from ShowInPriceList: "absent from the
+   * price list" does not by itself say *where* a range is sold, and the footer pointing at
+   * the generic listing would leave two different pages selling the same products.
+   */
+  private readonly ownPageBySlug: Record<string, string> = {
+    'finished-calendar': '/finished-calendar',
+  };
+
+  categoryLink(c: Category): string[] {
+    const own = this.ownPageBySlug[c.slug];
+    return own ? [own] : ['/category', c.slug];
+  }
   readonly menuOpen = signal(false);
   readonly isAdminRoute = signal(false);
   readonly year = 2026;

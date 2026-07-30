@@ -5,6 +5,7 @@ import {
   ElementRef,
   computed,
   inject,
+  input,
   signal,
   viewChild,
   viewChildren,
@@ -74,9 +75,38 @@ export class QuickOrderTableComponent {
   readonly discountTotal = this.quickOrder.discountTotal;
   readonly subTotal = this.quickOrder.subTotal;
 
-  readonly loading = computed(() => this.priceList().totalItems === 0 && this.allBands().length === 0);
-  readonly allBands = computed(() => this.priceList().bands);
-  readonly totalItems = computed(() => this.priceList().totalItems);
+  /**
+   * Slug of the single category this table shows; null for the main price list.
+   *
+   * One input covers both differences the Finished Calendar page needs — which bands it
+   * shows, and that the category dropdown disappears. A dropdown offering a choice of one
+   * is just furniture, so the two are never wanted separately.
+   */
+  readonly onlyCategorySlug = input<string | null>(null);
+
+  /**
+   * The bands this page owns, before search and dropdown filtering.
+   *
+   * The payload always carries the whole catalogue — see GetPriceListAsync — so the split
+   * happens here: a named category shows only itself, and the main list shows everything
+   * not claimed by a page of its own.
+   */
+  readonly allBands = computed(() => {
+    const slug = this.onlyCategorySlug();
+    const bands = this.priceList().bands;
+    return slug ? bands.filter((b) => b.categorySlug === slug) : bands.filter((b) => b.showInPriceList);
+  });
+
+  /** Counted from this page's bands, not the payload, so "of N items" excludes the rest. */
+  readonly totalItems = computed(() =>
+    this.allBands().reduce((sum, b) => sum + b.items.length, 0),
+  );
+
+  /**
+   * Judged on the raw payload rather than this page's bands: a category with nothing in it
+   * yet has no bands of its own, and would otherwise sit on "Loading…" forever.
+   */
+  readonly loading = computed(() => this.priceList().totalItems === 0 && this.priceList().bands.length === 0);
 
   /**
    * Bands after search and category filtering. Empty bands are dropped so a search never

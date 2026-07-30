@@ -22,6 +22,8 @@ export interface PriceListBand {
   categorySlug: string;
   parentCategoryName: string | null;
   label: string;
+  /** False for ranges with their own page — the main price list hides these. */
+  showInPriceList: boolean;
   items: PriceListItem[];
 }
 

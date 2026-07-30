@@ -90,6 +90,8 @@ public sealed record PriceListItemDto(
 public sealed record PriceListBandDto(
     long CategoryId, string CategoryName, string CategorySlug,
     string? ParentCategoryName, string Label,
+    /// <summary>False for ranges with their own page — the main list hides these.</summary>
+    bool ShowInPriceList,
     IReadOnlyList<PriceListItemDto> Items);
 
 public sealed record PriceListDto(IReadOnlyList<PriceListBandDto> Bands, int TotalItems);

@@ -14,6 +14,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/order/order.component').then((m) => m.OrderComponent),
   },
   {
+    // Finished Calendar — the same table scoped to the one category that is kept out of
+    // the main price list. Declared above 'order/:orderId/pay' is not required, but it
+    // sits next to /order because it is the same screen with a different scope.
+    path: 'finished-calendar',
+    loadComponent: () =>
+      import('./features/order/finished-calendar.component').then((m) => m.FinishedCalendarComponent),
+  },
+  {
     // Payment instructions for a placed order — UPI QR + bank details (design.md §8).
     path: 'order/:orderId/pay',
     canActivate: [authGuard],
