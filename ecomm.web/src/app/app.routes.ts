@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard, authGuard } from './core/guards/auth.guard';
+import { pageBannerResolver } from './core/resolvers/page-banner.resolver';
 import { homeResolver } from './features/home/home.resolver';
 
 export const routes: Routes = [
@@ -11,6 +12,7 @@ export const routes: Routes = [
   {
     // "Order Now" — the quick-order price list without the home page's marketing.
     path: 'order',
+    resolve: { pageBanners: pageBannerResolver('order') },
     loadComponent: () => import('./features/order/order.component').then((m) => m.OrderComponent),
   },
   {
@@ -18,6 +20,7 @@ export const routes: Routes = [
     // the main price list. Declared above 'order/:orderId/pay' is not required, but it
     // sits next to /order because it is the same screen with a different scope.
     path: 'finished-calendar',
+    resolve: { pageBanners: pageBannerResolver('finished-calendar') },
     loadComponent: () =>
       import('./features/order/finished-calendar.component').then((m) => m.FinishedCalendarComponent),
   },
@@ -62,7 +65,11 @@ export const routes: Routes = [
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
     ],
   },
-  { path: 'about', loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent) },
+  {
+    path: 'about',
+    resolve: { pageBanners: pageBannerResolver('about') },
+    loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent),
+  },
   { path: 'contact', loadComponent: () => import('./features/pages/contact/contact.component').then((m) => m.ContactComponent) },
   { path: 'faq', loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent) },
   {

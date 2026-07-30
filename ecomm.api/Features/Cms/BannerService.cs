@@ -10,16 +10,17 @@ public sealed record BannerDto(long HomeBannerId, string? ImageUrl, string? Titl
 
 /// <summary>Full banner for the admin editor.</summary>
 public sealed record AdminBannerDto(
-    long HomeBannerId, string? Title, string? Subtitle, string? CtaText, string? LinkUrl,
+    long HomeBannerId, string Page, string? Title, string? Subtitle, string? CtaText, string? LinkUrl,
     string? ImageUrl, bool HasUpload, int DisplayOrder, bool IsActive);
 
 public sealed record BannerUpsert(
-    string? Title, string? Subtitle, string? CtaText, string? LinkUrl, string? ImageUrl, int DisplayOrder, bool IsActive);
+    string Page, string? Title, string? Subtitle, string? CtaText, string? LinkUrl, string? ImageUrl, int DisplayOrder, bool IsActive);
 
 public interface IBannerService
 {
-    Task<List<BannerDto>> GetActiveAsync(CancellationToken ct = default);
-    Task<List<AdminBannerDto>> GetAllAsync(CancellationToken ct = default);
+    /// <summary>Pages a banner can belong to. Anything else is rejected/normalized to "home".</summary>
+    Task<List<BannerDto>> GetActiveAsync(string page, CancellationToken ct = default);
+    Task<List<AdminBannerDto>> GetAllAsync(string page, CancellationToken ct = default);
     Task<AdminBannerDto> CreateAsync(BannerUpsert req, CancellationToken ct = default);
     Task<AdminBannerDto> UpdateAsync(long id, BannerUpsert req, CancellationToken ct = default);
     Task DeleteAsync(long id, CancellationToken ct = default);
@@ -30,14 +31,20 @@ public interface IBannerService
 public sealed class BannerService : IBannerService
 {
     private const long Tenant = 1;
+    /// <summary>Keeps stray/typo query params from splintering banners into an unmanaged page bucket.</summary>
+    public static readonly string[] KnownPages = ["home", "order", "finished-calendar", "about"];
     private readonly EcommerceDbContext _db;
 
     public BannerService(EcommerceDbContext db) => _db = db;
 
-    public async Task<List<BannerDto>> GetActiveAsync(CancellationToken ct = default)
+    public static string NormalizePage(string? page) =>
+        page is not null && KnownPages.Contains(page) ? page : "home";
+
+    public async Task<List<BannerDto>> GetActiveAsync(string page, CancellationToken ct = default)
     {
+        page = NormalizePage(page);
         var rows = await _db.HomeBanners.AsNoTracking()
-            .Where(b => b.TenantId == Tenant && b.IsActive)
+            .Where(b => b.TenantId == Tenant && b.Page == page && b.IsActive)
             .OrderBy(b => b.DisplayOrder).ThenBy(b => b.HomeBannerId)
             .Select(b => new { b.HomeBannerId, b.Title, b.Subtitle, b.CtaText, b.LinkUrl, b.ImageUrl, HasUpload = b.ImageData != null, b.UpdatedAt, b.CreatedAt })
             .ToListAsync(ct);
@@ -47,16 +54,17 @@ public sealed class BannerService : IBannerService
             b.Title, b.Subtitle, b.CtaText, b.LinkUrl)).ToList();
     }
 
-    public async Task<List<AdminBannerDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<List<AdminBannerDto>> GetAllAsync(string page, CancellationToken ct = default)
     {
+        page = NormalizePage(page);
         var rows = await _db.HomeBanners.AsNoTracking()
-            .Where(b => b.TenantId == Tenant)
+            .Where(b => b.TenantId == Tenant && b.Page == page)
             .OrderBy(b => b.DisplayOrder).ThenBy(b => b.HomeBannerId)
-            .Select(b => new { b.HomeBannerId, b.Title, b.Subtitle, b.CtaText, b.LinkUrl, b.ImageUrl, HasUpload = b.ImageData != null, b.DisplayOrder, b.IsActive, b.UpdatedAt, b.CreatedAt })
+            .Select(b => new { b.HomeBannerId, b.Page, b.Title, b.Subtitle, b.CtaText, b.LinkUrl, b.ImageUrl, HasUpload = b.ImageData != null, b.DisplayOrder, b.IsActive, b.UpdatedAt, b.CreatedAt })
             .ToListAsync(ct);
 
         return rows.Select(b => new AdminBannerDto(
-            b.HomeBannerId, b.Title, b.Subtitle, b.CtaText, b.LinkUrl,
+            b.HomeBannerId, b.Page, b.Title, b.Subtitle, b.CtaText, b.LinkUrl,
             ResolveImage(b.HomeBannerId, b.HasUpload, b.ImageUrl, b.UpdatedAt ?? b.CreatedAt),
             b.HasUpload, b.DisplayOrder, b.IsActive)).ToList();
     }
@@ -66,7 +74,7 @@ public sealed class BannerService : IBannerService
         var now = DateTime.UtcNow;
         var b = new HomeBanner
         {
-            TenantId = Tenant,
+            TenantId = Tenant, Page = NormalizePage(req.Page),
             Title = req.Title, Subtitle = req.Subtitle, CtaText = req.CtaText, LinkUrl = req.LinkUrl,
             ImageUrl = string.IsNullOrWhiteSpace(req.ImageUrl) ? null : req.ImageUrl.Trim(),
             DisplayOrder = req.DisplayOrder, IsActive = req.IsActive, CreatedAt = now,
@@ -120,7 +128,7 @@ public sealed class BannerService : IBannerService
         hasUpload ? $"/api/cms/banners/{id}/image?v={stamp.Ticks}" : imageUrl;
 
     private static AdminBannerDto ToAdmin(HomeBanner b) => new(
-        b.HomeBannerId, b.Title, b.Subtitle, b.CtaText, b.LinkUrl,
+        b.HomeBannerId, b.Page, b.Title, b.Subtitle, b.CtaText, b.LinkUrl,
         ResolveImage(b.HomeBannerId, b.ImageData != null, b.ImageUrl, b.UpdatedAt ?? b.CreatedAt),
         b.ImageData != null, b.DisplayOrder, b.IsActive);
 }

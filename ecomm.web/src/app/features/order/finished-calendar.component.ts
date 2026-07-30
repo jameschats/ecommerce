@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { SITE_URL } from '../../core/api.config';
+import { PageBannerData } from '../../core/resolvers/page-banner.resolver';
 import { SeoService } from '../../core/services/seo.service';
+import { BannerCarouselComponent } from '../../shared/banner-carousel/banner-carousel.component';
 import { QuickOrderTableComponent } from './quick-order-table.component';
 
 /**
@@ -17,9 +20,11 @@ import { QuickOrderTableComponent } from './quick-order-table.component';
 @Component({
   selector: 'app-finished-calendar',
   standalone: true,
-  imports: [QuickOrderTableComponent],
+  imports: [QuickOrderTableComponent, BannerCarouselComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-banner-carousel [banners]="banners" />
+
     <div class="bg-slate-50 border-b border-slate-200">
       <div class="page-container py-5">
         <h1 class="text-2xl font-bold text-slate-900">Finished Calendar</h1>
@@ -33,7 +38,10 @@ import { QuickOrderTableComponent } from './quick-order-table.component';
   `,
 })
 export class FinishedCalendarComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
+
+  readonly banners = (this.route.snapshot.data['pageBanners'] as PageBannerData | undefined)?.banners ?? [];
 
   ngOnInit(): void {
     this.seo.setMeta({

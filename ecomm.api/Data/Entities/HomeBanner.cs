@@ -5,6 +5,9 @@ public class HomeBanner
 {
     public long HomeBannerId { get; set; }
     public long TenantId { get; set; } = 1;
+
+    /// <summary>Which storefront page this banner belongs to: "home", "order", "finished-calendar" or "about".</summary>
+    public string Page { get; set; } = "home";
     public string? Title { get; set; }
     public string? Subtitle { get; set; }
     public string? CtaText { get; set; }

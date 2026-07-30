@@ -1,18 +1,39 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminBanner } from '../../../core/models/banner.model';
+import { AdminBanner, BannerPage } from '../../../core/models/banner.model';
 import { BannerService } from '../../../core/services/banner.service';
+
+interface PageTab { key: BannerPage; label: string; }
+
+const TABS: PageTab[] = [
+  { key: 'home', label: 'Home' },
+  { key: 'order', label: 'Order Now' },
+  { key: 'finished-calendar', label: 'Finished Calendar' },
+  { key: 'about', label: 'About Us' },
+];
 
 @Component({
   selector: 'app-admin-banners',
   imports: [FormsModule],
   template: `
     <div class="max-w-3xl mx-auto p-6">
-      <div class="flex items-center justify-between mb-1">
-        <h1 class="text-xl font-bold text-slate-900">Home banners</h1>
+      <h1 class="text-xl font-bold text-slate-900 mb-1">Page banners</h1>
+      <p class="text-sm text-slate-500 mb-4">Each tab is a page's own banner carousel. Upload an image (or paste a URL), set the text, link and order. Hidden banners aren't displayed.</p>
+
+      <div class="flex gap-1 border-b border-slate-200 mb-6">
+        @for (tab of tabs; track tab.key) {
+          <button type="button" (click)="selectTab(tab.key)"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition"
+            [class]="activeTab() === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'">
+            {{ tab.label }}
+          </button>
+        }
+      </div>
+
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-slate-500">Banners shown on the {{ activeTabLabel() }} page.</p>
         <button type="button" (click)="add()" [disabled]="busy()" class="btn-primary">+ Add banner</button>
       </div>
-      <p class="text-sm text-slate-500 mb-6">Upload an image (or paste a URL), set the text, link and order. These show in the home carousel. Hidden banners aren't displayed.</p>
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
 
       @if (loading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
@@ -67,16 +88,29 @@ import { BannerService } from '../../../core/services/banner.service';
 export class AdminBannersComponent implements OnInit {
   private readonly svc = inject(BannerService);
 
+  readonly tabs = TABS;
+  readonly activeTab = signal<BannerPage>('home');
   readonly banners = signal<AdminBanner[]>([]);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
 
+  activeTabLabel(): string {
+    return this.tabs.find((t) => t.key === this.activeTab())?.label ?? '';
+  }
+
   ngOnInit(): void { this.reload(); }
+
+  selectTab(page: BannerPage): void {
+    if (page === this.activeTab()) return;
+    this.activeTab.set(page);
+    this.message.set(null);
+    this.reload();
+  }
 
   private reload(): void {
     this.loading.set(true);
-    this.svc.listAdmin().subscribe({
+    this.svc.listAdmin(this.activeTab()).subscribe({
       next: (b) => { this.banners.set(b); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
@@ -85,7 +119,7 @@ export class AdminBannersComponent implements OnInit {
   add(): void {
     this.busy.set(true);
     this.svc.create({
-      title: 'New banner', subtitle: '', ctaText: 'Shop now', linkUrl: '/products',
+      page: this.activeTab(), title: 'New banner', subtitle: '', ctaText: 'Shop now', linkUrl: '/products',
       imageUrl: null, displayOrder: this.banners().length + 1, isActive: true,
     }).subscribe({
       next: () => { this.busy.set(false); this.flash('Banner added.'); this.reload(); },
@@ -127,7 +161,7 @@ export class AdminBannersComponent implements OnInit {
     this.message.set(null);
     const updates = this.banners().map((b, i) =>
       this.svc.update(b.homeBannerId, {
-        title: b.title, subtitle: b.subtitle, ctaText: b.ctaText, linkUrl: b.linkUrl,
+        page: b.page, title: b.title, subtitle: b.subtitle, ctaText: b.ctaText, linkUrl: b.linkUrl,
         // Only send imageUrl when it's an external URL the admin typed — never the resolved
         // /api/... upload URL (uploads are managed via the upload button).
         imageUrl: b.hasUpload ? null : b.imageUrl,

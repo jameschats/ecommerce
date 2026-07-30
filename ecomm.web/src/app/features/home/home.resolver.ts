@@ -19,7 +19,7 @@ export interface HomeData {
  */
 export const homeResolver: ResolveFn<HomeData> = () => {
   const banners = inject(BannerService);
-  return banners.getBanners().pipe(
+  return banners.getBanners('home').pipe(
     map((banners) => ({ banners })),
     catchError(() => of({ banners: [] as HomeBanner[] })),
   );

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
-import { AdminBanner, HomeBanner, SaveBannerRequest } from '../models/banner.model';
+import { AdminBanner, BannerPage, HomeBanner, SaveBannerRequest } from '../models/banner.model';
 import { ApiResponse } from '../models/api-response.model';
 
 /** Origin of the API (API_BASE_URL without the trailing "/api") — used to absolutize
@@ -22,16 +22,16 @@ export class BannerService {
   }
 
   // --- Public storefront ---
-  getBanners(): Observable<HomeBanner[]> {
-    return this.http.get<ApiResponse<HomeBanner[]>>(this.pub).pipe(
+  getBanners(page: BannerPage): Observable<HomeBanner[]> {
+    return this.http.get<ApiResponse<HomeBanner[]>>(this.pub, { params: { page } }).pipe(
       map((r) => (r.data ?? []).map((b) => ({ ...b, imageUrl: this.resolveImage(b.imageUrl) }))),
       catchError(() => of([])),
     );
   }
 
   // --- Admin ---
-  listAdmin(): Observable<AdminBanner[]> {
-    return this.http.get<ApiResponse<AdminBanner[]>>(this.admin).pipe(
+  listAdmin(page: BannerPage): Observable<AdminBanner[]> {
+    return this.http.get<ApiResponse<AdminBanner[]>>(this.admin, { params: { page } }).pipe(
       map((r) => (r.data ?? []).map((b) => ({ ...b, imageUrl: this.resolveImage(b.imageUrl) }))),
     );
   }

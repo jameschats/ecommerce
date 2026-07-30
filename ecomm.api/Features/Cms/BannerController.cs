@@ -17,8 +17,8 @@ public sealed class BannerController : ControllerBase
 
     [OutputCache(PolicyName = "public")]
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
-        => Ok(ApiResponse<List<BannerDto>>.Ok(await _banners.GetActiveAsync(ct)));
+    public async Task<IActionResult> List([FromQuery] string page, CancellationToken ct)
+        => Ok(ApiResponse<List<BannerDto>>.Ok(await _banners.GetActiveAsync(page, ct)));
 
     [HttpGet("{id:long}/image")]
     public async Task<IActionResult> Image(long id, CancellationToken ct)
@@ -43,8 +43,8 @@ public sealed class BannerAdminController : ControllerBase
     public BannerAdminController(IBannerService banners) => _banners = banners;
 
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
-        => Ok(ApiResponse<List<AdminBannerDto>>.Ok(await _banners.GetAllAsync(ct)));
+    public async Task<IActionResult> List([FromQuery] string page, CancellationToken ct)
+        => Ok(ApiResponse<List<AdminBannerDto>>.Ok(await _banners.GetAllAsync(page, ct)));
 
     [HttpPost]
     public async Task<IActionResult> Create(BannerUpsert req, CancellationToken ct)

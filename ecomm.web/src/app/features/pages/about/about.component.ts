@@ -1,12 +1,16 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
+import { PageBannerData } from '../../../core/resolvers/page-banner.resolver';
 import { SeoService } from '../../../core/services/seo.service';
+import { BannerCarouselComponent } from '../../../shared/banner-carousel/banner-carousel.component';
 
 @Component({
   selector: 'app-about',
-  imports: [RouterLink],
+  imports: [RouterLink, BannerCarouselComponent],
   template: `
+    <app-banner-carousel [banners]="banners" />
+
     <section class="page-container py-12">
       <div class="max-w-3xl">
         <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">About CalendarShop</h1>
@@ -52,7 +56,10 @@ import { SeoService } from '../../../core/services/seo.service';
   `,
 })
 export class AboutComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
+
+  readonly banners = (this.route.snapshot.data['pageBanners'] as PageBannerData | undefined)?.banners ?? [];
 
   readonly stats = [
     { value: '10,000+', label: 'Calendars printed' },
