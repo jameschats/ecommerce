@@ -1,5 +1,5 @@
 import { DatePipe, DOCUMENT } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
 import { PrebuiltThemeSummary, ThemeLibraryService, ThemeSummary } from '../../../core/services/theme-library.service';
@@ -38,33 +38,66 @@ const THEME_TO_SAMPLE_PRESET: Record<string, string> = {
 
       @if (loading()) { <p class="text-slate-400 text-sm">Loading…</p> }
       @else {
-        <div class="grid sm:grid-cols-2 gap-4">
-          @for (t of themes(); track t.themeId) {
-            <div class="bg-white border rounded-xl p-5" [class]="t.isPublished ? 'border-green-300 ring-1 ring-green-100' : 'border-slate-200'">
-              <div class="flex items-start justify-between gap-2">
-                <div>
-                  <div class="flex items-center gap-2">
-                    <h2 class="font-semibold text-slate-800">{{ t.name }}</h2>
-                    @if (t.isPublished) { <span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">Published</span> }
-                    @else { <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Draft</span> }
-                  </div>
-                  <p class="text-xs text-slate-400 mt-1">Created {{ t.createdAt | date:'d MMM y' }}</p>
-                </div>
+        <!-- Live theme: one large, distinct card up top — this is what shoppers see right now. -->
+        @if (publishedTheme(); as t) {
+          <div class="bg-white border border-green-300 ring-1 ring-green-100 rounded-xl overflow-hidden mb-4">
+            <div class="relative h-56 overflow-hidden bg-slate-100">
+              @if (t.heroImage) { <img [src]="t.heroImage" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
+              <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+              @if (t.heroHeading) { <div class="absolute left-4 right-4 bottom-3 text-white font-bold text-xl drop-shadow">{{ t.heroHeading }}</div> }
+            </div>
+            @if (t.tileImages.length) {
+              <div class="grid grid-cols-4 gap-1 p-1.5 pb-0">
+                @for (img of t.tileImages; track img) { <img [src]="img" alt="" class="h-16 w-full object-cover rounded-lg" loading="lazy" /> }
               </div>
-
+            }
+            <div class="p-5">
+              <div class="flex items-center gap-2">
+                <h2 class="font-semibold text-slate-800">{{ t.name }}</h2>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">Published</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Created {{ t.createdAt | date:'d MMM y' }}</p>
               <div class="flex flex-wrap gap-2 mt-4 text-sm">
                 <a [routerLink]="['/admin/theme-editor', t.themeId]" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Edit</a>
                 @if (t.previewToken) {
                   <a [href]="previewUrl(t)" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Preview ↗</a>
                 }
-                @if (!t.isPublished) {
-                  <button type="button" (click)="publish(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-dark">Publish</button>
-                }
                 <button type="button" (click)="duplicate(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Duplicate</button>
                 <button type="button" (click)="rename(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Rename</button>
-                @if (!t.isPublished) {
-                  <button type="button" (click)="remove(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Delete</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (draftThemes().length) { <h2 class="text-sm font-semibold text-slate-500 mt-6 mb-2">Draft themes</h2> }
+        <div class="grid sm:grid-cols-2 gap-4">
+          @for (t of draftThemes(); track t.themeId) {
+            <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div class="relative h-32 overflow-hidden bg-slate-100">
+                @if (t.heroImage) { <img [src]="t.heroImage" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
+                @if (!t.heroImage) { <div class="absolute inset-0 grid place-items-center text-slate-300 text-xs">No sections yet</div> }
+                @if (t.heroHeading) {
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+                  <div class="absolute left-3 right-3 bottom-2 text-white text-sm font-semibold drop-shadow">{{ t.heroHeading }}</div>
                 }
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2">
+                  <h2 class="font-semibold text-slate-800">{{ t.name }}</h2>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Draft</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Created {{ t.createdAt | date:'d MMM y' }}</p>
+
+                <div class="flex flex-wrap gap-2 mt-4 text-sm">
+                  <a [routerLink]="['/admin/theme-editor', t.themeId]" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Edit</a>
+                  @if (t.previewToken) {
+                    <a [href]="previewUrl(t)" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Preview ↗</a>
+                  }
+                  <button type="button" (click)="publish(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-dark">Publish</button>
+                  <button type="button" (click)="duplicate(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Duplicate</button>
+                  <button type="button" (click)="rename(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Rename</button>
+                  <button type="button" (click)="remove(t)" [disabled]="busy()" class="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Delete</button>
+                </div>
               </div>
             </div>
           }
@@ -123,6 +156,8 @@ export class AdminThemeLibraryComponent implements OnInit {
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
   readonly themes = signal<ThemeSummary[]>([]);
+  readonly publishedTheme = computed(() => this.themes().find((t) => t.isPublished) ?? null);
+  readonly draftThemes = computed(() => this.themes().filter((t) => !t.isPublished));
   readonly prebuilt = signal<PrebuiltThemeSummary[]>([]);
   readonly sampleCatalogNudge = signal<{ themeName: string; presetKey: string } | null>(null);
 

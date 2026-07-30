@@ -70,6 +70,37 @@ public class ThemeLibraryTests
     }
 
     [Fact]
+    public async Task List_extracts_live_hero_and_tile_preview_from_current_sections()
+    {
+        var (db, lib) = await SeedPublishedAsync();
+        using var _ = db;
+        var theme = (await lib.ListAsync()).Single();
+        var tpl = new ThemeTemplate { ThemeId = theme.ThemeId, TemplateKey = "index", Name = "Default", CreatedAt = DateTime.UtcNow };
+        db.ThemeTemplates.Add(tpl);
+        await db.SaveChangesAsync();
+        db.ThemeSections.Add(new ThemeSection
+        {
+            ThemeTemplateId = tpl.ThemeTemplateId, SectionType = "Hero", DisplayOrder = 1, IsVisible = true, CreatedAt = DateTime.UtcNow,
+            Blocks = "[{\"image\":\"https://example.com/hero.jpg\",\"heading\":\"Live heading\"}]",
+        });
+        db.ThemeSections.Add(new ThemeSection
+        {
+            ThemeTemplateId = tpl.ThemeTemplateId, SectionType = "TileGrid", DisplayOrder = 2, IsVisible = true, CreatedAt = DateTime.UtcNow,
+            Blocks = "[{\"image\":\"https://example.com/tile1.jpg\"},{\"image\":\"https://example.com/tile2.jpg\"}]",
+        });
+        await db.SaveChangesAsync();
+
+        var listed = (await lib.ListAsync()).Single(t => t.ThemeId == theme.ThemeId);
+
+        Assert.Equal("https://example.com/hero.jpg", listed.HeroImage);
+        Assert.Equal("Live heading", listed.HeroHeading);
+        Assert.Equal(new[] { "https://example.com/tile1.jpg", "https://example.com/tile2.jpg" }, listed.TileImages);
+
+        var fetched = await lib.GetAsync(theme.ThemeId);
+        Assert.Equal("https://example.com/hero.jpg", fetched.HeroImage);
+    }
+
+    [Fact]
     public async Task Install_prebuilt_creates_a_draft_with_settings_and_sections()
     {
         var (db, lib) = await SeedPublishedAsync();

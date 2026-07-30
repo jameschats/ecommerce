@@ -12,6 +12,11 @@ export interface ThemeSummary {
   isPublished: boolean;
   previewToken: string | null;
   createdAt: string;
+  /** Hero image/heading + up to 4 tile images extracted from this theme's CURRENT `index` sections
+   *  (not the frozen install-time bundle) — null/empty until the theme has authored content. */
+  heroImage: string | null;
+  heroHeading: string | null;
+  tileImages: string[];
 }
 
 export interface PrebuiltThemeSummary {

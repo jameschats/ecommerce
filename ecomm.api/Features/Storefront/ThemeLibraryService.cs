@@ -8,7 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.Storefront;
 
 public sealed record ThemeSummaryDto(
-    long ThemeId, string Name, string Status, string? Source, bool IsPublished, string? PreviewToken, DateTime CreatedAt);
+    long ThemeId, string Name, string Status, string? Source, bool IsPublished, string? PreviewToken, DateTime CreatedAt,
+    string? HeroImage, string? HeroHeading, IReadOnlyList<string> TileImages);
 public sealed record CreateThemeRequest(string Name);
 public sealed record RenameThemeRequest(string Name);
 public sealed record DuplicateThemeRequest(string? Name);
@@ -36,13 +37,39 @@ public sealed class ThemeLibraryService(EcommerceDbContext db, ICmsService cms) 
 {
     private long Tenant => db.CurrentTenantId;
 
-    public async Task<IReadOnlyList<ThemeSummaryDto>> ListAsync(CancellationToken ct = default) =>
-        await db.Themes.AsNoTracking()
+    public async Task<IReadOnlyList<ThemeSummaryDto>> ListAsync(CancellationToken ct = default)
+    {
+        var themes = await db.Themes.AsNoTracking()
             .OrderByDescending(t => t.Status == "Published").ThenByDescending(t => t.ThemeId)
-            .Select(t => new ThemeSummaryDto(t.ThemeId, t.Name, t.Status, t.Source, t.Status == "Published", t.PreviewToken, t.CreatedAt))
             .ToListAsync(ct);
+        var previews = await PreviewsForAsync(themes.Select(t => t.ThemeId).ToList(), ct);
+        return themes.Select(t => ToDto(t, previews.GetValueOrDefault(t.ThemeId))).ToList();
+    }
 
-    public async Task<ThemeSummaryDto> GetAsync(long themeId, CancellationToken ct = default) => ToDto(await FindAsync(themeId, ct));
+    public async Task<ThemeSummaryDto> GetAsync(long themeId, CancellationToken ct = default)
+    {
+        var theme = await FindAsync(themeId, ct);
+        var previews = await PreviewsForAsync([themeId], ct);
+        return ToDto(theme, previews.GetValueOrDefault(themeId));
+    }
+
+    /// <summary>Hero/tile preview material for each theme's CURRENT `index` template — reads live
+    /// ThemeSections (not the frozen install-time bundle), so an edited theme's library thumbnail
+    /// reflects what the merchant actually changed. One query for however many themes are being listed.</summary>
+    private async Task<Dictionary<long, (string? HeroImage, string? HeroHeading, IReadOnlyList<string> TileImages)>> PreviewsForAsync(
+        IReadOnlyList<long> themeIds, CancellationToken ct)
+    {
+        if (themeIds.Count == 0) return [];
+        var rows = await (
+            from s in db.ThemeSections
+            join tpl in db.ThemeTemplates on s.ThemeTemplateId equals tpl.ThemeTemplateId
+            where tpl.TemplateKey == "index" && themeIds.Contains(tpl.ThemeId)
+            orderby s.DisplayOrder
+            select new { tpl.ThemeId, s.SectionType, s.Blocks }
+        ).ToListAsync(ct);
+        return rows.GroupBy(x => x.ThemeId)
+            .ToDictionary(g => g.Key, g => SectionPreviewExtractor.Extract(g.Select(x => (x.SectionType, (string?)x.Blocks))));
+    }
 
     public async Task<ThemeSummaryDto> CreateAsync(string name, CancellationToken ct = default)
     {
@@ -203,5 +230,12 @@ public sealed class ThemeLibraryService(EcommerceDbContext db, ICmsService cms) 
 
     private static string NewToken() => Guid.NewGuid().ToString("N");
     private static string Clean(string? name, string fallback) => string.IsNullOrWhiteSpace(name) ? fallback : name.Trim();
-    private static ThemeSummaryDto ToDto(Data.Entities.Theme t) => new(t.ThemeId, t.Name, t.Status, t.Source, t.Status == "Published", t.PreviewToken, t.CreatedAt);
+
+    /// <summary>Preview defaults to empty for call sites (create/duplicate/rename/install) that return a
+    /// DTO immediately after a mutation — the frontend reloads the full list right after anyway, and
+    /// ListAsync/GetAsync are the two paths that actually need accurate preview data.</summary>
+    private static ThemeSummaryDto ToDto(
+        Data.Entities.Theme t, (string? HeroImage, string? HeroHeading, IReadOnlyList<string> TileImages) preview = default) =>
+        new(t.ThemeId, t.Name, t.Status, t.Source, t.Status == "Published", t.PreviewToken, t.CreatedAt,
+            preview.HeroImage, preview.HeroHeading, preview.TileImages ?? []);
 }

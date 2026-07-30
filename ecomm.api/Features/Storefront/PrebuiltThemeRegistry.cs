@@ -112,39 +112,9 @@ public static class PrebuiltThemeRegistry
     /// <summary>Extract mini-preview material (hero image + heading, up to 4 tile images) from a bundle's index.</summary>
     private static (string? heroImage, string? heroHeading, IReadOnlyList<string> tiles) PreviewOf(PrebuiltTheme t)
     {
-        string? heroImage = null, heroHeading = null;
-        var tiles = new List<string>();
         var index = t.Templates.FirstOrDefault(x => x.TemplateKey == "index");
-        if (index is null) return (null, null, tiles);
-
-        foreach (var s in index.Sections)
-        {
-            if (string.IsNullOrEmpty(s.Blocks)) continue;
-            try
-            {
-                if (s.Type == "Hero" && (heroImage is null || heroHeading is null))
-                {
-                    using var doc = JsonDocument.Parse(s.Blocks);
-                    foreach (var b in doc.RootElement.EnumerateArray())
-                    {
-                        var img = b.TryGetProperty("image", out var i) ? i.GetString() : null;
-                        if (heroHeading is null && b.TryGetProperty("heading", out var h)) heroHeading = h.GetString();
-                        if (heroImage is null && !string.IsNullOrEmpty(img)) heroImage = img;
-                    }
-                }
-                else if ((s.Type == "TileGrid" || s.Type == "PromoTiles") && tiles.Count < 4)
-                {
-                    using var doc = JsonDocument.Parse(s.Blocks);
-                    foreach (var b in doc.RootElement.EnumerateArray())
-                    {
-                        if (tiles.Count >= 4) break;
-                        var img = b.TryGetProperty("image", out var i) ? i.GetString() : null;
-                        if (!string.IsNullOrEmpty(img)) tiles.Add(img!);
-                    }
-                }
-            }
-            catch { /* preview extraction is best-effort — a malformed block never breaks the picker */ }
-        }
+        if (index is null) return (null, null, []);
+        var (heroImage, heroHeading, tiles) = SectionPreviewExtractor.Extract(index.Sections.Select(s => (s.Type, s.Blocks)));
         return (heroImage, heroHeading, tiles);
     }
 
