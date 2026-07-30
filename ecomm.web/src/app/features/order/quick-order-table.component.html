@@ -121,7 +121,7 @@
         <thead class="bg-slate-50 text-slate-600">
           <tr class="text-left">
             <th class="px-3 py-2.5 font-semibold w-[70px]">Image</th>
-            <th class="px-3 py-2.5 font-semibold w-[150px]">Design No</th>
+            <th class="px-3 py-2.5 font-semibold text-right w-[150px]">Design No</th>
             <th class="px-3 py-2.5 font-semibold">Product</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[90px]">MRP</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[80px]">Disc %</th>
@@ -175,8 +175,11 @@
                   </td>
                   <!-- The number a dealer reads out on the phone, so it is set like the
                        discount rather than as small grey monospace: same weight, a step
-                       larger than the rest of the row. -->
-                  <td class="px-3 py-2 text-base font-semibold text-slate-800">{{ item.sku }}</td>
+                       larger than the rest of the row, and right-aligned so it sits against
+                       the product it belongs to.
+                       text-primary rather than a literal blue — brand colour comes from the
+                       Theme Engine, so this follows a change made in admin. -->
+                  <td class="px-3 py-2 text-right text-base font-semibold text-primary">{{ item.sku }}</td>
                   <td class="px-3 py-2">
                     <span class="font-medium text-slate-800">{{ item.name }}</span>
                     @if (!item.inStock) {
@@ -257,9 +260,14 @@
                     <p class="font-medium text-slate-800 leading-snug">{{ item.name }}</p>
                     <!-- Labelled on a phone: the card has no column header to say what this
                          number is, so the bare figure sat under the product name meaning
-                         nothing on its own. -->
-                    <p class="text-base text-slate-500 mt-0.5">
-                      Design No: <span class="font-semibold text-slate-800">{{ item.sku }}</span>
+                         nothing on its own.
+                         The label is deliberately smaller than the number it introduces —
+                         set at the same size, the two read as one grey run of text and the
+                         figure a dealer is actually hunting for stops leading. Upright, not
+                         italic: this is a code read aloud and typed, and slanted digits are
+                         harder to scan at phone sizes. -->
+                    <p class="text-sm text-slate-500 mt-0.5">
+                      Design No: <span class="text-lg font-bold text-primary">{{ item.sku }}</span>
                     </p>
                     <div class="mt-1.5 flex items-center gap-2">
                       @if (item.compareAtPrice) {
