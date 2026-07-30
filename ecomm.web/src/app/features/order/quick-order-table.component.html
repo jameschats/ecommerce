@@ -121,7 +121,7 @@
         <thead class="bg-slate-50 text-slate-600">
           <tr class="text-left">
             <th class="px-3 py-2.5 font-semibold w-[70px]">Image</th>
-            <th class="px-3 py-2.5 font-semibold w-[110px]">Design No</th>
+            <th class="px-3 py-2.5 font-semibold w-[150px]">Design No</th>
             <th class="px-3 py-2.5 font-semibold">Product</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[90px]">MRP</th>
             <th class="px-3 py-2.5 font-semibold text-right w-[80px]">Disc %</th>
@@ -173,7 +173,10 @@
                       <div class="w-11 h-11 rounded border border-dashed border-slate-200 bg-slate-50"></div>
                     }
                   </td>
-                  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ item.sku }}</td>
+                  <!-- The number a dealer reads out on the phone, so it is set like the
+                       discount rather than as small grey monospace: same weight, a step
+                       larger than the rest of the row. -->
+                  <td class="px-3 py-2 text-base font-semibold text-slate-800">{{ item.sku }}</td>
                   <td class="px-3 py-2">
                     <span class="font-medium text-slate-800">{{ item.name }}</span>
                     @if (!item.inStock) {
@@ -252,8 +255,11 @@
 
                   <div class="flex-1 min-w-0">
                     <p class="font-medium text-slate-800 leading-snug">{{ item.name }}</p>
-                    <p class="text-xs text-slate-500 mt-0.5">
-                      <span class="font-mono">{{ item.sku }}</span>
+                    <!-- Labelled on a phone: the card has no column header to say what this
+                         number is, so the bare figure sat under the product name meaning
+                         nothing on its own. -->
+                    <p class="text-base text-slate-500 mt-0.5">
+                      Design No: <span class="font-semibold text-slate-800">{{ item.sku }}</span>
                     </p>
                     <div class="mt-1.5 flex items-center gap-2">
                       @if (item.compareAtPrice) {
