@@ -4,7 +4,7 @@
   "name": "Boutique",
   "category": "Fashion",
   "catalogFit": "Small",
-  "features": ["persona-tiles", "carousel", "marquee", "image-with-text", "cta"],
+  "features": ["persona-tiles", "carousel", "marquee", "editorial", "collage", "stats", "faq", "cta"],
   "description": "Editorial apparel store — lifestyle hero, persona tiles and serif elegance.",
   "settings": {
     "PrimaryColor": "#d6336c",
@@ -28,12 +28,19 @@
           "blocks": [ { "image": "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1600&q=80", "heading": "The new season edit", "subheading": "Fresh silhouettes and timeless staples — made to be lived in.", "buttonText": "Shop new in", "buttonLink": "/products" } ]
         },
         {
-          "type": "TileGrid", "title": "Image tiles",
-          "settings": { "heading": "Who are you shopping for?", "columns": "3" },
+          "type": "EditorialSplit", "title": "Our story",
+          "settings": { "eyebrow": "Our story", "heading": "Made with intention", "body": "Every piece starts with a question: will you still love it in five years? We work with small ateliers who share that obsession — so what you buy today still feels right tomorrow.", "image": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Read our story", "buttonLink": "/pages/our-story" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop the edit",
+          "settings": { "heading": "Shop the edit" },
           "blocks": [
-            { "image": "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80", "label": "For Her", "sublabel": "Dresses, tops & more", "link": "/products" },
-            { "image": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80", "label": "For Him", "sublabel": "Shirts, tees & denim", "link": "/products" },
-            { "image": "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=800&q=80", "label": "For Kids", "sublabel": "Play-proof styles", "link": "/products" }
+            { "image": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
           ]
         },
         {
@@ -48,8 +55,18 @@
         },
         {
           "type": "ImageWithText", "title": "Image with text",
-          "settings": { "image": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Made to last", "body": "Thoughtfully designed, ethically made. Quality you can feel in every stitch.", "buttonText": "Learn more", "buttonLink": "/products" },
+          "settings": { "image": "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Made to last", "body": "Thoughtfully designed, ethically made. Quality you can feel in every stitch.", "buttonText": "Learn more", "buttonLink": "/products" },
           "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "10,000+", "label": "Styles shipped" },
+            { "value": "4.8★", "label": "Average rating" },
+            { "value": "30-day", "label": "Free returns" },
+            { "value": "2018", "label": "Est." }
+          ]
         },
         {
           "type": "FeaturedProducts", "title": "Featured products",
@@ -60,6 +77,39 @@
           "type": "CtaNewsletter", "title": "Call to action",
           "settings": { "heading": "Join our list", "subtext": "Get 10% off your first order.", "buttonText": "Sign up", "buttonLink": "/products", "backgroundColor": "#212529" },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": { "showSku": true, "showShare": false }, "blocks": [] },
+        { "type": "ProductDescription", "title": "Product description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Featured products", "settings": { "heading": "You may also like", "layout": "grid", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4, "showFilters": true, "showSort": true }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🔒", "heading": "Secure checkout", "text": "256-bit encrypted payments" },
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day return window" }
+          ]
         }
       ]
     },
@@ -90,6 +140,52 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "simple", "showPolicies": true, "copyright": "© Boutique. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Story", "slug": "our-story",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Our story",
+          "settings": { "eyebrow": "Since 2018", "heading": "Where craft meets everyday style", "body": "We started Boutique with a simple idea: clothes should feel as good as they look. Every collection is designed in small batches, with fabrics chosen for how they wear over time — not just how they photograph.", "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "buttonText": "Shop new in", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Behind the scenes",
+          "settings": { "heading": "Behind the scenes" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "2018", "label": "Founded" },
+            { "value": "50+", "label": "Independent ateliers" },
+            { "value": "10,000+", "label": "Happy customers" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Size Guide & FAQ", "slug": "size-guide",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Size guide & FAQs",
+          "settings": { "heading": "Size guide & FAQs" },
+          "blocks": [
+            { "question": "How do I find my size?", "answer": "Check the size chart on each product page — measurements are listed in centimetres. If you're between sizes, we recommend sizing up for a relaxed fit." },
+            { "question": "What's your return policy?", "answer": "Items can be returned within 30 days of delivery, unworn and with tags attached, for a full refund." },
+            { "question": "Do you offer exchanges?", "answer": "Yes — start a return and choose \"exchange\" at checkout, or contact us and we'll help you find the right size." },
+            { "question": "How long does shipping take?", "answer": "Orders typically arrive within 3-5 business days. You'll get a tracking link as soon as your order ships." },
+            { "question": "Is Cash on Delivery available?", "answer": "Where enabled, COD is offered at checkout for eligible pin codes." }
+          ]
         }
       ]
     }

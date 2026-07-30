@@ -4,7 +4,7 @@
   "name": "Haven",
   "category": "Home & Living",
   "catalogFit": "Medium",
-  "features": ["usp-columns", "category-cards", "carousel", "image-with-text"],
+  "features": ["usp-columns", "category-cards", "carousel", "editorial", "collage", "stats", "faq"],
   "description": "Warm, homely layout for furniture, decor and living.",
   "settings": {
     "PrimaryColor": "#a16207",
@@ -28,6 +28,16 @@
           "blocks": [ { "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1600&q=80", "heading": "Make it home", "subheading": "Pieces you'll love for years, at honest prices.", "buttonText": "Shop the look", "buttonLink": "/products" } ]
         },
         {
+          "type": "Categories", "title": "Category strip",
+          "settings": { "heading": "Shop by room", "style": "cards" },
+          "blocks": []
+        },
+        {
+          "type": "EditorialSplit", "title": "Our story",
+          "settings": { "eyebrow": "Since 2015", "heading": "Built by hand, meant to last", "body": "Every Haven piece is made from solid, honest materials — chosen to age well, not just look good on day one. We work with small workshops who care as much about the joinery as the finish.", "image": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Read our story", "buttonLink": "/pages/our-story" },
+          "blocks": []
+        },
+        {
           "type": "Multicolumn", "title": "Feature columns",
           "settings": { "heading": "Why Haven" },
           "blocks": [
@@ -38,24 +48,72 @@
           ]
         },
         {
-          "type": "Categories", "title": "Category strip",
-          "settings": { "heading": "Shop by room", "style": "cards" },
-          "blocks": []
-        },
-        {
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "New in", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
           "blocks": []
         },
         {
-          "type": "ImageWithText", "title": "Image with text",
-          "settings": { "image": "", "imageSide": "left", "heading": "Built to last", "body": "Solid materials, timeless design — furniture that grows with you.", "buttonText": "Learn more", "buttonLink": "/products" },
-          "blocks": []
+          "type": "Collage", "title": "Get the look",
+          "settings": { "heading": "Get the look" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1567016376408-0226e4d0c1ea?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "15+ yrs", "label": "Craftsmanship" },
+            { "value": "500+", "label": "Pieces in our range" },
+            { "value": "Free", "label": "Assembly on select items" },
+            { "value": "30-day", "label": "Returns" }
+          ]
         },
         {
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "Bestsellers", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
           "blocks": []
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Make it home", "subtext": "Get styling tips and new arrivals in your inbox.", "buttonText": "Sign up", "buttonLink": "/products", "backgroundColor": "#44403c" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": { "showSku": true, "showShare": false }, "blocks": [] },
+        { "type": "ProductDescription", "title": "Product description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Featured products", "settings": { "heading": "You may also like", "layout": "grid", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4, "showFilters": true, "showSort": true }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🔒", "heading": "Secure checkout", "text": "256-bit encrypted payments" },
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "🛠️", "heading": "Free assembly", "text": "On select furniture" }
+          ]
         }
       ]
     },
@@ -86,6 +144,52 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Haven. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Story", "slug": "our-story",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Our story",
+          "settings": { "eyebrow": "Since 2015", "heading": "Furniture that grows with you", "body": "Haven started with a simple frustration: too much furniture looks good in a showroom and falls apart at home. So we work only with workshops that build the way furniture used to be built — solid joinery, real materials, finishes that improve with age.", "image": "https://images.unsplash.com/photo-1567016376408-0226e4d0c1ea?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "buttonText": "Shop the collection", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Materials & craft",
+          "settings": { "heading": "Materials & craft" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "2015", "label": "Founded" },
+            { "value": "15+ yrs", "label": "Combined craftsmanship" },
+            { "value": "500+", "label": "Pieces in our range" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Care & Assembly", "slug": "care-assembly",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Care & assembly",
+          "settings": { "heading": "Care & assembly" },
+          "blocks": [
+            { "question": "Is assembly included?", "answer": "Free assembly is included on select furniture — look for the \"Free assembly\" badge on the product page. Otherwise, clear step-by-step instructions are included in the box." },
+            { "question": "How do I care for solid wood pieces?", "answer": "Dust with a dry or slightly damp cloth, avoid direct sunlight and heat sources, and use coasters/placemats to prevent water rings. A light furniture wax every few months keeps the finish healthy." },
+            { "question": "What's your warranty?", "answer": "All furniture is covered by a 1-year warranty against manufacturing defects. Everyday wear and accidental damage aren't covered." },
+            { "question": "How long does delivery take?", "answer": "Most items arrive within 5-10 business days. Larger furniture may take longer — you'll see an estimated delivery window on the product page." },
+            { "question": "What's your return policy?", "answer": "Items can be returned within 30 days of delivery in their original condition. Made-to-order pieces may not be eligible — check the product page." }
+          ]
         }
       ]
     }

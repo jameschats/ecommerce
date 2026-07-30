@@ -4,7 +4,7 @@
   "name": "Bazaar",
   "category": "Everything Store",
   "catalogFit": "Large",
-  "features": ["promo-tiles", "department-tiles", "carousel", "usp-columns", "cta"],
+  "features": ["promo-tiles", "department-tiles", "carousel", "usp-columns", "stats", "collage", "faq", "cta"],
   "description": "Dense, deals-first marketplace look for stores that sell a bit of everything.",
   "settings": {
     "PrimaryColor": "#ea580c",
@@ -28,6 +28,16 @@
           "blocks": [ { "image": "https://images.unsplash.com/photo-1534452203293-494d7ddbf7e0?auto=format&fit=crop&w=1600&q=80", "heading": "Everything you need. One place.", "subheading": "Thousands of products, daily deals and fast delivery.", "buttonText": "Shop today's deals", "buttonLink": "/products" } ]
         },
         {
+          "type": "Stats", "title": "Quick facts",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "value": "50,000+", "label": "Products" },
+            { "value": "10,000+", "label": "Happy customers" },
+            { "value": "24 hr", "label": "Dispatch" },
+            { "value": "4.7★", "label": "Average rating" }
+          ]
+        },
+        {
           "type": "PromoTiles", "title": "Promo tiles",
           "settings": { "heading": "Today's deals" },
           "blocks": [
@@ -38,8 +48,9 @@
         },
         {
           "type": "TileGrid", "title": "Image tiles",
-          "settings": { "heading": "Shop by department", "columns": "3" },
+          "settings": { "heading": "Shop by department", "columns": "4" },
           "blocks": [
+            { "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80", "label": "Electronics", "sublabel": "Phones, audio & more", "link": "/products" },
             { "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80", "label": "Grocery", "sublabel": "Everyday essentials", "link": "/products" },
             { "image": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=800&q=80", "label": "Beauty", "sublabel": "Skincare & more", "link": "/products" },
             { "image": "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80", "label": "Sports & fitness", "sublabel": "Gear up", "link": "/products" }
@@ -49,6 +60,17 @@
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "Best sellers", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
           "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Trending across categories",
+          "settings": { "heading": "Trending across categories" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
         },
         {
           "type": "Multicolumn", "title": "Feature columns",
@@ -66,9 +88,60 @@
           "blocks": []
         },
         {
+          "type": "FaqAccordion", "title": "Quick questions",
+          "settings": { "heading": "Quick questions" },
+          "blocks": [
+            { "question": "Do you offer Cash on Delivery?", "answer": "Where enabled, COD is offered at checkout for eligible pin codes." },
+            { "question": "How fast is delivery?", "answer": "Most orders dispatch within 24 hours and arrive in 3-5 business days depending on your location." },
+            { "question": "Can I return items?", "answer": "Yes — most items can be returned within 30 days of delivery. See Shipping & Returns for details." }
+          ]
+        },
+        {
           "type": "CtaNewsletter", "title": "Call to action",
           "settings": { "heading": "Deals drop daily", "subtext": "Don't miss tomorrow's steals — check back often.", "buttonText": "Browse all deals", "buttonLink": "/products", "backgroundColor": "#0f172a" },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": { "showSku": true, "showShare": false }, "blocks": [] },
+        { "type": "ProductDescription", "title": "Product description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Featured products", "settings": { "heading": "You may also like", "layout": "grid", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Feature columns",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "💳", "heading": "Secure payments", "text": "UPI, cards & COD" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day, no fuss" }
+          ]
+        },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4, "showFilters": true, "showSort": true }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🔒", "heading": "Secure checkout", "text": "256-bit encrypted payments" },
+            { "icon": "🚚", "heading": "Free shipping", "text": "On orders over ₹499" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day, no fuss" }
+          ]
         }
       ]
     },
@@ -99,6 +172,44 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Bazaar. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "About Bazaar", "slug": "about-bazaar",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "About us",
+          "settings": { "eyebrow": "Why shop with us", "heading": "One place for everything you need", "body": "Bazaar brings together thousands of products across every department — electronics, fashion, home, beauty and more — so you don't need a dozen different apps to get what you need, when you need it.", "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "buttonText": "Browse all deals", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "50,000+", "label": "Products" },
+            { "value": "12", "label": "Departments" },
+            { "value": "10,000+", "label": "Happy customers" },
+            { "value": "24 hr", "label": "Dispatch" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Shipping & Returns", "slug": "shipping-returns",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Shipping & returns",
+          "settings": { "heading": "Shipping & returns" },
+          "blocks": [
+            { "question": "How much does shipping cost?", "answer": "Shipping is free on orders over ₹499. Below that, a flat shipping fee applies at checkout." },
+            { "question": "How long will my order take?", "answer": "Most orders dispatch within 24 hours and arrive within 3-5 business days depending on your location." },
+            { "question": "Do you offer Cash on Delivery?", "answer": "Where enabled, COD is offered at checkout for eligible pin codes." },
+            { "question": "Can I track my order?", "answer": "Yes — once your order ships you'll get a tracking link by email and SMS." },
+            { "question": "What's your return policy?", "answer": "Most items can be returned within 30 days of delivery in their original condition for a full refund." }
+          ]
         }
       ]
     }
