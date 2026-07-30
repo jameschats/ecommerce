@@ -362,3 +362,21 @@ T13/T14. T18 (dynamic sources) is backlog. T19 (`visible_if`) is small — fold 
 mega menu) have all shipped. The next major track is the **editor experience itself** — see
 [v2-theme-editor-parity-plan.md](v2-theme-editor-parity-plan.md) (E1–E6), which supersedes/absorbs the
 editor-UX side of T15/T20 and sequences the remaining "edit store like Shopify" work.
+
+**2026-07-30 update — Rich Themes program (R1–R3), approved R1+R2 before E3.** E1+E2 and the JSON theme
+catalog shipped; the user's verdict on the themes themselves: "our themes look almost the same, each one…
+Shopify's look like a real website — different pages per theme, real images." Root causes, verified against
+code: (1) all 9 index layouts share one skeleton (hero→tiles→carousel→USPs→grid→CTA) — structure dominates
+perception; (2) only `index` is authored per bundle — product/collection/cart fall back to one shared
+built-in layout, even though the engine already accepts authored templates for those keys (zero engine work
+needed, pure authoring); (3) section vocabulary lacks the archetypes that make pages feel rich (collage,
+editorial split, FAQ accordion, video, logo strip, stats) — the still-open T3; (4) bundles can't ship
+content pages, though `Pages`/`PageSections` + `/pages/:slug` exist — needs a `pages[]` bundle field + a
+small install extension (skip existing slugs, never clobber merchant content); (5) imagery pools are 4–8
+generic photos vs the 15–25 curated, stylistically coherent images a vertical needs; (6) empty stores make
+previews look dead — `SampleCatalogPresets` already maps 10 verticals→theme keys for the AI catalog
+generator, just not surfaced at install ("Install + add matching sample products").
+**R1** = infrastructure: 6 new section types + `pages[]` bundle support + sample-products CTA.
+**R2** = re-author 3 flagships to the new bar (Boutique/Small, Bazaar/Large, Haven/Medium): distinct home
+structures, authored product/collection templates, 2–3 content pages each, curated image sets.
+**R3** (after E3) = roll the bar to the remaining 6 themes + optional new verticals.
