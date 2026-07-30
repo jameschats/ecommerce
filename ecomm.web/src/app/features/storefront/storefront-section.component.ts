@@ -530,6 +530,15 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
       this.elementRef.nativeElement.addEventListener('mousedown', this.onEditorMouseDown, { capture: true });
       this.elementRef.nativeElement.addEventListener('click', this.onEditorClick, { capture: true });
       window.addEventListener('message', this.onWindowMessage);
+      // Tell the editor this section's listener is live. Every reload (Hide/Duplicate/Delete/
+      // Reorder/Add section/theme-settings save) tears down and replaces this whole iframe document,
+      // so a selection made before the reload is otherwise lost forever — the editor has no way to
+      // know WHEN the new document is ready to receive a highlight message again. A blind setTimeout
+      // guess is what T15 originally shipped with and it silently drops the message half the time.
+      // This handshake removes the guesswork: whichever section mounts first announces readiness,
+      // and the editor re-sends the current selection in response — see onWindowMessage's
+      // 'theme-editor:ready' case in admin-theme-editor.component.ts.
+      window.parent.postMessage({ type: 'theme-editor:ready' }, window.location.origin);
     }
   }
 

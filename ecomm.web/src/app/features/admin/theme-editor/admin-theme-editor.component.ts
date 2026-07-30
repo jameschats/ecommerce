@@ -301,6 +301,11 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     } else if (data?.type === 'theme-editor:insert') {
       const sec = this.sections().find((x) => x.id === data.beforeSectionId);
       if (sec) this.pendingInsertBefore.set(sec);
+    } else if (data?.type === 'theme-editor:ready') {
+      // The preview iframe just (re)loaded a fresh document — every reload replaces it entirely, so
+      // whatever was highlighted before is gone until we re-send it. Re-assert the current selection
+      // now that the new document's listener has confirmed it's actually there to receive it.
+      if (this.selectedId() !== null) this.postHighlight(this.selectedId(), this.selectedBlockIndex());
     }
   };
 
@@ -391,7 +396,9 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     this.svc.addSection(this.themeId, this.activeKey(), type).subscribe((sec) => {
       const before = this.pendingInsertBefore();
       this.pendingInsertBefore.set(null);
-      const finish = () => { this.loadSections(); setTimeout(() => this.select(sec), 200); this.reloadPreview(); };
+      // select() runs before the reload lands — harmless; the 'theme-editor:ready' handshake
+      // (fired when the reloaded iframe's new document mounts) re-asserts the highlight reliably.
+      const finish = () => { this.loadSections(); this.select(sec); this.reloadPreview(); };
       if (before) {
         // E1: canvas "+ Add section" — place the new section above the one whose pill was clicked.
         const ids = this.sections().map((s) => s.id).filter((id) => id !== sec.id);
