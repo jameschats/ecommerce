@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ProductListItem } from '../../core/models/catalog.model';
-import { CartService } from '../../core/services/cart.service';
+import { QuickOrderService } from '../../core/services/quick-order.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { ProductCardComponent } from '../../shared/product-card/product-card.component';
 
@@ -26,7 +26,7 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
             <app-product-card [product]="p" />
             <button type="button" (click)="moveToCart(p)" [disabled]="!p.inStock || busy() === p.productId"
               class="mt-2 w-full text-sm bg-primary hover:bg-primary-dark disabled:opacity-50 text-white py-2 rounded-lg transition">
-              {{ p.inStock ? (busy() === p.productId ? 'Adding…' : 'Move to cart') : 'Out of stock' }}
+              {{ p.inStock ? (busy() === p.productId ? 'Adding…' : 'Move to estimate') : 'Out of stock' }}
             </button>
           </div>
         }
@@ -36,7 +36,7 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
 })
 export class WishlistComponent implements OnInit {
   private readonly wishlist = inject(WishlistService);
-  private readonly cart = inject(CartService);
+  private readonly quickOrder = inject(QuickOrderService);
   private readonly router = inject(Router);
 
   private readonly items = signal<ProductListItem[]>([]);
@@ -57,14 +57,20 @@ export class WishlistComponent implements OnInit {
   moveToCart(p: ProductListItem): void {
     this.busy.set(p.productId);
     this.message.set(null);
-    this.cart.add(p.productId, null, 1).subscribe({
-      next: () => {
+    this.quickOrder.addToEstimate(p.productId, 1).subscribe({
+      next: (added) => {
+        if (!added) {
+          // Not in the price list, so there is no row to add a quantity against. Send them
+          // to the product page rather than reporting a move that did not happen.
+          this.busy.set(null);
+          this.router.navigate(['/product', p.slug]);
+          return;
+        }
         this.wishlist.remove(p.productId).subscribe({ error: () => {} });
         this.busy.set(null);
-        this.message.set(`Moved "${p.name}" to your cart.`);
+        this.message.set(`Moved "${p.name}" to your estimate.`);
       },
       error: () => {
-        // Product needs options chosen — send them to the product page.
         this.busy.set(null);
         this.router.navigate(['/product', p.slug]);
       },

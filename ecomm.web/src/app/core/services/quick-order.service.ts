@@ -101,6 +101,33 @@ export class QuickOrderService {
     return this.quantities()[productId] ?? 0;
   }
 
+  /**
+   * Adds to the estimate from outside the price list — the catalogue pages, where a buyer
+   * presses "Add" against a single product rather than typing into a row.
+   *
+   * Loads the price list first. Quantities are only meaningful against it: `lines` resolves
+   * each id through itemsById, and pruneToCatalogue deletes anything it cannot find. The
+   * catalogue pages never fetch the price list themselves, so writing the quantity straight
+   * in would store a number that renders no line, leaves the header badge on zero, and is
+   * then thrown away the next time the list loads. getPriceList is cached, so this costs one
+   * request per session.
+   *
+   * Emits false when the product has no row in the price list, so the caller can say so
+   * rather than silently appearing to work.
+   */
+  addToEstimate(productId: number, qty: number): Observable<boolean> {
+    return this.getPriceList().pipe(
+      map(() => {
+        if (!this.itemsById().has(productId)) return false;
+        const add = Math.max(1, Math.floor(qty));
+        // Adds to what is already there, rather than replacing it — pressing Add twice
+        // should mean two, which is what the wording promises.
+        this.setQty(productId, this.qty(productId) + add);
+        return true;
+      }),
+    );
+  }
+
   setQty(productId: number, qty: number): void {
     const clean = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
     this.quantities.update((current) => {

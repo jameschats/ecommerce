@@ -7,8 +7,8 @@ import { SITE_URL } from '../../../core/api.config';
 import { ProductDetail } from '../../../core/models/catalog.model';
 import { ProductReviews } from '../../../core/models/review.model';
 import { AuthService } from '../../../core/services/auth.service';
-import { CartService } from '../../../core/services/cart.service';
 import { CatalogService } from '../../../core/services/catalog.service';
+import { QuickOrderService } from '../../../core/services/quick-order.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
 import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
@@ -22,7 +22,7 @@ export class ProductDetailComponent implements OnInit {
   private readonly catalog = inject(CatalogService);
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
-  private readonly cart = inject(CartService);
+  private readonly quickOrder = inject(QuickOrderService);
   private readonly router = inject(Router);
   private readonly reviewSvc = inject(ReviewService);
   private readonly auth = inject(AuthService);
@@ -162,14 +162,33 @@ export class ProductDetailComponent implements OnInit {
     return match?.productVariantId ?? null;
   }
 
+  /**
+   * Adds to the estimate, not to the server cart.
+   *
+   * The site has one basket: the quantities the price list writes, which the header badge
+   * counts and the order form places. Adding here used to fill a second, server-backed cart
+   * that nothing in the header showed, so a buyer pressed Add, saw the badge stay at zero
+   * and reasonably concluded it had not worked.
+   *
+   * The chosen variant is not carried over — the estimate, the price list and the order are
+   * all keyed on the product alone, so there is nowhere to put it.
+   */
   addToCart(): void {
     const p = this.product();
     if (!p || !p.inStock || this.adding()) return;
     this.adding.set(true);
     this.cartError.set(null);
-    this.cart.add(p.productId, this.resolveVariantId(), this.qty()).subscribe({
-      next: () => { this.adding.set(false); this.addedMessage.set(true); setTimeout(() => this.addedMessage.set(false), 2500); },
-      error: (e) => { this.adding.set(false); this.cartError.set(e?.error?.message ?? 'Could not add to cart.'); },
+    this.quickOrder.addToEstimate(p.productId, this.qty()).subscribe({
+      next: (added) => {
+        this.adding.set(false);
+        if (!added) {
+          this.cartError.set('This item is not available to order right now.');
+          return;
+        }
+        this.addedMessage.set(true);
+        setTimeout(() => this.addedMessage.set(false), 2500);
+      },
+      error: () => { this.adding.set(false); this.cartError.set('Could not add to your estimate.'); },
     });
   }
 
@@ -178,9 +197,18 @@ export class ProductDetailComponent implements OnInit {
     if (!p || !p.inStock || this.adding()) return;
     this.adding.set(true);
     this.cartError.set(null);
-    this.cart.add(p.productId, this.resolveVariantId(), this.qty()).subscribe({
-      next: () => { this.adding.set(false); this.router.navigateByUrl('/cart'); },
-      error: (e) => { this.adding.set(false); this.cartError.set(e?.error?.message ?? 'Could not add to cart.'); },
+    this.quickOrder.addToEstimate(p.productId, this.qty()).subscribe({
+      next: (added) => {
+        this.adding.set(false);
+        if (!added) {
+          this.cartError.set('This item is not available to order right now.');
+          return;
+        }
+        // To the price list, where the estimate drawer and the order form live — /cart
+        // belongs to the other basket and would look empty.
+        void this.router.navigate(['/order']).then(() => this.quickOrder.drawerOpen.set(true));
+      },
+      error: () => { this.adding.set(false); this.cartError.set('Could not add to your estimate.'); },
     });
   }
 
