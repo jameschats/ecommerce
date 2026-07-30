@@ -5,6 +5,14 @@ import { SITE_URL } from '../../../core/api.config';
 import { PrebuiltThemeSummary, ThemeLibraryService, ThemeSummary } from '../../../core/services/theme-library.service';
 import { ThemeService } from '../../../core/services/theme.service';
 
+/** Prebuilt theme key → the SampleCatalogPresets key (Features/Ai/SampleCatalog.cs) whose curated
+ *  brief/imagery best matches it — drives the post-install "add sample products" nudge. `minimal`
+ *  has no matching preset, so it gets no nudge. */
+const THEME_TO_SAMPLE_PRESET: Record<string, string> = {
+  ignition: 'electronics', boutique: 'fashion', savor: 'food', fresh: 'grocery',
+  bloom: 'beauty', haven: 'home', sprout: 'kids', bazaar: 'bazaar',
+};
+
 /**
  * Theme library (S5): the tenant's themes — exactly one Published (live), the rest Draft.
  * Create / duplicate / rename / publish / delete, edit in the theme editor, and preview a
@@ -21,6 +29,12 @@ import { ThemeService } from '../../../core/services/theme.service';
       </div>
       <p class="text-sm text-slate-500 mb-5">Your store shows the <span class="font-medium">Published</span> theme. Edit a draft, preview it, then publish to go live.</p>
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
+      @if (sampleCatalogNudge(); as n) {
+        <div class="mb-4 rounded-lg bg-violet-50 border border-violet-200 text-violet-800 text-sm px-3 py-2 flex items-center justify-between gap-3">
+          <span>Want "{{ n.themeName }}" fully stocked? <a [routerLink]="['/admin/ai/catalog']" [queryParams]="{ preset: n.presetKey }" class="font-medium underline">Generate a matching sample catalog →</a></span>
+          <button type="button" (click)="sampleCatalogNudge.set(null)" class="text-violet-400 hover:text-violet-600 shrink-0">✕</button>
+        </div>
+      }
 
       @if (loading()) { <p class="text-slate-400 text-sm">Loading…</p> }
       @else {
@@ -110,6 +124,7 @@ export class AdminThemeLibraryComponent implements OnInit {
   readonly message = signal<string | null>(null);
   readonly themes = signal<ThemeSummary[]>([]);
   readonly prebuilt = signal<PrebuiltThemeSummary[]>([]);
+  readonly sampleCatalogNudge = signal<{ themeName: string; presetKey: string } | null>(null);
 
   ngOnInit(): void {
     this.load();
@@ -122,7 +137,16 @@ export class AdminThemeLibraryComponent implements OnInit {
 
   install(p: PrebuiltThemeSummary): void {
     this.busy.set(true);
-    this.api.install(p.key).subscribe({ next: () => { this.busy.set(false); this.flash(`"${p.name}" installed as a draft.`); this.load(); }, error: () => this.busy.set(false) });
+    this.api.install(p.key).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.flash(`"${p.name}" installed as a draft.`);
+        const presetKey = THEME_TO_SAMPLE_PRESET[p.key];
+        this.sampleCatalogNudge.set(presetKey ? { themeName: p.name, presetKey } : null);
+        this.load();
+      },
+      error: () => this.busy.set(false),
+    });
   }
   private flash(m: string): void { this.message.set(m); setTimeout(() => this.message.set(null), 2500); }
 

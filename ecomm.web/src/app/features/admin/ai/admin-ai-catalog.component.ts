@@ -1,7 +1,7 @@
 import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AiCatalogService, CatalogStatus, GenCategory, GeneratedCatalog } from '../../../core/services/ai-catalog.service';
 
 /**
@@ -115,6 +115,7 @@ import { AiCatalogService, CatalogStatus, GenCategory, GeneratedCatalog } from '
 })
 export class AdminAiCatalogComponent implements OnInit {
   private readonly api = inject(AiCatalogService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly status = signal<CatalogStatus | null>(null);
   readonly generating = signal(false);
@@ -137,7 +138,11 @@ export class AdminAiCatalogComponent implements OnInit {
     return n;
   });
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    const preset = this.route.snapshot.queryParamMap.get('preset');
+    if (preset) this.form.presetKey = preset;
+    this.load();
+  }
 
   private load(): void {
     this.api.status().subscribe({ next: (s) => this.status.set(s), error: () => {} });

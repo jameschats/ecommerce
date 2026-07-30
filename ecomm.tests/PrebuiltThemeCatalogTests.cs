@@ -47,6 +47,27 @@ public class PrebuiltThemeCatalogTests
     }
 
     [Fact]
+    public void Bundle_pages_if_any_have_unique_non_home_slugs_and_valid_json()
+    {
+        // Regression net for the pages[] bundle field (R1 infrastructure) — no bundle authors pages yet
+        // (that's R2), so this is currently vacuous, but guards every future bundle that does.
+        foreach (var t in PrebuiltThemeRegistry.All)
+        {
+            Assert.Equal(t.Pages.Count, t.Pages.Select(p => p.Slug).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            foreach (var p in t.Pages)
+            {
+                Assert.False(string.Equals("home", p.Slug, StringComparison.OrdinalIgnoreCase));
+                Assert.False(string.IsNullOrWhiteSpace(p.Title));
+                foreach (var s in p.Sections)
+                {
+                    if (s.Settings is not null) JsonDocument.Parse(s.Settings).Dispose();
+                    if (s.Blocks is not null) JsonDocument.Parse(s.Blocks).Dispose();
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void Summaries_extract_preview_material_and_new_tags()
     {
         var s = PrebuiltThemeRegistry.Summaries.First(x => x.Key == "ignition");

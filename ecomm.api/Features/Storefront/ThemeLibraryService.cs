@@ -1,6 +1,7 @@
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Cms;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,7 +32,7 @@ public interface IThemeLibraryService
 /// Draft. Supports create / duplicate (deep copy) / rename / delete / atomic publish. Each theme carries
 /// a PreviewToken so a Draft can be previewed on the storefront before it goes live.
 /// </summary>
-public sealed class ThemeLibraryService(EcommerceDbContext db) : IThemeLibraryService
+public sealed class ThemeLibraryService(EcommerceDbContext db, ICmsService cms) : IThemeLibraryService
 {
     private long Tenant => db.CurrentTenantId;
 
@@ -164,7 +165,35 @@ public sealed class ThemeLibraryService(EcommerceDbContext db) : IThemeLibrarySe
                 });
         }
         await db.SaveChangesAsync(ct);
+
+        await InstallBundlePagesAsync(bundle.Pages, ct);
         return ToDto(theme);
+    }
+
+    /// <summary>
+    /// Seed a bundle's content pages (e.g. "Our Story") as Draft pages via ICmsService — reusing its
+    /// slug validation and richtext sanitization, the same pattern AiPageService uses. Never overwrites
+    /// a merchant's existing page: any bundle page whose slug is already taken is skipped entirely.
+    /// Pages are tenant-global (not theme-scoped), so this only needs to run once per slug regardless
+    /// of how many times a theme is installed.
+    /// </summary>
+    private async Task InstallBundlePagesAsync(IReadOnlyList<PrebuiltPage> pages, CancellationToken ct)
+    {
+        if (pages.Count == 0) return;
+        var existingSlugs = new HashSet<string>((await cms.ListPagesAsync(ct)).Select(p => p.Slug), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var bp in pages)
+        {
+            if (!existingSlugs.Add(bp.Slug)) continue;   // already exists (merchant content or an earlier install) — never clobber
+
+            var page = await cms.CreatePageAsync(new SavePageRequest(bp.Title, bp.Slug, IsPublished: false, null, null), ct);
+            foreach (var sec in bp.Sections)
+            {
+                var added = await cms.AddSectionAsync(new AddSectionRequest(page.PageId, sec.Type), ct);
+                await cms.UpdateSectionAsync(added.PageSectionId,
+                    new SaveSectionRequest(sec.Title, sec.Settings, sec.Blocks, IsVisible: true, null, null), ct);
+            }
+        }
     }
 
     // ---- helpers ----

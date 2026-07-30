@@ -1,5 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Component, ElementRef, HostBinding, OnDestroy, OnInit, PLATFORM_ID, computed, inject, input, signal } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
 import { BuilderSection } from '../../core/services/cms.service';
@@ -236,6 +237,88 @@ import { ThemeService } from '../../core/services/theme.service';
           }
         </section>
       }
+      @case ('Collage') {
+        <section class="page-container py-8">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 auto-rows-[140px] sm:auto-rows-[160px]">
+            @for (b of blocks(); track $index) {
+              <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card" [attr.data-block-index]="$index"
+                 [class]="b.span === 'large' ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'">
+                @if (b.image) { <img [src]="b.image" alt="" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
+              </a>
+            }
+          </div>
+        </section>
+      }
+      @case ('EditorialSplit') {
+        <section class="page-container py-10">
+          <div class="grid md:grid-cols-2 gap-10 items-center" [class.md:flex-row-reverse]="s().imageSide === 'right'">
+            @if (s().image) { <img [src]="s().image" alt="" class="rounded-xl w-full object-cover aspect-[4/3]" [class.md:order-2]="s().imageSide === 'right'" /> }
+            <div>
+              @if (s().eyebrow) { <div class="text-sm font-semibold uppercase tracking-wide text-primary mb-2">{{ s().eyebrow }}</div> }
+              @if (s().heading) { <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">{{ s().heading }}</h2> }
+              @if (s().body) { <p class="mt-4 text-lg text-slate-600">{{ s().body }}</p> }
+              @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium">{{ s().buttonText }}</a> }
+            </div>
+          </div>
+        </section>
+      }
+      @case ('FaqAccordion') {
+        <section class="max-w-3xl mx-auto px-4 py-10">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-6">{{ s().heading }}</h2> }
+          <div class="divide-y divide-slate-200 border-y border-slate-200">
+            @for (b of blocks(); track $index) {
+              <div [attr.data-block-index]="$index">
+                <button type="button" (click)="toggleFaq($index)" class="w-full flex items-center justify-between gap-3 py-4 text-left font-medium text-slate-800">
+                  <span>{{ b.question }}</span>
+                  <span class="text-slate-400 shrink-0">{{ isFaqOpen($index) ? '−' : '+' }}</span>
+                </button>
+                @if (isFaqOpen($index)) { <p class="pb-4 text-slate-600">{{ b.answer }}</p> }
+              </div>
+            }
+          </div>
+        </section>
+      }
+      @case ('VideoSection') {
+        <section class="page-container py-10">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-5">{{ s().heading }}</h2> }
+          <div class="max-w-4xl mx-auto rounded-xl overflow-hidden bg-slate-900 aspect-video">
+            @if (videoEmbedSrc(s().videoUrl); as embed) {
+              <iframe [src]="embed" class="w-full h-full" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            } @else if (s().videoUrl) {
+              <video [src]="s().videoUrl" [poster]="s().posterImage || null" controls class="w-full h-full object-cover"></video>
+            } @else if (s().posterImage) {
+              <img [src]="s().posterImage" alt="" class="w-full h-full object-cover" />
+            }
+          </div>
+          @if (s().caption) { <p class="text-center text-sm text-slate-500 mt-3">{{ s().caption }}</p> }
+        </section>
+      }
+      @case ('LogoStrip') {
+        <section class="page-container py-8">
+          @if (s().heading) { <h2 class="text-center text-sm font-semibold uppercase tracking-wide text-slate-400 mb-5">{{ s().heading }}</h2> }
+          <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
+            @for (b of blocks(); track $index) {
+              <a [href]="b.link || '#'" [attr.data-block-index]="$index" class="opacity-60 hover:opacity-100 transition grayscale hover:grayscale-0">
+                @if (b.image) { <img [src]="b.image" [alt]="b.label || ''" class="h-8 sm:h-10 object-contain" loading="lazy" /> }
+              </a>
+            }
+          </div>
+        </section>
+      }
+      @case ('Stats') {
+        <section class="page-container py-10">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-8">{{ s().heading }}</h2> }
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+            @for (b of blocks(); track $index) {
+              <div [attr.data-block-index]="$index">
+                <div class="text-3xl sm:text-4xl font-extrabold text-slate-900">{{ b.value }}</div>
+                <div class="text-sm text-slate-500 mt-1">{{ b.label }}</div>
+              </div>
+            }
+          </div>
+        </section>
+      }
       @default {
         <!-- FeaturedProducts / ProductGrid / any product rail -->
         <section class="max-w-6xl mx-auto px-4 py-10">
@@ -329,6 +412,7 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly catalog = inject(CatalogService);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly sanitizer = inject(DomSanitizer);
   readonly theme = inject(ThemeService);
   readonly section = input.required<BuilderSection>();
 
@@ -470,6 +554,27 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   }
 
   stars(n: number): string { const r = Math.max(0, Math.min(5, Math.round(n || 0))); return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r); }
+
+  /** FaqAccordion: which items are expanded (first one open by default). */
+  private readonly openFaqIndices = signal<Set<number>>(new Set([0]));
+  isFaqOpen(index: number): boolean { return this.openFaqIndices().has(index); }
+  toggleFaq(index: number): void {
+    const next = new Set(this.openFaqIndices());
+    next.has(index) ? next.delete(index) : next.add(index);
+    this.openFaqIndices.set(next);
+  }
+
+  /** VideoSection: YouTube/Vimeo URLs become a sanitized embed src; anything else (e.g. a direct
+   *  .mp4) falls through to a plain <video> tag instead. Only our own fixed embed-URL prefix +
+   *  a regex-extracted id is ever trusted — never the raw settings string. */
+  videoEmbedSrc(url: string | null | undefined): SafeResourceUrl | null {
+    if (!url) return null;
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/);
+    if (yt) return this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${yt[1]}`);
+    const vimeo = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeo) return this.sanitizer.bypassSecurityTrustResourceUrl(`https://player.vimeo.com/video/${vimeo[1]}`);
+    return null;
+  }
 
   /** Tailwind column classes for TileGrid (full class names so the JIT keeps them). */
   tileCols(): string {

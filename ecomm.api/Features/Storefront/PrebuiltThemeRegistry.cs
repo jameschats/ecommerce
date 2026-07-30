@@ -8,10 +8,14 @@ public sealed record PrebuiltSection(string Type, string? Title, string? Setting
 /// <summary>One page-type template (or header/footer/announcement zone) within a prebuilt theme.</summary>
 public sealed record PrebuiltTemplate(string TemplateKey, IReadOnlyList<PrebuiltSection> Sections);
 
-/// <summary>A full free prebuilt theme bundle: global settings + a set of templates.</summary>
+/// <summary>A content page a theme bundle can seed at install time (e.g. "Our Story", "Shipping &amp; Returns").</summary>
+public sealed record PrebuiltPage(string Title, string Slug, IReadOnlyList<PrebuiltSection> Sections);
+
+/// <summary>A full free prebuilt theme bundle: global settings + a set of templates + optional content pages.</summary>
 public sealed record PrebuiltTheme(
     string Key, string Name, string Category, string CatalogFit, IReadOnlyList<string> Features,
-    string Description, IReadOnlyDictionary<string, string> Settings, IReadOnlyList<PrebuiltTemplate> Templates);
+    string Description, IReadOnlyDictionary<string, string> Settings, IReadOnlyList<PrebuiltTemplate> Templates,
+    IReadOnlyList<PrebuiltPage> Pages);
 
 /// <summary>
 /// Install-picker summary. Carries enough of the bundle to render a Shopify-style mini-preview
@@ -38,8 +42,9 @@ public static class PrebuiltThemeRegistry
     private sealed record BundleFile(
         string Key, int SortOrder, string Name, string Category, string CatalogFit,
         List<string>? Features, string Description,
-        Dictionary<string, string> Settings, List<BundleTemplate> Templates);
+        Dictionary<string, string> Settings, List<BundleTemplate> Templates, List<BundlePage>? Pages);
     private sealed record BundleTemplate(string TemplateKey, List<BundleSection> Sections);
+    private sealed record BundlePage(string Title, string Slug, List<BundleSection> Sections);
     private sealed record BundleSection(string Type, string? Title, JsonElement? Settings, JsonElement? Blocks);
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
@@ -76,8 +81,11 @@ public static class PrebuiltThemeRegistry
         f.Key, f.Name, f.Category, f.CatalogFit, f.Features ?? [], f.Description, f.Settings,
         f.Templates.Select(t => new PrebuiltTemplate(
             t.TemplateKey,
-            t.Sections.Select(s => new PrebuiltSection(s.Type, s.Title, Compact(s.Settings), Compact(s.Blocks))).ToList()
-        )).ToList());
+            t.Sections.Select(ToSection).ToList()
+        )).ToList(),
+        (f.Pages ?? []).Select(p => new PrebuiltPage(p.Title, p.Slug, p.Sections.Select(ToSection).ToList())).ToList());
+
+    private static PrebuiltSection ToSection(BundleSection s) => new(s.Type, s.Title, Compact(s.Settings), Compact(s.Blocks));
 
     /// <summary>Nested authored JSON → the compact string form the theme tables store.</summary>
     private static string? Compact(JsonElement? el)

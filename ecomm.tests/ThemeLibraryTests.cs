@@ -1,5 +1,6 @@
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Cms;
 using ecomm.api.Features.Storefront;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -13,7 +14,7 @@ public class ThemeLibraryTests
         var db = TestDb.New(tenantId: 1);
         db.Themes.Add(new Theme { Name = "Live", IsActive = true, Status = "Published", PreviewToken = "live-token", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        return (db, new ThemeLibraryService(db));
+        return (db, new ThemeLibraryService(db, new CmsService(db)));
     }
 
     [Fact]

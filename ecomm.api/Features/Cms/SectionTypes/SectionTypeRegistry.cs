@@ -166,6 +166,55 @@ public static class SectionTypeRegistry
                 new("colorScheme", "Colour scheme", "colorScheme", Help: "Overrides the background colour above, if set."),
             ], BlockTypes: []),
 
+        new("Collage", "Image collage", "grid", "An asymmetric mosaic of lifestyle/editorial photos — one large tile plus smaller ones.",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Tile", "Tile", [ new("image", "Image", "image"), new("link", "Link", "link"), new("span", "Size", "select", "small", ["large", "small"]) ]),
+            ], MaxBlocks: 5),
+
+        new("EditorialSplit", "Editorial split", "image", "A big magazine-style image beside a large heading and body copy — brand story, about-us feel.",
+            Settings:
+            [
+                new("eyebrow", "Eyebrow label", "text", Help: "Small label above the heading, e.g. \"Since 2015\"."),
+                new("heading", "Heading", "text"),
+                new("body", "Body", "textarea"),
+                new("image", "Image", "image"),
+                new("imageSide", "Image side", "select", "left", ["left", "right"]),
+                new("buttonText", "Button text", "text"),
+                new("buttonLink", "Button link", "link"),
+            ], BlockTypes: []),
+
+        new("FaqAccordion", "FAQ accordion", "info", "Collapsible questions and answers.",
+            Settings: [ new("heading", "Heading", "text", "Frequently asked questions") ],
+            BlockTypes:
+            [
+                new("Item", "Question", [ new("question", "Question", "text"), new("answer", "Answer", "textarea") ]),
+            ], MaxBlocks: 10),
+
+        new("VideoSection", "Video", "image", "An embedded YouTube/Vimeo video or an MP4 file, with an optional heading and caption.",
+            Settings:
+            [
+                new("heading", "Heading", "text"),
+                new("videoUrl", "Video URL", "url", Help: "A YouTube or Vimeo link, or a direct .mp4 file URL."),
+                new("posterImage", "Poster image", "image", Help: "Shown before the video loads, and as the background for the MP4 case."),
+                new("caption", "Caption", "text"),
+            ], BlockTypes: []),
+
+        new("LogoStrip", "Logo strip", "grid", "A row of partner/press/brand logos — \"as seen in\", \"trusted by\".",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Logo", "Logo", [ new("image", "Image", "image"), new("label", "Label (alt text)", "text"), new("link", "Link", "link") ]),
+            ], MaxBlocks: 8),
+
+        new("Stats", "Stats bar", "tag", "Big-number trust callouts — years in business, products shipped, happy customers.",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Stat", "Stat", [ new("value", "Value", "text"), new("label", "Label", "text") ]),
+            ], MaxBlocks: 4),
+
         // ---- Group sections (shared zones, one per theme) ----
         new("AnnouncementBar", "Announcement bar", "megaphone", "A thin bar above the header for promos/notices.",
             Settings:
