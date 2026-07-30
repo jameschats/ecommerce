@@ -198,7 +198,7 @@
       ]
     },
     {
-      "title": "Shipping & Returns", "slug": "shipping-returns",
+      "title": "Shipping & Returns", "slug": "bazaar-shipping-returns",
       "sections": [
         {
           "type": "FaqAccordion", "title": "Shipping & returns",

@@ -34,7 +34,7 @@
         },
         {
           "type": "EditorialSplit", "title": "Our story",
-          "settings": { "eyebrow": "Since 2015", "heading": "Built by hand, meant to last", "body": "Every Haven piece is made from solid, honest materials — chosen to age well, not just look good on day one. We work with small workshops who care as much about the joinery as the finish.", "image": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Read our story", "buttonLink": "/pages/our-story" },
+          "settings": { "eyebrow": "Since 2015", "heading": "Built by hand, meant to last", "body": "Every Haven piece is made from solid, honest materials — chosen to age well, not just look good on day one. We work with small workshops who care as much about the joinery as the finish.", "image": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Read our story", "buttonLink": "/pages/haven-our-story" },
           "blocks": []
         },
         {
@@ -150,7 +150,7 @@
   ],
   "pages": [
     {
-      "title": "Our Story", "slug": "our-story",
+      "title": "Our Story", "slug": "haven-our-story",
       "sections": [
         {
           "type": "EditorialSplit", "title": "Our story",
@@ -178,7 +178,7 @@
       ]
     },
     {
-      "title": "Care & Assembly", "slug": "care-assembly",
+      "title": "Care & Assembly", "slug": "haven-care-assembly",
       "sections": [
         {
           "type": "FaqAccordion", "title": "Care & assembly",
