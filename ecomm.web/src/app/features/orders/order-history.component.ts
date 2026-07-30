@@ -15,7 +15,9 @@ import { orderStatusClass } from './order-status';
         <p class="text-slate-400 text-sm">Loading…</p>
       } @else if (orders().length === 0) {
         <div class="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-500">
-          No orders yet. <a routerLink="/products" class="text-primary hover:underline">Start shopping</a>.
+          <!-- Order Now, not /products: the price list is where an order actually gets
+               placed, and the catalogue page is not part of the Phase 1 flow. -->
+          No orders yet. <a routerLink="/order" class="text-primary hover:underline">Start shopping</a>.
         </div>
       } @else {
         @for (o of orders(); track o.orderId) {
