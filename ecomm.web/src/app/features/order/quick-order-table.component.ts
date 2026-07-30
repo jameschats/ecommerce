@@ -6,11 +6,14 @@ import {
   computed,
   inject,
   input,
+  linkedSignal,
   signal,
   viewChild,
   viewChildren,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
+import { map } from 'rxjs';
 import {
   PriceListBand,
   PriceListItem,
@@ -65,7 +68,37 @@ export class QuickOrderTableComponent {
   });
 
   readonly search = signal('');
-  readonly selectedCategoryId = signal<number | null>(null);
+
+  /** ?category=<slug> — how the footer preselects a band on this page. */
+  private readonly categoryParam = toSignal(
+    inject(ActivatedRoute).queryParamMap.pipe(map((p) => p.get('category'))),
+    { initialValue: null },
+  );
+
+  /**
+   * The dropdown selection: derived from the URL, still writable by the dropdown itself.
+   *
+   * linkedSignal rather than a plain signal because both have to work — arriving from a
+   * footer link must preselect the band, and changing the dropdown afterwards must stick.
+   * A plain signal fed by an effect would fight the user's own choice.
+   *
+   * The slug is resolved against the loaded bands, so the source includes them: on first
+   * render the price list is still empty and there is nothing to match a slug against yet.
+   */
+  readonly selectedCategoryId = linkedSignal<
+    { slug: string | null; bands: PriceListBand[]; scoped: string | null },
+    number | null
+  >({
+    source: () => ({
+      slug: this.categoryParam(),
+      bands: this.priceList().bands,
+      scoped: this.onlyCategorySlug(),
+    }),
+    // A single-category page ignores the parameter outright: filtering that page down to
+    // some other category would leave it blank with no dropdown to recover from.
+    computation: ({ slug, bands, scoped }) =>
+      scoped || !slug ? null : (bands.find((b) => b.categorySlug === slug)?.categoryId ?? null),
+  });
   readonly collapsed = signal<ReadonlySet<number>>(new Set());
   readonly drawerOpen = this.quickOrder.drawerOpen;
 

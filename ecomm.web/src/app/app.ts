@@ -89,19 +89,30 @@ export class App implements OnInit {
   readonly categories = signal<Category[]>([]);
 
   /**
-   * Categories sold from a page of their own rather than the generic /category listing.
+   * Categories sold from a page of their own rather than from the main price list.
    *
-   * Kept as an explicit map here instead of inferred from ShowInPriceList: "absent from the
-   * price list" does not by itself say *where* a range is sold, and the footer pointing at
-   * the generic listing would leave two different pages selling the same products.
+   * Kept as an explicit map instead of inferred from ShowInPriceList: "absent from the
+   * price list" does not by itself say *where* a range is sold.
    */
   private readonly ownPageBySlug: Record<string, string> = {
     'finished-calendar': '/finished-calendar',
   };
 
+  /**
+   * Footer category links land on the price list, not on /category/:slug.
+   *
+   * Those catalogue pages are not part of the Phase 1 flow — sending a buyer there drops
+   * them out of the one screen that takes orders. The category arrives as a query
+   * parameter and the price-list dropdown preselects it, so the link filters the working
+   * screen instead of navigating away from it.
+   */
   categoryLink(c: Category): string[] {
-    const own = this.ownPageBySlug[c.slug];
-    return own ? [own] : ['/category', c.slug];
+    return [this.ownPageBySlug[c.slug] ?? '/order'];
+  }
+
+  /** Finished Calendar has its own page and no dropdown, so it takes no parameter. */
+  categoryQuery(c: Category): Record<string, string> {
+    return this.ownPageBySlug[c.slug] ? {} : { category: c.slug };
   }
   readonly menuOpen = signal(false);
   readonly isAdminRoute = signal(false);

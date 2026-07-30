@@ -12,7 +12,14 @@
         (change)="onCategoryChange($any($event.target).value)">
         <option value="">All categories</option>
         @for (b of allBands(); track b.categoryId) {
-          <option [value]="b.categoryId" [selected]="selectedCategoryId() === b.categoryId">{{ b.label }}</option>
+          <!-- Both bindings on purpose. The property is what holds the selection on the
+               client, including after the user has touched the control; the attribute is
+               the only one that survives into the server-rendered HTML, without which
+               arriving from a footer link paints a filtered table under a dropdown still
+               reading "All categories" until hydration catches up. -->
+          <option [value]="b.categoryId"
+                  [selected]="selectedCategoryId() === b.categoryId"
+                  [attr.selected]="selectedCategoryId() === b.categoryId ? '' : null">{{ b.label }}</option>
         }
       </select>
     }
