@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
@@ -27,7 +27,7 @@ export class ProductBreadcrumbsComponent {
 /** Combined product section: gallery + info side-by-side (title/price/variants/qty/add-to-cart/specs). */
 @Component({
   selector: 'app-product-info',
-  imports: [RouterLink, CurrencyPipe, WishlistButtonComponent],
+  imports: [RouterLink, CurrencyPipe, FormsModule, WishlistButtonComponent],
   template: `
     @if (store.product(); as p) {
       <div class="grid md:grid-cols-2 gap-8 lg:gap-12">
@@ -35,7 +35,7 @@ export class ProductBreadcrumbsComponent {
         <div class="md:sticky md:top-20 self-start">
           <div class="relative aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center">
             @if (store.mainImage()) {
-              <img [src]="store.mainImage()" [alt]="p.name" class="w-full h-full object-cover" />
+              <img [src]="store.mainImage()" [alt]="p.name" class="w-full h-full object-cover cursor-zoom-in" (click)="store.openLightbox()" />
             } @else { <span class="text-slate-300">No image</span> }
             @if (p.images.length > 1) {
               <button type="button" (click)="store.prevImage()" aria-label="Previous image"
@@ -106,7 +106,7 @@ export class ProductBreadcrumbsComponent {
             </div>
           }
 
-          <div class="mt-6 flex flex-wrap items-center gap-3">
+          <div #atcAnchor class="mt-6 flex flex-wrap items-center gap-3">
             <div class="flex items-center border border-slate-300 rounded-lg">
               <button type="button" (click)="store.decQty()" class="w-9 h-10 text-slate-600 hover:bg-slate-50">−</button>
               <span class="w-10 text-center text-sm">{{ store.qty() }}</span>
@@ -127,6 +127,30 @@ export class ProductBreadcrumbsComponent {
             <span>🚚 Free shipping</span><span>✅ 100% satisfaction</span><span>🏷️ Best price guaranteed</span>
           </div>
 
+          <div class="mt-4">
+            <p class="text-sm font-medium text-slate-700 mb-2">Check delivery availability</p>
+            <div class="flex gap-2 max-w-xs">
+              <input type="text" inputmode="numeric" maxlength="6" [ngModel]="store.pincode()" (ngModelChange)="store.setPincode($event)"
+                (keyup.enter)="store.checkPincode()" placeholder="Enter pincode" name="pincode"
+                class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <button type="button" (click)="store.checkPincode()" [disabled]="store.pincode().length !== 6 || store.pincodeChecking()"
+                class="border border-slate-300 hover:bg-slate-50 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg shrink-0">
+                {{ store.pincodeChecking() ? 'Checking…' : 'Check' }}
+              </button>
+            </div>
+            @if (store.pincodeResult(); as r) {
+              @if (r.serviceable) {
+                <p class="text-sm text-green-600 mt-2">
+                  ✓ Delivery available{{ r.estimatedDays ? ' in ' + r.estimatedDays + ' day' + (r.estimatedDays === 1 ? '' : 's') : '' }} —
+                  {{ r.charge > 0 ? (r.charge | currency:'INR':'symbol':'1.0-0') + ' shipping' : 'Free shipping' }}
+                </p>
+              } @else {
+                <p class="text-sm text-red-600 mt-2">{{ r.message ?? "We don't deliver to this pincode yet." }}</p>
+              }
+            }
+            @if (store.pincodeError()) { <p class="text-sm text-red-600 mt-2">{{ store.pincodeError() }}</p> }
+          </div>
+
           @if (p.attributes.length) {
             <div class="mt-6">
               <h3 class="text-sm font-semibold text-slate-700 mb-2">Specifications</h3>
@@ -144,11 +168,61 @@ export class ProductBreadcrumbsComponent {
           }
         </div>
       </div>
+
+      <!-- Sticky add-to-cart bar: shown once the main ATC controls scroll out of view -->
+      @if (showStickyBar()) {
+        <div class="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center gap-3">
+          @if (store.mainImage()) {
+            <img [src]="store.mainImage()" [alt]="p.name" class="w-10 h-10 rounded-lg object-cover shrink-0 hidden sm:block" />
+          }
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 truncate">{{ p.name }}</p>
+            <p class="text-sm font-bold text-slate-900">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</p>
+          </div>
+          <button type="button" (click)="store.addToCart()" [disabled]="!p.inStock || store.adding()"
+            class="bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 py-2.5 rounded-lg text-sm shrink-0">
+            {{ p.inStock ? 'Add to cart' : 'Out of stock' }}
+          </button>
+        </div>
+      }
+
+      <!-- Image lightbox -->
+      @if (store.lightboxOpen()) {
+        <div class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" (click)="store.closeLightbox()">
+          <button type="button" (click)="store.closeLightbox()" aria-label="Close"
+            class="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none w-10 h-10 grid place-items-center">×</button>
+          @if (p.images.length > 1) {
+            <button type="button" (click)="$event.stopPropagation(); store.prevImage()" aria-label="Previous image"
+              class="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl w-12 h-12 grid place-items-center">‹</button>
+            <button type="button" (click)="$event.stopPropagation(); store.nextImage()" aria-label="Next image"
+              class="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl w-12 h-12 grid place-items-center">›</button>
+          }
+          @if (store.mainImage()) {
+            <img [src]="store.mainImage()" [alt]="p.name" class="max-w-[90vw] max-h-[90vh] object-contain" (click)="$event.stopPropagation()" />
+          }
+        </div>
+      }
     }
   `,
 })
 export class ProductInfoComponent {
   readonly store = inject(ProductPageStore);
+  private readonly atcAnchor = viewChild<ElementRef<HTMLElement>>('atcAnchor');
+  readonly showStickyBar = signal(false);
+
+  constructor() {
+    afterNextRender(() => {
+      const el = this.atcAnchor()?.nativeElement;
+      if (!el) return;
+      const observer = new IntersectionObserver(([entry]) => this.showStickyBar.set(!entry.isIntersecting), { threshold: 0 });
+      observer.observe(el);
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.store.lightboxOpen()) this.store.closeLightbox();
+  }
 }
 
 /** Long product description. */

@@ -5,7 +5,7 @@ import { ProductDetail, ProductListItem } from '../../../core/models/catalog.mod
 import { ProductReviews } from '../../../core/models/review.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
-import { CatalogService } from '../../../core/services/catalog.service';
+import { CatalogService, ShippingQuote } from '../../../core/services/catalog.service';
 import { RecentlyViewedService } from '../../../core/services/recently-viewed.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
@@ -41,6 +41,13 @@ export class ProductPageStore {
   readonly currentImage = signal(0);
   readonly qty = signal(1);
   selected: Record<string, string> = {};
+
+  readonly lightboxOpen = signal(false);
+
+  readonly pincode = signal('');
+  readonly pincodeChecking = signal(false);
+  readonly pincodeResult = signal<ShippingQuote | null>(null);
+  readonly pincodeError = signal<string | null>(null);
 
   /** Same-category products, excluding the current one — powers the RelatedProducts section. */
   readonly relatedProducts = signal<ProductListItem[]>([]);
@@ -89,6 +96,9 @@ export class ProductPageStore {
         this.currentImage.set(0);
         this.qty.set(1);
         this.selected = {};
+        this.lightboxOpen.set(false);
+        this.pincodeResult.set(null);
+        this.pincodeError.set(null);
         for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
         this.applySeo(product);
         this.loadReviews(product.productId);
@@ -111,6 +121,30 @@ export class ProductPageStore {
   selectImage(i: number): void { this.currentImage.set(i); }
   prevImage(): void { const n = this.product()?.images.length ?? 0; if (n) this.currentImage.update((i) => (i - 1 + n) % n); }
   nextImage(): void { const n = this.product()?.images.length ?? 0; if (n) this.currentImage.update((i) => (i + 1) % n); }
+
+  openLightbox(): void { if (this.product()?.images.length) this.lightboxOpen.set(true); }
+  closeLightbox(): void { this.lightboxOpen.set(false); }
+
+  setPincode(v: string): void {
+    this.pincode.set(v.replace(/\D/g, '').slice(0, 6));
+    this.pincodeResult.set(null);
+    this.pincodeError.set(null);
+  }
+
+  checkPincode(): void {
+    const pin = this.pincode();
+    if (pin.length !== 6 || this.pincodeChecking()) return;
+    this.pincodeChecking.set(true);
+    this.pincodeError.set(null);
+    this.catalog.checkShipping(pin).subscribe({
+      next: (q) => {
+        this.pincodeChecking.set(false);
+        this.pincodeResult.set(q);
+        if (!q) this.pincodeError.set('Could not check delivery for this pincode.');
+      },
+      error: () => { this.pincodeChecking.set(false); this.pincodeError.set('Could not check delivery for this pincode.'); },
+    });
+  }
 
   incQty(): void { this.qty.update((q) => Math.min(999, q + 1)); }
   decQty(): void { this.qty.update((q) => Math.max(1, q - 1)); }

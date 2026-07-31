@@ -14,6 +14,10 @@ export interface StorePolicy { handle: string; title: string; bodyHtml: string |
 export interface PolicyLink { handle: string; title: string; }
 export interface StoreSeo { title: string | null; description: string | null; image: string | null; }
 export interface StoreGate { passwordProtected: boolean; message: string | null; }
+export interface ShippingQuote {
+  serviceable: boolean; methodId: number | null; methodName: string;
+  charge: number; estimatedDays: number | null; message: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
@@ -110,6 +114,14 @@ export class CatalogService {
   getProductBySlug(slug: string): Observable<ProductDetail | null> {
     return this.http.get<ApiResponse<ProductDetail>>(`${this.base}/products/by-slug/${slug}`).pipe(
       map((r) => r.data),
+      catchError(() => of(null)),
+    );
+  }
+
+  /** PDP delivery/pincode checker — no login/address needed. */
+  checkShipping(pincode: string): Observable<ShippingQuote | null> {
+    return this.http.get<ApiResponse<ShippingQuote>>(`${this.base}/shipping/check`, { params: { pincode } }).pipe(
+      map((r) => r.data ?? null),
       catchError(() => of(null)),
     );
   }

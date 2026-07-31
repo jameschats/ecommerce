@@ -1,6 +1,7 @@
 using ecomm.api.Common.Models;
 using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
+using ecomm.api.Features.Checkout;
 using ecomm.api.Features.ColorSwatches;
 using ecomm.api.Features.Search;
 using Microsoft.AspNetCore.Mvc;
@@ -20,14 +21,16 @@ public sealed class CatalogController : ControllerBase
     private readonly IProductService _products;
     private readonly ISearchService _search;
     private readonly IColorSwatchService _swatches;
+    private readonly IShippingService _shipping;
 
-    public CatalogController(ICategoryService categories, IBrandService brands, IProductService products, ISearchService search, IColorSwatchService swatches)
+    public CatalogController(ICategoryService categories, IBrandService brands, IProductService products, ISearchService search, IColorSwatchService swatches, IShippingService shipping)
     {
         _categories = categories;
         _brands = brands;
         _products = products;
         _search = search;
         _swatches = swatches;
+        _shipping = shipping;
     }
 
     [HttpGet("categories")]
@@ -77,5 +80,16 @@ public sealed class CatalogController : ControllerBase
         return product is null
             ? NotFound(ApiResponse<object>.Fail("Product not found."))
             : Ok(ApiResponse<ProductDetailDto>.Ok(product));
+    }
+
+    /// <summary>PDP delivery/pincode checker — serviceability + estimated days for a destination
+    /// pincode, ahead of checkout (no address/login required).</summary>
+    [HttpGet("shipping/check")]
+    public async Task<IActionResult> CheckShipping([FromQuery] string pincode, CancellationToken ct)
+    {
+        var pin = (pincode ?? string.Empty).Trim();
+        if (pin.Length != 6 || !pin.All(char.IsDigit))
+            return Ok(ApiResponse<ShippingQuote>.Fail("Enter a valid 6-digit pincode."));
+        return Ok(ApiResponse<ShippingQuote>.Ok(await _shipping.QuoteAsync(pin, orderSubtotal: 0m, ct)));
     }
 }
