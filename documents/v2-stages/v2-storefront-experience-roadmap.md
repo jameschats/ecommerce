@@ -63,11 +63,12 @@ product-rail default, or — for cart's EmptyState — were bypassed entirely by
 that never even checked for an authored section). `RelatedProducts` was the fourth — fixed in Phase
 A. All four now fixed, live-verified via scratch sections on the draft Ignition theme, then removed.
 
-**Found but not fixed (new, separate, bigger issue):** the `search` template key exists in the
-section-type schema, but `CollectionPageComponent` always requests the `collection` template even
-when serving search results (`?search=`) — so a `search`-scoped section (like `EmptyState` for "no
-results") could never render regardless of authoring. Needs its own pass on template resolution,
-not bundled into this fix.
+**Found and also fixed (2026-07-31, commit `2c03dd6`):** the `search` template key existed in the
+section-type schema, but `CollectionPageComponent` always requested the `collection` template even
+when serving search results (`?search=`), so a `search`-scoped section (like `EmptyState` for "no
+results") could never render regardless of authoring. Now reacts to the `search` query param and
+requests the `search` template, falling back to `collection` when none is authored. Live-verified: a
+zero-result search rendered a scratch `EmptyState` section's custom heading, then removed.
 
 ---
 
