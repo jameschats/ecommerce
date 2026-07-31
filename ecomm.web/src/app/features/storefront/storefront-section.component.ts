@@ -568,14 +568,20 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private static isToolbarTarget(event: Event): boolean {
     return !!(event.target as HTMLElement).closest('[data-editor-toolbar]');
   }
+  /** E6: inspector mode — a merchant-toggled escape hatch that suspends the interceptors below so
+   *  real links/Add-to-Cart/etc. work normally inside the canvas, to sanity-check actual storefront
+   *  behaviour without leaving the editor. Every section on the page shares the same broadcast
+   *  postMessage, so all instances suspend/resume together. */
+  private readonly inspectorSuspended = signal(false);
+
   /** Native double-click/drag word-selection is resolved on mousedown, before any 'click' event
    *  fires — preventDefault() on click alone (below) is too late to stop it. */
   private readonly onEditorMouseDown = (event: MouseEvent) => {
-    if (StorefrontSectionComponent.isToolbarTarget(event)) return;
+    if (this.inspectorSuspended() || StorefrontSectionComponent.isToolbarTarget(event)) return;
     event.preventDefault();
   };
   private readonly onEditorClick = (event: MouseEvent) => {
-    if (StorefrontSectionComponent.isToolbarTarget(event)) return;
+    if (this.inspectorSuspended() || StorefrontSectionComponent.isToolbarTarget(event)) return;
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
@@ -599,6 +605,8 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
       );
     } else if (data?.type === 'theme-editor:update-section' && data.sectionId === this.section().pageSectionId) {
       this.override.set({ settings: data.settings ?? null, blocks: data.blocks ?? null });
+    } else if (data?.type === 'theme-editor:inspector') {
+      this.inspectorSuspended.set(!!data.enabled);
     }
   };
 

@@ -1,8 +1,9 @@
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { BuilderPage, CmsService } from '../../../core/services/cms.service';
 import { ThemeLibraryService } from '../../../core/services/theme-library.service';
@@ -15,9 +16,18 @@ import { ColorScheme } from '../../../core/services/theme.service';
 interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
 
 /**
- * Theme editor (S4/S5): edits a specific theme (by route id — usually a Draft). Pick a page-type
- * template (or a Header/Footer/Announcement zone), add/reorder/configure its sections, and preview
- * the storefront rendered with THIS theme (via its preview token). Publish is done from the library.
+ * Theme editor (S4/S5, E3): edits a specific theme (by route id — usually a Draft). Pick a page-type
+ * template (or a Header/Footer/Announcement zone), add/reorder/configure its sections and blocks in
+ * a Shopify-style tree, and preview the storefront rendered with THIS theme (via its preview token).
+ * Publish is done from the library.
+ *
+ * E3: the left sidebar is now an expandable tree — the selected section's blocks list directly below
+ * it (dynamic titles), not a second flat list. The right panel is "focused": a section row shows only
+ * that section's settings, a block row shows only that block's fields — never both bundled together.
+ * Only the SELECTED section's blocks are ever loaded/shown (settingsObj/blocksArr are still singular,
+ * not a per-section map) — a deliberate scope line, not an oversight: true independent multi-section
+ * expansion would need every expanded section's blocks loaded at once, a bigger data-shape change for
+ * marginal extra value over "the section you're editing shows its blocks".
  */
 @Component({
   selector: 'app-admin-theme-editor',
@@ -68,15 +78,53 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
               }
             </div>
           }
+
+          <!-- E5 remainder: choose which real product/collection a dynamic template previews with. -->
+          @if (activeKey() === 'product' || activeKey() === 'collection') {
+            <button type="button" (click)="togglePreviewPicker()" class="input text-sm py-1 flex items-center gap-1.5 max-w-[220px] truncate">
+              Previewing: {{ previewContextLabel() }} <span class="text-slate-400 text-xs">▾</span>
+            </button>
+            @if (previewPickerOpen()) {
+              <div class="fixed inset-0 z-40" (click)="previewPickerOpen.set(false)"></div>
+              <div class="absolute top-full left-0 mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-2" (click)="$event.stopPropagation()">
+                @if (activeKey() === 'product') {
+                  <input [(ngModel)]="previewQuery" (ngModelChange)="previewSearch$.next($event)" placeholder="Search products…" class="input w-full text-sm" autofocus />
+                  <div class="max-h-56 overflow-auto mt-1">
+                    @for (p of previewProductResults(); track p.productId) {
+                      <button type="button" (click)="pickPreviewProduct(p)" class="block w-full text-left px-2 py-1.5 text-sm hover:bg-slate-50 rounded">{{ p.name }}</button>
+                    }
+                  </div>
+                } @else {
+                  <div class="max-h-56 overflow-auto">
+                    <button type="button" (click)="pickPreviewCategory(null)" class="block w-full text-left px-2 py-1.5 text-sm hover:bg-slate-50 rounded">All products</button>
+                    @for (c of previewCategories(); track c.categoryId) {
+                      <button type="button" (click)="pickPreviewCategory(c)" class="block w-full text-left px-2 py-1.5 text-sm hover:bg-slate-50 rounded">{{ c.name }}</button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          }
         </div>
         <div class="flex items-center gap-2">
           @if (message()) { <span class="text-xs text-green-600">{{ message() }}</span> }
+          <div class="flex rounded-lg border border-slate-300 overflow-hidden text-sm">
+            <button type="button" (click)="undo()" [disabled]="!canUndo()" title="Undo (Ctrl+Z)"
+                    class="px-2.5 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent border-r border-slate-300">↶</button>
+            <button type="button" (click)="redo()" [disabled]="!canRedo()" title="Redo (Ctrl+Y)"
+                    class="px-2.5 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent">↷</button>
+          </div>
           <div class="flex rounded-lg border border-slate-300 overflow-hidden text-sm">
             <button type="button" (click)="device.set('desktop')" title="Desktop preview"
                     class="px-2.5 py-1" [class]="device() === 'desktop' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'">🖥</button>
             <button type="button" (click)="device.set('mobile')" title="Mobile preview"
                     class="px-2.5 py-1" [class]="device() === 'mobile' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'">📱</button>
           </div>
+          <button type="button" (click)="toggleInspector()" title="Toggle inspector — click through to real links/buttons in the canvas"
+                  class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50" [class.bg-slate-100]="inspectorMode()">👁 Inspect</button>
+          <button type="button" (click)="toggleFullscreen()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">
+            {{ fullscreen() ? '⤡ Exit fullscreen' : '⤢ Fullscreen' }}
+          </button>
           <button type="button" (click)="toggleSettings()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50"
                   [class.bg-slate-100]="settingsMode()">⚙ Theme settings</button>
           <button type="button" (click)="reloadPreview()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">↻ Preview</button>
@@ -84,7 +132,8 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
       </header>
 
       <div class="flex-1 flex min-h-0">
-        <!-- left: section list -->
+        <!-- left: section/block tree -->
+        @if (!fullscreen()) {
         <aside class="w-64 bg-slate-50 border-r border-slate-200 overflow-auto p-3 shrink-0">
           <p class="text-xs text-slate-400 mb-2">Sections on <span class="font-medium text-slate-600">{{ activeLabel() }}</span></p>
           @if (sections().length === 0) {
@@ -92,11 +141,30 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
           }
           <div cdkDropList (cdkDropListDropped)="drop($event)" class="space-y-1">
             @for (s of sections(); track s.id) {
-              <div cdkDrag class="bg-white border rounded-lg px-2 py-2 text-sm cursor-move flex items-center justify-between"
-                   [class]="s.id === selectedId() ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'"
-                   (click)="select(s)">
-                <span class="truncate" [class.text-slate-400]="!s.isVisible">⋮⋮ {{ s.title || s.sectionType }}</span>
-                <span class="text-xs text-slate-300">{{ s.kind }}</span>
+              <div>
+                <div cdkDrag class="bg-white border rounded-lg px-2 py-2 text-sm cursor-move flex items-center justify-between"
+                     [attr.data-tree-section]="s.id"
+                     [class]="s.id === selectedId() && focusedBlockIndex() === null ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'"
+                     (click)="selectSection(s)">
+                  <span class="truncate flex items-center gap-1" [class.text-slate-400]="!s.isVisible">
+                    @if (s.id === selectedId()) { <span class="text-slate-400 text-[10px]">▾</span> } @else { <span class="text-slate-300 text-[10px]">▸</span> }
+                    ⋮⋮ {{ s.title || s.sectionType }}
+                  </span>
+                  <span class="text-xs text-slate-300">{{ s.kind }}</span>
+                </div>
+                @if (s.id === selectedId() && blockType(); as bt) {
+                  <div cdkDropList [cdkDropListData]="blocksArr" (cdkDropListDropped)="dropBlock($event)" class="ml-4 mt-1 space-y-1">
+                    @for (b of blocksArr; track $index) {
+                      <div cdkDrag [attr.data-tree-block]="$index"
+                           class="bg-white border rounded-lg px-2 py-1.5 text-xs cursor-move truncate"
+                           [class]="$index === focusedBlockIndex() ? 'border-blue-500 ring-1 ring-blue-200 text-slate-800' : 'border-slate-200 text-slate-500'"
+                           (click)="$event.stopPropagation(); selectBlock($index)">
+                        {{ blockTitle(b, $index) }}
+                      </div>
+                    }
+                  </div>
+                  <button type="button" (click)="$event.stopPropagation(); addBlock(bt)" class="ml-4 mt-1 text-xs text-blue-600 hover:underline">+ Add {{ bt.label }}</button>
+                }
               </div>
             }
           </div>
@@ -108,12 +176,13 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
             <button type="button" (click)="addSection(picker.value); picker.value=''" class="btn-primary w-full mt-2 text-sm">Add</button>
             @if (pendingInsertBefore(); as pi) {
               <p class="text-xs text-blue-600 mt-1.5">
-                Adding above “{{ pi.title || pi.sectionType }}” —
+                Adding above "{{ pi.title || pi.sectionType }}" —
                 <button type="button" class="underline" (click)="pendingInsertBefore.set(null)">cancel</button>
               </p>
             }
           </div>
         </aside>
+        }
 
         <!-- center: live preview (framed to 390px in mobile mode) -->
         <main class="flex-1 bg-slate-100 min-w-0" [class.py-3]="device() === 'mobile'">
@@ -122,8 +191,9 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
           </div>
         </main>
 
-        <!-- right: theme settings, or settings for the selected section -->
-        <aside class="w-80 bg-white border-l border-slate-200 overflow-auto p-4 shrink-0">
+        <!-- right: theme settings, or the focused section/block panel -->
+        @if (!fullscreen()) {
+        <aside #rightPanel class="w-80 bg-white border-l border-slate-200 overflow-auto p-4 shrink-0">
           @if (settingsMode()) {
             <h2 class="font-semibold text-slate-800 mb-3">Theme settings</h2>
             <label class="block mb-3"><span class="lbl">Store name</span><input [(ngModel)]="themeSettings['StoreName']" class="input w-full" /></label>
@@ -197,39 +267,42 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
             <label class="block mb-3"><span class="lbl">Favicon URL</span><input [(ngModel)]="themeSettings['Favicon']" class="input w-full" placeholder="https://…/favicon.png" /></label>
             <button type="button" (click)="saveSettings()" [disabled]="saving()" class="btn-primary w-full mt-2">{{ saving() ? 'Saving…' : 'Save theme settings' }}</button>
           } @else if (selected(); as sec) {
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="font-semibold text-slate-800">{{ schema()?.label ?? sec.sectionType }}</h2>
-              <div class="flex gap-2 text-xs">
-                <button type="button" (click)="toggleHide(sec)" class="text-slate-500 hover:underline">{{ sec.isVisible ? 'Hide' : 'Show' }}</button>
-                <button type="button" (click)="duplicate(sec)" class="text-slate-500 hover:underline">Duplicate</button>
-                <button type="button" (click)="remove(sec)" class="text-red-500 hover:underline">Delete</button>
+            @if (focusedBlockIndex() === null) {
+              <!-- Section-focused panel: settings only — its blocks live in the tree, not duplicated here. -->
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-slate-800">{{ schema()?.label ?? sec.sectionType }}</h2>
+                <div class="flex gap-2 text-xs">
+                  <button type="button" (click)="toggleHide(sec)" class="text-slate-500 hover:underline">{{ sec.isVisible ? 'Hide' : 'Show' }}</button>
+                  <button type="button" (click)="duplicate(sec)" class="text-slate-500 hover:underline">Duplicate</button>
+                  <button type="button" (click)="remove(sec)" class="text-red-500 hover:underline">Delete</button>
+                </div>
               </div>
-            </div>
-
-            @for (f of schema()?.settings ?? []; track f.key) {
-              <label class="block mb-3">
-                <span class="lbl">{{ f.label }}</span>
-                <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" [colorSchemes]="schemes" (valueChange)="onFieldEdit()" />
-                @if (f.help) { <span class="text-xs text-slate-400">{{ f.help }}</span> }
-              </label>
-            }
-
-            @if (blockType(); as bt) {
-              <div class="border-t border-slate-100 pt-3 mt-3">
-                <div class="flex items-center justify-between mb-2"><span class="lbl mb-0">{{ bt.label }}s</span>
-                  <button type="button" (click)="addBlock(bt)" class="text-xs text-blue-600 hover:underline">+ Add</button></div>
-                @for (b of blocksArr; track $index) {
-                  <div #blockCard class="border rounded-lg p-2 mb-2" [class]="$index === selectedBlockIndex() ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'">
-                    <div class="flex justify-between text-xs text-slate-400 mb-1"><span>{{ bt.label }} {{ $index + 1 }}</span>
-                      <button type="button" (click)="removeBlock($index)" class="text-red-500">×</button></div>
-                    @for (f of bt.fields; track f.key) {
-                      <label class="block mb-1"><span class="text-xs text-slate-500">{{ f.label }}</span>
-                        <app-section-field [schema]="f" [(value)]="b[f.key]" [colorSchemes]="schemes" (valueChange)="onFieldEdit()" />
-                      </label>
-                    }
-                  </div>
+              @for (f of schema()?.settings ?? []; track f.key) {
+                <label class="block mb-3" [attr.data-field-key]="f.key">
+                  <span class="lbl">{{ f.label }}</span>
+                  <app-section-field [schema]="f" [(value)]="settingsObj[f.key]" [colorSchemes]="schemes" (valueChange)="onFieldEdit()" />
+                  @if (f.help) { <span class="text-xs text-slate-400">{{ f.help }}</span> }
+                </label>
+              }
+              @if (!(schema()?.settings ?? []).length) {
+                <p class="text-xs text-slate-400 italic">This section has no settings — see its blocks in the list on the left.</p>
+              }
+            } @else if (blockType(); as bt) {
+              <!-- Block-focused panel: only this block's fields, with a breadcrumb back to the section. -->
+              <button type="button" (click)="selectSection(sec)" class="text-xs text-slate-500 hover:underline mb-2">← Back to {{ schema()?.label ?? sec.sectionType }}</button>
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-slate-800">{{ bt.label }} {{ focusedBlockIndex()! + 1 }}</h2>
+                <button type="button" (click)="removeBlock(focusedBlockIndex()!)" class="text-red-500 hover:underline text-xs">Delete</button>
+              </div>
+              @if (blocksArr[focusedBlockIndex()!]; as b) {
+                @for (f of bt.fields; track f.key) {
+                  <label class="block mb-3" [attr.data-field-key]="f.key">
+                    <span class="lbl">{{ f.label }}</span>
+                    <app-section-field [schema]="f" [(value)]="b[f.key]" [colorSchemes]="schemes" (valueChange)="onFieldEdit()" />
+                    @if (f.help) { <span class="text-xs text-slate-400">{{ f.help }}</span> }
+                  </label>
                 }
-              </div>
+              }
             }
 
             <div class="sticky bottom-0 bg-white border-t border-slate-100 -mx-4 px-4 pt-2 pb-1 mt-3">
@@ -240,6 +313,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
             <div class="text-slate-400 text-sm text-center p-8">Select or add a section to edit it.</div>
           }
         </aside>
+        }
       </div>
     </div>
   `,
@@ -251,23 +325,33 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   private readonly cms = inject(CmsService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   @ViewChild('previewFrame') previewFrame?: ElementRef<HTMLIFrameElement>;
-  @ViewChildren('blockCard') blockCards?: QueryList<ElementRef<HTMLElement>>;
+  @ViewChild('rightPanel') rightPanel?: ElementRef<HTMLElement>;
 
   readonly templates = signal<ThemeTemplateSummary[]>([]);
   readonly sections = signal<ThemeSectionAdmin[]>([]);
   readonly types = signal<SectionTypeSchema[]>([]);
   readonly activeKey = signal<string>('index');
   readonly selectedId = signal<number | null>(null);
-  /** T15: which block card is highlighted after a click-to-select-in-canvas from the preview iframe. */
-  readonly selectedBlockIndex = signal<number | null>(null);
+  /** E3: which block of the SELECTED section is focused — drives the right panel view, not just the
+   *  canvas outline (T15's old role). null = the section's own settings are shown instead. */
+  readonly focusedBlockIndex = signal<number | null>(null);
+  /** E3: which specific field to scroll-to/focus once the panel above renders — set by a canvas
+   *  field-level click (E3's data-field), consumed once then cleared. */
+  private pendingFocusField: string | null = null;
   /** E2: unsaved edits exist for the selected section (already streamed live to the canvas). */
   readonly dirty = signal(false);
   /** E1: set by the canvas "+ Add section" pill — where the next added section should land. */
   readonly pendingInsertBefore = signal<ThemeSectionAdmin | null>(null);
   /** E1: preview device frame. */
   readonly device = signal<'desktop' | 'mobile'>('desktop');
+  /** E6: fullscreen preview — collapses both side panels. */
+  readonly fullscreen = signal(false);
+  /** E6: inspector mode suspends the canvas's editor-mode click interception so a merchant can click
+   *  through to real links/Add-to-Cart to sanity-check actual storefront behaviour. */
+  readonly inspectorMode = signal(false);
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
@@ -283,9 +367,10 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     'Inter', 'Poppins', 'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'DM Sans', 'Work Sans', 'Nunito',
     'Space Grotesk', 'Archivo', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Cormorant Garamond', 'Lora',
   ];
-  private sampleProductSlug = '';
   private themeId = 0;
   private previewToken: string | null = null;
+  /** Deep link restoration (?template=&section=&block=) applies once, on first sections load. */
+  private pendingDeepLink: { section: number | null; block: number | null } | null = null;
 
   readonly grouped = computed<TemplateGroup[]>(() => {
     const order = ['Header', 'Templates', 'Footer'];
@@ -322,35 +407,86 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     return q ? this.pages().filter((p) => p.title.toLowerCase().includes(q)) : this.pages();
   });
 
+  // ---------------- E5 remainder: preview context (which product/collection a dynamic template previews with) ----------------
+  private sampleProductSlug = '';
+  private sampleProductName = 'first product';
+  private sampleCategorySlug = '';
+  private sampleCategoryName = 'All products';
+  readonly previewPickerOpen = signal(false);
+  previewQuery = '';
+  readonly previewSearch$ = new Subject<string>();
+  readonly previewProductResults = signal<{ productId: number; name: string; slug: string }[]>([]);
+  readonly previewCategories = signal<{ categoryId: number; name: string; slug: string }[]>([]);
+  readonly previewContextLabel = computed(() => this.activeKey() === 'product' ? this.sampleProductName : this.sampleCategoryName);
+  togglePreviewPicker(): void {
+    if (!this.previewPickerOpen() && this.activeKey() === 'collection' && this.previewCategories().length === 0) {
+      this.catalog.getCategories().subscribe((c) => this.previewCategories.set(c));
+    }
+    this.previewPickerOpen.update((v) => !v);
+  }
+  pickPreviewProduct(p: { productId: number; name: string; slug: string }): void {
+    this.sampleProductSlug = p.slug; this.sampleProductName = p.name;
+    this.previewPickerOpen.set(false); this.previewQuery = ''; this.previewProductResults.set([]);
+    this.setPreview();
+  }
+  pickPreviewCategory(c: { categoryId: number; name: string; slug: string } | null): void {
+    this.sampleCategorySlug = c?.slug ?? ''; this.sampleCategoryName = c?.name ?? 'All products';
+    this.previewPickerOpen.set(false);
+    this.setPreview();
+  }
+
   ngOnInit(): void {
     this.themeId = Number(this.route.snapshot.paramMap.get('themeId'));
-    this.catalog.getProducts({ pageSize: 1 }).subscribe((r) => { this.sampleProductSlug = r.items[0]?.slug ?? ''; });
+    this.catalog.getProducts({ pageSize: 1 }).subscribe((r) => {
+      if (r.items[0]) { this.sampleProductSlug = r.items[0].slug; this.sampleProductName = r.items[0].name; }
+    });
+    this.previewSearch$.pipe(
+      debounceTime(250), distinctUntilChanged(),
+      switchMap((q) => this.catalog.getProducts({ search: q.trim(), pageSize: 8 })),
+    ).subscribe((r) => this.previewProductResults.set(r.items));
+
     this.library.get(this.themeId).subscribe((t) => { this.themeName.set(t.name); this.previewToken = t.previewToken; this.setPreview(); });
     this.svc.templates(this.themeId).subscribe((t) => this.templates.set(t));
     this.svc.getSettings(this.themeId).subscribe((s) => {
       this.themeSettings = { ...s };
       this.schemes = this.parse(s['ColorSchemes'] ?? null, [] as ColorScheme[]);
     });
-    this.selectTemplate('index');
-    if (typeof window !== 'undefined') window.addEventListener('message', this.onWindowMessage);
+
+    const q = this.route.snapshot.queryParamMap;
+    const deepTemplate = q.get('template');
+    const deepSection = q.get('section') ? Number(q.get('section')) : null;
+    const deepBlock = q.get('block') ? Number(q.get('block')) : null;
+    if (deepSection !== null) this.pendingDeepLink = { section: deepSection, block: deepBlock };
+    this.selectTemplate(deepTemplate || 'index');
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('message', this.onWindowMessage);
+      window.addEventListener('keydown', this.onKeydown);
+    }
   }
 
   ngOnDestroy(): void {
     if (this.draftTimer) clearTimeout(this.draftTimer);
-    if (typeof window !== 'undefined') window.removeEventListener('message', this.onWindowMessage);
+    if (typeof window === 'undefined') return;
+    window.removeEventListener('message', this.onWindowMessage);
+    window.removeEventListener('keydown', this.onKeydown);
   }
 
-  /** T15/E1: a merchant clicked a section/block, a toolbar action, or an insert pill in the preview. */
+  /** T15/E1/E3: a merchant clicked a section/block/field, a toolbar action, or an insert pill in the preview. */
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (typeof window === 'undefined' || event.origin !== window.location.origin) return;
     const data = event.data;
     if (data?.type === 'theme-editor:select') {
       const sec = this.sections().find((x) => x.id === data.sectionId);
-      if (!sec || !this.select(sec)) return;   // not in the active template, or a dirty draft was kept
-      this.selectedBlockIndex.set(typeof data.blockIndex === 'number' ? data.blockIndex : null);
-      this.postHighlight(sec.id, this.selectedBlockIndex());
+      if (!sec) return;
+      const field = typeof data.field === 'string' ? data.field : null;
       if (typeof data.blockIndex === 'number') {
-        queueMicrotask(() => this.blockCards?.get(data.blockIndex)?.nativeElement.scrollIntoView({ block: 'nearest' }));
+        if (!this.selectBlockOf(sec, data.blockIndex, field)) return;
+      } else {
+        if (!this.selectSection(sec, field)) return;
+      }
+      if (typeof data.blockIndex === 'number') {
+        queueMicrotask(() => document.querySelector(`[data-tree-block="${data.blockIndex}"]`)?.scrollIntoView({ block: 'nearest' }));
       }
     } else if (data?.type === 'theme-editor:action') {
       const sec = this.sections().find((x) => x.id === data.sectionId);
@@ -365,22 +501,61 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
       // The preview iframe just (re)loaded a fresh document — every reload replaces it entirely, so
       // whatever was highlighted before is gone until we re-send it. Re-assert the current selection
       // now that the new document's listener has confirmed it's actually there to receive it.
-      if (this.selectedId() !== null) this.postHighlight(this.selectedId(), this.selectedBlockIndex());
+      if (this.selectedId() !== null) this.postHighlight(this.selectedId(), this.focusedBlockIndex());
     }
   };
+
+  /** E6: Esc deselects/closes open panels; Ctrl+Z/Ctrl+Y undo/redo; Up/Down reorders the focused row. */
+  private readonly onKeydown = (event: KeyboardEvent): void => {
+    const tag = (event.target as HTMLElement)?.tagName;
+    const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    if (event.key === 'Escape') {
+      if (this.navigatorOpen()) { this.navigatorOpen.set(false); return; }
+      if (this.previewPickerOpen()) { this.previewPickerOpen.set(false); return; }
+      if (this.focusedBlockIndex() !== null) { const sec = this.selected(); if (sec) this.selectSection(sec); return; }
+      if (this.selectedId() !== null) { this.selectedId.set(null); this.postHighlight(null); }
+    } else if ((event.ctrlKey || event.metaKey) && !typing && event.key.toLowerCase() === 'z') {
+      event.preventDefault(); this.undo();
+    } else if ((event.ctrlKey || event.metaKey) && !typing && event.key.toLowerCase() === 'y') {
+      event.preventDefault(); this.redo();
+    } else if (!typing && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      const dir = event.key === 'ArrowUp' ? -1 : 1;
+      if (this.focusedBlockIndex() !== null) this.reorderFocusedBlock(dir);
+      else if (this.selectedId() !== null) this.reorderFocusedSection(dir);
+    }
+  };
+
+  private reorderFocusedSection(dir: -1 | 1): void {
+    const arr = [...this.sections()];
+    const i = arr.findIndex((s) => s.id === this.selectedId());
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    moveItemInArray(arr, i, j);
+    this.sections.set(arr);
+    this.svc.reorder(this.themeId, this.activeKey(), arr.map((s) => s.id)).subscribe(() => this.reloadPreview());
+  }
+  private reorderFocusedBlock(dir: -1 | 1): void {
+    const i = this.focusedBlockIndex()!;
+    const j = i + dir;
+    if (j < 0 || j >= this.blocksArr.length) return;
+    moveItemInArray(this.blocksArr, i, j);
+    this.focusedBlockIndex.set(j);
+    this.onFieldEdit();
+  }
 
   private postToPreview(message: unknown): void {
     this.previewFrame?.nativeElement.contentWindow?.postMessage(message, window.location.origin);
   }
 
-  /** Mirror the current selection into the preview so it outlines the section (and block, when set). */
-  private postHighlight(sectionId: number | null, blockIndex: number | null = null): void {
-    this.postToPreview({ type: 'theme-editor:highlight', sectionId, blockIndex });
+  /** Mirror the current selection into the preview so it outlines the section (and block/field, when set). */
+  private postHighlight(sectionId: number | null, blockIndex: number | null = null, field: string | null = null): void {
+    this.postToPreview({ type: 'theme-editor:highlight', sectionId, blockIndex, field });
   }
 
   /** E2: any field edit → mark dirty + debounce-stream the draft into the canvas (live preview). */
   onFieldEdit(): void {
     this.dirty.set(true);
+    this.pushUndoSnapshot();
     if (this.draftTimer) clearTimeout(this.draftTimer);
     this.draftTimer = setTimeout(() => this.postDraft(), 250);
   }
@@ -401,10 +576,16 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     const prev = this.selected();
     if (prev) this.postToPreview({ type: 'theme-editor:update-section', sectionId: prev.id, settings: prev.settings, blocks: prev.blocks });
     this.dirty.set(false);
+    this.undoStack = []; this.redoStack = [];
     return true;
   }
 
   toggleSettings(): void { this.settingsMode.update((v) => !v); }
+  toggleFullscreen(): void { this.fullscreen.update((v) => !v); }
+  toggleInspector(): void {
+    this.inspectorMode.update((v) => !v);
+    this.postToPreview({ type: 'theme-editor:inspector', enabled: this.inspectorMode() });
+  }
 
   saveSettings(): void {
     this.saving.set(true);
@@ -424,6 +605,7 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     if (!this.confirmDiscard()) return;
     this.activeKey.set(key);
     this.selectedId.set(null);
+    this.focusedBlockIndex.set(null);
     this.svc.sectionTypes(key).subscribe((t) => this.types.set(t));
     this.loadSections();
     this.setPreview();
@@ -434,6 +616,14 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
       this.sections.set(s);
       if (this.selectedId() && !s.some((x) => x.id === this.selectedId())) this.selectedId.set(null);
       this.svc.templates(this.themeId).subscribe((t) => this.templates.set(t));   // refresh section counts
+
+      const deep = this.pendingDeepLink;
+      if (deep && s.some((x) => x.id === deep.section)) {
+        this.pendingDeepLink = null;
+        const sec = s.find((x) => x.id === deep.section)!;
+        if (deep.block !== null) this.selectBlockOf(sec, deep.block);
+        else this.selectSection(sec);
+      }
     });
   }
 
@@ -441,14 +631,77 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   schema(): SectionTypeSchema | null { const s = this.selected(); return s ? this.types().find((t) => t.key === s.sectionType) ?? null : null; }
   blockType(): BlockTypeSchema | null { return this.schema()?.blockTypes?.[0] ?? null; }
 
-  select(s: ThemeSectionAdmin): boolean {
-    if (!this.confirmDiscard()) return false;
-    this.selectedId.set(s.id);
-    this.settingsObj = this.parse(s.settings, {});
-    this.blocksArr = this.parse(s.blocks, []);
-    this.selectedBlockIndex.set(null);
-    this.postHighlight(s.id);
+  /** E3: dynamic block title — first non-empty of the common "this is what it says" keys, else a
+   *  numbered fallback. Covers every block schema in this codebase (heading/title/text/question/
+   *  label/value) without needing a per-section-type mapping. */
+  blockTitle(b: Record<string, any>, index: number): string {
+    const label = b['heading'] ?? b['title'] ?? b['text'] ?? b['question'] ?? b['label'] ?? b['value'];
+    const bt = this.blockType();
+    return (typeof label === 'string' && label.trim()) ? label.trim() : `${bt?.label ?? 'Block'} ${index + 1}`;
+  }
+
+  /** Section row click → focus the section's own settings (collapses any block focus). Returns
+   *  false if a dirty draft was kept (selection did not change). */
+  selectSection(s: ThemeSectionAdmin, focusFieldKey: string | null = null): boolean {
+    const changingSection = s.id !== this.selectedId();
+    if (changingSection && !this.confirmDiscard()) return false;
+    if (changingSection) {
+      this.selectedId.set(s.id);
+      this.settingsObj = this.parse(s.settings, {});
+      this.blocksArr = this.parse(s.blocks, []);
+      this.undoStack = []; this.redoStack = [];
+    }
+    this.focusedBlockIndex.set(null);
+    this.postHighlight(s.id, null, focusFieldKey);
+    this.syncUrl();
+    if (focusFieldKey) this.pendingFocusField = focusFieldKey, queueMicrotask(() => this.applyPendingFocus());
     return true;
+  }
+
+  /** Block row/canvas click → focus one block's fields. */
+  selectBlock(index: number): void {
+    const s = this.selected();
+    if (!s) return;
+    this.selectBlockOf(s, index);
+  }
+  private selectBlockOf(s: ThemeSectionAdmin, index: number, focusFieldKey: string | null = null): boolean {
+    const changingSection = s.id !== this.selectedId();
+    if (changingSection && !this.confirmDiscard()) return false;
+    if (changingSection) {
+      this.selectedId.set(s.id);
+      this.settingsObj = this.parse(s.settings, {});
+      this.blocksArr = this.parse(s.blocks, []);
+      this.undoStack = []; this.redoStack = [];
+    }
+    if (index < 0 || index >= this.blocksArr.length) return true;
+    this.focusedBlockIndex.set(index);
+    this.postHighlight(s.id, index, focusFieldKey);
+    this.syncUrl();
+    if (focusFieldKey) this.pendingFocusField = focusFieldKey, queueMicrotask(() => this.applyPendingFocus());
+    return true;
+  }
+
+  /** E3: scroll to + focus the input for the field a canvas click landed on. */
+  private applyPendingFocus(): void {
+    const key = this.pendingFocusField;
+    this.pendingFocusField = null;
+    if (!key) return;
+    queueMicrotask(() => {
+      const root = this.rightPanel?.nativeElement;
+      const wrapper = root?.querySelector(`[data-field-key="${key}"]`);
+      wrapper?.scrollIntoView({ block: 'center' });
+      wrapper?.querySelector<HTMLElement>('input, textarea, select, button')?.focus();
+    });
+  }
+
+  /** E3: deep-linkable editor state — mirrors CollectionPageStore.applyFilters' query-merge pattern. */
+  private syncUrl(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { template: this.activeKey(), section: this.selectedId(), block: this.focusedBlockIndex() },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   addSection(type: string): void {
@@ -458,7 +711,7 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
       this.pendingInsertBefore.set(null);
       // select() runs before the reload lands — harmless; the 'theme-editor:ready' handshake
       // (fired when the reloaded iframe's new document mounts) re-asserts the highlight reliably.
-      const finish = () => { this.loadSections(); this.select(sec); this.reloadPreview(); };
+      const finish = () => { this.loadSections(); this.selectSection(sec); this.reloadPreview(); };
       if (before) {
         // E1: canvas "+ Add section" — place the new section above the one whose pill was clicked.
         const ids = this.sections().map((s) => s.id).filter((id) => id !== sec.id);
@@ -476,6 +729,14 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     moveItemInArray(arr, e.previousIndex, e.currentIndex);
     this.sections.set(arr);
     this.svc.reorder(this.themeId, this.activeKey(), arr.map((s) => s.id)).subscribe(() => this.reloadPreview());
+  }
+
+  /** E3: reorder blocks within the selected section — no dedicated backend endpoint; blocks are one
+   *  ordered JSON array, so persisting a reorder is the same save() path any other block edit uses. */
+  dropBlock(e: CdkDragDrop<Record<string, any>[]>): void {
+    moveItemInArray(this.blocksArr, e.previousIndex, e.currentIndex);
+    if (this.focusedBlockIndex() === e.previousIndex) this.focusedBlockIndex.set(e.currentIndex);
+    this.onFieldEdit();
   }
 
   save(sec: ThemeSectionAdmin): void {
@@ -509,11 +770,45 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     const b: Record<string, any> = {};
     for (const f of bt.fields) b[f.key] = f.default ?? '';
     this.blocksArr = [...this.blocksArr, b];
+    this.focusedBlockIndex.set(this.blocksArr.length - 1);
     this.onFieldEdit();
   }
   removeBlock(i: number): void {
     this.blocksArr = this.blocksArr.filter((_, idx) => idx !== i);
+    this.focusedBlockIndex.set(null);
     this.onFieldEdit();
+  }
+
+  // ---------------- E6: session-scoped undo/redo over {settingsObj, blocksArr} ----------------
+  private undoStack: { settings: string; blocks: string }[] = [];
+  private redoStack: { settings: string; blocks: string }[] = [];
+  readonly canUndo = signal(false);
+  readonly canRedo = signal(false);
+  private pushUndoSnapshot(): void {
+    this.undoStack.push({ settings: JSON.stringify(this.settingsObj), blocks: JSON.stringify(this.blocksArr) });
+    if (this.undoStack.length > 50) this.undoStack.shift();
+    this.redoStack = [];
+    this.canUndo.set(true); this.canRedo.set(false);
+  }
+  undo(): void {
+    if (!this.undoStack.length) return;
+    this.redoStack.push({ settings: JSON.stringify(this.settingsObj), blocks: JSON.stringify(this.blocksArr) });
+    const prev = this.undoStack.pop()!;
+    this.settingsObj = this.parse(prev.settings, {});
+    this.blocksArr = this.parse(prev.blocks, []);
+    this.dirty.set(true);
+    this.postDraft();
+    this.canUndo.set(this.undoStack.length > 0); this.canRedo.set(true);
+  }
+  redo(): void {
+    if (!this.redoStack.length) return;
+    this.undoStack.push({ settings: JSON.stringify(this.settingsObj), blocks: JSON.stringify(this.blocksArr) });
+    const next = this.redoStack.pop()!;
+    this.settingsObj = this.parse(next.settings, {});
+    this.blocksArr = this.parse(next.blocks, []);
+    this.dirty.set(true);
+    this.postDraft();
+    this.canRedo.set(this.redoStack.length > 0); this.canUndo.set(true);
   }
 
   reloadPreview(): void { this.setPreview(true); }
@@ -529,7 +824,8 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   private previewPath(key: string): string {
     switch (key) {
       case 'product': return this.sampleProductSlug ? `/product/${this.sampleProductSlug}` : '/products';
-      case 'collection': case 'list-collections': return '/products';
+      case 'collection': return this.sampleCategorySlug ? `/category/${this.sampleCategorySlug}` : '/products';
+      case 'list-collections': return '/products';
       case 'search': return '/products?search=a';
       case 'cart': return '/cart';
       case 'password': return '/password';
