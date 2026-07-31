@@ -404,6 +404,54 @@ import { ThemeService } from '../../core/services/theme.service';
           </div>
         </section>
       }
+      @case ('CustomSection') {
+        <!-- T17: a free-form canvas — each block declares its own type (Heading/Text/Image/Button/
+             Spacer/Divider), unlike every other section type here where every block in the array is
+             implicitly the same kind. -->
+        <section class="page-container py-8">
+          <div class="max-w-3xl mx-auto space-y-4">
+            @for (b of blocks(); track $index) {
+              <div [attr.data-block-index]="$index">
+                @switch (b.type) {
+                  @case ('Heading') {
+                    @switch (b.size) {
+                      @case ('Large') { <h2 class="text-3xl sm:text-4xl font-bold text-slate-900" data-field="text">{{ b.text }}</h2> }
+                      @case ('Small') { <h4 class="text-lg font-semibold text-slate-900" data-field="text">{{ b.text }}</h4> }
+                      @default { <h3 class="text-2xl font-bold text-slate-900" data-field="text">{{ b.text }}</h3> }
+                    }
+                  }
+                  @case ('Text') {
+                    <div class="prose text-slate-600" data-field="content" [innerHTML]="b.content"></div>
+                  }
+                  @case ('Image') {
+                    @if (b.image) {
+                      @if (b.link) {
+                        <a [href]="b.link" data-field="image"><img [src]="b.image" alt="" class="w-full rounded-lg object-cover" /></a>
+                      } @else {
+                        <img [src]="b.image" alt="" class="w-full rounded-lg object-cover" data-field="image" />
+                      }
+                    }
+                  }
+                  @case ('Button') {
+                    <a [href]="b.link || '#'" data-field="text"
+                       class="inline-block px-6 py-3 rounded-lg font-medium transition"
+                       [class]="b.style === 'Secondary' ? 'border border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-primary text-white hover:bg-primary-dark'">
+                      {{ b.text }}
+                    </a>
+                  }
+                  @case ('Spacer') {
+                    <div [class]="b.height === 'Large' ? 'h-16' : b.height === 'Small' ? 'h-4' : 'h-8'"></div>
+                  }
+                  @case ('Divider') {
+                    <hr class="border-slate-200" />
+                  }
+                }
+              </div>
+            }
+            @if (!blocks().length) { <p class="text-slate-300 text-center py-10">Add blocks to build this section.</p> }
+          </div>
+        </section>
+      }
       @default {
         <!-- FeaturedProducts / ProductGrid / any product rail -->
         <section class="max-w-6xl mx-auto px-4 py-10">

@@ -152,7 +152,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                   </span>
                   <span class="text-xs text-slate-300">{{ s.kind }}</span>
                 </div>
-                @if (s.id === selectedId() && blockType(); as bt) {
+                @if (s.id === selectedId() && blockTypes().length > 0) {
                   <div cdkDropList [cdkDropListData]="blocksArr" (cdkDropListDropped)="dropBlock($event)" class="ml-4 mt-1 space-y-1">
                     @for (b of blocksArr; track $index) {
                       <div cdkDrag [attr.data-tree-block]="$index"
@@ -163,7 +163,23 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
                       </div>
                     }
                   </div>
-                  <button type="button" (click)="$event.stopPropagation(); addBlock(bt)" class="ml-4 mt-1 text-xs text-blue-600 hover:underline">+ Add {{ bt.label }}</button>
+                  @if (blockTypes().length === 1) {
+                    <button type="button" (click)="$event.stopPropagation(); addBlock(blockTypes()[0])" class="ml-4 mt-1 text-xs text-blue-600 hover:underline">+ Add {{ blockTypes()[0].label }}</button>
+                  } @else {
+                    <!-- T17: a section with multiple block types (e.g. CustomSection's Heading/Text/Image/
+                         Button/Spacer/Divider palette) gets a picker menu instead of one fixed button. -->
+                    <div class="ml-4 mt-1 relative">
+                      <button type="button" (click)="$event.stopPropagation(); addBlockMenuOpen.set(addBlockMenuOpen() === s.id ? null : s.id)" class="text-xs text-blue-600 hover:underline">+ Add block</button>
+                      @if (addBlockMenuOpen() === s.id) {
+                        <div class="fixed inset-0 z-40" (click)="addBlockMenuOpen.set(null)"></div>
+                        <div class="absolute left-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1" (click)="$event.stopPropagation()">
+                          @for (bt of blockTypes(); track bt.key) {
+                            <button type="button" (click)="addBlock(bt); addBlockMenuOpen.set(null)" class="block w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50">{{ bt.label }}</button>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
                 }
               </div>
             }
@@ -287,7 +303,7 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
               @if (!(schema()?.settings ?? []).length) {
                 <p class="text-xs text-slate-400 italic">This section has no settings — see its blocks in the list on the left.</p>
               }
-            } @else if (blockType(); as bt) {
+            } @else if (focusedBlockSchema(); as bt) {
               <!-- Block-focused panel: only this block's fields, with a breadcrumb back to the section. -->
               <button type="button" (click)="selectSection(sec)" class="text-xs text-slate-500 hover:underline mb-2">← Back to {{ schema()?.label ?? sec.sectionType }}</button>
               <div class="flex items-center justify-between mb-3">
@@ -345,6 +361,9 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   readonly dirty = signal(false);
   /** E1: set by the canvas "+ Add section" pill — where the next added section should land. */
   readonly pendingInsertBefore = signal<ThemeSectionAdmin | null>(null);
+  /** T17: which section's "+ Add block" type-picker menu is open (by section id), for sections
+   *  offering more than one block type. */
+  readonly addBlockMenuOpen = signal<number | null>(null);
   /** E1: preview device frame. */
   readonly device = signal<'desktop' | 'mobile'>('desktop');
   /** E6: fullscreen preview — collapses both side panels. */
@@ -630,6 +649,19 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   selected(): ThemeSectionAdmin | null { return this.sections().find((s) => s.id === this.selectedId()) ?? null; }
   schema(): SectionTypeSchema | null { const s = this.selected(); return s ? this.types().find((t) => t.key === s.sectionType) ?? null : null; }
   blockType(): BlockTypeSchema | null { return this.schema()?.blockTypes?.[0] ?? null; }
+  /** T17: every block type the selected section's schema allows — length 1 for every existing
+   *  section (Hero's Slides, Multicolumn's Columns, …), length >1 only for CustomSection's mixed
+   *  Heading/Text/Image/Button/Spacer/Divider palette. */
+  blockTypes(): BlockTypeSchema[] { return this.schema()?.blockTypes ?? []; }
+  /** T17: which schema applies to the currently-focused block. Single-type sections: same as
+   *  blockType(). Multi-type sections: resolved from the block's own stamped `type`. */
+  focusedBlockSchema(): BlockTypeSchema | null {
+    const i = this.focusedBlockIndex();
+    if (i === null) return null;
+    const types = this.blockTypes();
+    if (types.length <= 1) return types[0] ?? null;
+    return types.find((t) => t.key === this.blocksArr[i]?.['type']) ?? null;
+  }
 
   /** E3: dynamic block title — first non-empty of the common "this is what it says" keys, else a
    *  numbered fallback. Covers every block schema in this codebase (heading/title/text/question/
@@ -769,6 +801,10 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
   addBlock(bt: BlockTypeSchema): void {
     const b: Record<string, any> = {};
     for (const f of bt.fields) b[f.key] = f.default ?? '';
+    // T17: stamp which primitive this block is when a section offers more than one kind (e.g.
+    // CustomSection) — schemaOfBlock() below needs it to resolve the right fields per block.
+    // Harmless no-op for every existing single-block-type section.
+    if (this.blockTypes().length > 1) b['type'] = bt.key;
     this.blocksArr = [...this.blocksArr, b];
     this.focusedBlockIndex.set(this.blocksArr.length - 1);
     this.onFieldEdit();

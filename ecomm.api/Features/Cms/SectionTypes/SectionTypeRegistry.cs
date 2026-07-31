@@ -227,6 +227,18 @@ public static class SectionTypeRegistry
             [
                 new("Photo", "Photo", [ new("image", "Image", "image"), new("link", "Link (optional)", "url") ]),
             ], MaxBlocks: 8),
+        new("CustomSection", "Custom section", "layout",
+            "A blank canvas — freely mix headings, text, images, buttons, spacers and dividers in any order to build a one-off layout no other section covers.",
+            Settings: [],
+            BlockTypes:
+            [
+                new("Heading", "Heading", [ new("text", "Text", "text"), new("size", "Size", "select", "Medium", ["Large", "Medium", "Small"]) ]),
+                new("Text", "Text", [ new("content", "Content", "richtext") ]),
+                new("Image", "Image", [ new("image", "Image", "image"), new("link", "Link (optional)", "url") ]),
+                new("Button", "Button", [ new("text", "Text", "text"), new("link", "Link", "link"), new("style", "Style", "select", "Primary", ["Primary", "Secondary"]) ]),
+                new("Spacer", "Spacer", [ new("height", "Height", "select", "Medium", ["Small", "Medium", "Large"]) ]),
+                new("Divider", "Divider", []),
+            ], MaxBlocks: 20),
 
         // ---- Group sections (shared zones, one per theme) ----
         new("AnnouncementBar", "Announcement bar", "megaphone", "A thin bar above the header for promos/notices.",
