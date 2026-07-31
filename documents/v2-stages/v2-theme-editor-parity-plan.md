@@ -17,17 +17,20 @@ Same data model underneath — the work is UI/interaction, almost entirely front
 
 ## Capability decomposition (screenshots + spec §8, vs. our code today)
 
+**Status as of the E3 pass (2026-07-31)** — E1, E2, and E3 are now fully shipped and live; only E4
+(rich field controls) remains genuinely outstanding, plus T17 (theme blocks, its own future pass).
+
 | # | Capability | Shopify | Ours today | Status |
 |---|---|---|---|---|
-| 1 | Hover affordances | Outline + name badge ("Hero", "Menu") on hover over any section/block; "+" insertion points between sections | Nothing on hover; outline only after click | ⬜ Missing |
-| 2 | Section click-to-select | Canvas click → sidebar + panel jump | Shipped this session (T15), incl. reverse highlight | ✅ |
-| 3 | Block click-to-select w/ own canvas outline | "Shop all" button gets its own outline; URL carries `&block=` | Partial: 4 `@for` section types report a blockIndex; highlight lands on the right-panel card, not the canvas element; Hero's positional blocks not addressable | 🟡 Partial |
-| 4 | Sidebar block tree | Section rows expand to block rows with **dynamic titles** ("Heading — *Browse our latest pro…*"); Add block inline; per-row actions | Flat section list; blocks exist only as always-expanded cards in the right panel | ⬜ Missing |
-| 5 | Focused per-block panel | Selecting a block shows *only its* fields (Label, Link chip, Style, Button colors) with back/X | Whole-section form including every block at once | ⬜ Missing |
-| 6 | Rich field controls | Image picker w/ media library + stock explore; link shows a resource **chip** ("All Products") + open-in-new-tab; segmented controls; palette-linked colours | Image = URL text field; link = T13 type-dropdown+select (functional, chipless); plain selects/colour inputs | 🟡 Partial |
-| 7 | Page navigator | Searchable dropdown of every page type, drill-in to pick the *specific* product/collection the preview uses | Plain `<select>` of templates; preview product hardcoded to first product | 🟡 Partial |
-| 8 | Live preview, no reloads | Settings patch the canvas live before save (spec §8.4); saves re-render one section (§9) | Full iframe reload (cache-busted) after every save; nothing live before save | ⬜ Missing — **the biggest "feel" gap** |
-| 9 | Editor chrome | Dirty-state Save bar, undo/redo, device toggle, fullscreen, inspector toggle, deep-link URL (`?section=&block=`) | Per-section Save button only | ⬜ Missing |
+| 1 | Hover affordances | Outline + name badge ("Hero", "Menu") on hover over any section/block; "+" insertion points between sections | Hover outline + name badge, in-canvas block outlining, floating toolbar (hide/duplicate/delete), "+" insert points, desktop/mobile device toggle — all shipped (E1) | ✅ |
+| 2 | Section click-to-select | Canvas click → sidebar + panel jump | Shipped (T15), incl. reverse highlight | ✅ |
+| 3 | Block/element click-to-select w/ own canvas outline | "Shop all" button gets its own outline; URL carries `&block=` | Every block-bearing section type has `data-block-index`; every individual field (`data-field`) across all 20 section types is independently clickable and outlines in-canvas — a click resolves both which block AND which field, exactly the "Shop all button gets its own outline" bar (E3) | ✅ |
+| 4 | Sidebar block tree | Section rows expand to block rows with **dynamic titles** ("Heading — *Browse our latest pro…*"); Add block inline; per-row actions | Shipped (E3): the selected section's blocks list directly beneath it in the tree, dynamic titles (heading/title/text/question/label/value fallback chain), "+ Add {type}" inline, drag-reorder | ✅ |
+| 5 | Focused per-block panel | Selecting a block shows *only its* fields (Label, Link chip, Style, Button colors) with back/X | Shipped (E3): a section row shows only its settings; a block row shows only that block's fields with a "← Back" breadcrumb — never bundled together | ✅ |
+| 6 | Rich field controls | Image picker w/ media library + stock explore; link shows a resource **chip** ("All Products") + open-in-new-tab; segmented controls; palette-linked colours | Image = URL text field; link = search-based picker (functional, chipless); plain selects | 🟡 Partial — **the only capability gap left** |
+| 7 | Page navigator | Searchable dropdown of every page type, drill-in to pick the *specific* product/collection the preview uses | Searchable navigator (Pages/Products/Categories/Collections) shipped; preview-context picker for `product`/`collection` templates shipped (E5 remainder) — choose the real product/collection a dynamic template previews with | ✅ |
+| 8 | Live preview, no reloads | Settings patch the canvas live before save (spec §8.4); saves re-render one section (§9) | Shipped (E2): draft settings/blocks stream into the canvas live as the merchant types (250ms debounce); saving a section's content no longer reloads the iframe; dirty-state Save bar with a discard-confirm guard | ✅ |
+| 9 | Editor chrome | Dirty-state Save bar, undo/redo, device toggle, fullscreen, inspector toggle, deep-link URL (`?section=&block=`) | All shipped (E1 + E3 + E6): session-scoped undo/redo, fullscreen preview, an inspector toggle that suspends canvas click-interception so real links/Add-to-Cart work for a sanity check, Esc/Ctrl+Z/Ctrl+Y/arrow-key support, `?template=&section=&block=` deep links | ✅ |
 | 10 | No accidental nav/text-selection in canvas | ✓ | ✓ (T15 + the mousedown fix) | ✅ |
 
 ## Why this is very buildable on our stack (and in one place cheaper than Shopify's)
@@ -48,6 +51,12 @@ Same data model underneath — the work is UI/interaction, almost entirely front
   `ai-assist-button` component already exists in `shared/`).
 
 ## Milestones
+
+**Status: E1 ✅ done · E2 ✅ done · E3 ✅ done (2026-07-31) · E4 outstanding · E5 ✅ done · E6 ✅ done.**
+E3's commit folded in E5's remainder and all of E6 as well — they shared the same file/state model and
+were small enough to land together rather than as separate passes. Only E4 (rich field controls) is
+left from this plan; see `v2-storefront-experience-roadmap.md` for T17 (theme blocks), sequenced as its
+own dedicated pass after E3.
 
 **E1 — Canvas feel** *(medium)*
 Hover outline + name badge on sections and blocks (CSS `content: attr(data-section-label)` — a host
