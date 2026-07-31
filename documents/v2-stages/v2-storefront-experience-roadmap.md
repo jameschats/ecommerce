@@ -26,9 +26,14 @@ order co-purchase frequency via a new `IProductService.GetFrequentlyBoughtTogeth
 `7abf3a4`; FBT ranking logic verified end-to-end against real multi-item order data on a local
 scratch order, since neither the bazaar tenant nor local dev DB had any pre-existing multi-item
 paid orders to exercise it against live). All deployed and live-verified on
-`bazaar.wavcommerce.online`.
+`bazaar.wavcommerce.online`. Phase E, partial (2 of 4 theme-builder gaps — commit `5f7eadf`):
+`ImageGallery` (click-to-open lightbox photo grid) and `InstagramFeed` (curated square grid +
+"Follow us" link, photos uploaded not pulled live) — both deployed and live-verified via a
+scratch section added to a draft theme, then removed. Custom HTML/embed and AI Content Block
+deliberately deferred (see Phase E section below) rather than rushed into the same pass.
 
-**In progress**: Phase E (below).
+**In progress**: Phase F (below) — Phase E's two deferred items stay parked until their own
+scoped passes; not blocking the rest of the roadmap.
 
 ## E3 — element-by-element editing (deferred, not detailed here)
 The confirmed "next big thing" from the original `v2-theme-editor-parity-plan.md` sequence
@@ -86,13 +91,23 @@ follow-up whenever convenient — same shape of fix as the RelatedProducts one.
 - Frequently Bought Together.
 
 ## Phase E — new theme-builder blocks
-**Status: researching now.**
 Theme-builder audit found 12 of 17 requested blocks already exist (mostly from R1). Four gaps:
-- Dedicated Image Gallery block (lightbox-style; Collage/TileGrid cover mosaic-style but not this).
-- Instagram Feed block.
-- Custom HTML/embed block (RichText is sanitized, not raw embed — needs careful XSS scoping).
-- AI Content Block (a section that self-generates/regenerates its own content — we have AI page and
-  AI catalog generation already, not a section-level version of this).
+- **Done**: Dedicated Image Gallery block (lightbox-style; Collage/TileGrid cover mosaic-style but
+  not this) — new `ImageGallery` section type, click-to-open lightbox (prev/next, Escape/backdrop
+  close), reusing the same block/settings architecture as every other section type.
+- **Done**: Instagram Feed block — new `InstagramFeed` section type, a curated square photo grid
+  styled like Instagram with a "Follow us" link to the merchant's real profile URL. Scoped as
+  merchant-uploaded photos, not a live Instagram Graph API pull (that needs OAuth/business-account
+  setup — a materially bigger, separate integration; flagged, not silently substituted).
+- **Deferred**: Custom HTML/embed block (RichText is sanitized, not raw embed — a safe version needs
+  a deliberate XSS-scoping pass: likely a sandboxed `<iframe srcdoc>` rather than raw `[innerHTML]`,
+  since this section type would be the one place a tenant admin's input renders unsanitized on their
+  own storefront — worth its own focused review rather than bundling into a features pass).
+- **Deferred**: AI Content Block (a section that self-generates/regenerates its own content on
+  demand — we have AI page and AI catalog generation already as precedent, but a section-level
+  "regenerate via AI" control is a distinctly-sized feature: credit metering, a generation service
+  call from inside the section renderer, its own settings UI — not a same-shape block like the two
+  shipped above).
 
 ## Phase F–K — from the Indian D2C site deep-dive (Snitch, Minimalist, boAt, Blue Tokai, Plum)
 Most of what these sites do already maps to section types we have (trust-pillar blocks →
