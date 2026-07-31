@@ -60,8 +60,11 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
               @if (matchesSearch('Products')) {
                 <a routerLink="/admin/products" class="block px-3 py-1.5 text-sm hover:bg-slate-50 border-t border-slate-100 mt-1">Products →</a>
               }
+              @if (matchesSearch('Categories')) {
+                <a routerLink="/admin/categories" class="block px-3 py-1.5 text-sm hover:bg-slate-50">Categories →</a>
+              }
               @if (matchesSearch('Collections')) {
-                <a routerLink="/admin/categories" class="block px-3 py-1.5 text-sm hover:bg-slate-50">Collections →</a>
+                <a routerLink="/admin/collections" class="block px-3 py-1.5 text-sm hover:bg-slate-50">Collections →</a>
               }
             </div>
           }
