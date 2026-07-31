@@ -42,8 +42,19 @@ public sealed class SupportAdminController(ISupportService svc) : ControllerBase
     private long AdminUserId => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : 0;
 
     [HttpGet]
-    public async Task<IActionResult> Queue([FromQuery] string? status, CancellationToken ct)
-        => Ok(ApiResponse<IReadOnlyList<TicketDto>>.Ok(await svc.QueueAsync(status, ct)));
+    public async Task<IActionResult> Queue(
+        [FromQuery] string? status, [FromQuery] string? priority, [FromQuery] string? tier,
+        [FromQuery] long? assignedTo, [FromQuery] bool mine = false, [FromQuery] bool unassigned = false,
+        CancellationToken ct = default)
+    {
+        var agent = mine ? AdminUserId : assignedTo;
+        var filter = new TicketQueueFilter(status, priority, tier, agent, unassigned);
+        return Ok(ApiResponse<IReadOnlyList<TicketDto>>.Ok(await svc.QueueAsync(filter, ct)));
+    }
+
+    [HttpGet("agents")]
+    public async Task<IActionResult> Agents(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<AgentDto>>.Ok(await svc.AgentsAsync(ct)));
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Thread(long id, CancellationToken ct)
@@ -58,16 +69,26 @@ public sealed class SupportAdminController(ISupportService svc) : ControllerBase
 
     [HttpPut("{id:long}/status")]
     public async Task<IActionResult> SetStatus(long id, [FromBody] StatusRequest req, CancellationToken ct)
-    {
-        await svc.SetStatusAsync(id, req.Status, AdminUserId, ct);
-        return Ok(ApiResponse<object>.Ok(new { }, "Status updated."));
-    }
+        => Ok(ApiResponse<TicketDto>.Ok(await svc.SetStatusAsync(id, req.Status, AdminUserId, ct), "Status updated."));
 
     /// <summary>Set priority / category / assignee. Any omitted field is left as-is.</summary>
     [HttpPut("{id:long}/triage")]
     public async Task<IActionResult> Triage(long id, [FromBody] TriageRequest req, CancellationToken ct)
         => Ok(ApiResponse<TicketDto>.Ok(
             await svc.TriageAsync(id, req.Priority, req.Category, req.AssignedToUserId, AdminUserId, ct), "Ticket updated."));
+
+    /// <summary>Escalate a tier (omit tier to step up one level).</summary>
+    [HttpPut("{id:long}/escalate")]
+    public async Task<IActionResult> Escalate(long id, [FromBody] EscalateRequest req, CancellationToken ct)
+        => Ok(ApiResponse<TicketDto>.Ok(await svc.EscalateAsync(id, req.Tier, AdminUserId, ct), "Ticket escalated."));
+
+    [HttpPut("{id:long}/assign")]
+    public async Task<IActionResult> Assign(long id, [FromBody] AssignRequest req, CancellationToken ct)
+        => Ok(ApiResponse<TicketDto>.Ok(await svc.AssignAsync(id, req.AssigneeUserId, AdminUserId, ct), "Ticket assigned."));
+
+    [HttpPut("{id:long}/tags")]
+    public async Task<IActionResult> Tags(long id, [FromBody] TagsRequest req, CancellationToken ct)
+        => Ok(ApiResponse<TicketDto>.Ok(await svc.SetTagsAsync(id, req.Tags, AdminUserId, ct), "Tags updated."));
 }
 
 public sealed record CreateTicketRequest(string Subject, string Message);
@@ -75,3 +96,6 @@ public sealed record ReplyRequest(string Body);
 public sealed record AdminReplyRequest(string Body, bool IsInternal);
 public sealed record StatusRequest(string Status);
 public sealed record TriageRequest(string? Priority, string? Category, long? AssignedToUserId);
+public sealed record EscalateRequest(string? Tier);
+public sealed record AssignRequest(long? AssigneeUserId);
+public sealed record TagsRequest(string? Tags);

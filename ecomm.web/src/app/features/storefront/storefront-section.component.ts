@@ -23,14 +23,14 @@ import { ThemeService } from '../../core/services/theme.service';
         @switch (s().style) {
           @case ('banner') {
             @if (blocks()[0]; as b) {
-              <section class="relative min-h-[360px] sm:min-h-[440px] flex items-center bg-slate-900"
+              <section class="relative min-h-[360px] sm:min-h-[440px] flex items-center bg-slate-900" data-field="image"
                        [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
                 <div class="absolute inset-0" style="background:linear-gradient(90deg, rgba(0,0,0,0.72), rgba(0,0,0,0.15))"></div>
                 <div class="relative page-container text-white" [attr.data-block-index]="0">
                   <div class="max-w-xl">
-                    @if (b.heading) { <h2 class="text-4xl sm:text-5xl font-extrabold leading-tight">{{ b.heading }}</h2> }
-                    @if (b.subheading) { <p class="mt-3 text-white/85 text-lg">{{ b.subheading }}</p> }
-                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium">{{ b.buttonText }}</a> }
+                    @if (b.heading) { <h2 class="text-4xl sm:text-5xl font-extrabold leading-tight" data-field="heading">{{ b.heading }}</h2> }
+                    @if (b.subheading) { <p class="mt-3 text-white/85 text-lg" data-field="subheading">{{ b.subheading }}</p> }
+                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium" data-field="buttonText">{{ b.buttonText }}</a> }
                   </div>
                 </div>
               </section>
@@ -41,11 +41,11 @@ import { ThemeService } from '../../core/services/theme.service';
               <section class="page-container py-8">
                 <div class="grid md:grid-cols-2 items-stretch rounded-2xl overflow-hidden" style="background:var(--color-secondary,#0f172a)">
                   <div class="p-10 flex flex-col justify-center text-white" [attr.data-block-index]="0">
-                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-bold">{{ b.heading }}</h2> }
-                    @if (b.subheading) { <p class="mt-3 text-white/80">{{ b.subheading }}</p> }
-                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit">{{ b.buttonText }}</a> }
+                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-bold" data-field="heading">{{ b.heading }}</h2> }
+                    @if (b.subheading) { <p class="mt-3 text-white/80" data-field="subheading">{{ b.subheading }}</p> }
+                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit" data-field="buttonText">{{ b.buttonText }}</a> }
                   </div>
-                  @if (b.image) { <img [src]="b.image" alt="" class="w-full h-full object-cover min-h-[280px]" /> }
+                  @if (b.image) { <img [src]="b.image" alt="" class="w-full h-full object-cover min-h-[280px]" data-field="image" /> }
                 </div>
               </section>
             }
@@ -55,15 +55,15 @@ import { ThemeService } from '../../core/services/theme.service';
             @if (blocks()[0]; as b) {
               <section class="page-container py-6">
                 <div class="grid md:grid-cols-[1fr_1.7fr_1fr] gap-4 items-stretch">
-                  @if (blocks()[1]; as l) { <div class="hidden md:block overflow-hidden sf-card" [attr.data-block-index]="1"><img [src]="l.image" alt="" class="w-full h-full object-cover" /></div> }
+                  @if (blocks()[1]; as l) { <div class="hidden md:block overflow-hidden sf-card" [attr.data-block-index]="1"><img [src]="l.image" alt="" class="w-full h-full object-cover" data-field="image" /></div> }
                   <div class="p-8 sm:p-10 flex flex-col justify-center min-h-[320px] overflow-hidden" style="border-radius: var(--radius-card, 0.75rem)" [attr.data-block-index]="0"
                        [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, 'var(--color-primary)')"
                        [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
-                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">{{ b.heading }}</h2> }
-                    @if (b.subheading) { <p class="mt-3 text-white/85">{{ b.subheading }}</p> }
-                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit">{{ b.buttonText }}</a> }
+                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight" data-field="heading">{{ b.heading }}</h2> }
+                    @if (b.subheading) { <p class="mt-3 text-white/85" data-field="subheading">{{ b.subheading }}</p> }
+                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-5 px-5 py-2.5 rounded-lg bg-white text-slate-900 font-medium w-fit" data-field="buttonText">{{ b.buttonText }}</a> }
                   </div>
-                  @if (blocks()[2]; as r) { <div class="hidden md:block overflow-hidden sf-card" [attr.data-block-index]="2"><img [src]="r.image" alt="" class="w-full h-full object-cover" /></div> }
+                  @if (blocks()[2]; as r) { <div class="hidden md:block overflow-hidden sf-card" [attr.data-block-index]="2"><img [src]="r.image" alt="" class="w-full h-full object-cover" data-field="image" /></div> }
                 </div>
               </section>
             }
@@ -75,13 +75,13 @@ import { ThemeService } from '../../core/services/theme.service';
               <div class="relative">
                 <div #heroCarousel (scroll)="onHeroCarouselScroll($event)" class="flex gap-3 overflow-x-auto no-scrollbar snap-x scroll-smooth">
                   @for (b of blocks(); track $index) {
-                    <div data-hero-card class="relative shrink-0 snap-start w-[82%] sm:w-[48%] lg:w-[32%] min-h-[170px] sm:min-h-[220px] overflow-hidden sf-card" [attr.data-block-index]="$index"
+                    <div data-hero-card data-field="image" class="relative shrink-0 snap-start w-[82%] sm:w-[48%] lg:w-[32%] min-h-[170px] sm:min-h-[220px] overflow-hidden sf-card" [attr.data-block-index]="$index"
                          [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
                       <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
                       <div class="relative h-full flex flex-col justify-end p-4 sm:p-5 text-white">
-                        @if (b.heading) { <h3 class="text-lg sm:text-xl font-bold leading-tight">{{ b.heading }}</h3> }
-                        @if (b.subheading) { <p class="mt-1 text-white/85 text-xs sm:text-sm">{{ b.subheading }}</p> }
-                        @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-2 sm:mt-3 px-3 py-1.5 rounded-lg bg-primary text-white font-medium text-xs sm:text-sm w-fit">{{ b.buttonText }}</a> }
+                        @if (b.heading) { <h3 class="text-lg sm:text-xl font-bold leading-tight" data-field="heading">{{ b.heading }}</h3> }
+                        @if (b.subheading) { <p class="mt-1 text-white/85 text-xs sm:text-sm" data-field="subheading">{{ b.subheading }}</p> }
+                        @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-2 sm:mt-3 px-3 py-1.5 rounded-lg bg-primary text-white font-medium text-xs sm:text-sm w-fit" data-field="buttonText">{{ b.buttonText }}</a> }
                       </div>
                     </div>
                   }
@@ -104,13 +104,13 @@ import { ThemeService } from '../../core/services/theme.service';
           @default {
             <section class="relative">
               @for (b of blocks(); track $index) {
-                <div class="relative min-h-[320px] flex items-center justify-center text-center bg-slate-900 text-white" [attr.data-block-index]="$index"
+                <div class="relative min-h-[320px] flex items-center justify-center text-center bg-slate-900 text-white" [attr.data-block-index]="$index" data-field="image"
                      [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
                   <div class="bg-black/30 absolute inset-0"></div>
                   <div class="relative p-8 max-w-2xl">
-                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-bold">{{ b.heading }}</h2> }
-                    @if (b.subheading) { <p class="mt-2 text-slate-200">{{ b.subheading }}</p> }
-                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-4 px-5 py-2 rounded-lg bg-primary text-white font-medium">{{ b.buttonText }}</a> }
+                    @if (b.heading) { <h2 class="text-3xl sm:text-4xl font-bold" data-field="heading">{{ b.heading }}</h2> }
+                    @if (b.subheading) { <p class="mt-2 text-slate-200" data-field="subheading">{{ b.subheading }}</p> }
+                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-4 px-5 py-2 rounded-lg bg-primary text-white font-medium" data-field="buttonText">{{ b.buttonText }}</a> }
                   </div>
                 </div>
               }
@@ -121,13 +121,13 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('Multicolumn') {
         <section class="page-container py-8">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             @for (b of blocks(); track $index) {
               <div class="text-center p-5 sf-card" [attr.data-block-index]="$index">
-                @if (b.icon) { <div class="text-3xl">{{ b.icon }}</div> }
-                @if (b.heading) { <h3 class="font-semibold text-slate-900 mt-2">{{ b.heading }}</h3> }
-                @if (b.text) { <p class="text-sm text-slate-500 mt-1">{{ b.text }}</p> }
+                @if (b.icon) { <div class="text-3xl" data-field="icon">{{ b.icon }}</div> }
+                @if (b.heading) { <h3 class="font-semibold text-slate-900 mt-2" data-field="heading">{{ b.heading }}</h3> }
+                @if (b.text) { <p class="text-sm text-slate-500 mt-1" data-field="text">{{ b.text }}</p> }
               </div>
             }
           </div>
@@ -135,17 +135,17 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('TileGrid') {
         <section class="page-container py-8">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid gap-4" [class]="tileCols()">
             @for (b of blocks(); track $index) {
               <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card" [attr.data-block-index]="$index">
-                <div class="aspect-[4/5] bg-slate-100 overflow-hidden">
+                <div class="aspect-[4/5] bg-slate-100 overflow-hidden" data-field="image">
                   @if (b.image) { <img [src]="b.image" [alt]="b.label || ''" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
                 </div>
                 @if (b.label || b.sublabel) {
                   <div class="p-3 text-center">
-                    @if (b.label) { <div class="font-semibold text-slate-800">{{ b.label }}</div> }
-                    @if (b.sublabel) { <div class="text-xs text-slate-500 mt-0.5">{{ b.sublabel }}</div> }
+                    @if (b.label) { <div class="font-semibold text-slate-800" data-field="label">{{ b.label }}</div> }
+                    @if (b.sublabel) { <div class="text-xs text-slate-500 mt-0.5" data-field="sublabel">{{ b.sublabel }}</div> }
                   </div>
                 }
               </a>
@@ -155,17 +155,17 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('PromoTiles') {
         <section class="page-container py-8">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             @for (b of blocks(); track $index) {
               <a [href]="b.link || '/products'" class="relative block overflow-hidden min-h-[170px] sf-card" [attr.data-block-index]="$index"
-                 [style.background-color]="theme.resolveBg(b.colorScheme, b.backgroundColor, 'var(--color-secondary, #0f172a)')">
+                 [style.background-color]="theme.resolveBg(b.colorScheme, b.backgroundColor, 'var(--color-secondary, #0f172a)')" data-field="image">
                 @if (b.image) { <img [src]="b.image" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" /> }
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
                 <div class="relative p-4 flex flex-col justify-end h-full min-h-[170px]" [style.color]="theme.resolveText(b.colorScheme, '#ffffff')">
-                  @if (b.badge) { <span class="text-[11px] font-bold uppercase tracking-wide bg-white/90 text-slate-900 rounded px-1.5 py-0.5 w-fit mb-1.5">{{ b.badge }}</span> }
-                  @if (b.heading) { <div class="font-bold leading-snug">{{ b.heading }}</div> }
-                  @if (b.text) { <div class="text-xs text-white/80 mt-0.5">{{ b.text }}</div> }
+                  @if (b.badge) { <span class="text-[11px] font-bold uppercase tracking-wide bg-white/90 text-slate-900 rounded px-1.5 py-0.5 w-fit mb-1.5" data-field="badge">{{ b.badge }}</span> }
+                  @if (b.heading) { <div class="font-bold leading-snug" data-field="heading">{{ b.heading }}</div> }
+                  @if (b.text) { <div class="text-xs text-white/80 mt-0.5" data-field="text">{{ b.text }}</div> }
                 </div>
               </a>
             }
@@ -176,7 +176,7 @@ import { ThemeService } from '../../core/services/theme.service';
         <div class="overflow-hidden py-2.5 text-sm font-medium"
              [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, '#111827')"
              [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
-          <div class="marquee-x flex whitespace-nowrap w-max">
+          <div class="marquee-x flex whitespace-nowrap w-max" data-field="text">
             @for (i of ph; track i) {
               <span class="mx-6">{{ s().text || 'Free shipping over ₹499' }}</span><span class="opacity-50">✦</span>
               <span class="mx-6">{{ s().text || 'Free shipping over ₹499' }}</span><span class="opacity-50">✦</span>
@@ -189,36 +189,36 @@ import { ThemeService } from '../../core/services/theme.service';
              [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, '#111827')"
              [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
           @if (remaining(); as r) {
-            @if (s().heading) { <span>{{ s().heading }}</span> }
+            @if (s().heading) { <span data-field="heading">{{ s().heading }}</span> }
             <span class="font-mono font-bold tabular-nums">{{ r.days }}d {{ r.hours }}h {{ r.mins }}m {{ r.secs }}s</span>
           } @else {
-            <span>{{ s().expiredText || 'This offer has ended' }}</span>
+            <span data-field="expiredText">{{ s().expiredText || 'This offer has ended' }}</span>
           }
-          @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="ml-2 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 font-medium">{{ s().buttonText }}</a> }
+          @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="ml-2 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 font-medium" data-field="buttonText">{{ s().buttonText }}</a> }
         </div>
       }
       @case ('RichText') {
-        <div class="max-w-3xl mx-auto px-4 py-8 prose" [style.text-align]="s().align || 'left'" [innerHTML]="s().content"></div>
+        <div class="max-w-3xl mx-auto px-4 py-8 prose" data-field="content" [style.text-align]="s().align || 'left'" [innerHTML]="s().content"></div>
       }
       @case ('ImageWithText') {
         <section class="max-w-5xl mx-auto px-4 py-10 grid sm:grid-cols-2 gap-8 items-center" [class.sm:flex-row-reverse]="s().imageSide === 'right'">
-          @if (s().image) { <img [src]="s().image" alt="" class="rounded-xl w-full object-cover" [class.sm:order-2]="s().imageSide === 'right'" /> }
+          @if (s().image) { <img [src]="s().image" alt="" class="rounded-xl w-full object-cover" [class.sm:order-2]="s().imageSide === 'right'" data-field="image" /> }
           <div>
-            @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900">{{ s().heading }}</h2> }
-            @if (s().body) { <p class="mt-2 text-slate-600">{{ s().body }}</p> }
-            @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-4 px-5 py-2 rounded-lg bg-primary text-white font-medium">{{ s().buttonText }}</a> }
+            @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900" data-field="heading">{{ s().heading }}</h2> }
+            @if (s().body) { <p class="mt-2 text-slate-600" data-field="body">{{ s().body }}</p> }
+            @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-4 px-5 py-2 rounded-lg bg-primary text-white font-medium" data-field="buttonText">{{ s().buttonText }}</a> }
           </div>
         </section>
       }
       @case ('Testimonials') {
         <section class="max-w-5xl mx-auto px-4 py-10">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-6">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-6" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid sm:grid-cols-3 gap-4">
             @for (b of blocks(); track $index) {
               <div class="bg-white border border-slate-200 rounded-xl p-5" [attr.data-block-index]="$index">
-                <div class="text-amber-400">{{ stars(b.rating) }}</div>
-                <p class="text-slate-600 mt-2">"{{ b.quote }}"</p>
-                <div class="text-sm font-medium text-slate-800 mt-3">— {{ b.author }}</div>
+                <div class="text-amber-400" data-field="rating">{{ stars(b.rating) }}</div>
+                <p class="text-slate-600 mt-2" data-field="quote">"{{ b.quote }}"</p>
+                <div class="text-sm font-medium text-slate-800 mt-3" data-field="author">— {{ b.author }}</div>
               </div>
             }
           </div>
@@ -228,14 +228,14 @@ import { ThemeService } from '../../core/services/theme.service';
         <section class="py-12 text-center"
                  [style.background-color]="theme.resolveBg(s()['colorScheme'], s().backgroundColor, '#111827')"
                  [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
-          @if (s().heading) { <h2 class="text-2xl font-bold">{{ s().heading }}</h2> }
-          @if (s().subtext) { <p class="mt-1 text-white/80">{{ s().subtext }}</p> }
-          @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-4 px-6 py-2 rounded-lg bg-white text-slate-900 font-medium">{{ s().buttonText }}</a> }
+          @if (s().heading) { <h2 class="text-2xl font-bold" data-field="heading">{{ s().heading }}</h2> }
+          @if (s().subtext) { <p class="mt-1 text-white/80" data-field="subtext">{{ s().subtext }}</p> }
+          @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-4 px-6 py-2 rounded-lg bg-white text-slate-900 font-medium" data-field="buttonText">{{ s().buttonText }}</a> }
         </section>
       }
       @case ('Categories') {
         <section class="max-w-6xl mx-auto px-4 py-10">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading }}</h2> }
           @if (categories().length) {
             @if (s().style === 'cards') {
               <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -273,10 +273,10 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('Collage') {
         <section class="page-container py-8">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 auto-rows-[140px] sm:auto-rows-[160px]">
             @for (b of blocks(); track $index) {
-              <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card" [attr.data-block-index]="$index"
+              <a [href]="b.link || '/products'" class="group block overflow-hidden sf-card" [attr.data-block-index]="$index" data-field="image"
                  [class]="b.span === 'large' ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'">
                 @if (b.image) { <img [src]="b.image" alt="" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
               </a>
@@ -287,27 +287,27 @@ import { ThemeService } from '../../core/services/theme.service';
       @case ('EditorialSplit') {
         <section class="page-container py-10">
           <div class="grid md:grid-cols-2 gap-10 items-center" [class.md:flex-row-reverse]="s().imageSide === 'right'">
-            @if (s().image) { <img [src]="s().image" alt="" class="rounded-xl w-full object-cover aspect-[4/3]" [class.md:order-2]="s().imageSide === 'right'" /> }
+            @if (s().image) { <img [src]="s().image" alt="" class="rounded-xl w-full object-cover aspect-[4/3]" [class.md:order-2]="s().imageSide === 'right'" data-field="image" /> }
             <div>
-              @if (s().eyebrow) { <div class="text-sm font-semibold uppercase tracking-wide text-primary mb-2">{{ s().eyebrow }}</div> }
-              @if (s().heading) { <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">{{ s().heading }}</h2> }
-              @if (s().body) { <p class="mt-4 text-lg text-slate-600">{{ s().body }}</p> }
-              @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium">{{ s().buttonText }}</a> }
+              @if (s().eyebrow) { <div class="text-sm font-semibold uppercase tracking-wide text-primary mb-2" data-field="eyebrow">{{ s().eyebrow }}</div> }
+              @if (s().heading) { <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight" data-field="heading">{{ s().heading }}</h2> }
+              @if (s().body) { <p class="mt-4 text-lg text-slate-600" data-field="body">{{ s().body }}</p> }
+              @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium" data-field="buttonText">{{ s().buttonText }}</a> }
             </div>
           </div>
         </section>
       }
       @case ('FaqAccordion') {
         <section class="max-w-3xl mx-auto px-4 py-10">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-6">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-6" data-field="heading">{{ s().heading }}</h2> }
           <div class="divide-y divide-slate-200 border-y border-slate-200">
             @for (b of blocks(); track $index) {
               <div [attr.data-block-index]="$index">
                 <button type="button" (click)="toggleFaq($index)" class="w-full flex items-center justify-between gap-3 py-4 text-left font-medium text-slate-800">
-                  <span>{{ b.question }}</span>
+                  <span data-field="question">{{ b.question }}</span>
                   <span class="text-slate-400 shrink-0">{{ isFaqOpen($index) ? '−' : '+' }}</span>
                 </button>
-                @if (isFaqOpen($index)) { <p class="pb-4 text-slate-600">{{ b.answer }}</p> }
+                @if (isFaqOpen($index)) { <p class="pb-4 text-slate-600" data-field="answer">{{ b.answer }}</p> }
               </div>
             }
           </div>
@@ -315,8 +315,8 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('VideoSection') {
         <section class="page-container py-10">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-5">{{ s().heading }}</h2> }
-          <div class="max-w-4xl mx-auto rounded-xl overflow-hidden bg-slate-900 aspect-video">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-5" data-field="heading">{{ s().heading }}</h2> }
+          <div class="max-w-4xl mx-auto rounded-xl overflow-hidden bg-slate-900 aspect-video" data-field="videoUrl">
             @if (videoEmbedSrc(s().videoUrl); as embed) {
               <iframe [src]="embed" class="w-full h-full" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             } @else if (s().videoUrl) {
@@ -325,15 +325,15 @@ import { ThemeService } from '../../core/services/theme.service';
               <img [src]="s().posterImage" alt="" class="w-full h-full object-cover" />
             }
           </div>
-          @if (s().caption) { <p class="text-center text-sm text-slate-500 mt-3">{{ s().caption }}</p> }
+          @if (s().caption) { <p class="text-center text-sm text-slate-500 mt-3" data-field="caption">{{ s().caption }}</p> }
         </section>
       }
       @case ('LogoStrip') {
         <section class="page-container py-8">
-          @if (s().heading) { <h2 class="text-center text-sm font-semibold uppercase tracking-wide text-slate-400 mb-5">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-center text-sm font-semibold uppercase tracking-wide text-slate-400 mb-5" data-field="heading">{{ s().heading }}</h2> }
           <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
             @for (b of blocks(); track $index) {
-              <a [href]="b.link || '#'" [attr.data-block-index]="$index" class="opacity-60 hover:opacity-100 transition grayscale hover:grayscale-0">
+              <a [href]="b.link || '#'" [attr.data-block-index]="$index" data-field="image" class="opacity-60 hover:opacity-100 transition grayscale hover:grayscale-0">
                 @if (b.image) { <img [src]="b.image" [alt]="b.label || ''" class="h-8 sm:h-10 object-contain" loading="lazy" /> }
               </a>
             }
@@ -342,12 +342,12 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('Stats') {
         <section class="page-container py-10">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-8">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 text-center mb-8" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             @for (b of blocks(); track $index) {
               <div [attr.data-block-index]="$index">
-                <div class="text-3xl sm:text-4xl font-extrabold text-slate-900">{{ b.value }}</div>
-                <div class="text-sm text-slate-500 mt-1">{{ b.label }}</div>
+                <div class="text-3xl sm:text-4xl font-extrabold text-slate-900" data-field="value">{{ b.value }}</div>
+                <div class="text-sm text-slate-500 mt-1" data-field="label">{{ b.label }}</div>
               </div>
             }
           </div>
@@ -355,10 +355,10 @@ import { ThemeService } from '../../core/services/theme.service';
       }
       @case ('ImageGallery') {
         <section class="page-container py-8">
-          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading }}</h2> }
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             @for (b of blocks(); track $index) {
-              <button type="button" (click)="openGalleryLightbox($index)" [attr.data-block-index]="$index"
+              <button type="button" (click)="openGalleryLightbox($index)" [attr.data-block-index]="$index" data-field="image"
                 class="group block aspect-square overflow-hidden sf-card">
                 @if (b.image) { <img [src]="b.image" [alt]="b.caption || ''" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
               </button>
@@ -387,16 +387,16 @@ import { ThemeService } from '../../core/services/theme.service';
       @case ('InstagramFeed') {
         <section class="page-container py-8">
           <div class="flex items-center justify-between mb-5">
-            @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900">{{ s().heading }}</h2> }
+            @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900" data-field="heading">{{ s().heading }}</h2> }
             @if (s().profileUrl || s().handle) {
-              <a [href]="s().profileUrl || '#'" target="_blank" rel="noopener" class="text-sm font-medium text-primary hover:underline">
+              <a [href]="s().profileUrl || '#'" target="_blank" rel="noopener" class="text-sm font-medium text-primary hover:underline" data-field="handle">
                 {{ s().handle ? '@' + s().handle : 'Follow us' }}
               </a>
             }
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             @for (b of blocks(); track $index) {
-              <a [href]="b.link || s().profileUrl || '#'" target="_blank" rel="noopener"
+              <a [href]="b.link || s().profileUrl || '#'" target="_blank" rel="noopener" data-field="image"
                 class="group block aspect-square overflow-hidden bg-slate-100" [attr.data-block-index]="$index">
                 @if (b.image) { <img [src]="b.image" alt="" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
               </a>
@@ -407,7 +407,7 @@ import { ThemeService } from '../../core/services/theme.service';
       @default {
         <!-- FeaturedProducts / ProductGrid / any product rail -->
         <section class="max-w-6xl mx-auto px-4 py-10">
-          @if (s().heading || section().title) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading || section().title }}</h2> }
+          @if (s().heading || section().title) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading || section().title }}</h2> }
           @if (!products().length) {
             <!-- No products yet — skeleton cards so the layout reads (real ones replace these). -->
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -473,6 +473,11 @@ import { ThemeService } from '../../core/services/theme.service';
     }
     :host(.theme-editor-canvas) [data-block-index]:hover { outline: 1px dashed #60a5fa; outline-offset: -1px; }
     :host(.theme-editor-canvas) .theme-editor-selected-block { outline: 2px solid #2563eb; outline-offset: -2px; }
+    /* E3: field-level hover takes precedence over the block-level outline above it (more specific
+       selector, and it's the nearer/innermost element anyway) — a finer dashed line signals "this
+       exact element", distinct from "this whole block". */
+    :host(.theme-editor-canvas) [data-field]:hover { outline: 1px dashed #a78bfa; outline-offset: -1px; }
+    :host(.theme-editor-canvas) .theme-editor-selected-field { outline: 2px solid #7c3aed; outline-offset: -2px; }
     .te-toolbar {
       position: absolute; top: 6px; right: 6px; z-index: 31; display: flex; gap: 2px;
       background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px;
@@ -576,7 +581,11 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     const target = event.target as HTMLElement;
     const blockEl = target.closest('[data-block-index]') as HTMLElement | null;
     const blockIndex = blockEl ? Number(blockEl.getAttribute('data-block-index')) : undefined;
-    window.parent.postMessage({ type: 'theme-editor:select', sectionId: this.section().pageSectionId, blockIndex }, window.location.origin);
+    // E3: the nearest data-field (self-or-ancestor) identifies exactly which setting/block field was
+    // clicked, so the editor can jump straight to and focus that one input — "element by element".
+    const fieldEl = target.closest('[data-field]') as HTMLElement | null;
+    const field = fieldEl ? fieldEl.getAttribute('data-field') : undefined;
+    window.parent.postMessage({ type: 'theme-editor:select', sectionId: this.section().pageSectionId, blockIndex, field }, window.location.origin);
   };
   private readonly onWindowMessage = (event: MessageEvent) => {
     if (event.origin !== window.location.origin) return;
@@ -584,18 +593,27 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     if (data?.type === 'theme-editor:highlight') {
       const mine = data.sectionId === this.section().pageSectionId;
       this.highlighted.set(mine);
-      this.setBlockHighlight(mine && typeof data.blockIndex === 'number' ? data.blockIndex : null);
+      this.setSelectionHighlight(
+        mine && typeof data.blockIndex === 'number' ? data.blockIndex : null,
+        mine && typeof data.field === 'string' ? data.field : null,
+      );
     } else if (data?.type === 'theme-editor:update-section' && data.sectionId === this.section().pageSectionId) {
       this.override.set({ settings: data.settings ?? null, blocks: data.blocks ?? null });
     }
   };
 
-  /** E1: outline the selected block in-canvas. Direct DOM class toggling (not a binding) because
-   *  the target elements are arbitrary per-section markup identified only by data-block-index. */
-  private setBlockHighlight(index: number | null): void {
+  /** E1/E3: outline the selected block and/or field in-canvas. Direct DOM class toggling (not a
+   *  binding) because the target elements are arbitrary per-section markup identified only by
+   *  data-block-index/data-field. A field lookup is scoped to the selected block's subtree (not the
+   *  whole section) since repeated blocks reuse the same field keys — e.g. every Multicolumn block
+   *  has its own data-field="heading", so an unscoped query would always hit the first one. */
+  private setSelectionHighlight(blockIndex: number | null, field: string | null): void {
     const host = this.elementRef.nativeElement as HTMLElement;
     host.querySelectorAll('.theme-editor-selected-block').forEach((el) => el.classList.remove('theme-editor-selected-block'));
-    if (index !== null) host.querySelector(`[data-block-index="${index}"]`)?.classList.add('theme-editor-selected-block');
+    host.querySelectorAll('.theme-editor-selected-field').forEach((el) => el.classList.remove('theme-editor-selected-field'));
+    const blockEl = blockIndex !== null ? host.querySelector(`[data-block-index="${blockIndex}"]`) : null;
+    blockEl?.classList.add('theme-editor-selected-block');
+    if (field) (blockEl ?? host).querySelector(`[data-field="${field}"]`)?.classList.add('theme-editor-selected-field');
   }
 
   postAction(action: 'toggleHide' | 'duplicate' | 'delete'): void {

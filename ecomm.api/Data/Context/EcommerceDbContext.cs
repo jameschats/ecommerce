@@ -123,6 +123,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<PlatformPaymentSetting> PlatformPaymentSettings => Set<PlatformPaymentSetting>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
+    public DbSet<SupportTicketActivity> SupportTicketActivities => Set<SupportTicketActivity>();
     public DbSet<SignupBlocklist> SignupBlocklist => Set<SignupBlocklist>();
     public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
     public DbSet<ShipmentCheckpoint> ShipmentCheckpoints => Set<ShipmentCheckpoint>();
@@ -437,6 +438,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<PlatformPaymentSetting>(e => { e.ToTable("PlatformPaymentSettings"); e.HasKey(x => x.PlatformPaymentSettingId); });
         b.Entity<SupportTicket>(e => { e.ToTable("SupportTickets"); e.HasKey(x => x.SupportTicketId); });
         b.Entity<SupportMessage>(e => { e.ToTable("SupportMessages"); e.HasKey(x => x.SupportMessageId); });
+        b.Entity<SupportTicketActivity>(e => { e.ToTable("SupportTicketActivities"); e.HasKey(x => x.SupportTicketActivityId); });
         b.Entity<SignupBlocklist>(e => { e.ToTable("SignupBlocklist"); e.HasKey(x => x.SignupBlocklistId); });
         b.Entity<ContactMessage>(e => { e.ToTable("ContactMessages"); e.HasKey(x => x.ContactMessageId); });
         b.Entity<ShipmentCheckpoint>(e => { e.ToTable("ShipmentCheckpoints"); e.HasKey(x => x.ShipmentCheckpointId); });

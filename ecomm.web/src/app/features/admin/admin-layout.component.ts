@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
 import { AnnouncementService } from '../../core/services/announcement.service';
@@ -15,19 +16,30 @@ import { Announcement } from '../../core/models/superadmin.model';
         <div class="h-14 flex items-center px-4 border-b border-slate-200 font-bold text-slate-800">Admin</div>
         <nav class="flex-1 p-3 text-sm overflow-auto">
           @for (g of groups; track g.title) {
-            <div class="mb-2">
+            <div class="mb-1">
               @if (g.title) {
-                <div class="px-3 pt-3 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{{ g.title }}</div>
+                <button type="button" (click)="toggle(g.title)"
+                        class="w-full flex items-center justify-between px-3 pt-3 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide hover:text-slate-600">
+                  <span>{{ g.title }}</span>
+                  <svg class="w-3 h-3 transition-transform" [class.rotate-90]="isOpen(g.title)"
+                       viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
               }
-              @for (l of g.links; track l.path) {
-                <a [routerLink]="l.path" routerLinkActive="bg-blue-50 text-blue-700 font-medium"
-                   [routerLinkActiveOptions]="{ exact: l.exact ?? false }"
-                   class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">{{ l.label }}</a>
+              @if (!g.title || isOpen(g.title)) {
+                @for (l of g.links; track l.path) {
+                  <a [routerLink]="l.path" routerLinkActive="bg-blue-50 text-blue-700 font-medium"
+                     [routerLinkActiveOptions]="{ exact: l.exact ?? false }"
+                     class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">{{ l.label }}</a>
+                }
               }
             </div>
           }
         </nav>
         <div class="p-3 border-t border-slate-200 text-sm">
+          <a routerLink="/admin/settings" routerLinkActive="bg-blue-50 text-blue-700 font-medium"
+             class="block px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">⚙ Settings</a>
           @if (umamiUrl) {
             <a [href]="umamiUrl" target="_blank" rel="noopener" class="block px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-50">Web traffic ↗</a>
           }
@@ -78,7 +90,51 @@ export class AdminLayoutComponent implements OnInit {
    */
   readonly trialDaysLeft = signal<number | null>(null);
 
+  /**
+   * Titles of sidebar groups the user has expanded. Persisted so their choice sticks across visits.
+   * The group containing the current route is always shown open (see isOpen) so you can see where you are.
+   */
+  private readonly expanded = signal<Set<string>>(this.loadExpanded());
+  private readonly activeGroup = signal<string | null>(null);
+
+  isOpen(title: string): boolean {
+    return this.expanded().has(title) || this.activeGroup() === title;
+  }
+
+  toggle(title: string): void {
+    const next = new Set(this.expanded());
+    // When a group is force-open because it's the active one, the first click should collapse it.
+    if (next.has(title) || this.activeGroup() === title) next.delete(title);
+    else next.add(title);
+    this.expanded.set(next);
+    try { localStorage.setItem('adminNavExpanded', JSON.stringify([...next])); } catch { /* ignore */ }
+  }
+
+  private loadExpanded(): Set<string> {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('adminNavExpanded') : null;
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set<string>(); }
+  }
+
+  /** Finds which group owns the current URL, so it can be auto-expanded. */
+  private computeActiveGroup(url: string): void {
+    for (const g of this.groups) {
+      if (!g.title) continue;
+      if (g.links.some((l) => url === l.path || url.startsWith(l.path + '/'))) {
+        this.activeGroup.set(g.title);
+        return;
+      }
+    }
+    this.activeGroup.set(null);
+  }
+
   ngOnInit(): void {
+    this.computeActiveGroup(this.router.url);
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => this.computeActiveGroup(e.urlAfterRedirects));
+
     this.announcementsSvc.active().subscribe((a) => this.announcements.set(a));
     this.billing.current().subscribe((sub) => {
       if (!sub?.isInTrial || !sub.currentPeriodEnd) return;
@@ -157,20 +213,8 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/analytics', label: 'Analytics' },
       { path: '/admin/notifications', label: 'Notifications' },
     ] },
-    { title: 'Settings', links: [
-      { path: '/admin/store-settings', label: 'Store details' },
-      { path: '/admin/payments', label: 'Payments' },
-      { path: '/admin/shipping', label: 'Shipping' },
-      { path: '/admin/checkout-settings', label: 'Checkout' },
-      { path: '/admin/policies', label: 'Policies' },
-      { path: '/admin/notification-templates', label: 'Email & SMS' },
-      { path: '/admin/staff', label: 'Staff' },
-      { path: '/admin/billing', label: 'Plan & billing' },
-      { path: '/admin/ai', label: 'AI credits' },
-      { path: '/admin/domain', label: 'Custom domain' },
-      { path: '/admin/auth-providers', label: 'Sign-in methods' },
-      { path: '/admin/support', label: 'Support' },
-    ] },
+    // Settings lives in its own landing page (/admin/settings) reached from the pinned bottom link,
+    // keeping ~12 low-frequency items out of the primary nav.
   ];
 
   logout(): void {

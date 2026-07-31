@@ -152,6 +152,7 @@ public class SupportConversationTests
         await svc.CreateAsync("Help", "Something broke", 4, default);
         var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
 
+        SeedAgent(db, 9);   // assignment now validates the assignee is a platform agent
         var dto = await svc.TriageAsync(id, "Urgent", "Billing", assignedToUserId: 9, adminUserId: 1, default);
         Assert.Equal("Urgent", dto.Priority);
         Assert.Equal("Billing", dto.Category);
@@ -180,8 +181,136 @@ public class SupportConversationTests
         });
         await db.SaveChangesAsync();
 
-        Assert.Single(await svc.MyTicketsAsync(default));      // merchant's own platform tickets
-        Assert.Single(await svc.QueueAsync(null, default));    // platform queue
-        Assert.Equal(2, await db.SupportTickets.CountAsync()); // both rows exist
+        Assert.Single(await svc.MyTicketsAsync(default));                    // merchant's own platform tickets
+        Assert.Single(await svc.QueueAsync(NoFilter, default));              // platform queue
+        Assert.Equal(2, await db.SupportTickets.CountAsync());              // both rows exist
+    }
+
+    [Fact]
+    public async Task Escalating_steps_up_the_tier_bumps_priority_and_logs_it()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        await svc.CreateAsync("Help", "Broken", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+
+        var l2 = await svc.EscalateAsync(id, null, adminUserId: 1, default);
+        Assert.Equal("L2", l2.EscalationTier);
+        Assert.Equal("High", l2.Priority);   // escalation lifts a Normal ticket to at least High
+
+        var l3 = await svc.EscalateAsync(id, null, 1, default);
+        Assert.Equal("L3", l3.EscalationTier);
+
+        // Stays at L3 (no L4).
+        Assert.Equal("L3", (await svc.EscalateAsync(id, null, 1, default)).EscalationTier);
+
+        var thread = await svc.AdminThreadAsync(id, default);
+        Assert.Contains(thread.Activity, a => a.Type == "escalated" && a.Detail.Contains("L1 → L2"));
+    }
+
+    [Fact]
+    public async Task Assigning_to_a_non_agent_is_rejected()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        db.Users.Add(new User { UserId = 50, Email = "nobody@x.test", NormalizedEmail = "NOBODY@X.TEST", IsActive = true, CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        await svc.CreateAsync("Help", "Broken", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+
+        await Assert.ThrowsAsync<AppException>(() => svc.AssignAsync(id, 50, adminUserId: 1, default));
+        Assert.Null((await db.SupportTickets.SingleAsync()).AssignedToUserId);
+    }
+
+    [Fact]
+    public async Task Assigning_to_an_agent_records_the_name_and_logs_it()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        SeedAgent(db, 9);
+        await svc.CreateAsync("Help", "Broken", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+
+        var dto = await svc.AssignAsync(id, 9, adminUserId: 1, default);
+        Assert.Equal(9, dto.AssignedToUserId);
+
+        var thread = await svc.AdminThreadAsync(id, default);
+        Assert.Equal("Agent 9", thread.Ticket.AssignedToName);
+        Assert.Contains(thread.Activity, a => a.Type == "assignee" && a.Detail.Contains("Agent 9"));
+    }
+
+    [Fact]
+    public async Task Status_change_stamps_resolved_and_records_the_transition()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        await svc.CreateAsync("Help", "Broken", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+
+        await svc.SetStatusAsync(id, "Resolved", adminUserId: 1, default);
+        var ticket = await db.SupportTickets.SingleAsync();
+        Assert.Equal("Resolved", ticket.Status);
+        Assert.NotNull(ticket.ResolvedAt);   // Resolved counts, not only Closed
+
+        var thread = await svc.AdminThreadAsync(id, default);
+        Assert.Contains(thread.Activity, a => a.Type == "status" && a.Detail.Contains("Resolved"));
+    }
+
+    [Fact]
+    public async Task Tags_are_normalised_to_a_clean_deduped_list()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        await svc.CreateAsync("Help", "Broken", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+
+        var dto = await svc.SetTagsAsync(id, "  billing , URGENT, billing ,, refund ", adminUserId: 1, default);
+        Assert.Equal("billing, URGENT, refund", dto.Tags);   // trimmed, de-duped, empties dropped
+    }
+
+    [Fact]
+    public async Task The_queue_filters_by_tier_priority_and_assignment()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        SeedAgent(db, 9);
+        await svc.CreateAsync("A", "x", 4, default);
+        await svc.CreateAsync("B", "y", 4, default);
+        var ids = await db.SupportTickets.OrderBy(t => t.SupportTicketId).Select(t => t.SupportTicketId).ToListAsync();
+
+        await svc.EscalateAsync(ids[0], "L3", 1, default);   // A → L3, High
+        await svc.AssignAsync(ids[1], 9, 1, default);         // B → agent 9
+
+        Assert.Single(await svc.QueueAsync(new TicketQueueFilter(null, null, "L3", null, false), default));
+        Assert.Single(await svc.QueueAsync(new TicketQueueFilter(null, null, null, 9, false), default));
+        Assert.Single(await svc.QueueAsync(new TicketQueueFilter(null, null, null, null, true), default));   // unassigned = A
+    }
+
+    [Fact]
+    public async Task The_merchant_thread_never_carries_the_activity_trail()
+    {
+        var (db, svc) = Setup();
+        using var _ = db;
+        await svc.CreateAsync("Help", "Broken", 4, default);
+        var id = (await db.SupportTickets.SingleAsync()).SupportTicketId;
+        await svc.EscalateAsync(id, null, 1, default);
+
+        var merchantView = await svc.ThreadAsync(id, default);
+        Assert.Empty(merchantView.Activity);   // internal-only
+
+        var platformView = await svc.AdminThreadAsync(id, default);
+        Assert.NotEmpty(platformView.Activity);
+    }
+
+    private static readonly TicketQueueFilter NoFilter = new(null, null, null, null, false);
+
+    /// <summary>Makes a user a platform support agent (SuperAdmin role) so they can be assigned tickets.</summary>
+    private static void SeedAgent(EcommerceDbContext db, long userId)
+    {
+        if (!db.Roles.Any(r => r.NormalizedName == "SUPERADMIN"))
+            db.Roles.Add(new Role { RoleId = 99, Name = "SuperAdmin", NormalizedName = "SUPERADMIN" });
+        db.Users.Add(new User { UserId = userId, Email = $"agent{userId}@platform.test", NormalizedEmail = $"AGENT{userId}@PLATFORM.TEST", FullName = $"Agent {userId}", IsActive = true, CreatedAt = DateTime.UtcNow });
+        db.UserRoles.Add(new UserRole { UserId = userId, RoleId = 99 });
+        db.SaveChanges();
     }
 }

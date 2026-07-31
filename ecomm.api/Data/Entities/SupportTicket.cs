@@ -34,9 +34,12 @@ public class SupportTicket : ITenantScoped
     public string? Reference { get; set; }
 
     public string Subject { get; set; } = string.Empty;
-    public string Status { get; set; } = "Open";       // Open | Pending | Closed
+    public string Status { get; set; } = "Open";       // New | Open | Pending | OnHold | Resolved | Closed
     public string Priority { get; set; } = "Normal";   // Low | Normal | High | Urgent
+    public string EscalationTier { get; set; } = "L1"; // L1 | L2 | L3
     public string? Category { get; set; }
+    /// <summary>Comma-separated free labels, like the CRM's customer tags.</summary>
+    public string? Tags { get; set; }
 
     public long? CreatedByUserId { get; set; }
     public long? AssignedToUserId { get; set; }
@@ -62,6 +65,21 @@ public class SupportTicket : ITenantScoped
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// One worked change on a ticket — status/priority/tier/assignment/tags — so the ticket carries a
+/// visible history of who did what and when, not just its message thread.
+/// </summary>
+public class SupportTicketActivity : ITenantScoped
+{
+    public long SupportTicketActivityId { get; set; }
+    public long TenantId { get; set; }
+    public long SupportTicketId { get; set; }
+    public long? ActorUserId { get; set; }
+    public string Type { get; set; } = string.Empty;   // created | status | priority | tier | assignee | category | tags | escalated
+    public string Detail { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>A message on a conversation. <see cref="IsInternalNote"/> messages are platform-only.</summary>
