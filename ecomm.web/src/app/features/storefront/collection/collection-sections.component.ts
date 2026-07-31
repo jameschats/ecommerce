@@ -1,10 +1,40 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 import { CollectionPageStore } from './collection-page.store';
+
+/** Breadcrumb trail. Dynamic section, `collection` template — fixes a previously-shipped bug where
+ *  this section type was selectable in the theme editor but fell through to the generic product-rail
+ *  renderer (same bug shape as Phase A's RelatedProducts fix, mirrors ProductBreadcrumbsComponent). */
+@Component({
+  selector: 'app-collection-breadcrumbs',
+  imports: [RouterLink],
+  template: `
+    <nav class="text-xs text-slate-400 mb-5">
+      <a routerLink="/" class="hover:text-primary">Home</a>
+      @if (store.activeCategory(); as cat) {
+        / <a routerLink="/products" class="hover:text-primary">All products</a>
+        @if (parentCategory(); as parent) {
+          / <a [routerLink]="['/category', parent.slug]" class="hover:text-primary">{{ parent.name }}</a>
+        }
+        / <span class="text-slate-600">{{ cat.name }}</span>
+      } @else {
+        / <span class="text-slate-600">All products</span>
+      }
+    </nav>
+  `,
+})
+export class CollectionBreadcrumbsComponent {
+  readonly store = inject(CollectionPageStore);
+  readonly parentCategory = computed(() => {
+    const cat = this.store.activeCategory();
+    if (!cat?.parentCategoryId) return null;
+    return this.store.categories().find((c) => c.categoryId === cat.parentCategoryId) ?? null;
+  });
+}
 
 /** Collection title + product count + (on the all-products view) the category showcase. */
 @Component({

@@ -1,6 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ThemeService } from '../../../core/services/theme.service';
+import { ThemeSection, ThemeService } from '../../../core/services/theme.service';
 import { StorefrontSectionComponent } from '../storefront-section.component';
 import { SectionSlot, slotsFrom } from '../section-slot';
 import { CartPageStore } from './cart-page.store';
@@ -9,11 +9,16 @@ import { CartItemsComponent, CartSummaryComponent } from './cart-sections.compon
 /** Default `cart` layout when the theme defines no cart template. Matches today's page. */
 const DEFAULT_CART_SECTIONS = ['CartItems', 'CartSummary'];
 
+interface EmptyStateCfg { heading?: string; body?: string; buttonText?: string; buttonLink?: string; }
+
 /**
- * Section-composed cart page (S3). The heading, empty state and two-column layout
- * are host-owned (preserving today's exact look); the items list and order summary
- * are dynamic sections over a page-scoped CartPageStore. Renders the published
- * theme's `cart` template, falling back to the built-in order when none is authored.
+ * Section-composed cart page (S3). The two-column layout is host-owned; the items list and order
+ * summary are dynamic sections over a page-scoped CartPageStore. Renders the published theme's
+ * `cart` template, falling back to the built-in order when none is authored.
+ *
+ * Empty-cart message: an authored `EmptyState` section drives heading/body/button when present
+ * (same pattern as the 404 page's NotFoundComponent) — previously hardcoded and unreachable even
+ * when a theme author explicitly placed an EmptyState section on this template.
  */
 @Component({
   selector: 'app-cart-page',
@@ -28,8 +33,9 @@ const DEFAULT_CART_SECTIONS = ['CartItems', 'CartSummary'];
           <div class="mx-auto w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
           </div>
-          <p class="text-slate-500">Your cart is empty.</p>
-          <a routerLink="/products" class="inline-block mt-5 btn-primary px-5 py-2.5">Continue shopping</a>
+          <p class="text-slate-500">{{ empty().heading || 'Your cart is empty.' }}</p>
+          @if (empty().body) { <p class="text-sm text-slate-400 mt-1">{{ empty().body }}</p> }
+          <a [routerLink]="empty().buttonLink || '/products'" class="inline-block mt-5 btn-primary px-5 py-2.5">{{ empty().buttonText || 'Continue shopping' }}</a>
         </div>
       } @else {
         <div class="grid lg:grid-cols-3 gap-6 items-start">
@@ -49,9 +55,18 @@ export class CartPageComponent implements OnInit {
   readonly store = inject(CartPageStore);
   private readonly theme = inject(ThemeService);
 
+  private readonly rawSections = signal<ThemeSection[]>([]);
   readonly slots = signal<SectionSlot[]>(slotsFrom([], DEFAULT_CART_SECTIONS));
+  /** EmptyState settings drive the empty-cart message when the theme provides them. */
+  readonly empty = computed<EmptyStateCfg>(() => {
+    const es = this.rawSections().find((s) => s.sectionType === 'EmptyState');
+    try { return es?.settings ? JSON.parse(es.settings) : {}; } catch { return {}; }
+  });
 
   ngOnInit(): void {
-    this.theme.getTemplate('cart').subscribe((sections) => this.slots.set(slotsFrom(sections, DEFAULT_CART_SECTIONS)));
+    this.theme.getTemplate('cart').subscribe((sections) => {
+      this.rawSections.set(sections);
+      this.slots.set(slotsFrom(sections.filter((s) => s.sectionType !== 'EmptyState'), DEFAULT_CART_SECTIONS));
+    });
   }
 }

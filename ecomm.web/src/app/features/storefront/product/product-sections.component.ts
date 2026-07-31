@@ -24,6 +24,72 @@ export class ProductBreadcrumbsComponent {
   readonly store = inject(ProductPageStore);
 }
 
+/** Standalone image gallery (main image + prev/next + thumbnails + click-to-zoom lightbox). Dynamic
+ *  section, `product` template — fixes a previously-shipped bug where this section type was
+ *  selectable in the theme editor but fell through to the generic product-rail renderer. Every 9
+ *  live themes' product templates use the combined ProductInfo (which already embeds this same
+ *  gallery) instead, so this is for a theme author who wants Breadcrumbs/Gallery/Info as fully
+ *  independent, separately-orderable sections — using both ProductGallery and ProductInfo together
+ *  on the same template would show the gallery twice, an acceptable, documented tradeoff rather than
+ *  a silent trap, not a scenario any shipped theme creates today. All gallery state (current image,
+ *  lightbox) lives on ProductPageStore, so this and ProductInfoComponent's embedded gallery are
+ *  always in sync if both happen to be present. */
+@Component({
+  selector: 'app-product-gallery',
+  template: `
+    @if (store.product(); as p) {
+      <div>
+        <div class="relative aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center">
+          @if (store.mainImage()) {
+            <img [src]="store.mainImage()" [alt]="p.name" class="w-full h-full object-cover cursor-zoom-in" (click)="store.openLightbox()" />
+          } @else { <span class="text-slate-300">No image</span> }
+          @if (p.images.length > 1) {
+            <button type="button" (click)="store.prevImage()" aria-label="Previous image"
+              class="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white w-9 h-9 rounded-full grid place-items-center shadow">‹</button>
+            <button type="button" (click)="store.nextImage()" aria-label="Next image"
+              class="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white w-9 h-9 rounded-full grid place-items-center shadow">›</button>
+          }
+        </div>
+        @if (p.images.length > 1) {
+          <div class="flex gap-2 mt-3">
+            @for (img of p.images; track img.productImageId; let i = $index) {
+              <button type="button" (click)="store.selectImage(i)"
+                class="w-16 h-16 rounded-lg border overflow-hidden shrink-0"
+                [class]="store.currentImage() === i ? 'border-primary ring-1 ring-primary' : 'border-slate-200'">
+                <img [src]="img.url" [alt]="img.altText ?? p.name" class="w-full h-full object-cover" />
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (store.lightboxOpen()) {
+        <div class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" (click)="store.closeLightbox()">
+          <button type="button" (click)="store.closeLightbox()" aria-label="Close"
+            class="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none w-10 h-10 grid place-items-center">×</button>
+          @if (p.images.length > 1) {
+            <button type="button" (click)="$event.stopPropagation(); store.prevImage()" aria-label="Previous image"
+              class="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl w-12 h-12 grid place-items-center">‹</button>
+            <button type="button" (click)="$event.stopPropagation(); store.nextImage()" aria-label="Next image"
+              class="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl w-12 h-12 grid place-items-center">›</button>
+          }
+          @if (store.mainImage()) {
+            <img [src]="store.mainImage()" [alt]="p.name" class="max-w-[90vw] max-h-[90vh] object-contain" (click)="$event.stopPropagation()" />
+          }
+        </div>
+      }
+    }
+  `,
+})
+export class ProductGalleryComponent {
+  readonly store = inject(ProductPageStore);
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.store.lightboxOpen()) this.store.closeLightbox();
+  }
+}
+
 /** Combined product section: gallery + info side-by-side (title/price/variants/qty/add-to-cart/specs). */
 @Component({
   selector: 'app-product-info',

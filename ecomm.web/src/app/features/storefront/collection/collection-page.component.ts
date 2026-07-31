@@ -3,7 +3,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 import { StorefrontSectionComponent } from '../storefront-section.component';
 import { SectionSlot, slotsFrom } from '../section-slot';
 import { CollectionPageStore } from './collection-page.store';
-import { CollectionGridComponent, CollectionHeaderComponent } from './collection-sections.component';
+import { CollectionBreadcrumbsComponent, CollectionGridComponent, CollectionHeaderComponent } from './collection-sections.component';
 
 /** Default `collection` layout when the theme defines no collection template. Matches today's page. */
 const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionGrid'];
@@ -15,12 +15,13 @@ const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionGrid'];
  */
 @Component({
   selector: 'app-collection-page',
-  imports: [StorefrontSectionComponent, CollectionHeaderComponent, CollectionGridComponent],
+  imports: [StorefrontSectionComponent, CollectionBreadcrumbsComponent, CollectionHeaderComponent, CollectionGridComponent],
   providers: [CollectionPageStore],
   template: `
     <section class="page-container py-8">
       @for (slot of slots(); track $index) {
         @switch (slot.type) {
+          @case ('Breadcrumbs') { <app-collection-breadcrumbs /> }
           @case ('CollectionHeader') { <app-collection-header /> }
           @case ('CollectionGrid') { <app-collection-grid /> }
           @default { @if (slot.data) { <app-storefront-section [section]="slot.data" /> } }
