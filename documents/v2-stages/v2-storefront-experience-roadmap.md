@@ -18,10 +18,12 @@ data corrected.
 **Done**: Phase A (RelatedProducts fix, hover-swap image, New badge, Recently Viewed — commit
 `46d4de6`). Phase B (PLP grid/list toggle, price-range filter, real Popularity sort — commit
 `13adef3`; also fixed a pre-existing bug where `source: bestsellers` on FeaturedProducts CMS
-sections silently never sorted by sales). Both deployed and live-verified on
+sections silently never sorted by sales). Phase C (PDP image lightbox, sticky Add-to-Cart bar,
+pincode delivery checker via a new anonymous `GET /api/catalog/shipping/check` endpoint reusing
+`IShippingService` — commit `b02e77c`). All deployed and live-verified on
 `bazaar.wavcommerce.online`.
 
-**In progress**: Phase C (below).
+**In progress**: Phase D (below).
 
 ## E3 — element-by-element editing (deferred, not detailed here)
 The confirmed "next big thing" from the original `v2-theme-editor-parity-plan.md` sequence
@@ -67,13 +69,14 @@ follow-up whenever convenient — same shape of fix as the RelatedProducts one.
   CMS ProductGrid sections, just not surfaced in the PLP's own `<select>`).
 
 ## Phase C — PDP upgrades
-**Status: researching now.**
+**Status: done.**
 - Image zoom/lightbox on the product gallery (today: multi-image + thumbnails + arrows, no zoom).
 - Sticky Add-to-Cart bar (stays visible on scroll).
 - Delivery/pincode checker on the PDP itself (pincode logic exists today only in
   checkout/shipping-admin, not surfaced on the product page).
 
 ## Phase D — new commerce mechanics
+**Status: researching now.**
 - Compare products (nothing exists today — no service/entity/UI).
 - Frequently Bought Together.
 
