@@ -14,10 +14,14 @@ import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
 import { AnnouncementBarComponent } from './features/storefront/announcement-bar.component';
 import { QuickViewComponent } from './shared/quick-view/quick-view.component';
+import { CompareBarComponent } from './shared/compare-bar/compare-bar.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, NotificationBellComponent, AnnouncementBarComponent, QuickViewComponent],
+  imports: [
+    RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, NotificationBellComponent, AnnouncementBarComponent,
+    QuickViewComponent, CompareBarComponent,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

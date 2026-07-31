@@ -92,4 +92,8 @@ public sealed class CatalogController : ControllerBase
             return Ok(ApiResponse<ShippingQuote>.Fail("Enter a valid 6-digit pincode."));
         return Ok(ApiResponse<ShippingQuote>.Ok(await _shipping.QuoteAsync(pin, orderSubtotal: 0m, ct)));
     }
+
+    [HttpGet("products/{id:long}/frequently-bought-together")]
+    public async Task<IActionResult> FrequentlyBoughtTogether(long id, [FromQuery] int take, CancellationToken ct)
+        => Ok(ApiResponse<List<ProductListItemDto>>.Ok(await _products.GetFrequentlyBoughtTogetherAsync(id, take <= 0 ? 3 : take, ct)));
 }

@@ -5,13 +5,14 @@ import { RouterLink } from '@angular/router';
 import { ProductListItem } from '../../core/models/catalog.model';
 import { ColorSwatchService } from '../../core/services/color-swatch.service';
 import { QuickViewService } from '../../core/services/quick-view.service';
+import { CompareButtonComponent } from '../compare-button/compare-button.component';
 import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.component';
 
 const MAX_SWATCHES_SHOWN = 5;
 
 @Component({
   selector: 'app-product-card',
-  imports: [RouterLink, CurrencyPipe, WishlistButtonComponent],
+  imports: [RouterLink, CurrencyPipe, WishlistButtonComponent, CompareButtonComponent],
   template: `
     <a [routerLink]="['/product', product().slug]"
        class="group block overflow-hidden sf-card">
@@ -40,8 +41,9 @@ const MAX_SWATCHES_SHOWN = 5;
             <span class="bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded">Out of stock</span>
           </div>
         }
-        <div class="absolute top-2 right-2">
+        <div class="absolute top-2 right-2 flex flex-col gap-1.5">
           <app-wishlist-button [productId]="product().productId" />
+          <app-compare-button [productId]="product().productId" />
         </div>
         <button type="button" (click)="$event.preventDefault(); $event.stopPropagation(); quickView.open(product().slug)"
           class="absolute inset-x-0 bottom-0 bg-black/60 text-white text-xs font-medium text-center py-1.5 opacity-0 group-hover:opacity-100 transition">

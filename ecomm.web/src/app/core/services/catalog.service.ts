@@ -126,6 +126,14 @@ export class CatalogService {
     );
   }
 
+  /** Products most often bought alongside this one, ranked by real co-purchase frequency. */
+  getFrequentlyBoughtTogether(productId: number, take = 3): Observable<ProductListItem[]> {
+    return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/products/${productId}/frequently-bought-together`, { params: { take } }).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
+    );
+  }
+
   suggest(q: string): Observable<string[]> {
     return this.http.get<ApiResponse<string[]>>(`${this.base}/suggest`, { params: { q } }).pipe(
       map((r) => r.data ?? []),

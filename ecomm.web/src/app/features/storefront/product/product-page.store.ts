@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
 import { ProductDetail, ProductListItem } from '../../../core/models/catalog.model';
 import { ProductReviews } from '../../../core/models/review.model';
@@ -52,6 +53,18 @@ export class ProductPageStore {
   /** Same-category products, excluding the current one — powers the RelatedProducts section. */
   readonly relatedProducts = signal<ProductListItem[]>([]);
 
+  /** Products often bought alongside this one (real order history) — powers the FrequentlyBoughtTogether section. */
+  readonly frequentlyBoughtTogether = signal<ProductListItem[]>([]);
+  readonly fbtSelected = signal<Set<number>>(new Set());
+  readonly fbtAdding = signal(false);
+  readonly fbtMessage = signal(false);
+  readonly fbtTotal = computed(() => {
+    const p = this.product();
+    if (!p) return 0;
+    const selected = this.fbtSelected();
+    return p.price + this.frequentlyBoughtTogether().filter((i) => selected.has(i.productId)).reduce((sum, i) => sum + i.price, 0);
+  });
+
   readonly reviewData = signal<ProductReviews | null>(null);
   readonly reviews = computed(() => this.reviewData()?.reviews.items ?? []);
   readonly avgRating = computed(() => this.reviewData()?.summary.average ?? 0);
@@ -103,6 +116,7 @@ export class ProductPageStore {
         this.applySeo(product);
         this.loadReviews(product.productId);
         this.loadRelated(product.productId, product.categoryId);
+        this.loadFrequentlyBoughtTogether(product.productId);
         if (this.isAuthenticated()) this.loadEligibility(product.productId);
         this.recentlyViewed.record(product.productId);
       },
@@ -115,6 +129,38 @@ export class ProductPageStore {
     this.catalog.getProducts({ categoryId, pageSize: 9 }).subscribe({
       next: (r) => this.relatedProducts.set(r.items.filter((p) => p.productId !== productId).slice(0, 8)),
       error: () => {},
+    });
+  }
+
+  private loadFrequentlyBoughtTogether(productId: number): void {
+    this.frequentlyBoughtTogether.set([]);
+    this.fbtSelected.set(new Set());
+    this.fbtMessage.set(false);
+    this.catalog.getFrequentlyBoughtTogether(productId).subscribe({
+      next: (items) => { this.frequentlyBoughtTogether.set(items); this.fbtSelected.set(new Set(items.map((i) => i.productId))); },
+      error: () => {},
+    });
+  }
+
+  toggleFbtSelect(productId: number): void {
+    this.fbtSelected.update((s) => {
+      const next = new Set(s);
+      next.has(productId) ? next.delete(productId) : next.add(productId);
+      return next;
+    });
+  }
+
+  /** Adds the current product + every checked frequently-bought-together item to the cart, one call each. */
+  addFrequentlyBoughtTogetherToCart(): void {
+    const p = this.product();
+    if (!p || this.fbtAdding()) return;
+    const selectedIds = this.fbtSelected();
+    const ids = [p.productId, ...this.frequentlyBoughtTogether().filter((i) => selectedIds.has(i.productId)).map((i) => i.productId)];
+    this.fbtAdding.set(true);
+    this.fbtMessage.set(false);
+    forkJoin(ids.map((id) => this.cart.add(id, null, 1))).subscribe({
+      next: () => { this.fbtAdding.set(false); this.fbtMessage.set(true); setTimeout(() => this.fbtMessage.set(false), 2500); },
+      error: (e) => { this.fbtAdding.set(false); this.cartError.set(e?.error?.message ?? 'Could not add these items to cart.'); },
     });
   }
 

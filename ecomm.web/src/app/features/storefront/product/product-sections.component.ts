@@ -336,3 +336,49 @@ export class ProductReviewsComponent {
 export class ProductRelatedComponent {
   readonly store = inject(ProductPageStore);
 }
+
+/** Frequently bought together — a small bundle of products often purchased in the same order as this
+ *  one (real order-history co-purchase ranking, not curated), with a combined price + single add-all. */
+@Component({
+  selector: 'app-product-frequently-bought',
+  imports: [RouterLink, CurrencyPipe],
+  template: `
+    @if (store.frequentlyBoughtTogether().length && store.product(); as p) {
+      <section class="mt-10 border-t border-slate-200 pt-8">
+        <h2 class="text-xl font-bold text-slate-900 mb-5">Frequently bought together</h2>
+        <div class="flex flex-wrap items-start gap-3">
+          <div class="flex flex-col items-center gap-2 w-28">
+            <div class="w-24 h-24 rounded-lg overflow-hidden bg-slate-50 border border-slate-200">
+              @if (store.mainImage()) { <img [src]="store.mainImage()" [alt]="p.name" class="w-full h-full object-cover" /> }
+            </div>
+            <p class="text-xs text-center text-slate-600 line-clamp-2">{{ p.name }}</p>
+            <p class="text-xs font-semibold text-slate-900">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</p>
+          </div>
+          @for (item of store.frequentlyBoughtTogether(); track item.productId) {
+            <span class="text-slate-300 text-xl self-center mt-8">+</span>
+            <label class="flex flex-col items-center gap-2 w-28 cursor-pointer">
+              <div class="relative w-24 h-24 rounded-lg overflow-hidden bg-slate-50 border border-slate-200">
+                @if (item.primaryImageUrl) { <img [src]="item.primaryImageUrl" [alt]="item.name" class="w-full h-full object-cover" /> }
+                <input type="checkbox" [checked]="store.fbtSelected().has(item.productId)" (change)="store.toggleFbtSelect(item.productId)"
+                  class="absolute top-1.5 left-1.5 w-4 h-4 accent-primary" />
+              </div>
+              <a [routerLink]="['/product', item.slug]" class="text-xs text-center text-slate-600 line-clamp-2 hover:text-primary">{{ item.name }}</a>
+              <p class="text-xs font-semibold text-slate-900">{{ item.price | currency:'INR':'symbol':'1.0-0' }}</p>
+            </label>
+          }
+        </div>
+        <div class="mt-5 flex flex-wrap items-center gap-4">
+          <p class="text-sm text-slate-600">Total: <span class="text-lg font-bold text-slate-900">{{ store.fbtTotal() | currency:'INR':'symbol':'1.0-0' }}</span></p>
+          <button type="button" (click)="store.addFrequentlyBoughtTogetherToCart()" [disabled]="store.fbtAdding()"
+            class="bg-primary hover:bg-primary-dark disabled:opacity-50 text-white font-medium px-5 py-2.5 rounded-lg text-sm transition">
+            {{ store.fbtAdding() ? 'Adding…' : 'Add selected to cart' }}
+          </button>
+        </div>
+        @if (store.fbtMessage()) { <p class="text-sm text-green-600 mt-2">✓ Added to your cart. <a routerLink="/cart" class="underline font-medium">View cart</a></p> }
+      </section>
+    }
+  `,
+})
+export class ProductFrequentlyBoughtComponent {
+  readonly store = inject(ProductPageStore);
+}

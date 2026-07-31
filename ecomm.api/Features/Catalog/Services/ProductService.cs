@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using ecomm.api.Common;
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
@@ -17,6 +18,10 @@ public interface IProductService
     Task<ProductDetailDto> CreateAsync(SaveProductRequest req, long? userId, CancellationToken ct = default);
     Task<ProductDetailDto?> UpdateAsync(long id, SaveProductRequest req, long? userId, CancellationToken ct = default);
     Task<bool> DeleteAsync(long id, CancellationToken ct = default);
+    /// <summary>Products most often bought in the same order as <paramref name="productId"/>, ranked by
+    /// co-purchase frequency (real order history, not a manual/curated list). Empty for products with
+    /// no qualifying order history yet.</summary>
+    Task<List<ProductListItemDto>> GetFrequentlyBoughtTogetherAsync(long productId, int take, CancellationToken ct = default);
 }
 
 public sealed class ProductService : IProductService
@@ -99,17 +104,7 @@ public sealed class ProductService : IProductService
         var total = await q.LongCountAsync(ct);
         var items = await q
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(p => new ProductListItemDto(
-                p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
-                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
-                p.Category!.Name,
-                p.Brand != null ? p.Brand.Name : null,
-                p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
-                p.InventoryRecords.Sum(i => i.AvailableQty),
-                p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
-                p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList(),
-                p.CreatedAt,
-                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault()))
+            .Select(ListItemProjection)
             .ToListAsync(ct);
 
         return new PagedResult<ProductListItemDto>
@@ -119,6 +114,48 @@ public sealed class ProductService : IProductService
             PageSize = pageSize,
             TotalCount = total,
         };
+    }
+
+    /// <summary>Shared with <see cref="GetFrequentlyBoughtTogetherAsync"/> — one projection, two callers.</summary>
+    private static readonly Expression<Func<Product, ProductListItemDto>> ListItemProjection = p => new ProductListItemDto(
+        p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
+        p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
+        p.Category!.Name,
+        p.Brand != null ? p.Brand.Name : null,
+        p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
+        p.InventoryRecords.Sum(i => i.AvailableQty),
+        p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
+        p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList(),
+        p.CreatedAt,
+        p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault());
+
+    public async Task<List<ProductListItemDto>> GetFrequentlyBoughtTogetherAsync(long productId, int take, CancellationToken ct = default)
+    {
+        // Two-step: materialize the qualifying order ids first, then rank co-purchased products —
+        // safer for EF Core/MySQL translation than a single correlated GroupBy+SelectMany query.
+        var orderIds = await _db.OrderItems
+            .Where(oi => oi.ProductId == productId && SoldStatuses.Contains(oi.Order!.Status))
+            .Select(oi => oi.OrderId)
+            .Distinct()
+            .ToListAsync(ct);
+        if (orderIds.Count == 0) return [];
+
+        var rankedIds = await _db.OrderItems
+            .Where(oi => orderIds.Contains(oi.OrderId) && oi.ProductId != productId)
+            .GroupBy(oi => oi.ProductId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
+            .Take(Math.Clamp(take, 1, 10))
+            .ToListAsync(ct);
+        if (rankedIds.Count == 0) return [];
+
+        var items = await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active" && rankedIds.Contains(p.ProductId))
+            .Select(ListItemProjection)
+            .ToListAsync(ct);
+
+        var rank = rankedIds.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
+        return items.OrderBy(i => rank[i.ProductId]).ToList();
     }
 
     public Task<ProductDetailDto?> GetByIdAsync(long id, CancellationToken ct = default) =>
