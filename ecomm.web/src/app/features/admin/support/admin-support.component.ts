@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SupportService } from '../../../core/services/support.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { Ticket, TicketThread } from '../../../core/models/support.model';
 
 /** Merchant support: open a ticket, read the thread, reply. */
@@ -63,15 +64,35 @@ import { Ticket, TicketThread } from '../../../core/models/support.model';
 })
 export class AdminSupportComponent implements OnInit {
   private readonly svc = inject(SupportService);
+  private readonly notifications = inject(NotificationService);
   readonly tickets = signal<Ticket[]>([]);
   readonly thread = signal<TicketThread | null>(null);
   subject = '';
   message = '';
   reply = '';
 
+  constructor() {
+    // A platform reply arrives live in the open thread (dedup by id); the socket only accelerates
+    // what a refresh would show, so a missed push costs a reload, not a message.
+    effect(() => {
+      const m = this.notifications.liveMessage();
+      const open = this.thread();
+      if (!m || !open || m.conversationId !== open.ticket.id) return;
+      if (open.messages.some((x) => x.id === m.messageId)) return;
+      this.thread.set({
+        ...open,
+        messages: [...open.messages, { id: m.messageId, fromPlatform: m.authorType !== 'Merchant', isInternalNote: false, body: m.body, createdAt: m.createdAt }],
+      });
+    });
+  }
+
   ngOnInit(): void { this.load(); }
   load(): void { this.svc.myTickets().subscribe((t) => this.tickets.set(t)); }
-  open(id: number): void { this.svc.thread(id).subscribe((th) => this.thread.set(th)); }
+  open(id: number): void {
+    const prev = this.thread()?.ticket.id;
+    if (prev && prev !== id) void this.notifications.leaveConversation(prev);
+    this.svc.thread(id).subscribe((th) => { this.thread.set(th); void this.notifications.joinConversation(id); });
+  }
 
   create(): void {
     if (!this.subject.trim() || !this.message.trim()) return;
