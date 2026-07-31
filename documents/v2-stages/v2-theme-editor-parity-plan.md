@@ -1,4 +1,11 @@
-# V2 — Theme Editor Parity Plan (E1–E6): "Edit store" like Shopify
+# V2 — Theme Editor Parity Plan (E1–E6 + T17): "Edit store" like Shopify
+
+**Status: fully shipped (2026-07-31).** E1–E6 and T17 are all done and live-verified on
+`bazaar.wavcommerce.online`. T17 (`CustomSection`, commit `cac7091`) closes the program: a
+purely-additive free-form block canvas (Heading/Text/Image/Button/Spacer/Divider, freely mixed,
+reordered, added, removed) rather than retrofitting the 20+ existing section types, which are
+legitimately uniform-repeating-unit patterns by design and didn't need this. Zero migration risk —
+nothing about the 9 already-authored themes changed shape.
 
 **What this is.** A thorough gap analysis + build plan to bring our theme editor's *editing experience* to
 Shopify's level. Sources: three live Shopify editor screenshots analysed 2026-07-29 (page navigator open;
@@ -17,8 +24,8 @@ Same data model underneath — the work is UI/interaction, almost entirely front
 
 ## Capability decomposition (screenshots + spec §8, vs. our code today)
 
-**Status as of the E3 pass (2026-07-31)** — E1, E2, and E3 are now fully shipped and live; only E4
-(rich field controls) remains genuinely outstanding, plus T17 (theme blocks, its own future pass).
+**Status (2026-07-31): every row below is shipped and live.** E1–E6 plus T17 (`CustomSection`) are
+all done — this table is now a historical record of the gap analysis, not an open task list.
 
 | # | Capability | Shopify | Ours today | Status |
 |---|---|---|---|---|
@@ -27,7 +34,7 @@ Same data model underneath — the work is UI/interaction, almost entirely front
 | 3 | Block/element click-to-select w/ own canvas outline | "Shop all" button gets its own outline; URL carries `&block=` | Every block-bearing section type has `data-block-index`; every individual field (`data-field`) across all 20 section types is independently clickable and outlines in-canvas — a click resolves both which block AND which field, exactly the "Shop all button gets its own outline" bar (E3) | ✅ |
 | 4 | Sidebar block tree | Section rows expand to block rows with **dynamic titles** ("Heading — *Browse our latest pro…*"); Add block inline; per-row actions | Shipped (E3): the selected section's blocks list directly beneath it in the tree, dynamic titles (heading/title/text/question/label/value fallback chain), "+ Add {type}" inline, drag-reorder | ✅ |
 | 5 | Focused per-block panel | Selecting a block shows *only its* fields (Label, Link chip, Style, Button colors) with back/X | Shipped (E3): a section row shows only its settings; a block row shows only that block's fields with a "← Back" breadcrumb — never bundled together | ✅ |
-| 6 | Rich field controls | Image picker w/ media library + stock explore; link shows a resource **chip** ("All Products") + open-in-new-tab; segmented controls; palette-linked colours | Image = URL text field; link = search-based picker (functional, chipless); plain selects | 🟡 Partial — **the only capability gap left** |
+| 6 | Rich field controls | Image picker w/ media library + stock explore; link shows a resource **chip** ("All Products") + open-in-new-tab; segmented controls; palette-linked colours | Shipped (E4): media-picker modal (Library/Upload/URL) on every image field, resolved link chips, segmented controls for ≤4-option selects, AI-assist on text fields | ✅ |
 | 7 | Page navigator | Searchable dropdown of every page type, drill-in to pick the *specific* product/collection the preview uses | Searchable navigator (Pages/Products/Categories/Collections) shipped; preview-context picker for `product`/`collection` templates shipped (E5 remainder) — choose the real product/collection a dynamic template previews with | ✅ |
 | 8 | Live preview, no reloads | Settings patch the canvas live before save (spec §8.4); saves re-render one section (§9) | Shipped (E2): draft settings/blocks stream into the canvas live as the merchant types (250ms debounce); saving a section's content no longer reloads the iframe; dirty-state Save bar with a discard-confirm guard | ✅ |
 | 9 | Editor chrome | Dirty-state Save bar, undo/redo, device toggle, fullscreen, inspector toggle, deep-link URL (`?section=&block=`) | All shipped (E1 + E3 + E6): session-scoped undo/redo, fullscreen preview, an inspector toggle that suspends canvas click-interception so real links/Add-to-Cart work for a sanity check, Esc/Ctrl+Z/Ctrl+Y/arrow-key support, `?template=&section=&block=` deep links | ✅ |
@@ -52,14 +59,15 @@ Same data model underneath — the work is UI/interaction, almost entirely front
 
 ## Milestones
 
-**Status: E1 ✅ · E2 ✅ · E3 ✅ · E4 ✅ · E5 ✅ · E6 ✅ — all done (2026-07-31).**
+**Status: E1 ✅ · E2 ✅ · E3 ✅ · E4 ✅ · E5 ✅ · E6 ✅ · T17 ✅ — all done (2026-07-31).**
 E3's commit folded in E5's remainder and all of E6 as well — they shared the same file/state model and
 were small enough to land together rather than as separate passes. E4 shipped as its own pass: a media
 picker (Library/Upload/URL) on every image field, resolved link chips, segmented controls for ≤4-option
-selects, and AI-assist on text fields. Every capability row in the table above is now ✅ except the
-platform's largest remaining piece, T17 (theme blocks — true first-class composable elements), which is
-deliberately its own dedicated research + design pass, not part of this plan. See
-`v2-storefront-experience-roadmap.md` for T17 and R3 (rolling Rich Themes to the remaining 6 themes).
+selects, and AI-assist on text fields. T17 (`CustomSection`, commit `cac7091`) shipped last, its own
+dedicated research + design pass as planned: a purely-additive free-form block canvas rather than
+retrofitting every existing section type. Every capability row in the table above is ✅ — this program
+is complete. R3 (rolling Rich Themes to the remaining 6 themes) is tracked separately and also done —
+see `v2-storefront-experience-roadmap.md`.
 
 **E1 — Canvas feel** *(medium)*
 Hover outline + name badge on sections and blocks (CSS `content: attr(data-section-label)` — a host
@@ -113,13 +121,13 @@ catalogs and large catalogs**." Mapping:
   between them Shopify-fluid, incl. choosing which sample product/collection a page previews with.
 - **Section by section** — shipped (T15 click-to-select); E1/E2 make it feel right (hover badges, live
   edits, no reloads).
-- **Element by element** — two layers: *(cheap, in E3)* clicking an element (a heading, a button) inside
-  the canvas focuses **that field** in the panel — add `data-field` anchors alongside the existing
-  `data-block-index`, so a click maps to section → block → field; *(structural, = T17 theme blocks)*
-  Shopify can select "the Button" as a first-class thing because its sections are *composed of*
-  Heading/Button/Text blocks, while ours bundle those as flat settings on one section/block. T17
-  (already approved as its own milestone) is what makes elements true, reorderable, addable blocks —
-  E3's tree/panel UX is the interface it will slot into.
+- **Element by element** — both layers now shipped: *(E3)* clicking an element (a heading, a button)
+  inside the canvas focuses **that field** in the panel via `data-field` anchors alongside
+  `data-block-index`, mapping a click to section → block → field on every existing section type;
+  *(T17)* `CustomSection` gives merchants a genuinely composable canvas — Heading/Text/Image/Button/
+  Spacer/Divider blocks, freely mixed, added, removed, reordered — the true first-class-block
+  experience, for the one place a merchant actually wants that freedom (custom layouts), without
+  retrofitting the 20+ purpose-built section types that don't need it.
 - **Small-catalog vs large-catalog themes** — the T7 `CatalogFit` decision in the theme-store plan
   (tag every prebuilt theme Small/Medium/Large, show it in the picker, filter later) plus T4 (author
   more themes so both fits are genuinely covered: spacious hero-led themes for few products, dense
@@ -127,8 +135,10 @@ catalogs and large catalogs**." Mapping:
   user's request — it's catalog work on `PrebuiltThemeRegistry`, independent of E1–E6, can run in
   parallel any time.
 
-## Order & sizing
-E1 → E2 → E3 → E4 → E5 → E6. E1+E2 together produce the visceral "this feels like Shopify" difference;
-E3 is the deepest structural rework (and the natural home of element-level selection); E4–E6 are steady
-increments. The catalog-fit theme work (T4/T7) is parallel-track. Each milestone = its own plan → build →
-test → deploy cycle, like T13–T15 were.
+## Order & sizing (as executed)
+E1 → E2 → E3 (+E5 remainder +E6, folded in) → E4 → T17. E1+E2 produced the visceral "this feels like
+Shopify" difference; E3 was the deepest structural rework of the *editor* (and the home of
+element-level selection); E4 was steady, focused polish; T17 was the deepest remaining piece
+overall — the actual data model, done last and deliberately scoped down to one additive section
+type rather than a platform-wide retrofit. The catalog-fit theme work (T4/T7/R3) ran as a parallel
+content track. Each milestone got its own plan → build → test → deploy → live-verify cycle.
