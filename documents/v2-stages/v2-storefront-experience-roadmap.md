@@ -35,16 +35,25 @@ deliberately deferred (see Phase E section below) rather than rushed into the sa
 **In progress**: Phase F (below) — Phase E's two deferred items stay parked until their own
 scoped passes; not blocking the rest of the roadmap.
 
-## E3 — element-by-element editing (deferred, not detailed here)
-The confirmed "next big thing" from the original `v2-theme-editor-parity-plan.md` sequence
-(R1 + R2, then E3) — click any element on the storefront canvas and jump straight to editing that
-field, plus the beginning of theme-blocks groundwork. Parked while this audit-driven work runs;
-pick back up once the phases below are through, or sooner if priorities shift.
+## E3 — element-by-element editing
+**Status: done.** See `v2-theme-editor-parity-plan.md` for the full E1–E6 program (all six milestones
+now shipped) — E3 delivered field-level canvas selection, the sidebar tree, and focused block panels.
+T17 (theme blocks — true first-class composable elements) is the remaining structural piece, tracked
+as its own dedicated pass in that doc.
 
-## R3 — roll Rich Themes to the remaining 6 (deferred until after E3)
-Minimal, Ignition, Savor, Fresh, Bloom, Sprout — bring them to the same bar R2 set for
-Boutique/Bazaar/Haven (distinct home structure, authored product/collection/cart, content pages,
-curated imagery).
+## R3 — roll Rich Themes to the remaining 6
+**Status: done (2026-07-31, commits `df6a94b` + `9ed942b`).**
+Minimal, Ignition, Savor, Fresh, Bloom, Sprout brought to the same bar R2 set for
+Boutique/Bazaar/Haven — distinct home structure per theme's identity, authored product/collection/
+cart templates, 2 content pages each, curated imagery (reuse-first; 4 new Savor Collage images
+`curl -I` verified). Minimal was the weakest bundle going in (broken empty hero image, only 4
+sections, no inner templates, no pages) and got the fullest rebuild. Live scratch-installed and
+verified on `bazaar.wavcommerce.online`, including a real bug caught during that verification:
+the new pages used plain slugs while R2's already used theme-prefixed ones
+(`boutique-our-story`) for exactly this reason — fixed to `minimal-our-story` etc. so installing
+multiple prebuilt themes on one tenant can't silently drop a page to a slug collision. All 9
+prebuilt themes now have distinct home structures, authored inner templates, and real content
+pages.
 
 ## Small follow-up from R2's research
 `ProductGallery` (product), `Breadcrumbs` (collection), `EmptyState` (cart) are schema-valid section
