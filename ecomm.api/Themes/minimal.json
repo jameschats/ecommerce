@@ -25,7 +25,12 @@
         {
           "type": "Hero", "title": "Hero",
           "settings": { "autoplay": true, "intervalSec": 5 },
-          "blocks": [ { "image": "", "heading": "Welcome to our store", "subheading": "Great products, fair prices, fast delivery.", "buttonText": "Shop now", "buttonLink": "/products" } ]
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80", "heading": "Welcome to our store", "subheading": "Great products, fair prices, fast delivery.", "buttonText": "Shop now", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "EditorialSplit", "title": "Our approach",
+          "settings": { "eyebrow": "How we work", "heading": "Fewer, better things", "body": "We keep the catalogue tight and the quality high — every product earns its place. No filler, no clutter, just what's worth your money.", "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80", "imageSide": "right", "buttonText": "Our story", "buttonLink": "/pages/our-story" },
+          "blocks": []
         },
         {
           "type": "FeaturedProducts", "title": "Featured products",
@@ -38,11 +43,59 @@
           "blocks": []
         },
         {
+          "type": "Stats", "title": "Stats bar",
+          "settings": { "heading": "Why customers stick around" },
+          "blocks": [
+            { "value": "4.8★", "label": "Average rating" },
+            { "value": "24h", "label": "Dispatch time" },
+            { "value": "30-day", "label": "Easy returns" },
+            { "value": "10k+", "label": "Happy customers" }
+          ]
+        },
+        {
           "type": "Testimonials", "title": "Testimonials",
           "settings": { "heading": "What customers say" },
           "blocks": [
             { "quote": "Great quality and quick delivery. Highly recommend!", "author": "Happy customer", "rating": 5 },
             { "quote": "Exactly as described. Will order again.", "author": "Verified buyer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Call to action",
+          "settings": { "heading": "Get 10% off your first order", "subtext": "Join our list for early access and members-only offers.", "buttonText": "Sign up", "buttonLink": "/products", "backgroundColor": "#111827" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Related", "settings": { "heading": "You may also like", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🔒", "heading": "Secure checkout", "text": "Your details are safe" },
+            { "icon": "🚚", "heading": "Free delivery", "text": "On orders over ₹499" },
+            { "icon": "↩️", "heading": "30-day returns", "text": "No questions asked" }
           ]
         }
       ]
@@ -74,6 +127,28 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "simple", "showPolicies": true, "copyright": "© Minimal. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Story", "slug": "our-story",
+      "sections": [
+        { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Since day one", "heading": "Built on doing less, better", "body": "We started with a simple idea: most stores sell too much of what nobody really needs. So we don't. Every product on our shelves is here because it's genuinely good — not because it fills a category.", "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80", "imageSide": "left" }, "blocks": [] }
+      ]
+    },
+    {
+      "title": "FAQ", "slug": "faq",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Frequently asked questions",
+          "settings": { "heading": "Frequently asked questions" },
+          "blocks": [
+            { "question": "How long does delivery take?", "answer": "Most orders dispatch within 24 hours and arrive in 3-5 business days." },
+            { "question": "What's your returns policy?", "answer": "30 days, no questions asked — full refund or exchange, your choice." },
+            { "question": "Do you ship everywhere in India?", "answer": "Yes, we deliver pan-India. Enter your pincode at checkout to confirm serviceability." }
+          ]
         }
       ]
     }

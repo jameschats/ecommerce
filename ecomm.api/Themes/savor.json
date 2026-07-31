@@ -48,6 +48,16 @@
           "blocks": []
         },
         {
+          "type": "Collage", "title": "Flavour mosaic",
+          "settings": { "heading": "From our pantry to yours" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1000&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=600&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
           "type": "Multicolumn", "title": "Feature columns",
           "settings": { "heading": "From our kitchen" },
           "blocks": [
@@ -63,9 +73,52 @@
           "blocks": []
         },
         {
+          "type": "Stats", "title": "Stats bar",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "value": "10k+", "label": "Jars & bottles shipped" },
+            { "value": "100%", "label": "Small-batch made" },
+            { "value": "4.9★", "label": "Average rating" },
+            { "value": "48h", "label": "From kitchen to courier" }
+          ]
+        },
+        {
           "type": "CtaNewsletter", "title": "Call to action",
           "settings": { "heading": "Join the taste club", "subtext": "First dibs on new flavours and 10% off your first box.", "buttonText": "Join now", "buttonLink": "/products", "backgroundColor": "#7f1d1d" },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Related", "settings": { "heading": "You may also like", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🌿", "heading": "Real ingredients", "text": "Nothing artificial" },
+            { "icon": "🚚", "heading": "Fresh delivery", "text": "Over ₹499, on us" },
+            { "icon": "↩️", "heading": "Loved or refunded", "text": "No questions asked" }
+          ]
         }
       ]
     },
@@ -96,6 +149,28 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Savor. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Kitchen", "slug": "our-kitchen",
+      "sections": [
+        { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Where it's made", "heading": "Real kitchens, small batches", "body": "Every jar and bag is made the slow way — small batches, real ingredients, tasted and tweaked until it's right. No shortcuts, no fillers.", "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80", "imageSide": "left" }, "blocks": [] }
+      ]
+    },
+    {
+      "title": "Shipping & Returns", "slug": "shipping-returns",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Shipping & returns",
+          "settings": { "heading": "Shipping & returns" },
+          "blocks": [
+            { "question": "How fresh is my order when it arrives?", "answer": "We pack and ship within 48 hours of your order — everything arrives as fresh as the day it was made." },
+            { "question": "What if something arrives damaged?", "answer": "We'll replace or refund it immediately, no questions asked — just reach out with a photo." },
+            { "question": "Do you deliver pan-India?", "answer": "Yes, we ship across India. Free delivery on orders over ₹499." }
+          ]
         }
       ]
     }

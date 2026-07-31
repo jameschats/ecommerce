@@ -61,6 +61,16 @@
           ]
         },
         {
+          "type": "Stats", "title": "Stats bar",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "value": "100%", "label": "Safety certified" },
+            { "value": "50k+", "label": "Families served" },
+            { "value": "4.9★", "label": "Average rating" },
+            { "value": "🎁", "label": "Free gift wrap always" }
+          ]
+        },
+        {
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "Just in", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
           "blocks": []
@@ -69,6 +79,39 @@
           "type": "CtaNewsletter", "title": "Call to action",
           "settings": { "heading": "Join the club", "subtext": "Birthday surprises and early access to new drops.", "buttonText": "Sign up", "buttonLink": "/products", "backgroundColor": "#4c1d95" },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Related", "settings": { "heading": "You may also like", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🧸", "heading": "Safe materials", "text": "Tested & certified" },
+            { "icon": "🎁", "heading": "Gift wrap", "text": "Free on every order" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day promise" }
+          ]
         }
       ]
     },
@@ -100,6 +143,28 @@
           "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Sprout. All rights reserved." },
           "blocks": []
         }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Safety & Materials", "slug": "safety-materials",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Safety & materials",
+          "settings": { "heading": "Safety & materials" },
+          "blocks": [
+            { "question": "Are your toys safety certified?", "answer": "Yes — every toy is tested and certified to meet child-safety standards before it reaches our shelves." },
+            { "question": "What age ranges do you cater to?", "answer": "From newborn to pre-teen — each product listing shows its recommended age range." },
+            { "question": "Are materials non-toxic?", "answer": "Always. We only stock non-toxic, child-safe materials and finishes." }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Our Story", "slug": "our-story",
+      "sections": [
+        { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Why Sprout", "heading": "Play matters", "body": "We believe childhood should be full of wonder — so we curate toys, books and clothing that spark imagination, built to survive real play and loved for years.", "image": "https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1200&q=80", "imageSide": "right" }, "blocks": [] }
       ]
     }
   ]

@@ -53,13 +53,56 @@
         },
         {
           "type": "ImageWithText", "title": "Image with text",
-          "settings": { "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Kind to you and the planet", "body": "Cruelty-free, dermatologically tested, thoughtfully packaged.", "buttonText": "Learn more", "buttonLink": "/products" },
+          "settings": { "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Kind to you and the planet", "body": "Cruelty-free, dermatologically tested, thoughtfully packaged.", "buttonText": "Learn more", "buttonLink": "/pages/our-promise" },
           "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Stats bar",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "value": "100%", "label": "Cruelty-free" },
+            { "value": "0", "label": "Parabens or sulphates" },
+            { "value": "4.9★", "label": "Average rating" },
+            { "value": "15k+", "label": "Radiant customers" }
+          ]
         },
         {
           "type": "CtaNewsletter", "title": "Call to action",
           "settings": { "heading": "Get 10% off", "subtext": "Join for tips, launches and a welcome treat.", "buttonText": "Join Bloom", "buttonLink": "/products", "backgroundColor": "#7c3aed" },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Related", "settings": { "heading": "You may also like", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🐰", "heading": "Cruelty-free", "text": "Always" },
+            { "icon": "🎁", "heading": "Free samples", "text": "With every order" },
+            { "icon": "↩️", "heading": "Easy returns", "text": "30-day promise" }
+          ]
         }
       ]
     },
@@ -90,6 +133,28 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "simple", "showPolicies": true, "copyright": "© Bloom. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Promise", "slug": "our-promise",
+      "sections": [
+        { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Clean beauty", "heading": "Kind to you, kind to the planet", "body": "Every formula is dermatologically tested, cruelty-free, and free from parabens and sulphates. Beautiful packaging that's thoughtfully sourced, not wasteful.", "image": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80", "imageSide": "left" }, "blocks": [] }
+      ]
+    },
+    {
+      "title": "Skincare FAQ", "slug": "skincare-faq",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Skincare FAQ",
+          "settings": { "heading": "Skincare FAQ" },
+          "blocks": [
+            { "question": "Are your products suitable for sensitive skin?", "answer": "Yes — every formula is dermatologically tested and free from common irritants like parabens and sulphates." },
+            { "question": "Do you test on animals?", "answer": "Never. All our products are 100% cruelty-free." },
+            { "question": "How do I choose the right ritual for my skin?", "answer": "Browse by concern in Shop by Ritual, or reach out to our team for a personalised recommendation." }
+          ]
         }
       ]
     }

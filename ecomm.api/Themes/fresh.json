@@ -43,9 +43,24 @@
           "blocks": []
         },
         {
+          "type": "EditorialSplit", "title": "Our sourcing",
+          "settings": { "eyebrow": "Farm to door", "heading": "Sourced daily, delivered fast", "body": "We work directly with local farms and trusted suppliers so what lands in your cart is always fresh — never sitting in a warehouse for days.", "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80", "imageSide": "left", "buttonText": "How we source", "buttonLink": "/pages/how-we-source" },
+          "blocks": []
+        },
+        {
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "Today's picks", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 },
           "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Stats bar",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "value": "60min", "label": "Fastest delivery slot" },
+            { "value": "500+", "label": "Pincodes served" },
+            { "value": "98%", "label": "On-time delivery" },
+            { "value": "4.7★", "label": "Average rating" }
+          ]
         },
         {
           "type": "CtaNewsletter", "title": "Call to action",
@@ -56,6 +71,39 @@
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "New this week", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Related", "settings": { "heading": "You may also like", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🥬", "heading": "Farm fresh", "text": "Sourced daily" },
+            { "icon": "🚚", "heading": "Free delivery", "text": "On orders over ₹499" },
+            { "icon": "⏰", "heading": "Same-day slots", "text": "Order by noon" }
+          ]
         }
       ]
     },
@@ -86,6 +134,28 @@
           "type": "Footer", "title": "Footer",
           "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Fresh. All rights reserved." },
           "blocks": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "How We Source", "slug": "how-we-source",
+      "sections": [
+        { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Farm to door", "heading": "We know where every item comes from", "body": "Direct relationships with local farms and trusted suppliers mean shorter supply chains, fresher produce, and fair prices for the people who grow it.", "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80", "imageSide": "right" }, "blocks": [] }
+      ]
+    },
+    {
+      "title": "Delivery FAQ", "slug": "delivery-faq",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Delivery FAQ",
+          "settings": { "heading": "Delivery FAQ" },
+          "blocks": [
+            { "question": "What are your delivery slots?", "answer": "Same-day slots are available if you order by noon; otherwise next-day delivery." },
+            { "question": "Is there a minimum order for free delivery?", "answer": "Free delivery on all orders over ₹499 — below that, a small delivery fee applies." },
+            { "question": "What if an item is out of stock?", "answer": "We'll substitute with a similar item or refund that line automatically — your choice, set at checkout." }
+          ]
         }
       ]
     }

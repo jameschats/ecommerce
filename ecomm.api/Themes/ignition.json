@@ -47,6 +47,16 @@
           ]
         },
         {
+          "type": "Stats", "title": "Stats bar",
+          "settings": { "heading": "Trusted by tech shoppers" },
+          "blocks": [
+            { "value": "500k+", "label": "Orders shipped" },
+            { "value": "4.8★", "label": "Average rating" },
+            { "value": "2-year", "label": "Warranty on devices" },
+            { "value": "24/7", "label": "Real human support" }
+          ]
+        },
+        {
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "Best sellers", "layout": "carousel", "source": "bestsellers", "count": 8, "columns": 4 },
           "blocks": []
@@ -70,6 +80,48 @@
           "type": "FeaturedProducts", "title": "Featured products",
           "settings": { "heading": "New arrivals", "layout": "grid", "source": "newest", "count": 8, "columns": 4 },
           "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Related", "settings": { "heading": "You may also like", "source": "bestsellers", "count": 4, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "USP strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🛡️", "heading": "2-year warranty", "text": "On every device" },
+            { "icon": "🚚", "heading": "Free shipping", "text": "Over ₹499" },
+            { "icon": "↩️", "heading": "30-day returns", "text": "No questions asked" }
+          ]
+        },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance strip",
+          "settings": { "heading": "" },
+          "blocks": [
+            { "icon": "🔒", "heading": "Secure checkout", "text": "256-bit encryption" },
+            { "icon": "🛡️", "heading": "2-year warranty", "text": "On every device" },
+            { "icon": "↩️", "heading": "30-day returns", "text": "No questions asked" }
+          ]
         }
       ]
     },
@@ -101,6 +153,28 @@
           "settings": { "layout": "columns", "showPolicies": true, "copyright": "© Ignition. All rights reserved." },
           "blocks": []
         }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Warranty & Support", "slug": "warranty-support",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "Warranty & support",
+          "settings": { "heading": "Warranty & support" },
+          "blocks": [
+            { "question": "What warranty do devices come with?", "answer": "Every device ships with a 2-year manufacturer warranty covering hardware defects." },
+            { "question": "How do I claim a warranty repair?", "answer": "Contact support with your order number — we'll arrange pickup, repair or replacement." },
+            { "question": "Is support available on weekends?", "answer": "Yes — our support team is available 24/7, including weekends and holidays." }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "About Ignition", "slug": "about-ignition",
+      "sections": [
+        { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Who we are", "heading": "Flagship tech, honest prices", "body": "We cut out the markup, not the quality. Every deal on Ignition is genuine — real flagship devices, real warranties, prices that actually make sense.", "image": "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1200&q=80", "imageSide": "right" }, "blocks": [] }
       ]
     }
   ]
