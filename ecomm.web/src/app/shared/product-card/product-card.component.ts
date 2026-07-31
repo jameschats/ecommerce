@@ -18,13 +18,23 @@ const MAX_SWATCHES_SHOWN = 5;
       <div class="relative aspect-square bg-slate-50 overflow-hidden">
         @if (product().primaryImageUrl) {
           <img [src]="product().primaryImageUrl" [alt]="product().name"
-               class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+               class="w-full h-full object-cover transition"
+               [class.group-hover:opacity-0]="!!product().secondaryImageUrl" loading="lazy" />
         } @else {
           <div class="w-full h-full flex items-center justify-center text-slate-300 text-sm">No image</div>
         }
-        @if (discount() > 0 && product().inStock) {
-          <span class="absolute top-2 left-2 bg-green-600 text-white text-[11px] font-semibold px-1.5 py-0.5 rounded">{{ discount() }}% off</span>
+        @if (product().secondaryImageUrl) {
+          <img [src]="product().secondaryImageUrl" [alt]="product().name"
+               class="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition" loading="lazy" />
         }
+        <div class="absolute top-2 left-2 flex flex-col gap-1 items-start">
+          @if (discount() > 0 && product().inStock) {
+            <span class="bg-green-600 text-white text-[11px] font-semibold px-1.5 py-0.5 rounded">{{ discount() }}% off</span>
+          }
+          @if (isNew()) {
+            <span class="bg-slate-900 text-white text-[11px] font-semibold px-1.5 py-0.5 rounded">New</span>
+          }
+        </div>
         @if (!product().inStock) {
           <div class="absolute inset-0 bg-white/60 flex items-center justify-center">
             <span class="bg-slate-800 text-white text-xs font-semibold px-2 py-1 rounded">Out of stock</span>
@@ -76,6 +86,12 @@ export class ProductCardComponent {
     const p = this.product();
     if (!p.compareAtPrice || p.compareAtPrice <= p.price) return 0;
     return Math.round((1 - p.price / p.compareAtPrice) * 100);
+  });
+
+  /** "New" badge for products created in the last 30 days. */
+  readonly isNew = computed(() => {
+    const created = new Date(this.product().createdAt).getTime();
+    return Number.isFinite(created) && Date.now() - created <= 30 * 24 * 60 * 60 * 1000;
   });
 
   /** Resolves each variant colour to a hex dot (or a neutral fallback if unmapped), capped for card width. */

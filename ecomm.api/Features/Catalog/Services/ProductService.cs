@@ -73,6 +73,7 @@ public sealed class ProductService : IProductService
         if (query.CategoryId is { } cat) q = q.Where(p => p.CategoryId == cat);
         if (query.BrandId is { } brand) q = q.Where(p => p.BrandId == brand);
         if (query.IsFeatured is { } feat) q = q.Where(p => p.IsFeatured == feat);
+        if (query.Ids is { Count: > 0 } ids) q = q.Where(p => ids.Contains(p.ProductId));
 
         q = query.Sort switch
         {
@@ -93,7 +94,9 @@ public sealed class ProductService : IProductService
                 p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
                 p.InventoryRecords.Sum(i => i.AvailableQty),
                 p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
-                p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList()))
+                p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList(),
+                p.CreatedAt,
+                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault()))
             .ToListAsync(ct);
 
         return new PagedResult<ProductListItemDto>

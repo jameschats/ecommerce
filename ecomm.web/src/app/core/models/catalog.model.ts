@@ -65,6 +65,8 @@ export interface ProductListItem {
   availableQty: number;
   isLowStock: boolean;
   colorOptions: string[];
+  createdAt: string;
+  secondaryImageUrl: string | null;
 }
 
 export interface ProductDetail {
@@ -104,4 +106,5 @@ export interface ProductQuery {
   sort?: string;
   page?: number;
   pageSize?: number;
+  ids?: number[];
 }

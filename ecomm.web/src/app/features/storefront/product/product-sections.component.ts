@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 import { ProductPageStore } from './product-page.store';
 
@@ -236,5 +237,28 @@ export class ProductDescriptionComponent {
   `,
 })
 export class ProductReviewsComponent {
+  readonly store = inject(ProductPageStore);
+}
+
+/** Related products (same category, excluding the current one). Dynamic section, `product` template —
+ *  fixes a previously-shipped bug where this section type was selectable in the theme editor but no
+ *  code ever populated it (always showed shoppers an empty "no products yet" placeholder). */
+@Component({
+  selector: 'app-product-related',
+  imports: [ProductCardComponent],
+  template: `
+    @if (store.relatedProducts().length) {
+      <section class="mt-10">
+        <h2 class="text-xl font-bold text-slate-900 mb-5">You may also like</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          @for (p of store.relatedProducts(); track p.productId) {
+            <app-product-card [product]="p" />
+          }
+        </div>
+      </section>
+    }
+  `,
+})
+export class ProductRelatedComponent {
   readonly store = inject(ProductPageStore);
 }

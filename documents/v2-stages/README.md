@@ -26,6 +26,9 @@ The merchant console and storefront were planned screen-by-screen against Shopif
 full gap analysis + phase breakdown + status:
 - **[Merchant-Admin Plan (Areas 1–10 + M1–M9)](v2-merchant-admin-plan.md)** — the store-owner console. M1–M7 ✅, M8–M9 pending.
 - **[Storefront Theme Engine (S1–S7)](v2-storefront-theme-engine.md)** — the store + theme editor (OS-2.0 depth). Precursor Storefront Builder P1–P5 ✅; S1–S7 pending.
+- **[Theme Editor Parity Plan (E1–E6)](v2-theme-editor-parity-plan.md)** — click-to-select canvas editing, Shopify-style. E1–E2 ✅; E3 next.
+- **[Theme Store Plan (T1–T20, Rich Themes R1–R3)](v2-theme-store-plan.md)** — the prebuilt theme catalog. R1–R2 ✅; R3 deferred until after E3.
+- **[Storefront Experience Roadmap (Phases A–K)](v2-storefront-experience-roadmap.md)** — PLP/PDP/theme-builder gaps found auditing against real e-commerce sites (Snitch, Nestasia, boAt, etc.). Phase A in progress.
 
 > These supersede the pre-gap-analysis detail in V2-2 (now **same-app** per ADR-001, not a separate `ecomm.merchant-admin`) and extend V2-4 (subdomain/theme foundations ✅).
 

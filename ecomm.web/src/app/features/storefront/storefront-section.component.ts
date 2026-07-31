@@ -3,6 +3,7 @@ import { Component, ElementRef, HostBinding, OnDestroy, OnInit, PLATFORM_ID, Vie
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
+import { RecentlyViewedService } from '../../core/services/recently-viewed.service';
 import { BuilderSection } from '../../core/services/cms.service';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { ThemeService } from '../../core/services/theme.service';
@@ -443,6 +444,7 @@ import { ThemeService } from '../../core/services/theme.service';
 })
 export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly catalog = inject(CatalogService);
+  private readonly recentlyViewed = inject(RecentlyViewedService);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly sanitizer = inject(DomSanitizer);
@@ -568,6 +570,17 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
           sort: cfg['source'] === 'newest' ? 'newest' : cfg['source'] === 'bestsellers' ? 'bestsellers' : undefined,
           categoryId: cfg['source'] === 'category' && cfg['categoryId'] ? Number(cfg['categoryId']) : undefined,
         }).subscribe((r) => this.products.set(r.items));
+      }
+    } else if (type === 'RecentlyViewed') {
+      const ids = this.recentlyViewed.getIds();
+      const count = Number(this.s()['count']) || 8;
+      if (ids.length) {
+        const wanted = ids.slice(0, count);
+        this.catalog.getProducts({ ids: wanted }).subscribe((r) => {
+          // Preserve most-recent-first order — the API doesn't guarantee result order for an id-list filter.
+          const rank = new Map(wanted.map((id, i) => [id, i]));
+          this.products.set([...r.items].sort((a, b) => (rank.get(a.productId) ?? 0) - (rank.get(b.productId) ?? 0)));
+        });
       }
     } else if (type === 'CountdownBar') {
       this.tickCountdown();

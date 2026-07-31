@@ -5,7 +5,8 @@ import { StorefrontSectionComponent } from '../storefront-section.component';
 import { SectionSlot, slotsFrom } from '../section-slot';
 import { ProductPageStore } from './product-page.store';
 import {
-  ProductBreadcrumbsComponent, ProductDescriptionComponent, ProductInfoComponent, ProductReviewsComponent,
+  ProductBreadcrumbsComponent, ProductDescriptionComponent, ProductInfoComponent, ProductRelatedComponent,
+  ProductReviewsComponent,
 } from './product-sections.component';
 
 /** Default `product` layout when the published theme defines no product template. Matches today's page. */
@@ -22,6 +23,7 @@ const DEFAULT_PRODUCT_SECTIONS = ['Breadcrumbs', 'ProductInfo', 'ProductDescript
   imports: [
     RouterLink, StorefrontSectionComponent,
     ProductBreadcrumbsComponent, ProductInfoComponent, ProductDescriptionComponent, ProductReviewsComponent,
+    ProductRelatedComponent,
   ],
   providers: [ProductPageStore],
   template: `
@@ -40,6 +42,7 @@ const DEFAULT_PRODUCT_SECTIONS = ['Breadcrumbs', 'ProductInfo', 'ProductDescript
             @case ('ProductInfo') { <app-product-info /> }
             @case ('ProductDescription') { <app-product-description /> }
             @case ('ProductReviews') { <app-product-reviews /> }
+            @case ('RelatedProducts') { <app-product-related /> }
             @default { @if (slot.data) { <app-storefront-section [section]="slot.data" /> } }
           }
         }

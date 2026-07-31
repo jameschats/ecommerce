@@ -94,6 +94,7 @@ export class CatalogService {
     if (query.brandId != null) params = params.set('brandId', query.brandId);
     if (query.isFeatured != null) params = params.set('isFeatured', query.isFeatured);
     if (query.sort) params = params.set('sort', query.sort);
+    if (query.ids?.length) for (const id of query.ids) params = params.append('ids', id);
     const pageSize = query.pageSize ?? 12;
     params = params.set('page', query.page ?? 1).set('pageSize', pageSize);
     return this.http

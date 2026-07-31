@@ -1,11 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
-import { ProductDetail } from '../../../core/models/catalog.model';
+import { ProductDetail, ProductListItem } from '../../../core/models/catalog.model';
 import { ProductReviews } from '../../../core/models/review.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
 import { CatalogService } from '../../../core/services/catalog.service';
+import { RecentlyViewedService } from '../../../core/services/recently-viewed.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
 import { ThemeService } from '../../../core/services/theme.service';
@@ -26,6 +27,7 @@ export class ProductPageStore {
   private readonly auth = inject(AuthService);
   private readonly theme = inject(ThemeService);
   private readonly siteUrl = inject(SITE_URL);
+  private readonly recentlyViewed = inject(RecentlyViewedService);
 
   readonly isAuthenticated = this.auth.isAuthenticated;
 
@@ -39,6 +41,9 @@ export class ProductPageStore {
   readonly currentImage = signal(0);
   readonly qty = signal(1);
   selected: Record<string, string> = {};
+
+  /** Same-category products, excluding the current one — powers the RelatedProducts section. */
+  readonly relatedProducts = signal<ProductListItem[]>([]);
 
   readonly reviewData = signal<ProductReviews | null>(null);
   readonly reviews = computed(() => this.reviewData()?.reviews.items ?? []);
@@ -87,9 +92,19 @@ export class ProductPageStore {
         for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
         this.applySeo(product);
         this.loadReviews(product.productId);
+        this.loadRelated(product.productId, product.categoryId);
         if (this.isAuthenticated()) this.loadEligibility(product.productId);
+        this.recentlyViewed.record(product.productId);
       },
       error: () => { this.loading.set(false); this.notFound.set(true); },
+    });
+  }
+
+  private loadRelated(productId: number, categoryId: number): void {
+    this.relatedProducts.set([]);
+    this.catalog.getProducts({ categoryId, pageSize: 9 }).subscribe({
+      next: (r) => this.relatedProducts.set(r.items.filter((p) => p.productId !== productId).slice(0, 8)),
+      error: () => {},
     });
   }
 

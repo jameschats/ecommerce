@@ -23,7 +23,8 @@ public sealed record ProductImageInput(string Url, string? AltText, int DisplayO
 public sealed record ProductListItemDto(
     long ProductId, string Sku, string Name, string Slug, decimal Price, decimal? CompareAtPrice,
     string Status, bool IsFeatured, string? PrimaryImageUrl, string CategoryName, string? BrandName, bool InStock,
-    int AvailableQty, bool IsLowStock, IReadOnlyList<string> ColorOptions);
+    int AvailableQty, bool IsLowStock, IReadOnlyList<string> ColorOptions,
+    DateTime CreatedAt, string? SecondaryImageUrl);
 
 public sealed record ProductDetailDto(
     long ProductId, string Sku, string Name, string Slug, string? ShortDescription, string? Description,
@@ -43,4 +44,4 @@ public sealed record SaveProductRequest(
 
 public sealed record ProductQuery(
     string? Search, long? CategoryId, long? BrandId, string? Status, bool? IsFeatured,
-    string? Sort, int Page = 1, int PageSize = 20);
+    string? Sort, int Page = 1, int PageSize = 20, IReadOnlyList<long>? Ids = null);
