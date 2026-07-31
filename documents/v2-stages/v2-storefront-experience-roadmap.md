@@ -132,9 +132,11 @@ Most of what these sites do already maps to section types we have (trust-pillar 
 `Multicolumn`; shop-by-concern icon grids → `Categories`; countdown promos → `CountdownBar`; sticky
 coupon banners → `Marquee`/`AnnouncementBar`). Six genuinely new patterns, roughly ordered by size:
 
-- **F — Tabbed product grid** (boAt's "Big Deals": All/Earbuds/Smartwatches tabs switch the grid in
-  place, no navigation). Smallest — a new section type + component, same shape as every block built
-  this session.
+- **F — Tabbed product grid** — **done (2026-07-31, commit `40389e1`).** New `TabbedProductGrid`
+  section type (up to 6 tabs, each its own source/category/count); clicking a tab fetches and swaps
+  its products in place via the existing `CatalogService`, no navigation. Live-verified: added a
+  2-tab scratch section to the draft Ignition theme, confirmed the heading, both tab labels, and the
+  first tab's real product ("Xperia 5G") rendered server-side, then removed it.
 - **G — Free-gift-at-spend-threshold promos** ("Free gift above ₹999"). Extends the existing coupon
   system (`CouponService`), not the theme builder.
 - **H — Bundles/Combos as merchandised SKUs** (Blue Tokai, Plum, boAt: multi-product kits sold as one
