@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, model, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, input, model, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { CatalogService } from '../../core/services/catalog.service';
@@ -8,6 +8,8 @@ import { NavigationAdminService, Menu } from '../../core/services/navigation-adm
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { FieldSchema } from '../../core/services/theme-authoring.service';
 import { ColorScheme } from '../../core/services/theme.service';
+import { AiAssistButtonComponent } from '../ai-assist/ai-assist-button.component';
+import { MediaPickerComponent } from '../media-picker/media-picker.component';
 
 type LinkType = 'product' | 'collection' | 'page' | 'external';
 
@@ -18,11 +20,17 @@ type LinkType = 'product' | 'collection' | 'page' | 'external';
  */
 @Component({
   selector: 'app-section-field',
-  imports: [FormsModule],
+  imports: [FormsModule, AiAssistButtonComponent, MediaPickerComponent],
   template: `
     @switch (schema().type) {
-      @case ('textarea') { <textarea [ngModel]="value()" (ngModelChange)="value.set($event)" rows="3" class="input w-full"></textarea> }
-      @case ('richtext') { <textarea [ngModel]="value()" (ngModelChange)="value.set($event)" rows="5" class="input w-full font-mono text-xs" placeholder="<p>HTML — scripts are stripped</p>"></textarea> }
+      @case ('textarea') {
+        <textarea [ngModel]="value()" (ngModelChange)="value.set($event)" rows="3" class="input w-full"></textarea>
+        <app-ai-assist purpose="theme-section-text" [text]="value() || ''" (applied)="value.set($event)" />
+      }
+      @case ('richtext') {
+        <textarea [ngModel]="value()" (ngModelChange)="value.set($event)" rows="5" class="input w-full font-mono text-xs" placeholder="<p>HTML — scripts are stripped</p>"></textarea>
+        <app-ai-assist purpose="theme-section-text" [text]="value() || ''" (applied)="value.set($event)" />
+      }
       @case ('boolean') { <input type="checkbox" [ngModel]="value()" (ngModelChange)="value.set($event)" /> }
       @case ('number') { <input type="number" [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" /> }
       @case ('range') {
@@ -32,10 +40,36 @@ type LinkType = 'product' | 'collection' | 'page' | 'external';
         </div>
       }
       @case ('color') { <input type="color" [ngModel]="value()" (ngModelChange)="value.set($event)" class="input h-9 w-16" /> }
-      @case ('image') { <input [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" placeholder="https://…/image.jpg" /> }
+      @case ('image') {
+        <div>
+          @if (value()) {
+            <div class="relative w-full aspect-video rounded-lg overflow-hidden border border-slate-200 mb-1.5 bg-slate-50">
+              <img [src]="value()" alt="" class="w-full h-full object-cover" />
+              <button type="button" (click)="value.set('')" aria-label="Remove image"
+                class="absolute top-1 right-1 w-6 h-6 rounded-full bg-white/90 hover:bg-white text-slate-500 hover:text-slate-800 text-sm grid place-items-center">×</button>
+            </div>
+          }
+          <button type="button" (click)="mediaPickerOpen.set(true)" class="input w-full text-left text-slate-500 hover:bg-slate-50">
+            {{ value() ? 'Change image' : 'Choose image…' }}
+          </button>
+        </div>
+        @if (mediaPickerOpen()) {
+          <app-media-picker (picked)="value.set($event); mediaPickerOpen.set(false)" (close)="mediaPickerOpen.set(false)" />
+        }
+      }
       @case ('url') { <input type="url" [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" placeholder="https://…" /> }
       @case ('datetime') { <input type="datetime-local" [ngModel]="toLocalInput(value())" (ngModelChange)="value.set(toUtcIso($event))" class="input w-full" /> }
-      @case ('select') { <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">@for (o of schema().options ?? []; track o) { <option [value]="o">{{ o }}</option> }</select> }
+      @case ('select') {
+        @if (segmentedOptions(); as opts) {
+          <div class="flex rounded-lg border border-slate-300 overflow-hidden">
+            @for (o of opts; track o) {
+              <button type="button" (click)="value.set(o)" class="flex-1 text-sm px-2 py-1.5 transition" [class]="value() === o ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'">{{ o }}</button>
+            }
+          </div>
+        } @else {
+          <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">@for (o of schema().options ?? []; track o) { <option [value]="o">{{ o }}</option> }</select>
+        }
+      }
 
       @case ('colorScheme') {
         <select [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full">
@@ -112,7 +146,13 @@ type LinkType = 'product' | 'collection' | 'page' | 'external';
               </select>
             }
           }
-          @if (value()) { <p class="text-xs text-slate-500 mt-1">{{ value() }}</p> }
+          @if (value()) {
+            <div class="mt-1.5 inline-flex items-center gap-1.5 text-xs bg-slate-100 border border-slate-200 rounded-full pl-2.5 pr-1.5 py-1">
+              <span class="text-slate-400">🔗</span>
+              <span class="font-medium text-slate-700">{{ linkChipLabel() }}</span>
+              <button type="button" (click)="setLink(''); linkedProductName.set(null)" aria-label="Remove link" class="text-slate-400 hover:text-slate-700 ml-0.5 leading-none">×</button>
+            </div>
+          }
         </div>
       }
       @default { <input [ngModel]="value()" (ngModelChange)="value.set($event)" class="input w-full" /> }
@@ -144,6 +184,26 @@ export class SectionFieldComponent implements OnInit {
     return i > 0 ? v.slice(i + 1) : '';
   };
 
+  /** E4: a picked/looked-up product name for the link chip — the stored value is only a slug, so a
+   *  freshly-loaded field (not just-picked in this session) needs one lookup to show a real name. */
+  readonly linkedProductName = signal<string | null>(null);
+  readonly linkChipLabel = computed(() => {
+    const v = String(this.value() ?? '');
+    if (v.startsWith('/product/')) return `Product: ${this.linkedProductName() ?? v.slice(9)}`;
+    if (v.startsWith('/collection/')) { const slug = v.slice(12); return `Collection: ${this.collectionsList().find((c) => c.slug === slug)?.name ?? slug}`; }
+    if (v.startsWith('/pages/')) { const slug = v.slice(7); return `Page: ${this.pages().find((p) => p.slug === slug)?.title ?? slug}`; }
+    return v;
+  });
+
+  /** E4: select fields with a handful of options render as a segmented control instead of a dropdown. */
+  readonly segmentedOptions = computed(() => {
+    const opts = this.schema().options ?? [];
+    return opts.length > 0 && opts.length <= 4 ? opts : null;
+  });
+
+  /** E4: image field's media-library/upload/URL picker modal. */
+  readonly mediaPickerOpen = signal(false);
+
   productQuery = '';
   readonly productSearch$ = new Subject<string>();
 
@@ -166,11 +226,16 @@ export class SectionFieldComponent implements OnInit {
         v.startsWith('/product/') ? 'product' :
         v.startsWith('/collection/') ? 'collection' :
         v.startsWith('/pages/') ? 'page' : 'external');
+      // E4: resolve the chip's display name for an already-saved product link (a fresh pick sets
+      // linkedProductName directly and skips this network round-trip).
+      if (v.startsWith('/product/')) {
+        this.catalog.getProductBySlug(v.slice(9)).subscribe((p) => { if (p) this.linkedProductName.set(p.name); });
+      }
     }
   }
 
   pickProduct(p: ProductListItem): void { this.value.set(`/product/${p.slug}`); this.productResults.set([]); this.productQuery = ''; }
-  pickLinkProduct(p: ProductListItem): void { this.setLink(`/product/${p.slug}`); this.productResults.set([]); this.productQuery = ''; }
+  pickLinkProduct(p: ProductListItem): void { this.setLink(`/product/${p.slug}`); this.linkedProductName.set(p.name); this.productResults.set([]); this.productQuery = ''; }
   setLink(v: string): void { this.value.set(v); }
   setLinkType(t: LinkType): void { this.linkType.set(t); if (t === 'external') this.value.set(''); }
 
