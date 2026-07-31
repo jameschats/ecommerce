@@ -22,10 +22,12 @@ public sealed record ContactDto(long UserId, string? Email, string? FullName, st
 
 public sealed record TenantSubscriptionInfo(int? PlanId, string? PlanName, string? Status, DateTime? TrialEndsAt, DateTime? CurrentPeriodEnd, string? RazorpaySubscriptionId);
 public sealed record TenantUsageDto(int Products, int Orders, decimal Gmv, int AiCreditBalance);
-public sealed record PlanDto(int PlanId, string Name, string Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder,
+public sealed record PlanDto(int PlanId, string Name, string Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int? MaxStorageMb, int AiCredits, string? Features, bool IsActive, int DisplayOrder,
+    string? MarketingEngineLevel, string? LiveChatLevel, string? HelpdeskLevel,
     decimal? IntroPriceInr, int? IntroMonths, DateTime? IntroEndsAt);
 public sealed record AiCreditPackDto(int AiCreditPackId, string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
-public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int AiCredits, string? Features, bool IsActive, int DisplayOrder,
+public sealed record PlanUpsert(string Name, string? Slug, decimal MonthlyPrice, int? MaxProducts, int? MaxOrders, int? MaxStorageMb, int AiCredits, string? Features, bool IsActive, int DisplayOrder,
+    string? MarketingEngineLevel = null, string? LiveChatLevel = null, string? HelpdeskLevel = null,
     decimal? IntroPriceInr = null, int? IntroMonths = null, DateTime? IntroEndsAt = null);
 public sealed record PackUpsert(string Name, int Credits, decimal PriceInr, bool IsActive, int DisplayOrder);
 public sealed record NoteDto(long TenantNoteId, long AdminUserId, string Note, DateTime CreatedAt);
@@ -386,7 +388,8 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
 
     public async Task<IReadOnlyList<PlanDto>> ListPlansAsync(CancellationToken ct) =>
         await db.Plans.AsNoTracking().OrderBy(p => p.DisplayOrder).ThenBy(p => p.PlanId)
-            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder, p.IntroPriceInr, p.IntroMonths, p.IntroEndsAt))
+            .Select(p => new PlanDto(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.MaxStorageMb, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder,
+                p.MarketingEngineLevel, p.LiveChatLevel, p.HelpdeskLevel, p.IntroPriceInr, p.IntroMonths, p.IntroEndsAt))
             .ToListAsync(ct);
 
     public async Task<PlanDto> CreatePlanAsync(PlanUpsert r, long adminUserId, CancellationToken ct)
@@ -398,7 +401,8 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         var plan = new Plan
         {
             Name = name, Slug = slug, MonthlyPrice = r.MonthlyPrice, MaxProducts = r.MaxProducts, MaxOrders = r.MaxOrders,
-            AiCredits = r.AiCredits, Features = r.Features, IsActive = r.IsActive, DisplayOrder = r.DisplayOrder,
+            MaxStorageMb = r.MaxStorageMb, AiCredits = r.AiCredits, Features = r.Features, IsActive = r.IsActive, DisplayOrder = r.DisplayOrder,
+            MarketingEngineLevel = r.MarketingEngineLevel, LiveChatLevel = r.LiveChatLevel, HelpdeskLevel = r.HelpdeskLevel,
             IntroPriceInr = r.IntroPriceInr, IntroMonths = r.IntroMonths, IntroEndsAt = r.IntroEndsAt, CreatedAt = DateTime.UtcNow,
         };
         db.Plans.Add(plan);
@@ -416,8 +420,9 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         var slug = string.IsNullOrWhiteSpace(r.Slug) ? Slugify(name) : Slugify(r.Slug!);
         if (await db.Plans.AnyAsync(p => p.Slug == slug && p.PlanId != planId, ct)) throw new AppException("A plan with that slug already exists.", StatusCodes.Status409Conflict);
         plan.Name = name; plan.Slug = slug; plan.MonthlyPrice = r.MonthlyPrice; plan.MaxProducts = r.MaxProducts;
-        plan.MaxOrders = r.MaxOrders; plan.AiCredits = r.AiCredits; plan.Features = r.Features; plan.IsActive = r.IsActive;
+        plan.MaxOrders = r.MaxOrders; plan.MaxStorageMb = r.MaxStorageMb; plan.AiCredits = r.AiCredits; plan.Features = r.Features; plan.IsActive = r.IsActive;
         plan.DisplayOrder = r.DisplayOrder;
+        plan.MarketingEngineLevel = r.MarketingEngineLevel; plan.LiveChatLevel = r.LiveChatLevel; plan.HelpdeskLevel = r.HelpdeskLevel;
         plan.IntroPriceInr = r.IntroPriceInr; plan.IntroMonths = r.IntroMonths; plan.IntroEndsAt = r.IntroEndsAt;
         plan.UpdatedAt = DateTime.UtcNow;
         await LogAsync(adminUserId, null, "UpdatePlan", name, ct);
@@ -479,7 +484,8 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
     }
 
     private static PlanDto ToPlanDto(Plan p) =>
-        new(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder, p.IntroPriceInr, p.IntroMonths, p.IntroEndsAt);
+        new(p.PlanId, p.Name, p.Slug, p.MonthlyPrice, p.MaxProducts, p.MaxOrders, p.MaxStorageMb, p.AiCredits, p.Features, p.IsActive, p.DisplayOrder,
+            p.MarketingEngineLevel, p.LiveChatLevel, p.HelpdeskLevel, p.IntroPriceInr, p.IntroMonths, p.IntroEndsAt);
 
     private static string Slugify(string s)
     {

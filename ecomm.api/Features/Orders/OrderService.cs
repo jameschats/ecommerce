@@ -7,6 +7,7 @@ using ecomm.api.Features.Coupons;
 using ecomm.api.Features.Inventory;
 using ecomm.api.Features.Notifications;
 using ecomm.api.Features.Payments;
+using ecomm.api.Features.Plans;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Orders;
@@ -47,16 +48,17 @@ public sealed class OrderService : IOrderService
     private readonly INotificationFeedService _feed;
     private readonly ICouponService _coupons;
     private readonly Features.Shipping.Shiprocket.ITenantShiprocketService _shiprocket;
+    private readonly IEntitlementService _entitlements;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
         INotificationService notify, INotificationFeedService feed, ICouponService coupons,
-        Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, ILogger<OrderService> log)
+        Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, IEntitlementService entitlements, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
         _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons;
-        _shiprocket = shiprocket; _log = log;
+        _shiprocket = shiprocket; _entitlements = entitlements; _log = log;
     }
 
     /// <summary>Customer self-service cancellation toggle (merchant setting; default on).</summary>
@@ -164,6 +166,8 @@ public sealed class OrderService : IOrderService
     // ---------------- Place ----------------
     public async Task<PlaceOrderResult> PlaceOrderAsync(long userId, PlaceOrderRequest req, CancellationToken ct = default)
     {
+        await _entitlements.EnsureCanPlaceOrderAsync(ct);
+
         var shipAddr = await _db.CustomerAddresses.FirstOrDefaultAsync(
             a => a.CustomerAddressId == req.ShippingAddressId && a.UserId == userId && !a.IsDeleted, ct)
             ?? throw new AppException("Shipping address not found.", 404);

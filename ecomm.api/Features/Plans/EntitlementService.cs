@@ -11,6 +11,7 @@ public sealed record PlanUsageDto(
     string? PlanName,
     int Products, int? MaxProducts,
     int OrdersThisPeriod, int? MaxOrders,
+    long StorageUsedBytes, long? MaxStorageBytes,
     DateTime? PeriodStart, DateTime? PeriodEnd,
     IReadOnlyList<string> Features);
 
@@ -28,6 +29,12 @@ public interface IEntitlementService
     /// </summary>
     Task<int?> RemainingProductSlotsAsync(CancellationToken ct = default);
 
+    /// <summary>Throws 402 when uploading a file of this size would exceed the plan's storage. No-op on unlimited plans.</summary>
+    Task EnsureCanUploadAsync(long addingBytes, CancellationToken ct = default);
+
+    /// <summary>Throws 402 when the tenant has reached its plan's order limit for the current billing period. No-op on unlimited plans.</summary>
+    Task EnsureCanPlaceOrderAsync(CancellationToken ct = default);
+
     Task<PlanUsageDto> GetUsageAsync(CancellationToken ct = default);
 }
 
@@ -35,14 +42,11 @@ public interface IEntitlementService
 /// Enforces plan limits. Until now <c>Plan.MaxProducts</c>, <c>MaxOrders</c> and <c>Features</c> were
 /// stored, shown on the pricing page and enforced nowhere — every store had unlimited everything.
 ///
-/// Two deliberate asymmetries:
-/// <list type="bullet">
-/// <item>Products are enforced <b>on creation only</b>. An existing catalogue is never rejected, so a
-/// plan change or a limit correction can't strand a merchant with data they can no longer edit.</item>
-/// <item>Orders are <b>reported, not blocked</b>. Refusing a shopper's checkout because the merchant hit
-/// a plan ceiling turns a billing conversation into lost revenue and an instant churn reason. The
-/// number is surfaced to the merchant instead.</item>
-/// </list>
+/// One deliberate asymmetry remains: products are enforced <b>on creation only</b>. An existing
+/// catalogue is never rejected, so a plan change or a limit correction can't strand a merchant with
+/// data they can no longer edit. Storage and orders follow the same "enforce at the point of adding
+/// more" principle — a merchant already over a (newly lowered) limit keeps what they have, but can't
+/// add further until they're back under it or upgrade.
 /// </summary>
 public sealed class EntitlementService(EcommerceDbContext db) : IEntitlementService
 {
@@ -76,23 +80,62 @@ public sealed class EntitlementService(EcommerceDbContext db) : IEntitlementServ
         return Math.Max(0, max - await db.Products.CountAsync(ct));
     }
 
+    public async Task EnsureCanUploadAsync(long addingBytes, CancellationToken ct = default)
+    {
+        var plan = await CurrentPlanAsync(ct);
+        if (plan?.MaxStorageMb is not { } maxMb) return;   // no plan or unlimited
+
+        var maxBytes = (long)maxMb * 1024 * 1024;
+        var used = await db.MediaFiles.SumAsync(m => m.SizeBytes ?? 0, ct);
+        if (used + addingBytes <= maxBytes) return;
+
+        var remainingMb = Math.Max(0, (maxBytes - used) / (1024 * 1024));
+        throw new AppException(
+            $"Your {plan.Name} plan includes {maxMb} MB of storage — you have {remainingMb} MB left. Upgrade to add more.",
+            StatusCodes.Status402PaymentRequired);
+    }
+
+    public async Task EnsureCanPlaceOrderAsync(CancellationToken ct = default)
+    {
+        var sub = await CurrentSubscriptionAsync(ct);
+        if (sub?.Plan?.MaxOrders is not { } max) return;   // no plan or unlimited
+
+        var (from, to) = PeriodOf(sub.CurrentPeriodStart, sub.CurrentPeriodEnd);
+        var current = await CountOrdersAsync(from, to, ct);
+        if (current < max) return;
+
+        throw new AppException(
+            $"Your {sub.Plan.Name} plan includes {max} orders this billing period and you've reached the limit. Upgrade to keep accepting orders.",
+            StatusCodes.Status402PaymentRequired);
+    }
+
     public async Task<PlanUsageDto> GetUsageAsync(CancellationToken ct = default)
     {
-        var sub = await db.TenantSubscriptions.AsNoTracking()
+        var sub = await CurrentSubscriptionAsync(ct);
+
+        var (from, to) = PeriodOf(sub?.CurrentPeriodStart, sub?.CurrentPeriodEnd);
+        var products = await db.Products.CountAsync(ct);
+        var orders = await CountOrdersAsync(from, to, ct);
+        var storageUsed = await db.MediaFiles.SumAsync(m => m.SizeBytes ?? 0, ct);
+        long? maxStorageBytes = sub?.Plan?.MaxStorageMb is { } maxMb ? (long)maxMb * 1024 * 1024 : null;
+
+        return new PlanUsageDto(
+            sub?.Plan?.Name, products, sub?.Plan?.MaxProducts,
+            orders, sub?.Plan?.MaxOrders,
+            storageUsed, maxStorageBytes, from, to,
+            ParseFeatures(sub?.Plan?.Features));
+    }
+
+    private Task<Data.Entities.TenantSubscription?> CurrentSubscriptionAsync(CancellationToken ct) =>
+        db.TenantSubscriptions.AsNoTracking()
             .Include(s => s.Plan)
             .OrderByDescending(s => s.TenantSubscriptionId)
             .FirstOrDefaultAsync(ct);
 
-        var (from, to) = PeriodOf(sub?.CurrentPeriodStart, sub?.CurrentPeriodEnd);
-        var products = await db.Products.CountAsync(ct);
-        var orders = await db.Orders.CountAsync(
-            o => o.Status != "Draft" && !o.IsTest && o.PlacedAt >= from && o.PlacedAt <= to, ct);
-
-        return new PlanUsageDto(
-            sub?.Plan?.Name, products, sub?.Plan?.MaxProducts,
-            orders, sub?.Plan?.MaxOrders, from, to,
-            ParseFeatures(sub?.Plan?.Features));
-    }
+    /// <summary>Orders that count toward a plan's period ceiling — mirrors GetUsageAsync's original
+    /// predicate exactly, factored out so EnsureCanPlaceOrderAsync can't silently drift from it.</summary>
+    private Task<int> CountOrdersAsync(DateTime from, DateTime to, CancellationToken ct) =>
+        db.Orders.CountAsync(o => o.Status != "Draft" && !o.IsTest && o.PlacedAt >= from && o.PlacedAt <= to, ct);
 
     private async Task<Data.Entities.Plan?> CurrentPlanAsync(CancellationToken ct) =>
         await db.TenantSubscriptions.AsNoTracking()

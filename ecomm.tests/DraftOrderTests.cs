@@ -5,6 +5,7 @@ using ecomm.api.Features.Checkout;
 using ecomm.api.Features.Coupons;
 using ecomm.api.Features.Inventory;
 using ecomm.api.Features.Orders;
+using ecomm.api.Features.Plans;
 using ecomm.api.Features.Shipping.Shiprocket;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -26,7 +27,7 @@ public class DraftOrderTests
         await db.SaveChangesAsync();
 
         var svc = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new FakeShiprocket()),
-            new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), new ThrowingInventory(), new ThrowingInvoices());
+            new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), new ThrowingInventory(), new ThrowingInvoices(), new EntitlementService(db));
         return (db, svc, customer.UserId, product.ProductId);
     }
 

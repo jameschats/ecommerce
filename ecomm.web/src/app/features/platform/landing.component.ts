@@ -87,8 +87,12 @@ import { SeoService } from '../../core/services/seo.service';
                 <ul class="text-sm text-slate-600 mt-4 space-y-1.5 flex-1">
                   <li>✓ {{ p.maxProducts ? (p.maxProducts + ' products') : 'Unlimited products' }}</li>
                   <li>✓ {{ p.maxOrders ? (p.maxOrders + ' orders / mo') : 'Unlimited orders' }}</li>
+                  <li>✓ {{ p.maxStorageMb ? ((p.maxStorageMb / 1024) + ' GB storage') : 'Unlimited storage' }}</li>
                   <li>✓ {{ p.aiCredits }} AI credits</li>
                   <li>✓ Themes, custom domain &amp; more</li>
+                  @if (p.marketingEngineLevel) { <li>✓ Marketing engine: {{ p.marketingEngineLevel }}</li> }
+                  @if (p.liveChatLevel) { <li>✓ Live chat: {{ p.liveChatLevel }}</li> }
+                  @if (p.helpdeskLevel) { <li>✓ Helpdesk: {{ p.helpdeskLevel }}</li> }
                 </ul>
                 <a routerLink="/signup" [queryParams]="{ plan: p.slug }"
                    class="mt-6 text-center font-medium px-4 py-2.5 rounded-lg"

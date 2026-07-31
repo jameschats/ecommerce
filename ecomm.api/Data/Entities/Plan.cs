@@ -12,8 +12,12 @@ public class Plan
     public DateTime? IntroEndsAt { get; set; }    // campaign deadline: closes the offer to NEW joiners (migration 177)
     public int? MaxProducts { get; set; }   // null = unlimited
     public int? MaxOrders { get; set; }     // null = unlimited (per month)
+    public int? MaxStorageMb { get; set; }  // null = unlimited
     public int AiCredits { get; set; }
     public string? Features { get; set; }   // JSON
+    public string? MarketingEngineLevel { get; set; }   // free-text pricing-page label, e.g. "No"/"Yes"/"Advanced" — not gated
+    public string? LiveChatLevel { get; set; }
+    public string? HelpdeskLevel { get; set; }
     public bool IsActive { get; set; } = true;
     public int DisplayOrder { get; set; }
     public DateTime CreatedAt { get; set; }

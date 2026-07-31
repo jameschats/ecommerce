@@ -4,6 +4,7 @@ using ecomm.api.Data.Entities;
 using ecomm.api.Features.Checkout;
 using ecomm.api.Features.Coupons;
 using ecomm.api.Features.Inventory;
+using ecomm.api.Features.Plans;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,7 +41,7 @@ public interface IDraftOrderService
 /// </summary>
 public sealed class DraftOrderService(
     EcommerceDbContext db, ITaxService tax, IShippingService shipping, ICouponService coupons,
-    IInventoryService inventory, IInvoiceService invoices) : IDraftOrderService
+    IInventoryService inventory, IInvoiceService invoices, IEntitlementService entitlements) : IDraftOrderService
 {
     private long Tenant => db.CurrentTenantId;
 
@@ -126,6 +127,7 @@ public sealed class DraftOrderService(
     public async Task<long> ConvertAsync(long orderId, string paymentMethod, CancellationToken ct = default)
     {
         var order = await db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId && o.Status == "Draft", ct) ?? throw NotFound();
+        await entitlements.EnsureCanPlaceOrderAsync(ct);
         var items = await db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
         if (items.Count == 0) throw new AppException("This draft has no items.");
         var isCod = string.Equals(paymentMethod, "COD", StringComparison.OrdinalIgnoreCase);

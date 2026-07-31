@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Plans;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -28,12 +29,14 @@ public sealed class MediaService : IMediaService
     private readonly IMediaStorage _storage;
     private readonly EcommerceDbContext _db;
     private readonly MediaOptions _opts;
+    private readonly IEntitlementService _entitlements;
 
-    public MediaService(IMediaStorage storage, EcommerceDbContext db, IOptions<MediaOptions> opts)
+    public MediaService(IMediaStorage storage, EcommerceDbContext db, IOptions<MediaOptions> opts, IEntitlementService entitlements)
     {
         _storage = storage;
         _db = db;
         _opts = opts.Value;
+        _entitlements = entitlements;
     }
 
     public async Task<MediaDto> UploadAsync(IFormFile file, long? userId, CancellationToken ct = default)
@@ -42,6 +45,7 @@ public sealed class MediaService : IMediaService
         if (file.Length > _opts.MaxBytes) throw new AppException($"Image must be {_opts.MaxBytes / (1024 * 1024)} MB or smaller.");
         var type = file.ContentType?.ToLowerInvariant() ?? "";
         if (!AllowedTypes.Contains(type)) throw new AppException("Only JPEG, PNG, WebP or GIF images are allowed.");
+        await _entitlements.EnsureCanUploadAsync(file.Length, ct);
 
         StoredFile stored;
         await using (var stream = file.OpenReadStream())

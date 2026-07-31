@@ -113,10 +113,10 @@ public class SuperAdminTenantAdminTests
         var (db, svc) = Build(1);
         using (db)
         {
-            var created = await svc.CreatePlanAsync(new PlanUpsert("Growth Plan", null, 499, 500, 1000, 300, null, true, 2), 1, default);
+            var created = await svc.CreatePlanAsync(new PlanUpsert("Growth Plan", null, 499, 500, 1000, null, 300, null, true, 2), 1, default);
             Assert.Equal("growth-plan", created.Slug);   // auto-slugified
 
-            await svc.UpdatePlanAsync(created.PlanId, new PlanUpsert("Growth Plan", "growth-plan", 599, null, null, 400, null, false, 2), 1, default);
+            await svc.UpdatePlanAsync(created.PlanId, new PlanUpsert("Growth Plan", "growth-plan", 599, null, null, null, 400, null, false, 2), 1, default);
             var plan = await db.Plans.FirstAsync(p => p.PlanId == created.PlanId);
             Assert.Equal(599, plan.MonthlyPrice);
             Assert.Null(plan.MaxProducts);   // blank = unlimited

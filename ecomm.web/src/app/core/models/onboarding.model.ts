@@ -5,7 +5,11 @@ export interface PlanOption {
   monthlyPrice: number;
   maxProducts: number | null;
   maxOrders: number | null;
+  maxStorageMb: number | null;
   aiCredits: number;
+  marketingEngineLevel: string | null;
+  liveChatLevel: string | null;
+  helpdeskLevel: string | null;
   introPriceInr: number | null;
   introMonths: number | null;
 }

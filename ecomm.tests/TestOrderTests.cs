@@ -6,6 +6,7 @@ using ecomm.api.Features.Checkout;
 using ecomm.api.Features.Coupons;
 using ecomm.api.Features.Inventory;
 using ecomm.api.Features.Orders;
+using ecomm.api.Features.Plans;
 using ecomm.api.Features.Shipping.Shiprocket;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -42,7 +43,7 @@ public class TestOrderTests
 
         var drafts = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new NoShiprocket()),
             new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)),
-            new StubInventory(), new StubInvoices());
+            new StubInventory(), new StubInvoices(), new EntitlementService(db));
         return (db, new TestOrderService(db, drafts));
     }
 

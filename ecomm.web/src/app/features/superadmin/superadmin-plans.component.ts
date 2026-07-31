@@ -21,7 +21,7 @@ import { CreditPack, PlanOption, PackUpsert, PlanUpsert } from '../../core/model
         <button type="button" (click)="newPlan()" class="text-sm text-primary hover:underline">+ New plan</button>
       </div>
       <table class="w-full text-sm mb-3">
-        <thead class="text-left text-slate-400 border-b border-slate-200"><tr><th class="py-1">Name</th><th class="text-right">₹/mo</th><th>Intro offer</th><th class="text-right">Products</th><th class="text-right">Orders</th><th class="text-right">AI</th><th></th><th></th></tr></thead>
+        <thead class="text-left text-slate-400 border-b border-slate-200"><tr><th class="py-1">Name</th><th class="text-right">₹/mo</th><th>Intro offer</th><th class="text-right">Products</th><th class="text-right">Orders</th><th class="text-right">Storage</th><th class="text-right">AI</th><th></th><th></th></tr></thead>
         <tbody>
           @for (p of plans(); track p.planId) {
             <tr class="border-b border-slate-100">
@@ -35,6 +35,7 @@ import { CreditPack, PlanOption, PackUpsert, PlanUpsert } from '../../core/model
               </td>
               <td class="text-right text-slate-500">{{ p.maxProducts ?? '∞' }}</td>
               <td class="text-right text-slate-500">{{ p.maxOrders ?? '∞' }}</td>
+              <td class="text-right text-slate-500">{{ p.maxStorageMb ? (p.maxStorageMb / 1024) + ' GB' : '∞' }}</td>
               <td class="text-right text-slate-500">{{ p.aiCredits }}</td>
               <td>@if (!p.isActive) { <span class="text-xs text-slate-400">inactive</span> }</td>
               <td class="text-right"><button type="button" (click)="editPlan(p)" class="text-blue-600 text-xs">Edit</button></td>
@@ -53,8 +54,19 @@ import { CreditPack, PlanOption, PackUpsert, PlanUpsert } from '../../core/model
             <label class="block"><span class="lbl">Display order</span><input type="number" class="input" [(ngModel)]="f.displayOrder" /></label>
             <label class="block"><span class="lbl">Max products (blank = ∞)</span><input type="number" class="input" [(ngModel)]="f.maxProducts" /></label>
             <label class="block"><span class="lbl">Max orders/mo (blank = ∞)</span><input type="number" class="input" [(ngModel)]="f.maxOrders" /></label>
+            <label class="block"><span class="lbl">Max storage, GB (blank = ∞)</span><input type="number" class="input" [(ngModel)]="maxStorageGb" /></label>
             <label class="block"><span class="lbl">AI credits / cycle</span><input type="number" class="input" [(ngModel)]="f.aiCredits" /></label>
             <label class="flex items-center gap-2 mt-5"><input type="checkbox" [(ngModel)]="f.isActive" /> <span class="text-sm text-slate-600">Active</span></label>
+          </div>
+
+          <!-- Pricing-page comparison labels (no functional gating — just marketing copy) -->
+          <div class="mt-4 border-t border-slate-100 pt-3">
+            <div class="text-sm font-medium text-slate-700">Pricing-page labels <span class="font-normal text-slate-400">— optional, display only</span></div>
+            <div class="grid sm:grid-cols-3 gap-2 mt-2">
+              <label class="block"><span class="lbl">Marketing engine</span><input class="input" [(ngModel)]="f.marketingEngineLevel" placeholder="No / Yes / Advanced" /></label>
+              <label class="block"><span class="lbl">Live chat</span><input class="input" [(ngModel)]="f.liveChatLevel" placeholder="No / Yes" /></label>
+              <label class="block"><span class="lbl">Helpdesk</span><input class="input" [(ngModel)]="f.helpdeskLevel" placeholder="No / Basic / Advanced" /></label>
+            </div>
           </div>
 
           <!-- Onboarding offer -->
@@ -129,6 +141,7 @@ export class SuperAdminPlansComponent implements OnInit {
   editingPlanId: number | null = null;
   editingPackId: number | null = null;
   introEndsAt = '';   // bound as yyyy-MM-dd, sent as ISO
+  maxStorageGb: number | null = null;   // bound in GB for readability; converted to MB (the wire unit) in savePlan()
 
   ngOnInit(): void { this.loadPlans(); this.loadPacks(); }
   loadPlans(): void { this.svc.plans().subscribe((p) => this.plans.set(p)); }
@@ -137,12 +150,22 @@ export class SuperAdminPlansComponent implements OnInit {
   newPlan(): void {
     this.editingPlanId = null;
     this.introEndsAt = '';
-    this.planForm.set({ name: '', slug: null, monthlyPrice: 0, maxProducts: null, maxOrders: null, aiCredits: 0, features: null, isActive: true, displayOrder: 0, introPriceInr: null, introMonths: null, introEndsAt: null });
+    this.maxStorageGb = null;
+    this.planForm.set({
+      name: '', slug: null, monthlyPrice: 0, maxProducts: null, maxOrders: null, maxStorageMb: null, aiCredits: 0,
+      features: null, isActive: true, displayOrder: 0, marketingEngineLevel: null, liveChatLevel: null, helpdeskLevel: null,
+      introPriceInr: null, introMonths: null, introEndsAt: null,
+    });
   }
   editPlan(p: PlanOption): void {
     this.editingPlanId = p.planId;
     this.introEndsAt = p.introEndsAt ? p.introEndsAt.slice(0, 10) : '';
-    this.planForm.set({ name: p.name, slug: p.slug, monthlyPrice: p.monthlyPrice, maxProducts: p.maxProducts, maxOrders: p.maxOrders, aiCredits: p.aiCredits, features: p.features, isActive: p.isActive, displayOrder: p.displayOrder, introPriceInr: p.introPriceInr, introMonths: p.introMonths, introEndsAt: p.introEndsAt });
+    this.maxStorageGb = p.maxStorageMb != null ? p.maxStorageMb / 1024 : null;
+    this.planForm.set({
+      name: p.name, slug: p.slug, monthlyPrice: p.monthlyPrice, maxProducts: p.maxProducts, maxOrders: p.maxOrders, maxStorageMb: p.maxStorageMb, aiCredits: p.aiCredits,
+      features: p.features, isActive: p.isActive, displayOrder: p.displayOrder, marketingEngineLevel: p.marketingEngineLevel, liveChatLevel: p.liveChatLevel, helpdeskLevel: p.helpdeskLevel,
+      introPriceInr: p.introPriceInr, introMonths: p.introMonths, introEndsAt: p.introEndsAt,
+    });
   }
 
   /** "₹20/mo × 3mo · 90% off · ended" — shown in the table. */
@@ -170,7 +193,11 @@ export class SuperAdminPlansComponent implements OnInit {
   savePlan(): void {
     const f = this.planForm();
     if (!f || !f.name.trim()) return;
-    const body: PlanUpsert = { ...f, introEndsAt: this.introEndsAt ? new Date(this.introEndsAt).toISOString() : null };
+    const body: PlanUpsert = {
+      ...f,
+      maxStorageMb: this.maxStorageGb != null ? Math.round(this.maxStorageGb * 1024) : null,
+      introEndsAt: this.introEndsAt ? new Date(this.introEndsAt).toISOString() : null,
+    };
     const done = () => { this.planForm.set(null); this.loadPlans(); this.toast('Plan saved.'); };
     const op = this.editingPlanId ? this.svc.updatePlan(this.editingPlanId, body) : this.svc.createPlan(body);
     op.subscribe({ next: done, error: (e) => this.fail(e) });
