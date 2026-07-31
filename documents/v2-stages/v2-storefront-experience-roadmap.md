@@ -56,10 +56,18 @@ prebuilt themes now have distinct home structures, authored inner templates, and
 pages.
 
 ## Small follow-up from R2's research
-`ProductGallery` (product), `Breadcrumbs` (collection), `EmptyState` (cart) are schema-valid section
-types that silently render wrong if a theme author picks them (fall through to a generic product-rail
-default). `RelatedProducts` was the fourth — fixed in Phase A. The other three are a small, contained
-follow-up whenever convenient — same shape of fix as the RelatedProducts one.
+**Status: done (2026-07-31, commit `17801ed`).**
+`ProductGallery` (product), `Breadcrumbs` (collection), `EmptyState` (cart) were schema-valid
+section types that silently rendered wrong if a theme author picked them (fell through to a generic
+product-rail default, or — for cart's EmptyState — were bypassed entirely by a hardcoded message
+that never even checked for an authored section). `RelatedProducts` was the fourth — fixed in Phase
+A. All four now fixed, live-verified via scratch sections on the draft Ignition theme, then removed.
+
+**Found but not fixed (new, separate, bigger issue):** the `search` template key exists in the
+section-type schema, but `CollectionPageComponent` always requests the `collection` template even
+when serving search results (`?search=`) — so a `search`-scoped section (like `EmptyState` for "no
+results") could never render regardless of authoring. Needs its own pass on template resolution,
+not bundled into this fix.
 
 ---
 
