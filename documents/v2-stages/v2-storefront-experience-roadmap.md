@@ -15,7 +15,13 @@ Published card; Hero carousel layout; category-bar real images + broadened icon 
 pre-existing EF Core bug fixed (Category/Brand/Variant edits were 500ing); bazaar tenant category
 data corrected.
 
-**In progress**: Phase A (below).
+**Done**: Phase A (RelatedProducts fix, hover-swap image, New badge, Recently Viewed — commit
+`46d4de6`). Phase B (PLP grid/list toggle, price-range filter, real Popularity sort — commit
+`13adef3`; also fixed a pre-existing bug where `source: bestsellers` on FeaturedProducts CMS
+sections silently never sorted by sales). Both deployed and live-verified on
+`bazaar.wavcommerce.online`.
+
+**In progress**: Phase C (below).
 
 ## E3 — element-by-element editing (deferred, not detailed here)
 The confirmed "next big thing" from the original `v2-theme-editor-parity-plan.md` sequence
@@ -37,7 +43,7 @@ follow-up whenever convenient — same shape of fix as the RelatedProducts one.
 ---
 
 ## Phase A — Related Products fix + hover-swap image + New badge + Recently Viewed
-**Status: building now.**
+**Status: done.**
 
 - **Bug**: `RelatedProducts` is selectable in the theme editor but no code populates it — permanent
   empty placeholder for real shoppers. Fix: a new `ProductRelatedComponent` (mirrors the existing
@@ -54,12 +60,14 @@ follow-up whenever convenient — same shape of fix as the RelatedProducts one.
 - No DB migration — additive DTO fields + one new query filter only.
 
 ## Phase B — PLP upgrades
+**Status: done.**
 - Grid/List view toggle.
 - Price-range filter (today: category/brand/search only).
 - Popularity/bestseller sort exposed on the PLP sort dropdown (the sort string already exists for
   CMS ProductGrid sections, just not surfaced in the PLP's own `<select>`).
 
 ## Phase C — PDP upgrades
+**Status: researching now.**
 - Image zoom/lightbox on the product gallery (today: multi-image + thumbnails + arrows, no zoom).
 - Sticky Add-to-Cart bar (stays visible on scroll).
 - Delivery/pincode checker on the PDP itself (pincode logic exists today only in
