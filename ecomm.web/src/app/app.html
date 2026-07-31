@@ -50,14 +50,31 @@
           @for (c of topLevelCategories(); track c.categoryId) {
             <div class="relative shrink-0" (mouseenter)="activeMegaMenu.set(c.categoryId)" (mouseleave)="activeMegaMenu.set(null)">
               <a [routerLink]="['/category', c.slug]" class="flex flex-col items-center gap-1 text-slate-600 hover:text-primary shrink-0">
-                @switch (iconKey(c.slug)) {
-                  @case ('wall') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.3"/></svg> }
-                  @case ('desk') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg> }
-                  @case ('tent') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4l9 16H3z"/><path d="M12 4v16"/></svg> }
-                  @case ('pocket') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg> }
-                  @case ('magnet') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4z"/></svg> }
-                  @case ('mouse') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 6v4"/></svg> }
-                  @default { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg> }
+                @if (c.imageUrl) {
+                  <img [src]="c.imageUrl" [alt]="c.name" class="w-[22px] h-[22px] rounded-full object-cover" loading="lazy" />
+                } @else {
+                  @switch (iconKey(c.slug)) {
+                    @case ('wall') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.3"/></svg> }
+                    @case ('desk') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg> }
+                    @case ('tent') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4l9 16H3z"/><path d="M12 4v16"/></svg> }
+                    @case ('pocket') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg> }
+                    @case ('magnet') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4z"/></svg> }
+                    @case ('mouse') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 6v4"/></svg> }
+                    @case ('mobile') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="7" y="2" width="10" height="18" rx="2"/><line x1="10" y1="17" x2="14" y2="17"/></svg> }
+                    @case ('electronics') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="6" y="6" width="10" height="10" rx="1"/><path d="M9 3v3M13 3v3M9 18v3M13 18v3M3 9h3M3 13h3M18 9h3M18 13h3"/></svg> }
+                    @case ('fashion') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 3L4 6l2 3h2v10h8V9h2l2-3-4-3-4 2z"/></svg> }
+                    @case ('beauty') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg> }
+                    @case ('grocery') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8h16l-1.5 11a2 2 0 0 1-2 1.8H7.5a2 2 0 0 1-2-1.8L4 8z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg> }
+                    @case ('sports') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 12h12"/><rect x="3" y="8" width="3" height="8" rx="0.6"/><rect x="18" y="8" width="3" height="8" rx="0.6"/></svg> }
+                    @case ('toy') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2M12 5v15"/></svg> }
+                    @case ('book') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/></svg> }
+                    @case ('furniture') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 12V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6"/><rect x="4" y="12" width="16" height="6" rx="1"/><path d="M6 18v2M18 18v2"/></svg> }
+                    @case ('footwear') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 16l3-5 4 1 3-3 6 3 3 2v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z"/></svg> }
+                    @case ('jewelry') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l4 4-4 16-4-16z"/><path d="M8 6h8"/></svg> }
+                    @case ('home') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> }
+                    @case ('appliance') { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><circle cx="8" cy="6" r="0.8" fill="currentColor"/></svg> }
+                    @default { <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg> }
+                  }
                 }
                 <span class="text-xs font-medium whitespace-nowrap">{{ c.name }}</span>
               </a>

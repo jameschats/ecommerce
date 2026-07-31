@@ -171,7 +171,10 @@ export class App implements OnInit {
     try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
   }
 
-  /** Maps a category slug to an icon key (presentation only — schema stays generic). */
+  /** Maps a category slug to an icon key (presentation only — schema stays generic). Only used as a
+   *  fallback when the category has no image set (app.html tries c.imageUrl first) — most-specific
+   *  keywords are checked before broader ones (e.g. 'appliance' before 'home', since a slug like
+   *  "home-appliances" contains both). */
   iconKey(slug: string): string {
     if (slug.includes('wall')) return 'wall';
     if (slug.includes('desk')) return 'desk';
@@ -179,6 +182,19 @@ export class App implements OnInit {
     if (slug.includes('pocket')) return 'pocket';
     if (slug.includes('magnet')) return 'magnet';
     if (slug.includes('mouse')) return 'mouse';
+    if (slug.includes('appliance')) return 'appliance';
+    if (slug.includes('mobile') || slug.includes('phone')) return 'mobile';
+    if (slug.includes('electronic') || slug.includes('gadget')) return 'electronics';
+    if (slug.includes('fashion') || slug.includes('apparel') || slug.includes('cloth')) return 'fashion';
+    if (slug.includes('beauty') || slug.includes('personal-care') || slug.includes('cosmetic')) return 'beauty';
+    if (slug.includes('grocer') || slug.includes('food')) return 'grocery';
+    if (slug.includes('sport') || slug.includes('fitness')) return 'sports';
+    if (slug.includes('toy') || slug.includes('kid') || slug.includes('baby')) return 'toy';
+    if (slug.includes('book')) return 'book';
+    if (slug.includes('furniture')) return 'furniture';
+    if (slug.includes('footwear') || slug.includes('shoe')) return 'footwear';
+    if (slug.includes('jewel') || slug.includes('accessor')) return 'jewelry';
+    if (slug.includes('home') || slug.includes('living') || slug.includes('decor')) return 'home';
     return 'tag';
   }
 
