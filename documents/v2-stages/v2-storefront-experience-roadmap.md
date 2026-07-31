@@ -20,10 +20,15 @@ data corrected.
 `13adef3`; also fixed a pre-existing bug where `source: bestsellers` on FeaturedProducts CMS
 sections silently never sorted by sales). Phase C (PDP image lightbox, sticky Add-to-Cart bar,
 pincode delivery checker via a new anonymous `GET /api/catalog/shipping/check` endpoint reusing
-`IShippingService` — commit `b02e77c`). All deployed and live-verified on
+`IShippingService` — commit `b02e77c`). Phase D (client-side Compare list + `/compare` page;
+Frequently Bought Together — a new `FrequentlyBoughtTogether` theme section ranked by real
+order co-purchase frequency via a new `IProductService.GetFrequentlyBoughtTogetherAsync` — commit
+`7abf3a4`; FBT ranking logic verified end-to-end against real multi-item order data on a local
+scratch order, since neither the bazaar tenant nor local dev DB had any pre-existing multi-item
+paid orders to exercise it against live). All deployed and live-verified on
 `bazaar.wavcommerce.online`.
 
-**In progress**: Phase D (below).
+**In progress**: Phase E (below).
 
 ## E3 — element-by-element editing (deferred, not detailed here)
 The confirmed "next big thing" from the original `v2-theme-editor-parity-plan.md` sequence
@@ -76,11 +81,12 @@ follow-up whenever convenient — same shape of fix as the RelatedProducts one.
   checkout/shipping-admin, not surfaced on the product page).
 
 ## Phase D — new commerce mechanics
-**Status: researching now.**
+**Status: done.**
 - Compare products (nothing exists today — no service/entity/UI).
 - Frequently Bought Together.
 
 ## Phase E — new theme-builder blocks
+**Status: researching now.**
 Theme-builder audit found 12 of 17 requested blocks already exist (mostly from R1). Four gaps:
 - Dedicated Image Gallery block (lightbox-style; Collage/TileGrid cover mosaic-style but not this).
 - Instagram Feed block.
