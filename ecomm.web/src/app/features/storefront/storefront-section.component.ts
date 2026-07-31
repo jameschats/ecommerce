@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, ElementRef, HostBinding, OnDestroy, OnInit, PLATFORM_ID, ViewChild, computed, inject, input, signal } from '@angular/core';
+import { Component, ElementRef, HostBinding, HostListener, OnDestroy, OnInit, PLATFORM_ID, ViewChild, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
@@ -353,6 +353,57 @@ import { ThemeService } from '../../core/services/theme.service';
           </div>
         </section>
       }
+      @case ('ImageGallery') {
+        <section class="page-container py-8">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5">{{ s().heading }}</h2> }
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            @for (b of blocks(); track $index) {
+              <button type="button" (click)="openGalleryLightbox($index)" [attr.data-block-index]="$index"
+                class="group block aspect-square overflow-hidden sf-card">
+                @if (b.image) { <img [src]="b.image" [alt]="b.caption || ''" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
+              </button>
+            }
+          </div>
+        </section>
+        @if (galleryLightboxIndex() !== null) {
+          <div class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" (click)="closeGalleryLightbox()">
+            <button type="button" (click)="closeGalleryLightbox()" aria-label="Close"
+              class="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none w-10 h-10 grid place-items-center">×</button>
+            @if (blocks().length > 1) {
+              <button type="button" (click)="$event.stopPropagation(); stepGalleryLightbox(-1)" aria-label="Previous image"
+                class="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl w-12 h-12 grid place-items-center">‹</button>
+              <button type="button" (click)="$event.stopPropagation(); stepGalleryLightbox(1)" aria-label="Next image"
+                class="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl w-12 h-12 grid place-items-center">›</button>
+            }
+            @if (blocks()[galleryLightboxIndex()!]; as b) {
+              <figure class="flex flex-col items-center max-w-[90vw]" (click)="$event.stopPropagation()">
+                <img [src]="b.image" [alt]="b.caption || ''" class="max-w-[90vw] max-h-[85vh] object-contain" />
+                @if (b.caption) { <figcaption class="text-white/80 text-sm mt-3">{{ b.caption }}</figcaption> }
+              </figure>
+            }
+          </div>
+        }
+      }
+      @case ('InstagramFeed') {
+        <section class="page-container py-8">
+          <div class="flex items-center justify-between mb-5">
+            @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900">{{ s().heading }}</h2> }
+            @if (s().profileUrl || s().handle) {
+              <a [href]="s().profileUrl || '#'" target="_blank" rel="noopener" class="text-sm font-medium text-primary hover:underline">
+                {{ s().handle ? '@' + s().handle : 'Follow us' }}
+              </a>
+            }
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            @for (b of blocks(); track $index) {
+              <a [href]="b.link || s().profileUrl || '#'" target="_blank" rel="noopener"
+                class="group block aspect-square overflow-hidden bg-slate-100" [attr.data-block-index]="$index">
+                @if (b.image) { <img [src]="b.image" alt="" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
+              </a>
+            }
+          </div>
+        </section>
+      }
       @default {
         <!-- FeaturedProducts / ProductGrid / any product rail -->
         <section class="max-w-6xl mx-auto px-4 py-10">
@@ -632,6 +683,21 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
 
   /** FaqAccordion: which items are expanded (first one open by default). */
   private readonly openFaqIndices = signal<Set<number>>(new Set([0]));
+
+  /** ImageGallery: which block index (if any) is open in the full-size lightbox. */
+  readonly galleryLightboxIndex = signal<number | null>(null);
+  openGalleryLightbox(index: number): void { this.galleryLightboxIndex.set(index); }
+  closeGalleryLightbox(): void { this.galleryLightboxIndex.set(null); }
+  stepGalleryLightbox(dir: 1 | -1): void {
+    const n = this.blocks().length;
+    if (!n) return;
+    this.galleryLightboxIndex.update((i) => (((i ?? 0) + dir) % n + n) % n);
+  }
+
+  @HostListener('document:keydown.escape')
+  onGalleryEscape(): void {
+    if (this.galleryLightboxIndex() !== null) this.closeGalleryLightbox();
+  }
   isFaqOpen(index: number): boolean { return this.openFaqIndices().has(index); }
   toggleFaq(index: number): void {
     const next = new Set(this.openFaqIndices());

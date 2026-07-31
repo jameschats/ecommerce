@@ -214,6 +214,19 @@ public static class SectionTypeRegistry
             [
                 new("Stat", "Stat", [ new("value", "Value", "text"), new("label", "Label", "text") ]),
             ], MaxBlocks: 4),
+        new("ImageGallery", "Image gallery", "image", "A grid of photos that opens full-size in a lightbox when clicked — lookbooks, workshop/store photos, before-after shots.",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Photo", "Photo", [ new("image", "Image", "image"), new("caption", "Caption", "text") ]),
+            ], MaxBlocks: 12),
+        new("InstagramFeed", "Instagram-style feed", "grid",
+            "A curated square photo grid styled like an Instagram feed, with a \"Follow us\" link to your real profile. Photos are uploaded here, not pulled live from Instagram.",
+            Settings: [ new("heading", "Heading", "text", "Follow us"), new("handle", "Instagram handle", "text", Help: "Shown as @handle."), new("profileUrl", "Instagram profile URL", "url", Help: "Where the \"Follow us\" button links to.") ],
+            BlockTypes:
+            [
+                new("Photo", "Photo", [ new("image", "Image", "image"), new("link", "Link (optional)", "url") ]),
+            ], MaxBlocks: 8),
 
         // ---- Group sections (shared zones, one per theme) ----
         new("AnnouncementBar", "Announcement bar", "megaphone", "A thin bar above the header for promos/notices.",
