@@ -52,11 +52,14 @@ Same data model underneath — the work is UI/interaction, almost entirely front
 
 ## Milestones
 
-**Status: E1 ✅ done · E2 ✅ done · E3 ✅ done (2026-07-31) · E4 outstanding · E5 ✅ done · E6 ✅ done.**
+**Status: E1 ✅ · E2 ✅ · E3 ✅ · E4 ✅ · E5 ✅ · E6 ✅ — all done (2026-07-31).**
 E3's commit folded in E5's remainder and all of E6 as well — they shared the same file/state model and
-were small enough to land together rather than as separate passes. Only E4 (rich field controls) is
-left from this plan; see `v2-storefront-experience-roadmap.md` for T17 (theme blocks), sequenced as its
-own dedicated pass after E3.
+were small enough to land together rather than as separate passes. E4 shipped as its own pass: a media
+picker (Library/Upload/URL) on every image field, resolved link chips, segmented controls for ≤4-option
+selects, and AI-assist on text fields. Every capability row in the table above is now ✅ except the
+platform's largest remaining piece, T17 (theme blocks — true first-class composable elements), which is
+deliberately its own dedicated research + design pass, not part of this plan. See
+`v2-storefront-experience-roadmap.md` for T17 and R3 (rolling Rich Themes to the remaining 6 themes).
 
 **E1 — Canvas feel** *(medium)*
 Hover outline + name badge on sections and blocks (CSS `content: attr(data-section-label)` — a host
