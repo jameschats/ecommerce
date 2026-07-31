@@ -99,8 +99,12 @@ public sealed class CategoryService : ICategoryService
         var baseSlug = Slug.From(source);
         var slug = baseSlug;
         var n = 1;
+        // EF Core 9's query funcletizer throws (not just mistranslates) on `x.Id != (nullableParam ?? 0)`
+        // inlined directly in a LINQ predicate — precomputing the coalesced value into a plain local
+        // avoids the pattern entirely. Reproduced live: every category update 500'd on this line.
+        var compareId = excludeId ?? 0;
         while (await _db.Categories.AnyAsync(
-            c => c.TenantId == Tenant && c.Slug == slug && c.CategoryId != (excludeId ?? 0), ct))
+            c => c.TenantId == Tenant && c.Slug == slug && c.CategoryId != compareId, ct))
         {
             slug = $"{baseSlug}-{++n}";
         }

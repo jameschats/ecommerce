@@ -87,7 +87,10 @@ public sealed class VariantService : IVariantService
     {
         if (string.IsNullOrWhiteSpace(sku)) throw new AppException("Variant SKU is required.");
         var trimmed = sku.Trim();
-        if (await _db.ProductVariants.AnyAsync(v => v.Sku == trimmed && v.ProductVariantId != (excludeId ?? 0), ct))
+        // See CategoryService.UniqueSlugAsync — EF Core 9's funcletizer throws on `x.Id != (nullableParam ?? 0)`
+        // inlined in a LINQ predicate. Precomputing avoids it.
+        var compareId = excludeId ?? 0;
+        if (await _db.ProductVariants.AnyAsync(v => v.Sku == trimmed && v.ProductVariantId != compareId, ct))
             throw new AppException($"Variant SKU '{trimmed}' already exists.", StatusCodes.Status409Conflict);
     }
 

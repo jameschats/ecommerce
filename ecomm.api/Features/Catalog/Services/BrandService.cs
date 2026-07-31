@@ -91,8 +91,11 @@ public sealed class BrandService : IBrandService
         var baseSlug = Slug.From(source);
         var slug = baseSlug;
         var n = 1;
+        // See CategoryService.UniqueSlugAsync — EF Core 9's funcletizer throws on `x.Id != (nullableParam ?? 0)`
+        // inlined in a LINQ predicate. Precomputing avoids it.
+        var compareId = excludeId ?? 0;
         while (await _db.Brands.AnyAsync(
-            b => b.TenantId == Tenant && b.Slug == slug && b.BrandId != (excludeId ?? 0), ct))
+            b => b.TenantId == Tenant && b.Slug == slug && b.BrandId != compareId, ct))
         {
             slug = $"{baseSlug}-{++n}";
         }
