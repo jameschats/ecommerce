@@ -25,7 +25,7 @@ import { Ticket, TicketThread } from '../../../core/models/support.model';
             <tbody>
               @for (t of tickets(); track t.id) {
                 <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" (click)="open(t.id)">
-                  <td class="py-2"><div class="font-medium text-slate-800">{{ t.subject }}</div><div class="text-xs text-slate-400">{{ t.lastMessageAt ? (t.lastMessageAt | date:'short') : (t.createdAt | date:'short') }}</div></td>
+                  <td class="py-2"><div class="font-medium text-slate-800">{{ t.subject }}</div><div class="text-xs text-slate-400">@if (t.reference) { <span>{{ t.reference }} · </span> }{{ t.lastMessageAt ? (t.lastMessageAt | date:'short') : (t.createdAt | date:'short') }}</div></td>
                   <td class="text-right"><span class="text-xs px-1.5 py-0.5 rounded" [class]="statusClass(t.status)">{{ t.status }}</span></td>
                 </tr>
               }
@@ -36,7 +36,8 @@ import { Ticket, TicketThread } from '../../../core/models/support.model';
 
         <div class="bg-white border border-slate-200 rounded-xl p-4">
           @if (thread(); as th) {
-            <h2 class="font-semibold text-slate-800 mb-3">{{ th.ticket.subject }}</h2>
+            <h2 class="font-semibold text-slate-800">{{ th.ticket.subject }}</h2>
+            @if (th.ticket.reference) { <div class="text-xs text-slate-400 mb-3">{{ th.ticket.reference }}</div> } @else { <div class="mb-3"></div> }
             <div class="space-y-2 max-h-80 overflow-auto mb-3">
               @for (m of th.messages; track m.id) {
                 <div class="rounded-lg px-3 py-2 text-sm" [class]="m.fromPlatform ? 'bg-blue-50 text-blue-900' : 'bg-slate-100 text-slate-700'">
