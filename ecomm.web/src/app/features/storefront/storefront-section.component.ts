@@ -384,6 +384,46 @@ import { ThemeService } from '../../core/services/theme.service';
           </div>
         }
       }
+      @case ('TabbedProductGrid') {
+        <!-- Phase F: tabs switch the product grid in place, no navigation (boAt's "Big Deals" pattern). -->
+        <section class="max-w-6xl mx-auto px-4 py-10">
+          @if (s().heading) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading }}</h2> }
+          @if (blocks().length) {
+            <div class="flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-200 mb-6">
+              @for (b of blocks(); track $index) {
+                <button type="button" (click)="selectProductTab($index)" [attr.data-block-index]="$index"
+                  class="px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition"
+                  [class]="activeProductTab() === $index ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'">
+                  <span data-field="label">{{ b.label || 'Tab ' + ($index + 1) }}</span>
+                </button>
+              }
+            </div>
+            @if (tabProductsLoading()) {
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                @for (i of ph; track i) {
+                  <div class="overflow-hidden sf-card">
+                    <div class="aspect-square bg-slate-100"></div>
+                    <div class="p-3 space-y-2"><div class="h-3 w-3/4 bg-slate-100 rounded"></div><div class="h-3 w-1/3 bg-slate-100 rounded"></div></div>
+                  </div>
+                }
+              </div>
+            } @else if (!tabProducts().length) {
+              <p class="text-slate-400 text-center py-10">No products in this tab yet.</p>
+            } @else {
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                @for (p of tabProducts(); track p.productId) {
+                  <a [routerLink]="['/product', p.slug]" class="block overflow-hidden sf-card">
+                    <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
+                      @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
+                    </div>
+                    <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
+                  </a>
+                }
+              </div>
+            }
+          }
+        </section>
+      }
       @case ('InstagramFeed') {
         <section class="page-container py-8">
           <div class="flex items-center justify-between mb-5">
@@ -560,6 +600,30 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   /** Placeholder tiles shown when a section has no catalog data yet (fresh store / preview). */
   readonly ph = [0, 1, 2, 3];
 
+  /** Phase F: TabbedProductGrid — which tab is active, and that tab's fetched products. */
+  readonly activeProductTab = signal(0);
+  readonly tabProducts = signal<ProductListItem[]>([]);
+  readonly tabProductsLoading = signal(false);
+  selectProductTab(index: number): void {
+    this.activeProductTab.set(index);
+    this.loadTabProducts(index);
+  }
+  private loadTabProducts(index: number): void {
+    const b = this.blocks()[index];
+    if (!b) { this.tabProducts.set([]); return; }
+    this.tabProductsLoading.set(true);
+    const count = Number(b['count']) || 8;
+    this.catalog.getProducts({
+      pageSize: count,
+      isFeatured: b['source'] === 'featured' ? true : undefined,
+      sort: b['source'] === 'newest' ? 'newest' : b['source'] === 'bestsellers' ? 'bestsellers' : undefined,
+      categoryId: b['source'] === 'category' && b['categoryId'] ? Number(b['categoryId']) : undefined,
+    }).subscribe({
+      next: (r) => { this.tabProducts.set(r.items); this.tabProductsLoading.set(false); },
+      error: () => this.tabProductsLoading.set(false),
+    });
+  }
+
   /** E2: live draft/saved data pushed from the theme editor — takes precedence over the
    *  section input so edits render instantly without an iframe reload or host changes. */
   private readonly override = signal<{ settings: string | null; blocks: string | null } | null>(null);
@@ -707,6 +771,8 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
           this.products.set([...r.items].sort((a, b) => (rank.get(a.productId) ?? 0) - (rank.get(b.productId) ?? 0)));
         });
       }
+    } else if (type === 'TabbedProductGrid') {
+      this.loadTabProducts(0);
     } else if (type === 'CountdownBar') {
       this.tickCountdown();
       if (this.isBrowser) this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);

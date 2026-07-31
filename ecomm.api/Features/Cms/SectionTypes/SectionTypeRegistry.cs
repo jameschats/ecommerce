@@ -74,6 +74,18 @@ public static class SectionTypeRegistry
                 new("count", "How many", "number", 8),
                 new("columns", "Columns", "range", 4, Min: 1, Max: 6, Step: 1),
             ], BlockTypes: []),
+        new("TabbedProductGrid", "Tabbed product grid", "grid",
+            "Tabs that switch the product grid in place, no page navigation — e.g. \"All / Earbuds / Smartwatches\".",
+            Settings: [ new("heading", "Heading", "text") ],
+            BlockTypes:
+            [
+                new("Tab", "Tab", [
+                    new("label", "Tab label", "text"),
+                    new("source", "Source", "select", "featured", ["featured", "newest", "bestsellers", "category"]),
+                    new("categoryId", "Category (if source = category)", "category"),
+                    new("count", "How many", "number", 8),
+                ]),
+            ], MaxBlocks: 6),
 
         new("Multicolumn", "Feature columns", "grid", "A row of icon + heading + text tiles (USPs, how-it-works).",
             Settings: [ new("heading", "Heading", "text") ],
