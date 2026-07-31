@@ -156,7 +156,7 @@ public sealed class OrderService : IOrderService
             total, address?.CustomerAddressId, mode,
             coupon.Discount, coupon.Code ?? (string.IsNullOrWhiteSpace(couponCode) ? null : couponCode.Trim()),
             coupon.Ok ? coupon.Description : coupon.Error, coupon.Ok,
-            await CodEnabledAsync(ct));
+            await CodEnabledAsync(ct), coupon.Ok ? coupon.GiftProductName : null);
     }
 
     private async Task<bool> CodEnabledAsync(CancellationToken ct) =>
@@ -255,6 +255,36 @@ public sealed class OrderService : IOrderService
                 });
             }
 
+            // Coupon gift reward: re-check stock right now (it can change between quote and checkout) and
+            // reserve it same as any other line. Never blocks the sale — an out-of-stock gift is just skipped.
+            var giftAdded = false;
+            if (coupon.Ok && coupon.GiftProductId is { } giftPid)
+            {
+                var giftAvailable = await _db.Inventory.Where(i => i.ProductId == giftPid).Select(i => (int?)i.AvailableQty).SumAsync(ct) ?? 0;
+                if (giftAvailable >= 1 && await _inventory.ReserveAsync(giftPid, coupon.GiftVariantId, 1, "Order", order.OrderId, ct))
+                {
+                    var gift = await _db.Products.Where(p => p.ProductId == giftPid).Select(p => new { p.Sku, p.HsnCode }).FirstOrDefaultAsync(ct);
+                    _db.OrderItems.Add(new OrderItem
+                    {
+                        OrderId = order.OrderId,
+                        ProductId = giftPid,
+                        ProductVariantId = coupon.GiftVariantId,
+                        Sku = gift?.Sku,
+                        ProductName = coupon.GiftProductName ?? "Free gift",
+                        HsnCode = gift?.HsnCode,
+                        Quantity = 1,
+                        UnitPrice = 0m,
+                        DiscountAmount = 0m,
+                        IsFreeGift = true,
+                        TaxRate = 0m,
+                        TaxAmount = 0m,
+                        LineTotal = 0m,
+                        CreatedAt = DateTime.UtcNow,
+                    });
+                    giftAdded = true;
+                }
+            }
+
             var isCod = string.Equals(req.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
             if (isCod && !await CodEnabledAsync(ct))
                 throw new AppException("Cash on delivery isn't available right now.");
@@ -266,6 +296,8 @@ public sealed class OrderService : IOrderService
                 // cash is collected on delivery. No gateway, no payment widget.
                 foreach (var l in lines)
                     await _inventory.CommitAsync(l.ProductId, l.VariantId, l.Quantity, "Order", order.OrderId, ct);
+                if (giftAdded)
+                    await _inventory.CommitAsync(coupon.GiftProductId!.Value, coupon.GiftVariantId, 1, "Order", order.OrderId, ct);
 
                 _db.Payments.Add(new Payment
                 {
@@ -473,7 +505,7 @@ public sealed class OrderService : IOrderService
                 i.OrderItemId, i.ProductId, i.ProductName, i.Sku,
                 _db.Products.Where(p => p.ProductId == i.ProductId).Select(p => p.Slug).FirstOrDefault(),
                 i.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == i.ProductVariantId).Select(v => v.Name).FirstOrDefault(),
-                i.HsnCode, i.Quantity, i.UnitPrice, i.TaxRate, i.TaxAmount, i.LineTotal))
+                i.HsnCode, i.Quantity, i.UnitPrice, i.TaxRate, i.TaxAmount, i.LineTotal, i.IsFreeGift))
             .ToListAsync(ct);
 
         var ship = await AddressDtoAsync(order.ShippingAddressId, ct);

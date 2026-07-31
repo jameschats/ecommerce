@@ -13,6 +13,7 @@ public class OrderItem
     public decimal UnitPrice { get; set; }
     public decimal? UnitCost { get; set; }   // cost snapshot at sale time (for margin reports)
     public decimal DiscountAmount { get; set; }
+    public bool IsFreeGift { get; set; }   // added by a coupon's gift reward, not purchased — always UnitPrice 0
     public decimal TaxRate { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }

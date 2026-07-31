@@ -12,7 +12,7 @@ public sealed record CheckoutQuoteDto(
     decimal shippingCharge, string shippingMethod, int? estimatedDays,
     decimal total, long? shippingAddressId, string taxMode,
     decimal discountAmount, string? couponCode, string? couponMessage, bool couponApplied,
-    bool codEnabled);
+    bool codEnabled, string? giftProductName);
 
 // ----- Place / pay -----
 public sealed record PlaceOrderRequest(long ShippingAddressId, long? BillingAddressId, string? Notes, string? CouponCode, string? PaymentMethod);
@@ -33,7 +33,7 @@ public sealed record OrderAddressDto(
 
 public sealed record OrderItemDto(
     long orderItemId, long productId, string productName, string? sku, string? slug, string? variantLabel,
-    string? hsnCode, int quantity, decimal unitPrice, decimal taxRate, decimal taxAmount, decimal lineTotal);
+    string? hsnCode, int quantity, decimal unitPrice, decimal taxRate, decimal taxAmount, decimal lineTotal, bool isFreeGift);
 
 /// <summary>One step in the order's journey — our own status changes plus courier scans, merged.</summary>
 public sealed record OrderTimelineEntryDto(string status, string? note, string? location, DateTime at, string source);

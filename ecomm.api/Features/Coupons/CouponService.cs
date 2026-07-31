@@ -7,8 +7,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Coupons;
 
-/// <summary>Outcome of evaluating a code against a cart. <see cref="Ok"/> false ⇒ <see cref="Error"/> explains why.</summary>
-public sealed record CouponResult(bool Ok, string? Error, decimal Discount, bool FreeShipping, long? CouponId, string? Code, string? Description);
+/// <summary>Outcome of evaluating a code against a cart. <see cref="Ok"/> false ⇒ <see cref="Error"/> explains why.
+/// <see cref="GiftProductId"/> is only set when the gift is currently real — resolved against the product's
+/// active flag; stock is re-checked (and reserved) at order-placement time since it can change between quote
+/// and checkout.</summary>
+public sealed record CouponResult(bool Ok, string? Error, decimal Discount, bool FreeShipping, long? CouponId, string? Code, string? Description,
+    long? GiftProductId = null, long? GiftVariantId = null, string? GiftProductName = null);
 
 /// <summary>A cart line for targeted-discount evaluation.</summary>
 public sealed record DiscountLine(long ProductId, decimal LineAmount);
@@ -17,13 +21,13 @@ public sealed record AdminCouponDto(
     long CouponId, string Code, string Method, string? Description, string DiscountType, decimal DiscountValue, bool FreeShipping,
     string AppliesTo, IReadOnlyList<long> TargetIds,
     decimal? MaxDiscountAmount, decimal? MinOrderAmount, int? UsageLimit, int? PerUserLimit, int UsedCount,
-    DateTime? StartsAt, DateTime? EndsAt, bool IsActive);
+    DateTime? StartsAt, DateTime? EndsAt, bool IsActive, long? GiftProductId, string? GiftProductName);
 
 public sealed record SaveCouponRequest(
     string Code, string Method, string? Description, string DiscountType, decimal DiscountValue, bool FreeShipping,
     string AppliesTo, IReadOnlyList<long>? TargetIds,
     decimal? MaxDiscountAmount, decimal? MinOrderAmount, int? UsageLimit, int? PerUserLimit,
-    DateTime? StartsAt, DateTime? EndsAt, bool IsActive);
+    DateTime? StartsAt, DateTime? EndsAt, bool IsActive, long? GiftProductId = null);
 
 public interface ICouponService
 {
@@ -105,10 +109,19 @@ public sealed class CouponService : ICouponService
         if (coupon.MaxDiscountAmount is { } cap && discount > cap) discount = cap;
         if (discount > eligible) discount = eligible; // never exceed what it applies to
 
-        // Applicable if it takes money off OR grants free shipping.
-        if (discount <= 0m && !coupon.FreeShipping) return Fail("This offer doesn't apply to your cart.");
+        // Applicable if it takes money off, grants free shipping, OR carries a (still-active) gift.
+        string? giftName = null;
+        long? giftProductId = null, giftVariantId = null;
+        if (coupon.GiftProductId is { } gpid)
+        {
+            giftName = await _db.Products.Where(p => p.ProductId == gpid && p.TenantId == Tenant && p.IsActive && !p.IsDeleted)
+                .Select(p => p.Name).FirstOrDefaultAsync(ct);
+            if (giftName is not null) { giftProductId = gpid; giftVariantId = coupon.GiftVariantId; }
+        }
+        if (discount <= 0m && !coupon.FreeShipping && giftProductId is null) return Fail("This offer doesn't apply to your cart.");
 
-        return new CouponResult(true, null, discount, coupon.FreeShipping, coupon.CouponId, coupon.Code, coupon.Description);
+        return new CouponResult(true, null, discount, coupon.FreeShipping, coupon.CouponId, coupon.Code, coupon.Description,
+            giftProductId, giftVariantId, giftName);
     }
 
     private async Task<decimal> EligibleAmountAsync(Coupon coupon, decimal subtotal, IReadOnlyList<DiscountLine>? lines, CancellationToken ct)
@@ -149,7 +162,10 @@ public sealed class CouponService : ICouponService
         var coupons = await _db.Coupons.AsNoTracking().Where(c => c.TenantId == Tenant).OrderByDescending(c => c.CouponId).ToListAsync(ct);
         var ids = coupons.Select(c => c.CouponId).ToList();
         var targets = await _db.CouponTargets.AsNoTracking().Where(t => ids.Contains(t.CouponId)).ToListAsync(ct);
-        return coupons.Select(c => ToDto(c, targets.Where(t => t.CouponId == c.CouponId).Select(t => t.TargetId).ToList())).ToList();
+        var giftIds = coupons.Where(c => c.GiftProductId is not null).Select(c => c.GiftProductId!.Value).Distinct().ToList();
+        var giftNames = await _db.Products.AsNoTracking().Where(p => giftIds.Contains(p.ProductId)).ToDictionaryAsync(p => p.ProductId, p => p.Name, ct);
+        return coupons.Select(c => ToDto(c, targets.Where(t => t.CouponId == c.CouponId).Select(t => t.TargetId).ToList(),
+            c.GiftProductId is { } gid ? giftNames.GetValueOrDefault(gid) : null)).ToList();
     }
 
     public async Task<AdminCouponDto> CreateAsync(SaveCouponRequest req, CancellationToken ct = default)
@@ -164,7 +180,7 @@ public sealed class CouponService : ICouponService
         _db.Coupons.Add(c);
         await _db.SaveChangesAsync(ct);
         await SaveTargetsAsync(c, req, ct);
-        return ToDto(c, (req.TargetIds ?? []).ToList());
+        return ToDto(c, (req.TargetIds ?? []).ToList(), await GiftNameAsync(c.GiftProductId, ct));
     }
 
     public async Task<AdminCouponDto> UpdateAsync(long id, SaveCouponRequest req, CancellationToken ct = default)
@@ -180,8 +196,12 @@ public sealed class CouponService : ICouponService
         c.UpdatedAt = DateTime.UtcNow;
         await SaveTargetsAsync(c, req, ct);
         await _db.SaveChangesAsync(ct);
-        return ToDto(c, (req.TargetIds ?? []).ToList());
+        return ToDto(c, (req.TargetIds ?? []).ToList(), await GiftNameAsync(c.GiftProductId, ct));
     }
+
+    private Task<string?> GiftNameAsync(long? productId, CancellationToken ct) =>
+        productId is null ? Task.FromResult<string?>(null)
+            : _db.Products.AsNoTracking().Where(p => p.ProductId == productId).Select(p => (string?)p.Name).FirstOrDefaultAsync(ct);
 
     public async Task DeleteAsync(long id, CancellationToken ct = default)
     {
@@ -209,8 +229,8 @@ public sealed class CouponService : ICouponService
         if (string.IsNullOrWhiteSpace(req.Code)) throw new AppException("A code (or name for automatic offers) is required.");
         if (req.Method is not ("Code" or "Automatic")) throw new AppException("Method must be Code or Automatic.");
         if (req.DiscountType is not ("Flat" or "Percentage")) throw new AppException("Discount type must be Flat or Percentage.");
-        // Free-shipping-only offers can have a zero amount; amount offers need a positive value.
-        if (!req.FreeShipping && req.DiscountValue <= 0) throw new AppException("Discount value must be greater than zero.");
+        // Free-shipping-only or gift-only offers can have a zero amount; plain amount offers need a positive value.
+        if (!req.FreeShipping && req.GiftProductId is null && req.DiscountValue <= 0) throw new AppException("Discount value must be greater than zero.");
         if (req.DiscountValue < 0) throw new AppException("Discount value can't be negative.");
         if (req.DiscountType == "Percentage" && req.DiscountValue > 100) throw new AppException("Percentage discount can't exceed 100.");
     }
@@ -227,6 +247,7 @@ public sealed class CouponService : ICouponService
         c.AppliesTo = AppliesToValues.FirstOrDefault(a => a.Equals(req.AppliesTo, StringComparison.OrdinalIgnoreCase)) ?? "Order";
         c.MaxDiscountAmount = req.MaxDiscountAmount;
         c.MinOrderAmount = req.MinOrderAmount;
+        c.GiftProductId = req.GiftProductId;
         c.UsageLimit = req.UsageLimit;
         c.PerUserLimit = req.PerUserLimit;
         c.StartsAt = req.StartsAt;
@@ -234,6 +255,7 @@ public sealed class CouponService : ICouponService
         c.IsActive = req.IsActive;
     }
 
-    private static AdminCouponDto ToDto(Coupon c, IReadOnlyList<long> targetIds) => new(c.CouponId, c.Code, c.Method, c.Description, c.DiscountType, c.DiscountValue,
-        c.FreeShipping, c.AppliesTo, targetIds, c.MaxDiscountAmount, c.MinOrderAmount, c.UsageLimit, c.PerUserLimit, c.UsedCount, c.StartsAt, c.EndsAt, c.IsActive);
+    private static AdminCouponDto ToDto(Coupon c, IReadOnlyList<long> targetIds, string? giftProductName) => new(c.CouponId, c.Code, c.Method, c.Description, c.DiscountType, c.DiscountValue,
+        c.FreeShipping, c.AppliesTo, targetIds, c.MaxDiscountAmount, c.MinOrderAmount, c.UsageLimit, c.PerUserLimit, c.UsedCount, c.StartsAt, c.EndsAt, c.IsActive,
+        c.GiftProductId, giftProductName);
 }

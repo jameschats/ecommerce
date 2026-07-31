@@ -86,8 +86,16 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
                 @if (q.discountAmount > 0) {
                   <div class="flex justify-between text-green-700"><span>Discount @if (q.couponCode) { <span class="text-xs">({{ q.couponCode }})</span> }</span><span>−{{ q.discountAmount | currency:'INR':'symbol':'1.2-2' }}</span></div>
                 }
+                @if (q.giftProductName) {
+                  <div class="flex justify-between text-green-700"><span>Free gift</span><span>{{ q.giftProductName }}</span></div>
+                }
                 <div class="border-t border-slate-100 pt-2 mt-1 flex justify-between font-bold text-slate-900"><span>Total</span><span>{{ q.total | currency:'INR':'symbol':'1.2-2' }}</span></div>
               </div>
+              @if (q.giftProductName) {
+                <div class="mt-3 flex items-center gap-2 text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-green-700">
+                  🎁 You're getting a <strong class="mx-1">{{ q.giftProductName }}</strong> free with this order!
+                </div>
+              }
 
               <!-- Coupon -->
               <div class="mt-3">

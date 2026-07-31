@@ -64,7 +64,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           </div>
           <div class="divide-y divide-slate-100 border-y border-slate-100 mb-3">
             @for (it of o.items; track it.orderItemId) {
-              <div class="flex justify-between py-2 text-sm"><span class="text-slate-700">{{ it.productName }} × {{ it.quantity }}</span><span>{{ it.lineTotal | currency:'INR':'symbol':'1.0-0' }}</span></div>
+              <div class="flex justify-between py-2 text-sm"><span class="text-slate-700">{{ it.productName }} × {{ it.quantity }}@if (it.isFreeGift) { <span class="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded ml-1 align-middle">FREE GIFT</span> }</span><span>{{ it.isFreeGift ? 'Free' : (it.lineTotal | currency:'INR':'symbol':'1.0-0') }}</span></div>
             }
           </div>
           <div class="flex justify-between text-sm font-semibold mb-1"><span>Total</span><span>{{ o.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span></div>

@@ -14,7 +14,7 @@ public sealed record DraftLineInput(long ProductId, long? VariantId, int Quantit
 public sealed record CreateDraftOrderRequest(long CustomerUserId, List<DraftLineInput> Lines, string? CouponCode, string? Notes);
 
 public sealed record DraftOrderLineDto(
-    long ProductId, long? VariantId, string Name, string? VariantLabel, int Quantity, decimal UnitPrice, decimal LineTotal, decimal TaxAmount);
+    long ProductId, long? VariantId, string Name, string? VariantLabel, int Quantity, decimal UnitPrice, decimal LineTotal, decimal TaxAmount, bool IsFreeGift);
 
 public sealed record DraftOrderDto(
     long OrderId, string OrderNumber, string Status, long CustomerUserId, string? CustomerName, string? CustomerEmail,
@@ -99,6 +99,19 @@ public sealed class DraftOrderService(
                 UnitCost = l.Cost, DiscountAmount = 0m, TaxRate = l.Rate, TaxAmount = l.LineTax,
                 LineTotal = l.LineSub, CreatedAt = DateTime.UtcNow,
             });
+
+        // Coupon gift reward: stock isn't held for drafts, so just record the intended gift line here —
+        // ConvertAsync re-checks (and reserves) availability, dropping the line if it's gone by then.
+        if (coupon.Ok && coupon.GiftProductId is { } giftPid)
+        {
+            var gift = await db.Products.Where(p => p.ProductId == giftPid).Select(p => new { p.Sku, p.HsnCode }).FirstOrDefaultAsync(ct);
+            db.OrderItems.Add(new OrderItem
+            {
+                OrderId = order.OrderId, ProductId = giftPid, ProductVariantId = coupon.GiftVariantId, Sku = gift?.Sku,
+                ProductName = coupon.GiftProductName ?? "Free gift", HsnCode = gift?.HsnCode, Quantity = 1, UnitPrice = 0m,
+                DiscountAmount = 0m, IsFreeGift = true, TaxRate = 0m, TaxAmount = 0m, LineTotal = 0m, CreatedAt = DateTime.UtcNow,
+            });
+        }
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(order.OrderId, ct);
@@ -117,7 +130,7 @@ public sealed class DraftOrderService(
         var customer = await db.Users.Where(u => u.UserId == order.UserId)
             .Select(u => new { u.FullName, u.Email }).FirstOrDefaultAsync(ct);
         var items = await db.OrderItems.Where(i => i.OrderId == orderId).OrderBy(i => i.OrderItemId)
-            .Select(i => new DraftOrderLineDto(i.ProductId, i.ProductVariantId, i.ProductName, null, i.Quantity, i.UnitPrice, i.LineTotal, i.TaxAmount))
+            .Select(i => new DraftOrderLineDto(i.ProductId, i.ProductVariantId, i.ProductName, null, i.Quantity, i.UnitPrice, i.LineTotal, i.TaxAmount, i.IsFreeGift))
             .ToListAsync(ct);
         var code = order.CouponId is null ? null : await db.Coupons.Where(c => c.CouponId == order.CouponId).Select(c => c.Code).FirstOrDefaultAsync(ct);
         return new DraftOrderDto(order.OrderId, order.OrderNumber, order.Status, order.UserId, customer?.FullName, customer?.Email,
@@ -138,7 +151,12 @@ public sealed class DraftOrderService(
             foreach (var i in items)
             {
                 var ok = await inventory.ReserveAsync(i.ProductId, i.ProductVariantId, i.Quantity, "Order", order.OrderId, ct);
-                if (!ok) throw new AppException($"'{i.ProductName}' is out of stock.");
+                if (!ok)
+                {
+                    // A promised gift going out of stock between draft creation and conversion shouldn't block the sale.
+                    if (i.IsFreeGift) { db.OrderItems.Remove(i); continue; }
+                    throw new AppException($"'{i.ProductName}' is out of stock.");
+                }
                 await inventory.CommitAsync(i.ProductId, i.ProductVariantId, i.Quantity, "Order", order.OrderId, ct);
             }
 

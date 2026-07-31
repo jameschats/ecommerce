@@ -73,7 +73,7 @@ public sealed class InvoiceService : IInvoiceService
             {
                 InvoiceId = invoice.InvoiceId,
                 ProductId = oi.ProductId,
-                ProductName = oi.ProductName,
+                ProductName = oi.IsFreeGift ? $"{oi.ProductName} (Free gift)" : oi.ProductName,
                 HsnCode = oi.HsnCode,
                 Quantity = oi.Quantity,
                 UnitPrice = oi.UnitPrice,

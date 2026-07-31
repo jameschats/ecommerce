@@ -56,10 +56,11 @@ import { orderStatusClass } from './order-status';
             @for (it of o.items; track it.orderItemId) {
               <div class="flex justify-between p-4 text-sm">
                 <div>
-                  <div class="text-slate-800">{{ it.productName }}@if (it.variantLabel) { <span class="text-slate-400"> · {{ it.variantLabel }}</span> }</div>
+                  <div class="text-slate-800">{{ it.productName }}@if (it.variantLabel) { <span class="text-slate-400"> · {{ it.variantLabel }}</span> }
+                    @if (it.isFreeGift) { <span class="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded ml-1 align-middle">FREE GIFT</span> }</div>
                   <div class="text-xs text-slate-400">{{ it.sku }} · GST {{ it.taxRate }}% · × {{ it.quantity }}</div>
                 </div>
-                <div class="text-right text-slate-700">{{ it.lineTotal | currency:'INR':'symbol':'1.2-2' }}</div>
+                <div class="text-right text-slate-700">{{ it.isFreeGift ? 'Free' : (it.lineTotal | currency:'INR':'symbol':'1.2-2') }}</div>
               </div>
             }
           </div>

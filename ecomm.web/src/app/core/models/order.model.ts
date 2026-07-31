@@ -33,6 +33,7 @@ export interface CheckoutQuote {
   couponMessage: string | null;
   couponApplied: boolean;
   codEnabled: boolean;
+  giftProductName: string | null;
 }
 
 export interface PaymentInit {
@@ -66,6 +67,7 @@ export interface OrderItem {
   taxRate: number;
   taxAmount: number;
   lineTotal: number;
+  isFreeGift: boolean;
 }
 
 export interface OrderAddress {

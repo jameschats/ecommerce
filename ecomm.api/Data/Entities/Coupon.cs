@@ -11,6 +11,8 @@ public class Coupon : ITenantScoped
     public string DiscountType { get; set; } = "Flat"; // Flat | Percentage
     public decimal DiscountValue { get; set; }
     public bool FreeShipping { get; set; }             // also/instead grants free shipping
+    public long? GiftProductId { get; set; }            // also/instead grants a free unit of this product
+    public long? GiftVariantId { get; set; }
     public string AppliesTo { get; set; } = "Order";   // Order | Products | Collections
     public decimal? MaxDiscountAmount { get; set; }     // cap for percentage coupons
     public decimal? MinOrderAmount { get; set; }

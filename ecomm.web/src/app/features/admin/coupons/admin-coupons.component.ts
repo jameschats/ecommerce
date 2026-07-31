@@ -101,6 +101,29 @@ import { ProductListItem } from '../../../core/models/catalog.model';
               <input type="checkbox" [(ngModel)]="form.isActive" name="active" /> Active
             </label>
           </div>
+
+          <!-- Free gift reward (e.g. "Spend ₹999, get a free X") -->
+          <div class="border-t border-slate-100 mt-3 pt-3">
+            <label class="lbl">Free gift (optional)</label>
+            @if (giftProductName()) {
+              <div class="flex items-center justify-between text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-1">
+                <span class="text-green-700">🎁 {{ giftProductName() }}</span>
+                <button type="button" (click)="clearGift()" class="text-slate-500 hover:text-red-600 text-xs">Remove</button>
+              </div>
+            } @else {
+              <div class="relative mt-1">
+                <input [(ngModel)]="giftQuery" name="gq" (ngModelChange)="giftSearch$.next($event)" placeholder="Search a product to give away…" class="input w-full" />
+                @if (giftResults().length) {
+                  <div class="absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                    @for (p of giftResults(); track p.productId) {
+                      <button type="button" (click)="pickGift(p.productId, p.name)" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">{{ p.name }}</button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+            <p class="text-xs text-slate-400 mt-1">Added as a free line item on the order when this coupon applies (e.g. pair with a minimum order amount for "spend ₹999, get a free gift"). Skipped automatically if out of stock.</p>
+          </div>
           <div class="flex gap-2 mt-4">
             <button type="button" (click)="save()" [disabled]="saving()" class="btn-primary">{{ saving() ? 'Saving…' : 'Save' }}</button>
             <button type="button" (click)="editing.set(false)" class="px-4 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50">Cancel</button>
@@ -125,6 +148,7 @@ import { ProductListItem } from '../../../core/models/catalog.model';
                   <td>
                     @if (c.discountValue > 0) { {{ c.discountType === 'Percentage' ? c.discountValue + '%' : ('₹' + c.discountValue) }}<span class="text-xs text-slate-400">{{ c.discountType === 'Percentage' && c.maxDiscountAmount ? ' (max ₹' + c.maxDiscountAmount + ')' : '' }}</span> }
                     @if (c.freeShipping) { <span class="text-xs text-green-600">{{ c.discountValue > 0 ? ' + ' : '' }}free ship</span> }
+                    @if (c.giftProductName) { <span class="text-xs text-green-600 block">🎁 {{ c.giftProductName }}</span> }
                   </td>
                   <td>{{ c.minOrderAmount ? ('₹' + c.minOrderAmount) : '—' }}</td>
                   <td>{{ c.usedCount }}{{ c.usageLimit ? ' / ' + c.usageLimit : '' }}</td>
@@ -161,13 +185,27 @@ export class AdminCouponsComponent implements OnInit {
   productQuery = '';
   readonly productSearch$ = new Subject<string>();
 
+  readonly giftResults = signal<ProductListItem[]>([]);
+  readonly giftProductName = signal<string | null>(null);
+  giftQuery = '';
+  readonly giftSearch$ = new Subject<string>();
+
   form: SaveCouponRequest & { couponId?: number } = this.blank();
 
   constructor() {
     this.productSearch$.pipe(debounceTime(250), distinctUntilChanged(),
       switchMap((q) => this.catalog.getProducts({ search: q.trim(), pageSize: 8 })))
       .subscribe((r) => this.productResults.set(r.items));
+    this.giftSearch$.pipe(debounceTime(250), distinctUntilChanged(),
+      switchMap((q) => this.catalog.getProducts({ search: q.trim(), pageSize: 8 })))
+      .subscribe((r) => this.giftResults.set(r.items));
   }
+
+  pickGift(id: number, name: string): void {
+    this.form.giftProductId = id; this.giftProductName.set(name);
+    this.giftResults.set([]); this.giftQuery = '';
+  }
+  clearGift(): void { this.form.giftProductId = null; this.giftProductName.set(null); }
 
   ngOnInit(): void {
     this.load();
@@ -184,7 +222,8 @@ export class AdminCouponsComponent implements OnInit {
 
   private blank(): SaveCouponRequest & { couponId?: number } {
     return { code: '', method: 'Code', description: null, discountType: 'Flat', discountValue: 0, freeShipping: false,
-      appliesTo: 'Order', targetIds: [], maxDiscountAmount: null, minOrderAmount: null, usageLimit: null, perUserLimit: null, startsAt: null, endsAt: null, isActive: true };
+      appliesTo: 'Order', targetIds: [], maxDiscountAmount: null, minOrderAmount: null, usageLimit: null, perUserLimit: null,
+      startsAt: null, endsAt: null, isActive: true, giftProductId: null };
   }
 
   private load(): void {
@@ -195,12 +234,13 @@ export class AdminCouponsComponent implements OnInit {
     });
   }
 
-  startNew(): void { this.form = this.blank(); this.targetLabels.set([]); this.editing.set(true); this.message.set(null); this.error.set(null); }
+  startNew(): void { this.form = this.blank(); this.targetLabels.set([]); this.giftProductName.set(null); this.editing.set(true); this.message.set(null); this.error.set(null); }
 
   edit(c: AdminCoupon): void {
     this.form = { ...c, targetIds: [...(c.targetIds ?? [])], startsAt: c.startsAt?.slice(0, 10) ?? null, endsAt: c.endsAt?.slice(0, 10) ?? null };
     // Product targets show as chips; we only have ids, so label by id (re-search to rename). Collections use checkboxes.
     this.targetLabels.set(c.appliesTo === 'Products' ? (c.targetIds ?? []).map((id) => ({ id, label: `Product #${id}` })) : []);
+    this.giftProductName.set(c.giftProductName);
     this.editing.set(true);
     this.message.set(null);
     this.error.set(null);

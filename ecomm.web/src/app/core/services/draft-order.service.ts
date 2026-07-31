@@ -8,7 +8,7 @@ export interface DraftLineInput { productId: number; variantId: number | null; q
 export interface CreateDraftOrder { customerUserId: number; lines: DraftLineInput[]; couponCode: string | null; notes: string | null; }
 export interface DraftOrderLine {
   productId: number; variantId: number | null; name: string; variantLabel: string | null;
-  quantity: number; unitPrice: number; lineTotal: number; taxAmount: number;
+  quantity: number; unitPrice: number; lineTotal: number; taxAmount: number; isFreeGift: boolean;
 }
 export interface DraftOrder {
   orderId: number; orderNumber: string; status: string; customerUserId: number;

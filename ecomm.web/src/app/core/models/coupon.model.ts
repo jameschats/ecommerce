@@ -16,6 +16,8 @@ export interface AdminCoupon {
   startsAt: string | null;
   endsAt: string | null;
   isActive: boolean;
+  giftProductId: number | null;
+  giftProductName: string | null;
 }
 
 export interface SaveCouponRequest {
@@ -34,4 +36,5 @@ export interface SaveCouponRequest {
   startsAt: string | null;
   endsAt: string | null;
   isActive: boolean;
+  giftProductId: number | null;
 }

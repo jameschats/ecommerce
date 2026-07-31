@@ -27,8 +27,8 @@ import { DraftOrder, DraftOrderService } from '../../../core/services/draft-orde
           <h2 class="font-semibold text-slate-800 mb-3">Items</h2>
           @for (l of order.lines; track l.productId) {
             <div class="flex justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
-              <span class="text-slate-700">{{ l.name }} × {{ l.quantity }}</span>
-              <span class="font-medium text-slate-800">₹{{ l.lineTotal | number:'1.0-2' }}</span>
+              <span class="text-slate-700">{{ l.name }} × {{ l.quantity }}@if (l.isFreeGift) { <span class="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded ml-1 align-middle">FREE GIFT</span> }</span>
+              <span class="font-medium text-slate-800">{{ l.isFreeGift ? 'Free' : ('₹' + (l.lineTotal | number:'1.0-2')) }}</span>
             </div>
           }
           <div class="mt-4 space-y-1 text-sm">
