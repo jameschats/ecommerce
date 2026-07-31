@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, ElementRef, HostBinding, OnDestroy, OnInit, PLATFORM_ID, computed, inject, input, signal } from '@angular/core';
+import { Component, ElementRef, HostBinding, OnDestroy, OnInit, PLATFORM_ID, ViewChild, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
@@ -66,6 +66,39 @@ import { ThemeService } from '../../core/services/theme.service';
                 </div>
               </section>
             }
+          }
+          @case ('carousel') {
+            <!-- Multi-card sliding hero: each slide is its own full-bleed image+heading+CTA card,
+                 ~3 visible on desktop / 1 on mobile, with arrow + dot navigation. -->
+            <section class="page-container py-6">
+              <div class="relative">
+                <div #heroCarousel (scroll)="onHeroCarouselScroll($event)" class="flex gap-4 overflow-x-auto no-scrollbar snap-x scroll-smooth">
+                  @for (b of blocks(); track $index) {
+                    <div data-hero-card class="relative shrink-0 snap-start w-[85%] sm:w-[46%] lg:w-[31%] min-h-[280px] sm:min-h-[340px] overflow-hidden sf-card" [attr.data-block-index]="$index"
+                         [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
+                      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
+                      <div class="relative h-full flex flex-col justify-end p-6 text-white">
+                        @if (b.heading) { <h3 class="text-2xl font-bold leading-tight">{{ b.heading }}</h3> }
+                        @if (b.subheading) { <p class="mt-1 text-white/85 text-sm">{{ b.subheading }}</p> }
+                        @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-4 px-4 py-2 rounded-lg bg-primary text-white font-medium text-sm w-fit">{{ b.buttonText }}</a> }
+                      </div>
+                    </div>
+                  }
+                  @if (!blocks().length) { <div class="w-full min-h-[280px] grid place-items-center text-slate-300 bg-slate-100 rounded-2xl">Add slides to this hero</div> }
+                </div>
+                @if (blocks().length > 1) {
+                  <button type="button" (click)="scrollHeroCarousel(-1)" class="hidden sm:grid absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 shadow place-items-center hover:bg-white text-slate-700" aria-label="Previous">‹</button>
+                  <button type="button" (click)="scrollHeroCarousel(1)" class="hidden sm:grid absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 shadow place-items-center hover:bg-white text-slate-700" aria-label="Next">›</button>
+                }
+              </div>
+              @if (blocks().length > 1) {
+                <div class="flex justify-center gap-1.5 mt-4">
+                  @for (b of blocks(); track $index) {
+                    <button type="button" (click)="scrollHeroCarouselTo($index)" class="h-2 rounded-full transition-all" [class]="heroActiveSlide() === $index ? 'bg-primary w-5' : 'bg-slate-300 w-2'" [attr.aria-label]="'Go to slide ' + ($index + 1)"></button>
+                  }
+                </div>
+              }
+            </section>
           }
           @default {
             <section class="relative">
@@ -432,6 +465,26 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
    *  interval then keeps it ticking. */
   readonly remaining = signal<{ days: number; hours: number; mins: number; secs: number } | null>(null);
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Hero 'carousel' style: which slide is currently in view, driving the active dot. */
+  @ViewChild('heroCarousel') heroCarousel?: ElementRef<HTMLElement>;
+  readonly heroActiveSlide = signal(0);
+  scrollHeroCarousel(dir: 1 | -1): void {
+    const el = this.heroCarousel?.nativeElement;
+    const card = el?.querySelector<HTMLElement>('[data-hero-card]');
+    if (!el || !card) return;
+    el.scrollBy({ left: dir * (card.offsetWidth + 16), behavior: 'smooth' });
+  }
+  scrollHeroCarouselTo(index: number): void {
+    this.heroCarousel?.nativeElement.querySelectorAll<HTMLElement>('[data-hero-card]')[index]
+      ?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  }
+  onHeroCarouselScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    const card = el.querySelector<HTMLElement>('[data-hero-card]');
+    if (!card) return;
+    this.heroActiveSlide.set(Math.round(el.scrollLeft / (card.offsetWidth + 16)));
+  }
 
   /** T15/E1: click-to-select-in-canvas + hover affordances. Only active inside the theme editor's
    *  preview iframe — gated by ThemeService.editorMode() so real shoppers never see any of this. */

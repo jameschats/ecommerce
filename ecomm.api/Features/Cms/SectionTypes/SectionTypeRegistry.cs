@@ -38,7 +38,7 @@ public static class SectionTypeRegistry
         new("Hero", "Hero / Slideshow", "image", "A big banner or auto-playing slideshow.",
             Settings:
             [
-                new("style", "Layout", "select", "boxed", ["boxed", "split", "banner", "panels"]),
+                new("style", "Layout", "select", "boxed", ["boxed", "split", "banner", "panels", "carousel"]),
                 new("backgroundColor", "Background colour (panels)", "color", Help: "Centre-panel colour for the panels layout."),
                 new("colorScheme", "Colour scheme (panels)", "colorScheme", Help: "Overrides the background colour above, if set."),
                 new("autoplay", "Auto-play slides", "boolean", true),
