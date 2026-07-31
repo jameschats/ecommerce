@@ -107,4 +107,6 @@ export interface ProductQuery {
   page?: number;
   pageSize?: number;
   ids?: number[];
+  minPrice?: number;
+  maxPrice?: number;
 }

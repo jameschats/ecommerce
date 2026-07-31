@@ -29,10 +29,15 @@ export class CollectionPageStore {
   readonly loading = signal(true);
   /** Placeholder cards shown while products load (keeps layout height stable). */
   readonly skeletons = Array.from({ length: 10 }, (_, i) => i);
+  /** Pure UI state, not persisted/URL-driven — resets to grid each visit, same as most sites. */
+  readonly viewMode = signal<'grid' | 'list'>('grid');
+  setViewMode(mode: 'grid' | 'list'): void { this.viewMode.set(mode); }
 
   searchText = '';
   sort = '';
   brandId: number | '' = '';
+  minPrice: number | '' = '';
+  maxPrice: number | '' = '';
 
   /** Wire the route → data pipeline (called once by the host). */
   init(): void {
@@ -52,12 +57,16 @@ export class CollectionPageStore {
               this.searchText = query.get('search') ?? '';
               this.sort = query.get('sort') ?? '';
               this.brandId = query.get('brandId') ? +query.get('brandId')! : '';
+              this.minPrice = query.get('minPrice') ? +query.get('minPrice')! : '';
+              this.maxPrice = query.get('maxPrice') ? +query.get('maxPrice')! : '';
 
               const q: ProductQuery = {
                 search: this.searchText || undefined,
                 categoryId: cat?.categoryId,
                 brandId: this.brandId || undefined,
                 sort: this.sort || undefined,
+                minPrice: this.minPrice || undefined,
+                maxPrice: this.maxPrice || undefined,
                 page: query.get('page') ? +query.get('page')! : 1,
                 pageSize: 12,
               };
@@ -89,6 +98,8 @@ export class CollectionPageStore {
       search: this.searchText || null,
       brandId: this.brandId || null,
       sort: this.sort || null,
+      minPrice: this.minPrice || null,
+      maxPrice: this.maxPrice || null,
       page: null,
       ...extra,
     };

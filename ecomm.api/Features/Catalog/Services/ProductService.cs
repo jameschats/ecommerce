@@ -24,6 +24,9 @@ public sealed class ProductService : IProductService
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly ecomm.api.Features.Plans.IEntitlementService _entitlements;
+    // Mirrors AnalyticsService's SoldStatuses — an order line counts toward "bestseller" ranking once
+    // it's actually been paid/fulfilled, not while still a draft/pending/cancelled/returned order.
+    private static readonly string[] SoldStatuses = { "Paid", "Confirmed", "Packed", "Shipped", "Delivered" };
 
     public ProductService(EcommerceDbContext db, ecomm.api.Features.Plans.IEntitlementService entitlements)
     {
@@ -74,12 +77,22 @@ public sealed class ProductService : IProductService
         if (query.BrandId is { } brand) q = q.Where(p => p.BrandId == brand);
         if (query.IsFeatured is { } feat) q = q.Where(p => p.IsFeatured == feat);
         if (query.Ids is { Count: > 0 } ids) q = q.Where(p => ids.Contains(p.ProductId));
+        if (query.MinPrice is { } min) q = q.Where(p => p.Price >= min);
+        if (query.MaxPrice is { } max) q = q.Where(p => p.Price <= max);
 
         q = query.Sort switch
         {
             "price" => q.OrderBy(p => p.Price),
             "price_desc" => q.OrderByDescending(p => p.Price),
             "name" => q.OrderBy(p => p.Name),
+            // All-time total quantity sold (not date-ranged like AnalyticsService.BestSellersAsync,
+            // which is a separate admin-report concern) — a correlated subquery since Product has no
+            // reverse nav to OrderItem. Previously this string silently fell through to the default
+            // (CreatedAt desc) for every caller, including FeaturedProducts CMS sections configured
+            // with source: bestsellers — this both adds the PLP "Popularity" sort and fixes that.
+            "bestsellers" => q.OrderByDescending(p =>
+                _db.OrderItems.Where(oi => oi.ProductId == p.ProductId && SoldStatuses.Contains(oi.Order!.Status))
+                    .Sum(oi => (int?)oi.Quantity) ?? 0),
             _ => q.OrderByDescending(p => p.CreatedAt),
         };
 

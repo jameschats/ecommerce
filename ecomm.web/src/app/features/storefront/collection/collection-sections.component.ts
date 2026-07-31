@@ -1,7 +1,9 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
+import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 import { CollectionPageStore } from './collection-page.store';
 
 /** Collection title + product count + (on the all-products view) the category showcase. */
@@ -37,7 +39,7 @@ export class CollectionHeaderComponent {
 /** Filter bar + category sidebar + product grid + pagination. */
 @Component({
   selector: 'app-collection-grid',
-  imports: [FormsModule, RouterLink, ProductCardComponent],
+  imports: [FormsModule, RouterLink, CurrencyPipe, ProductCardComponent, WishlistButtonComponent],
   template: `
     <div class="flex flex-wrap items-center gap-3 mb-6">
       <input type="search" [(ngModel)]="store.searchText" (keyup.enter)="store.applyFilters()" placeholder="Search products…"
@@ -49,13 +51,33 @@ export class CollectionHeaderComponent {
         @for (b of store.brands(); track b.brandId) { <option [ngValue]="b.brandId">{{ b.name }}</option> }
       </select>
 
+      <div class="flex items-center gap-1.5">
+        <input type="number" min="0" [(ngModel)]="store.minPrice" (keyup.enter)="store.applyFilters()" (blur)="store.applyFilters()"
+          placeholder="Min ₹" class="w-24 rounded-lg border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        <span class="text-slate-400 text-sm">–</span>
+        <input type="number" min="0" [(ngModel)]="store.maxPrice" (keyup.enter)="store.applyFilters()" (blur)="store.applyFilters()"
+          placeholder="Max ₹" class="w-24 rounded-lg border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+      </div>
+
       <select [(ngModel)]="store.sort" (ngModelChange)="store.applyFilters()"
         class="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary">
         <option value="">Newest</option>
+        <option value="bestsellers">Popularity</option>
         <option value="price">Price: low to high</option>
         <option value="price_desc">Price: high to low</option>
         <option value="name">Name</option>
       </select>
+
+      <div class="flex rounded-lg border border-slate-300 overflow-hidden ml-auto">
+        <button type="button" (click)="store.setViewMode('grid')" aria-label="Grid view"
+          class="px-2.5 py-2" [class]="store.viewMode() === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+        <button type="button" (click)="store.setViewMode('list')" aria-label="List view"
+          class="px-2.5 py-2 border-l border-slate-300" [class]="store.viewMode() === 'list' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
     </div>
 
     <div class="flex gap-6">
@@ -92,11 +114,37 @@ export class CollectionHeaderComponent {
         } @else if (store.result() && store.result()!.items.length === 0) {
           <div class="py-20 text-center text-slate-400">No products found.</div>
         } @else {
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            @for (p of store.result()!.items; track p.productId) {
-              <app-product-card [product]="p" />
-            }
-          </div>
+          @if (store.viewMode() === 'list') {
+            <div class="flex flex-col divide-y divide-slate-200 border-y border-slate-200">
+              @for (p of store.result()!.items; track p.productId) {
+                <a [routerLink]="['/product', p.slug]" class="flex gap-4 py-4 hover:bg-slate-50 px-2 -mx-2 rounded-lg">
+                  <div class="w-24 h-24 shrink-0 bg-slate-50 rounded-lg overflow-hidden">
+                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" loading="lazy" /> }
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs text-slate-400">{{ p.brandName ?? p.categoryName }}</p>
+                    <h3 class="text-sm font-medium text-slate-800 line-clamp-1">{{ p.name }}</h3>
+                    <div class="mt-1 flex items-baseline gap-2">
+                      <span class="text-base font-semibold text-slate-900">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</span>
+                      @if (p.compareAtPrice && p.compareAtPrice > p.price) {
+                        <span class="text-xs text-slate-400 line-through">{{ p.compareAtPrice | currency:'INR':'symbol':'1.0-0' }}</span>
+                      }
+                    </div>
+                    @if (!p.inStock) { <p class="text-[11px] font-medium text-slate-400 mt-1">Out of stock</p> }
+                  </div>
+                  <div class="shrink-0" (click)="$event.preventDefault(); $event.stopPropagation()">
+                    <app-wishlist-button [productId]="p.productId" />
+                  </div>
+                </a>
+              }
+            </div>
+          } @else {
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              @for (p of store.result()!.items; track p.productId) {
+                <app-product-card [product]="p" />
+              }
+            </div>
+          }
 
           @if (store.result()!.totalPages > 1) {
             <div class="flex justify-center gap-1 mt-8">

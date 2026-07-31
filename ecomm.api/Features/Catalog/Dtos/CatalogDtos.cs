@@ -44,4 +44,5 @@ public sealed record SaveProductRequest(
 
 public sealed record ProductQuery(
     string? Search, long? CategoryId, long? BrandId, string? Status, bool? IsFeatured,
-    string? Sort, int Page = 1, int PageSize = 20, IReadOnlyList<long>? Ids = null);
+    string? Sort, int Page = 1, int PageSize = 20, IReadOnlyList<long>? Ids = null,
+    decimal? MinPrice = null, decimal? MaxPrice = null);
