@@ -155,13 +155,13 @@
   ],
   "pages": [
     {
-      "title": "Our Kitchen", "slug": "our-kitchen",
+      "title": "Our Kitchen", "slug": "savor-our-kitchen",
       "sections": [
         { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Where it's made", "heading": "Real kitchens, small batches", "body": "Every jar and bag is made the slow way — small batches, real ingredients, tasted and tweaked until it's right. No shortcuts, no fillers.", "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80", "imageSide": "left" }, "blocks": [] }
       ]
     },
     {
-      "title": "Shipping & Returns", "slug": "shipping-returns",
+      "title": "Shipping & Returns", "slug": "savor-shipping-returns",
       "sections": [
         {
           "type": "FaqAccordion", "title": "Shipping & returns",

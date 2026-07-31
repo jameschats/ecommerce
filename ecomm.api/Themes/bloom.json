@@ -53,7 +53,7 @@
         },
         {
           "type": "ImageWithText", "title": "Image with text",
-          "settings": { "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Kind to you and the planet", "body": "Cruelty-free, dermatologically tested, thoughtfully packaged.", "buttonText": "Learn more", "buttonLink": "/pages/our-promise" },
+          "settings": { "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Kind to you and the planet", "body": "Cruelty-free, dermatologically tested, thoughtfully packaged.", "buttonText": "Learn more", "buttonLink": "/pages/bloom-our-promise" },
           "blocks": []
         },
         {
@@ -139,13 +139,13 @@
   ],
   "pages": [
     {
-      "title": "Our Promise", "slug": "our-promise",
+      "title": "Our Promise", "slug": "bloom-our-promise",
       "sections": [
         { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Clean beauty", "heading": "Kind to you, kind to the planet", "body": "Every formula is dermatologically tested, cruelty-free, and free from parabens and sulphates. Beautiful packaging that's thoughtfully sourced, not wasteful.", "image": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80", "imageSide": "left" }, "blocks": [] }
       ]
     },
     {
-      "title": "Skincare FAQ", "slug": "skincare-faq",
+      "title": "Skincare FAQ", "slug": "bloom-skincare-faq",
       "sections": [
         {
           "type": "FaqAccordion", "title": "Skincare FAQ",

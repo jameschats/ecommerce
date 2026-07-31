@@ -148,7 +148,7 @@
   ],
   "pages": [
     {
-      "title": "Safety & Materials", "slug": "safety-materials",
+      "title": "Safety & Materials", "slug": "sprout-safety-materials",
       "sections": [
         {
           "type": "FaqAccordion", "title": "Safety & materials",
@@ -162,7 +162,7 @@
       ]
     },
     {
-      "title": "Our Story", "slug": "our-story",
+      "title": "Our Story", "slug": "sprout-our-story",
       "sections": [
         { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Why Sprout", "heading": "Play matters", "body": "We believe childhood should be full of wonder — so we curate toys, books and clothing that spark imagination, built to survive real play and loved for years.", "image": "https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1200&q=80", "imageSide": "right" }, "blocks": [] }
       ]

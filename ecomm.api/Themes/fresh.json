@@ -44,7 +44,7 @@
         },
         {
           "type": "EditorialSplit", "title": "Our sourcing",
-          "settings": { "eyebrow": "Farm to door", "heading": "Sourced daily, delivered fast", "body": "We work directly with local farms and trusted suppliers so what lands in your cart is always fresh — never sitting in a warehouse for days.", "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80", "imageSide": "left", "buttonText": "How we source", "buttonLink": "/pages/how-we-source" },
+          "settings": { "eyebrow": "Farm to door", "heading": "Sourced daily, delivered fast", "body": "We work directly with local farms and trusted suppliers so what lands in your cart is always fresh — never sitting in a warehouse for days.", "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80", "imageSide": "left", "buttonText": "How we source", "buttonLink": "/pages/fresh-how-we-source" },
           "blocks": []
         },
         {
@@ -140,13 +140,13 @@
   ],
   "pages": [
     {
-      "title": "How We Source", "slug": "how-we-source",
+      "title": "How We Source", "slug": "fresh-how-we-source",
       "sections": [
         { "type": "EditorialSplit", "title": "Story", "settings": { "eyebrow": "Farm to door", "heading": "We know where every item comes from", "body": "Direct relationships with local farms and trusted suppliers mean shorter supply chains, fresher produce, and fair prices for the people who grow it.", "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80", "imageSide": "right" }, "blocks": [] }
       ]
     },
     {
-      "title": "Delivery FAQ", "slug": "delivery-faq",
+      "title": "Delivery FAQ", "slug": "fresh-delivery-faq",
       "sections": [
         {
           "type": "FaqAccordion", "title": "Delivery FAQ",
