@@ -186,3 +186,56 @@ coupon banners → `Marquee`/`AnnouncementBar`). Six genuinely new patterns, rou
 
 Each of F–K gets its own research pass when reached — sizes vary hugely (F is a day's work, I/J are
 much bigger, closer to a new subsystem each).
+
+---
+
+## Pending / upcoming — full list (as of 2026-08-01)
+Consolidated from Phase F–K plus a code-grounded Shopify-parity gap analysis (theme system + store
+builder). Confirmed in that analysis: sections-everywhere already matches Shopify OS 2.0 in the real
+editor UI, not just the backend schema — `admin-theme-editor.component.ts` has a genuine page-picker
+navigator (`selectTemplate`/`activeKey`, grouped by template with per-template section counts, a
+"Search online store" filter) plus a preview-context picker so product/collection templates can be
+edited against real data. Nothing below is started.
+
+**From the D2C site deep-dive (Phase F–K):**
+- **I — Subscribe & Save** — recurring delivery, customizable frequency/quantity/pack size. Needs new
+  backend entities (subscriptions, recurring order generation) — a new subsystem, not a features pass.
+- **J — Loyalty / cashback wallet** — points earned on purchase, redeemable later. Needs a wallet/ledger
+  backend plus checkout + account UI.
+- **K — Product-finder quiz** — multi-step interactive form → recommendation logic. Most novel/
+  open-ended of the six.
+
+**Deferred from Phase E (theme-builder blocks):**
+- **Custom HTML/embed block** — RichText is sanitized, not raw embed; needs a deliberate XSS-scoping
+  pass (likely a sandboxed `<iframe srcdoc>`, not raw `[innerHTML]`) since it's the one place a tenant
+  admin's input would render unsanitized on their own storefront.
+- **AI Content Block** — a section that self-generates/regenerates its own content on demand. Needs
+  credit metering + a generation-service call from inside the section renderer + its own settings UI —
+  not a same-shape block like ImageGallery/InstagramFeed.
+
+**From the 2026-08-01 Shopify-parity gap analysis** (themes + store builder perspective), roughly
+ordered by recommended priority:
+- **Responsive/optimized images** — plain `<img>` site-wide, no srcset/WebP/resize, raw-passthrough
+  file storage (`LocalDiskStorage.cs`, no ImageSharp/SixLabors). Highest ratio of "feels like Shopify"
+  to effort since it's invisible infra touching every page load. Medium size.
+- **4 of 11 templates ship empty** (search, list-collections, 404, password, account — authored with
+  zero sections in all 9 prebuilt bundles even though the plumbing fully supports them). Cheap to close,
+  same shape as the R2/R3 content-authoring passes already done. Small size.
+- **No accessibility nudges in the theme editor** — no alt-text-missing warnings, no contrast checks;
+  most image fields don't even have an alt input. Medium size.
+- **Undo/redo is session-scoped** — confirmed in code (E6 comment says so explicitly): wiped on reload,
+  save, or navigation (`undoStack = []` at three points). The 50-deep stack already exists; needs
+  persisting (localStorage first, a server-side snapshot log later). Small–medium size.
+- **No theme version history/rollback** — only "duplicate before you edit" discipline (which
+  `ThemeLibraryService.DuplicateAsync` supports well), not real version history. Large size — a
+  snapshot/diff/restore system, not a features pass.
+- **No metafields** — `AttributeDefinition`/`AttributeValue` is product-only, 4 primitive types, no
+  theme-facing API, no namespacing. Shopify metafields attach arbitrary structured data to *any*
+  resource and themes render it directly. Large size — a genuinely new subsystem.
+- **No localization** — single-locale, single-currency-per-tenant (`TenantSetting.CurrencyCode` is one
+  value, not a multi-currency framework); no `Locale`/`Translation` entities anywhere. Fine for V1
+  single-market sellers; large size whenever it's tackled.
+- **No app-block equivalent** (third-party UI injection into merchant themes) — correctly out of scope
+  for V1 single-seller; only relevant once V3 marketplace apps exist. Not sized/scheduled.
+- **No A/B testing / traffic-split between theme variants** — lower priority; even Shopify does this
+  mostly via apps, not natively.
