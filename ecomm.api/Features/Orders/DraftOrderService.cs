@@ -41,7 +41,8 @@ public interface IDraftOrderService
 /// </summary>
 public sealed class DraftOrderService(
     EcommerceDbContext db, ITaxService tax, IShippingService shipping, ICouponService coupons,
-    IInventoryService inventory, IInvoiceService invoices, IEntitlementService entitlements) : IDraftOrderService
+    IInventoryService inventory, IInvoiceService invoices, IEntitlementService entitlements,
+    Features.Catalog.Services.IBundleService bundles) : IDraftOrderService
 {
     private long Tenant => db.CurrentTenantId;
 
@@ -150,14 +151,21 @@ public sealed class DraftOrderService(
         {
             foreach (var i in items)
             {
-                var ok = await inventory.ReserveAsync(i.ProductId, i.ProductVariantId, i.Quantity, "Order", order.OrderId, ct);
+                var reserved = new List<(long ProductId, long? VariantId, int Quantity)>();
+                var ok = true;
+                foreach (var (pid, vid, qty) in await bundles.ExpandForInventoryAsync(i.ProductId, i.ProductVariantId, i.Quantity, ct))
+                {
+                    if (!await inventory.ReserveAsync(pid, vid, qty, "Order", order.OrderId, ct)) { ok = false; break; }
+                    reserved.Add((pid, vid, qty));
+                }
                 if (!ok)
                 {
                     // A promised gift going out of stock between draft creation and conversion shouldn't block the sale.
                     if (i.IsFreeGift) { db.OrderItems.Remove(i); continue; }
                     throw new AppException($"'{i.ProductName}' is out of stock.");
                 }
-                await inventory.CommitAsync(i.ProductId, i.ProductVariantId, i.Quantity, "Order", order.OrderId, ct);
+                foreach (var (pid, vid, qty) in reserved)
+                    await inventory.CommitAsync(pid, vid, qty, "Order", order.OrderId, ct);
             }
 
             db.Payments.Add(new Payment

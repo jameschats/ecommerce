@@ -27,7 +27,8 @@ public class DraftOrderTests
         await db.SaveChangesAsync();
 
         var svc = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new FakeShiprocket()),
-            new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), new ThrowingInventory(), new ThrowingInvoices(), new EntitlementService(db));
+            new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), new ThrowingInventory(), new ThrowingInvoices(), new EntitlementService(db),
+            new ecomm.api.Features.Catalog.Services.BundleService(db));
         return (db, svc, customer.UserId, product.ProductId);
     }
 

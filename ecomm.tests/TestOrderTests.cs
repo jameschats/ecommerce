@@ -43,7 +43,8 @@ public class TestOrderTests
 
         var drafts = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new NoShiprocket()),
             new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)),
-            new StubInventory(), new StubInvoices(), new EntitlementService(db));
+            new StubInventory(), new StubInvoices(), new EntitlementService(db),
+            new ecomm.api.Features.Catalog.Services.BundleService(db));
         return (db, new TestOrderService(db, drafts));
     }
 

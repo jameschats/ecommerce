@@ -1,9 +1,11 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { AttributeDef, ProductImageInput, SaveProductRequest, SaveVariantRequest } from '../../../core/models/admin-catalog.model';
-import { Brand, Category, ProductDetail, ProductVariant } from '../../../core/models/catalog.model';
+import { Brand, BundleComponent, Category, ProductDetail, ProductListItem, ProductVariant } from '../../../core/models/catalog.model';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
+import { CatalogService } from '../../../core/services/catalog.service';
 import { MediaService } from '../../../core/services/media.service';
 import { ProductSupplierInput, Supplier } from '../../../core/models/supplier.model';
 import { SupplierService } from '../../../core/services/supplier.service';
@@ -19,6 +21,7 @@ export class AdminProductFormComponent implements OnInit {
   private readonly api = inject(AdminCatalogService);
   private readonly media = inject(MediaService);
   private readonly suppliers = inject(SupplierService);
+  private readonly catalog = inject(CatalogService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly ai = inject(AiAssistService);
@@ -43,9 +46,24 @@ export class AdminProductFormComponent implements OnInit {
   readonly allSuppliers = signal<Supplier[]>([]);
   productSuppliers: ProductSupplierInput[] = [];
 
+  readonly bundleItems = signal<BundleComponent[]>([]);
+  readonly bundleResults = signal<ProductListItem[]>([]);
+  readonly bundleError = signal<string | null>(null);
+  readonly bundleSearch$ = new Subject<string>();
+  bundleQuery = '';
+  bundleQty = 1;
+  pendingBundleProduct: number | null = null;
+  pendingBundleName = '';
+
   form: SaveProductRequest = this.blank();
   newVariant: SaveVariantRequest = this.blankVariant();
   attrValues: Record<number, string> = {};
+
+  constructor() {
+    this.bundleSearch$.pipe(debounceTime(250), distinctUntilChanged(),
+      switchMap((q) => this.catalog.getProducts({ search: q.trim(), pageSize: 8 })))
+      .subscribe((r) => this.bundleResults.set(r.items.filter((p) => p.productId !== this.productId())));
+  }
 
   ngOnInit(): void {
     this.ai.ensureStatus();
@@ -60,6 +78,7 @@ export class AdminProductFormComponent implements OnInit {
       this.productId.set(+id);
       this.loadProduct(+id);
       this.loadProductSuppliers(+id);
+      this.loadBundleItems(+id);
     } else {
       this.loading.set(false);
     }
@@ -69,7 +88,7 @@ export class AdminProductFormComponent implements OnInit {
     return {
       sku: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
       shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false,
-      productType: '', tags: '', metaTitle: '', metaDescription: '', images: [],
+      productType: '', tags: '', metaTitle: '', metaDescription: '', images: [], isBundle: false,
     };
   }
 
@@ -88,6 +107,7 @@ export class AdminProductFormComponent implements OnInit {
           status: p.status, isFeatured: p.isFeatured,
           productType: p.productType, tags: p.tags, metaTitle: p.metaTitle, metaDescription: p.metaDescription,
           images: p.images.map((i) => ({ url: i.url, altText: i.altText, displayOrder: i.displayOrder, isPrimary: i.isPrimary })),
+          isBundle: p.isBundle,
         };
         this.variants.set(p.variants);
         this.attrValues = {};
@@ -178,6 +198,38 @@ export class AdminProductFormComponent implements OnInit {
   }
   variantLabel(v: ProductVariant): string {
     return v.options.length ? v.options.map((o) => `${o.optionName}: ${o.optionValue}`).join(', ') : v.sku;
+  }
+
+  // --- Bundle contents ---
+  private loadBundleItems(id: number): void {
+    this.api.getBundleItems(id).subscribe((items) => this.bundleItems.set(items));
+  }
+  pickBundleItem(id: number, name: string): void {
+    this.pendingBundleProduct = id;
+    this.pendingBundleName = name;
+    this.bundleQuery = name;
+    this.bundleResults.set([]);
+  }
+  addBundleItem(): void {
+    if (!this.productId() || !this.pendingBundleProduct) return;
+    const items = [
+      ...this.bundleItems().map((c) => ({ componentProductId: c.componentProductId, componentVariantId: c.componentVariantId, quantity: c.quantity })),
+      { componentProductId: this.pendingBundleProduct, componentVariantId: null, quantity: Math.max(1, this.bundleQty) },
+    ];
+    this.bundleError.set(null);
+    this.api.saveBundleItems(this.productId()!, items).subscribe({
+      next: (r) => { this.bundleItems.set(r); this.pendingBundleProduct = null; this.bundleQuery = ''; this.bundleQty = 1; },
+      error: (e) => this.bundleError.set(e?.error?.message ?? 'Could not add item.'),
+    });
+  }
+  removeBundleItem(c: BundleComponent): void {
+    const items = this.bundleItems()
+      .filter((x) => x.componentProductId !== c.componentProductId || x.componentVariantId !== c.componentVariantId)
+      .map((x) => ({ componentProductId: x.componentProductId, componentVariantId: x.componentVariantId, quantity: x.quantity }));
+    this.api.saveBundleItems(this.productId()!, items).subscribe({
+      next: (r) => this.bundleItems.set(r),
+      error: (e) => this.bundleError.set(e?.error?.message ?? 'Could not remove item.'),
+    });
   }
 
   // --- Attributes ---

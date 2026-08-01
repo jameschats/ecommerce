@@ -45,6 +45,13 @@ export interface SaveProductRequest {
   metaTitle?: string | null;
   metaDescription?: string | null;
   images?: ProductImageInput[];
+  isBundle?: boolean;
+}
+
+export interface BundleItemInput {
+  componentProductId: number;
+  componentVariantId: number | null;
+  quantity: number;
 }
 
 export interface VariantOptionInput {

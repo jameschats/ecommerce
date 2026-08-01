@@ -137,6 +137,22 @@ export class ProductGalleryComponent {
 
           @if (p.shortDescription) { <p class="text-slate-600 mt-3">{{ p.shortDescription }}</p> }
 
+          @if (p.isBundle && store.bundleItems().length) {
+            <div class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p class="text-sm font-semibold text-slate-700 mb-2">🎁 This kit includes</p>
+              <ul class="space-y-1.5">
+                @for (c of store.bundleItems(); track c.componentProductId) {
+                  <li class="flex items-center gap-2 text-sm text-slate-600">
+                    @if (c.imageUrl) { <img [src]="c.imageUrl" [alt]="c.name" class="w-8 h-8 rounded object-cover shrink-0" /> }
+                    <a [routerLink]="['/products', c.slug]" class="hover:text-primary hover:underline">{{ c.name }}</a>
+                    @if (c.variantLabel) { <span class="text-slate-400">· {{ c.variantLabel }}</span> }
+                    <span class="text-slate-400">× {{ c.quantity }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
           <div class="mt-4 flex items-baseline gap-3">
             <span class="text-3xl font-bold text-slate-900">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</span>
             @if (p.compareAtPrice && p.compareAtPrice > p.price) {

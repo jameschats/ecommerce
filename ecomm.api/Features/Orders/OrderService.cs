@@ -49,16 +49,28 @@ public sealed class OrderService : IOrderService
     private readonly ICouponService _coupons;
     private readonly Features.Shipping.Shiprocket.ITenantShiprocketService _shiprocket;
     private readonly IEntitlementService _entitlements;
+    private readonly Features.Catalog.Services.IBundleService _bundles;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
         INotificationService notify, INotificationFeedService feed, ICouponService coupons,
-        Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, IEntitlementService entitlements, ILogger<OrderService> log)
+        Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, IEntitlementService entitlements,
+        Features.Catalog.Services.IBundleService bundles, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
         _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons;
-        _shiprocket = shiprocket; _entitlements = entitlements; _log = log;
+        _shiprocket = shiprocket; _entitlements = entitlements; _bundles = bundles; _log = log;
+    }
+
+    /// <summary>Reserve/commit/release/restock every real inventory line an order line needs — its own
+    /// product+variant, or (for a bundle line) each of its components scaled by the quantity sold. Lets every
+    /// call site below treat a bundle line exactly like a normal one.</summary>
+    private async Task ForEachInventoryLineAsync(long productId, long? variantId, int quantity,
+        Func<long, long?, int, Task> action, CancellationToken ct)
+    {
+        foreach (var (pid, vid, qty) in await _bundles.ExpandForInventoryAsync(productId, variantId, quantity, ct))
+            await action(pid, vid, qty);
     }
 
     /// <summary>Customer self-service cancellation toggle (merchant setting; default on).</summary>
@@ -234,8 +246,12 @@ public sealed class OrderService : IOrderService
 
             foreach (var l in lines)
             {
-                var ok = await _inventory.ReserveAsync(l.ProductId, l.VariantId, l.Quantity, "Order", order.OrderId, ct);
-                if (!ok) throw new AppException($"'{l.Name}' is out of stock.");
+                // A bundle line expands to its real components here; a normal line is just itself (1 line back).
+                foreach (var (pid, vid, qty) in await _bundles.ExpandForInventoryAsync(l.ProductId, l.VariantId, l.Quantity, ct))
+                {
+                    var ok = await _inventory.ReserveAsync(pid, vid, qty, "Order", order.OrderId, ct);
+                    if (!ok) throw new AppException($"'{l.Name}' is out of stock.");
+                }
                 _db.OrderItems.Add(new OrderItem
                 {
                     OrderId = order.OrderId,
@@ -295,7 +311,8 @@ public sealed class OrderService : IOrderService
                 // COD: no prepayment. Confirm the order + commit inventory now (the sale is accepted);
                 // cash is collected on delivery. No gateway, no payment widget.
                 foreach (var l in lines)
-                    await _inventory.CommitAsync(l.ProductId, l.VariantId, l.Quantity, "Order", order.OrderId, ct);
+                    await ForEachInventoryLineAsync(l.ProductId, l.VariantId, l.Quantity,
+                        (pid, vid, qty) => _inventory.CommitAsync(pid, vid, qty, "Order", order.OrderId, ct), ct);
                 if (giftAdded)
                     await _inventory.CommitAsync(coupon.GiftProductId!.Value, coupon.GiftVariantId, 1, "Order", order.OrderId, ct);
 
@@ -405,7 +422,8 @@ public sealed class OrderService : IOrderService
 
         var items = await _db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
         foreach (var it in items)
-            await _inventory.CommitAsync(it.ProductId, it.ProductVariantId, it.Quantity, "Order", orderId, ct);
+            await ForEachInventoryLineAsync(it.ProductId, it.ProductVariantId, it.Quantity,
+                (pid, vid, qty) => _inventory.CommitAsync(pid, vid, qty, "Order", orderId, ct), ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -437,8 +455,12 @@ public sealed class OrderService : IOrderService
 
         foreach (var it in items)
         {
-            if (wasCommitted) await _inventory.RestockAsync(it.ProductId, it.ProductVariantId, it.Quantity, "Order", orderId, ct);
-            else await _inventory.ReleaseAsync(it.ProductId, it.ProductVariantId, it.Quantity, "Order", orderId, ct);
+            if (wasCommitted)
+                await ForEachInventoryLineAsync(it.ProductId, it.ProductVariantId, it.Quantity,
+                    (pid, vid, qty) => _inventory.RestockAsync(pid, vid, qty, "Order", orderId, ct), ct);
+            else
+                await ForEachInventoryLineAsync(it.ProductId, it.ProductVariantId, it.Quantity,
+                    (pid, vid, qty) => _inventory.ReleaseAsync(pid, vid, qty, "Order", orderId, ct), ct);
         }
 
         var payment = await _db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
@@ -830,12 +852,16 @@ public sealed class OrderService : IOrderService
                           select new
                           {
                               ci.ProductId, ci.ProductVariantId, ci.Quantity,
-                              p.Name, p.Slug, p.Sku, p.HsnCode, p.Price, p.CostPrice,
+                              p.Name, p.Slug, p.Sku, p.HsnCode, p.Price, p.CostPrice, p.IsBundle,
                               VariantName = ci.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.Name).FirstOrDefault(),
                               VariantSku = ci.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.Sku).FirstOrDefault(),
                               PriceAdj = ci.ProductVariantId == null ? 0m : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.PriceAdjustment).FirstOrDefault(),
                               Available = _db.Inventory.Where(i => i.ProductId == ci.ProductId).Select(i => (int?)i.AvailableQty).Sum() ?? 0,
                           }).ToListAsync(ct);
+
+        var bundleAvailable = new Dictionary<long, int>();
+        foreach (var pid in rows.Where(r => r.IsBundle).Select(r => r.ProductId).Distinct())
+            bundleAvailable[pid] = await _bundles.AvailableQtyAsync(pid, ct);
 
         return rows.Select(r => new CartLine
         {
@@ -849,7 +875,7 @@ public sealed class OrderService : IOrderService
             UnitPrice = r.Price + r.PriceAdj,
             Cost = r.CostPrice,
             VariantLabel = r.VariantName,
-            Available = r.Available,
+            Available = r.IsBundle ? bundleAvailable[r.ProductId] : r.Available,
         }).ToList();
     }
 

@@ -109,6 +109,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<ProductSupplier> ProductSuppliers => Set<ProductSupplier>();
     public DbSet<ColorSwatch> ColorSwatches => Set<ColorSwatch>();
+    public DbSet<BundleItem> BundleItems => Set<BundleItem>();
 
     // --- V2: Plans & Subscriptions ---
     public DbSet<Plan> Plans => Set<Plan>();
@@ -398,6 +399,7 @@ public class EcommerceDbContext : DbContext
             e.Property(x => x.DiscountAmount).HasPrecision(12, 2);
         });
         b.Entity<CouponTarget>(e => { e.ToTable("CouponTargets"); e.HasKey(x => x.CouponTargetId); });
+        b.Entity<BundleItem>(e => { e.ToTable("BundleItems"); e.HasKey(x => x.BundleItemId); });
         b.Entity<Shipment>(e => { e.ToTable("Shipments"); e.HasKey(x => x.ShipmentId); });
         b.Entity<WishlistItem>(e => { e.ToTable("WishlistItems"); e.HasKey(x => x.WishlistItemId); });
         b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });

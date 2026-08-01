@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
   AttributeDef,
+  BundleItemInput,
   Dashboard,
   TestOrderResult,
   ImportJobResult,
@@ -21,7 +22,7 @@ import {
   VariantInventory,
 } from '../models/admin-catalog.model';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
-import { Brand, Category, ProductDetail, ProductListItem, ProductQuery, ProductVariant } from '../models/catalog.model';
+import { Brand, BundleComponent, Category, ProductDetail, ProductListItem, ProductQuery, ProductVariant } from '../models/catalog.model';
 
 @Injectable({ providedIn: 'root' })
 export class AdminCatalogService {
@@ -89,6 +90,14 @@ export class AdminCatalogService {
   }
   deleteVariant(productId: number, variantId: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/products/${productId}/variants/${variantId}`);
+  }
+
+  // --- Bundle contents ---
+  getBundleItems(productId: number): Observable<BundleComponent[]> {
+    return this.unwrap(this.http.get<ApiResponse<BundleComponent[]>>(`${this.base}/products/${productId}/bundle-items`));
+  }
+  saveBundleItems(productId: number, items: BundleItemInput[]): Observable<BundleComponent[]> {
+    return this.unwrap(this.http.put<ApiResponse<BundleComponent[]>>(`${this.base}/products/${productId}/bundle-items`, items));
   }
 
   // --- Attributes ---

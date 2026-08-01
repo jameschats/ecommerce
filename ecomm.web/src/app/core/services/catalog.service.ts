@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
-import { Brand, Category, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
+import { Brand, BundleComponent, Category, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
 
 export interface PublicCollectionProduct { productId: number; name: string; slug: string; price: number; primaryImageUrl: string | null; }
 export interface PublicCollection {
@@ -123,6 +123,14 @@ export class CatalogService {
     return this.http.get<ApiResponse<ShippingQuote>>(`${this.base}/shipping/check`, { params: { pincode } }).pipe(
       map((r) => r.data ?? null),
       catchError(() => of(null)),
+    );
+  }
+
+  /** The real products a bundle/kit is made of — for the PDP "Includes:" list. */
+  getBundleItems(productId: number): Observable<BundleComponent[]> {
+    return this.http.get<ApiResponse<BundleComponent[]>>(`${this.base}/products/${productId}/bundle-items`).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
     );
   }
 

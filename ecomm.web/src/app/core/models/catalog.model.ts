@@ -96,6 +96,18 @@ export interface ProductDetail {
   tags: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
+  isBundle: boolean;
+}
+
+export interface BundleComponent {
+  componentProductId: number;
+  componentVariantId: number | null;
+  name: string;
+  slug: string;
+  variantLabel: string | null;
+  imageUrl: string | null;
+  quantity: number;
+  availableQty: number;
 }
 
 export interface ProductQuery {

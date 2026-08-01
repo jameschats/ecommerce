@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
-import { ProductDetail, ProductListItem } from '../../../core/models/catalog.model';
+import { BundleComponent, ProductDetail, ProductListItem } from '../../../core/models/catalog.model';
 import { ProductReviews } from '../../../core/models/review.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
@@ -52,6 +52,9 @@ export class ProductPageStore {
 
   /** Same-category products, excluding the current one — powers the RelatedProducts section. */
   readonly relatedProducts = signal<ProductListItem[]>([]);
+
+  /** The real products a bundle/kit is made of — populated only when the product isBundle. */
+  readonly bundleItems = signal<BundleComponent[]>([]);
 
   /** Products often bought alongside this one (real order history) — powers the FrequentlyBoughtTogether section. */
   readonly frequentlyBoughtTogether = signal<ProductListItem[]>([]);
@@ -112,11 +115,13 @@ export class ProductPageStore {
         this.lightboxOpen.set(false);
         this.pincodeResult.set(null);
         this.pincodeError.set(null);
+        this.bundleItems.set([]);
         for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
         this.applySeo(product);
         this.loadReviews(product.productId);
         this.loadRelated(product.productId, product.categoryId);
         this.loadFrequentlyBoughtTogether(product.productId);
+        if (product.isBundle) this.catalog.getBundleItems(product.productId).subscribe((items) => this.bundleItems.set(items));
         if (this.isAuthenticated()) this.loadEligibility(product.productId);
         this.recentlyViewed.record(product.productId);
       },

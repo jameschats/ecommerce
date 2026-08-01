@@ -57,6 +57,9 @@
                        (applied)="form.description = $event" />
       </div>
       <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.isFeatured" /> Featured</label>
+      <label class="flex items-center gap-2 text-sm text-slate-600">
+        <input type="checkbox" [(ngModel)]="form.isBundle" /> This is a bundle/kit (sells as one SKU, made up of other products)
+      </label>
 
       <div class="grid sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
         <div><label class="lbl">Product type</label><input [(ngModel)]="form.productType" class="input" placeholder="e.g. T-Shirt" /></div>
@@ -143,6 +146,38 @@
           </div>
         </div>
       </div>
+
+      <!-- Bundle contents (only for products marked "This is a bundle/kit") -->
+      @if (form.isBundle) {
+        <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+          <h2 class="font-medium text-slate-800 mb-1">Bundle contents</h2>
+          <p class="text-xs text-slate-400 mb-3">The real products this kit is made of. Stock and tax are still tracked per component — this product's own price is what the customer pays for the set.</p>
+          <div class="space-y-2 mb-3">
+            @for (c of bundleItems(); track c.componentProductId) {
+              <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-sm">
+                <span class="text-slate-700">{{ c.name }}@if (c.variantLabel) { <span class="text-slate-400"> · {{ c.variantLabel }}</span> } <span class="text-slate-400">× {{ c.quantity }}</span></span>
+                <button type="button" (click)="removeBundleItem(c)" class="text-red-600 hover:underline">Remove</button>
+              </div>
+            }
+            @if (!bundleItems().length) { <p class="text-xs text-slate-400">No components yet — this bundle can't be sold until you add some.</p> }
+          </div>
+          <div class="border-t border-slate-100 pt-3 flex gap-2 items-start relative">
+            <div class="relative flex-1">
+              <input [(ngModel)]="bundleQuery" name="bq" (ngModelChange)="bundleSearch$.next($event)" placeholder="Search products to add…" class="input w-full" />
+              @if (bundleResults().length) {
+                <div class="absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                  @for (p of bundleResults(); track p.productId) {
+                    <button type="button" (click)="pickBundleItem(p.productId, p.name)" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">{{ p.name }}</button>
+                  }
+                </div>
+              }
+            </div>
+            <input type="number" min="1" [(ngModel)]="bundleQty" name="bqty" class="input w-20" />
+            <button type="button" (click)="addBundleItem()" [disabled]="!pendingBundleProduct" class="btn-primary whitespace-nowrap">+ Add</button>
+          </div>
+          @if (bundleError()) { <p class="mt-2 text-xs text-red-600">{{ bundleError() }}</p> }
+        </div>
+      }
 
       <!-- Specifications (attributes) -->
       <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">

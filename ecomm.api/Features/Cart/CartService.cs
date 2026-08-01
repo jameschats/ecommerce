@@ -27,10 +27,12 @@ public sealed class CartService : ICartService
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly ecomm.api.Features.Checkout.ITaxService _tax;
-    public CartService(EcommerceDbContext db, ecomm.api.Features.Checkout.ITaxService tax)
+    private readonly ecomm.api.Features.Catalog.Services.IBundleService _bundles;
+    public CartService(EcommerceDbContext db, ecomm.api.Features.Checkout.ITaxService tax, ecomm.api.Features.Catalog.Services.IBundleService bundles)
     {
         _db = db;
         _tax = tax;
+        _bundles = bundles;
     }
 
     public async Task<CartDto> GetCartAsync(long? userId, string? sessionId, CancellationToken ct = default)
@@ -209,6 +211,8 @@ public sealed class CartService : ICartService
 
     private async Task<int> AvailableAsync(long productId, CancellationToken ct)
     {
+        var isBundle = await _db.Products.Where(p => p.ProductId == productId).Select(p => p.IsBundle).FirstOrDefaultAsync(ct);
+        if (isBundle) return await _bundles.AvailableQtyAsync(productId, ct);
         var sum = await _db.Inventory.Where(i => i.ProductId == productId).SumAsync(i => (int?)i.AvailableQty, ct);
         return sum ?? 0;
     }
@@ -233,7 +237,7 @@ public sealed class CartService : ICartService
             .Select(ci => new
             {
                 ci.CartItemId, ci.ProductId, ci.ProductVariantId, ci.Quantity, ci.UnitPrice,
-                ci.Product!.Name, ci.Product.Slug,
+                ci.Product!.Name, ci.Product.Slug, ci.Product.IsBundle,
                 ImageUrl = _db.ProductImages.Where(im => im.ProductId == ci.ProductId)
                     .OrderByDescending(im => im.IsPrimary).ThenBy(im => im.DisplayOrder)
                     .Select(im => im.Url).FirstOrDefault(),
@@ -243,9 +247,16 @@ public sealed class CartService : ICartService
             })
             .ToListAsync(ct);
 
-        var items = rows.Select(x => new CartItemDto(
-            x.CartItemId, x.ProductId, x.ProductVariantId, x.Name, x.Slug, x.ImageUrl, x.VariantLabel,
-            x.UnitPrice, x.Quantity, x.UnitPrice * x.Quantity, x.Available, x.Available > 0)).ToList();
+        var bundleAvailable = new Dictionary<long, int>();
+        foreach (var r in rows.Where(r => r.IsBundle).Select(r => r.ProductId).Distinct())
+            bundleAvailable[r] = await _bundles.AvailableQtyAsync(r, ct);
+
+        var items = rows.Select(x =>
+        {
+            var available = x.IsBundle ? bundleAvailable[x.ProductId] : x.Available;
+            return new CartItemDto(x.CartItemId, x.ProductId, x.ProductVariantId, x.Name, x.Slug, x.ImageUrl, x.VariantLabel,
+                x.UnitPrice, x.Quantity, x.UnitPrice * x.Quantity, available, available > 0);
+        }).ToList();
 
         return new CartDto(cart.CartId, items, items.Sum(i => i.Quantity), items.Count, items.Sum(i => i.LineTotal), taxMode);
     }

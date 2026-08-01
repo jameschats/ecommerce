@@ -34,13 +34,14 @@ public sealed record ProductDetailDto(
     IReadOnlyList<ProductImageDto> Images,
     IReadOnlyList<ProductVariantDto> Variants,
     IReadOnlyList<ProductAttributeValueDto> Attributes,
-    string? ProductType, string? Tags, string? MetaTitle, string? MetaDescription);
+    string? ProductType, string? Tags, string? MetaTitle, string? MetaDescription, bool IsBundle = false);
 
 public sealed record SaveProductRequest(
     string Sku, string Name, string? Slug, long CategoryId, long? BrandId, decimal Price,
     decimal? CompareAtPrice, decimal? CostPrice, string? ShortDescription, string? Description,
     string? HsnCode, string Status, bool IsFeatured, IReadOnlyList<ProductImageInput>? Images,
-    string? ProductType = null, string? Tags = null, string? MetaTitle = null, string? MetaDescription = null);
+    string? ProductType = null, string? Tags = null, string? MetaTitle = null, string? MetaDescription = null,
+    bool IsBundle = false);
 
 public sealed record ProductQuery(
     string? Search, long? CategoryId, long? BrandId, string? Status, bool? IsFeatured,

@@ -194,6 +194,7 @@ public sealed class ProductService : IProductService
             CostPrice = req.CostPrice,
             Status = NormalizeStatus(req.Status),
             IsFeatured = req.IsFeatured,
+            IsBundle = req.IsBundle,
             IsActive = true,
             CreatedBy = userId,
             CreatedAt = now,
@@ -234,6 +235,7 @@ public sealed class ProductService : IProductService
         product.CostPrice = req.CostPrice;
         product.Status = NormalizeStatus(req.Status);
         product.IsFeatured = req.IsFeatured;
+        product.IsBundle = req.IsBundle;
         product.UpdatedBy = userId;
         product.UpdatedAt = now;
 
@@ -279,7 +281,7 @@ public sealed class ProductService : IProductService
                 .Select(a => new ProductAttributeValueDto(a.ProductAttributeValueId, a.AttributeId, a.Attribute!.Name,
                     a.AttributeValueId, a.Value != null ? a.Value.Value : null, a.ValueText))
                 .ToList(),
-            p.ProductType, p.Tags, p.MetaTitle, p.MetaDescription))
+            p.ProductType, p.Tags, p.MetaTitle, p.MetaDescription, p.IsBundle))
         .FirstOrDefaultAsync(ct);
 
     private static string? NormalizeTags(string? tags) =>

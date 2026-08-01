@@ -12,6 +12,7 @@ public class Product : ITenantScoped
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string? ProductType { get; set; }
+    public bool IsBundle { get; set; }   // a merchandised kit/combo — its own price/images/PDP, no own stock; see BundleItem
     public string? Tags { get; set; }                // comma-separated
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
