@@ -9,15 +9,24 @@
 -- per-slot choice) — see the Phase H design note in the roadmap doc.
 -- =====================================================================
 
-ALTER TABLE `Products`
-  ADD COLUMN `IsBundle` TINYINT(1) NOT NULL DEFAULT 0 AFTER `ProductType`;
+-- This tenant's local MySQL build doesn't accept `ADD COLUMN IF NOT EXISTS` syntax, so guard manually
+-- (this migration was also fixed after a partial failure in prod — see the BundleItems comment below).
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Products' AND COLUMN_NAME = 'IsBundle');
+SET @ddl := IF(@col_exists = 0,
+  'ALTER TABLE `Products` ADD COLUMN `IsBundle` TINYINT(1) NOT NULL DEFAULT 0 AFTER `ProductType`',
+  'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-CREATE TABLE `BundleItems` (
-  `BundleItemId` BIGINT NOT NULL AUTO_INCREMENT,
+-- Products.ProductId is BIGINT UNSIGNED — these must match exactly or the FK create fails (3780).
+CREATE TABLE IF NOT EXISTS `BundleItems` (
+  `BundleItemId` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `TenantId` BIGINT NOT NULL DEFAULT 1,
-  `BundleProductId` BIGINT NOT NULL,
-  `ComponentProductId` BIGINT NOT NULL,
-  `ComponentVariantId` BIGINT NULL,
+  `BundleProductId` BIGINT UNSIGNED NOT NULL,
+  `ComponentProductId` BIGINT UNSIGNED NOT NULL,
+  `ComponentVariantId` BIGINT UNSIGNED NULL,
   `Quantity` INT NOT NULL DEFAULT 1,
   PRIMARY KEY (`BundleItemId`),
   KEY `IX_BundleItems_BundleProductId` (`BundleProductId`),
