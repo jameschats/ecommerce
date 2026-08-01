@@ -152,8 +152,31 @@ coupon banners → `Marquee`/`AnnouncementBar`). Six genuinely new patterns, rou
   out-of-stock gift is dropped without failing the order) — deleted after passing, not part of the
   permanent suite — plus a live scratch coupon created/verified/deleted via the real admin API on
   `bazaar.wavcommerce.online` confirming the gift product name resolves end-to-end through production.
-- **H — Bundles/Combos as merchandised SKUs** (Blue Tokai, Plum, boAt: multi-product kits sold as one
-  unit with combined pricing) — distinct from simple cross-sell; needs a product-bundle concept.
+- **H — Bundles/Combos as merchandised SKUs** — **done (2026-08-01, commits `a31644a` + `fa32aee`).**
+  A bundle is just a `Product` (`IsBundle=true`) — reuses the whole catalog/PDP/cart/order pipeline for
+  free (own price, images, slug, description). A new `BundleItems` table (fixed composition, decided via
+  AskUserQuestion over the configurable-per-slot alternative — simpler entity, matches the cited
+  examples, extensible later without a rewrite) holds the real products+quantities it's made of; the
+  bundle holds no inventory of its own. New `IBundleService.ExpandForInventoryAsync` resolves what an
+  order line actually needs — its own product, or (for a bundle) each component scaled by quantity sold
+  — and every checkout call site (`PlaceOrderAsync`'s reserve/COD-commit, `ConfirmPaymentAsync`'s commit,
+  `CancelOrderAsync`'s release/restock, `DraftOrderService.ConvertAsync`) now expands through it. The
+  order/cart line itself stays one merchandised entry ("Starter Kit × 1") — components never become
+  separate `OrderItems`, so invoicing/admin views needed no special-casing. Availability is derived, not
+  stored: tightest `floor(component.available / component.qtyNeeded)` across all components; `CartService`
+  and the checkout quote both use it so a shopper can't add more kits than the scarcest component
+  supports. Admin: existing product form gets a "This is a bundle/kit" checkbox + component picker
+  (reused product-search pattern). Storefront: PDP shows a "This kit includes" list. No bundle-of-bundles
+  (components can't themselves be bundles) — keeps inventory expansion a single flat pass. Verified via
+  3 scratch xUnit tests (availability math, generic reserve+commit fan-out, clean failure when a
+  component can't cover the requested quantity — deleted after passing) plus a live scratch bundle
+  product created/populated/verified/deleted on `bazaar.wavcommerce.online`, confirming the real PDP
+  (`/product/:slug`) server-renders the components list with real product data. **Bug caught and fixed
+  during deploy**: the original migration used a signed `BIGINT` for the `BundleItems` FK columns, but
+  `Products.ProductId` is `BIGINT UNSIGNED` — MySQL rejected the FK (error 3780) after the column-add
+  half of the script had already applied on the VPS. Fixed to `BIGINT UNSIGNED` and made the column-add
+  safely re-runnable; only ever caught because deploys apply against real MySQL, not the EF Core
+  in-memory provider the test suite and scratch tests use.
 - **I — Subscribe & Save** (Blue Tokai: recurring delivery, customizable frequency/quantity/pack
   size) — needs new backend entities (subscriptions, recurring order generation).
 - **J — Loyalty / cashback wallet** (Plum's "PlumCash", Minimalist's "MCash": points earned on
