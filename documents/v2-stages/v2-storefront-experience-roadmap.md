@@ -137,8 +137,21 @@ coupon banners → `Marquee`/`AnnouncementBar`). Six genuinely new patterns, rou
   its products in place via the existing `CatalogService`, no navigation. Live-verified: added a
   2-tab scratch section to the draft Ignition theme, confirmed the heading, both tab labels, and the
   first tab's real product ("Xperia 5G") rendered server-side, then removed it.
-- **G — Free-gift-at-spend-threshold promos** ("Free gift above ₹999"). Extends the existing coupon
-  system (`CouponService`), not the theme builder.
+- **G — Free-gift-at-spend-threshold promos** — **done (2026-08-01, commit `8b8a520`).** `Coupon`
+  gets an optional `GiftProductId`/`GiftVariantId` reward, independent of discount/free-shipping (an
+  Automatic coupon with `MinOrderAmount` + a gift and no discount value gives "spend ₹999, get a free
+  gift"). The gift becomes a real zero-price `OrderItem` (flagged `IsFreeGift`) at order placement —
+  both customer checkout (`OrderService.PlaceOrderAsync`) and admin phone/manual orders
+  (`DraftOrderService`) — reserved/committed through the same inventory pipeline as any other line, so
+  payment confirmation, cancellation, invoicing and admin order views all handle it for free by
+  iterating `OrderItems` generically; nothing needed a special case. An out-of-stock gift never blocks
+  the sale — it's silently dropped. Admin coupon form gets a gift-product picker (reusing the existing
+  product-search pattern); checkout page shows a "you're getting a free X" banner; order detail/admin
+  orders/invoices label the line FREE GIFT. Verified two ways: 3 scratch xUnit tests against the
+  in-memory DB (gift attaches, stock reserves+commits generically through `DraftOrderService.ConvertAsync`,
+  out-of-stock gift is dropped without failing the order) — deleted after passing, not part of the
+  permanent suite — plus a live scratch coupon created/verified/deleted via the real admin API on
+  `bazaar.wavcommerce.online` confirming the gift product name resolves end-to-end through production.
 - **H — Bundles/Combos as merchandised SKUs** (Blue Tokai, Plum, boAt: multi-product kits sold as one
   unit with combined pricing) — distinct from simple cross-sell; needs a product-bundle concept.
 - **I — Subscribe & Save** (Blue Tokai: recurring delivery, customizable frequency/quantity/pack
