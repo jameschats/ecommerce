@@ -1,6 +1,7 @@
 # Mega-menu / large-catalog navigation plan
 
-**Status: design only, not started.** Triggered by hovering "Personal Care" on bazaar and finding only
+**Status: done, all 5 phases (2026-08-02, commit `71c506f` + live content pass).** Triggered by hovering
+"Personal Care" on bazaar and finding only
 a flat, undifferentiated list of children — not the multi-column, differently-grouped mega-menu real
 large-catalog sites use (e.g. Minimalist's beminimalist.co: hovering "Skin & Body Care" opens five
 labeled columns side by side — Shop by Concern, Shop by Ingredients, Skin Care, Body Care, Lip — each
@@ -157,7 +158,7 @@ public sealed record MegaMenuColumnDto(string Heading, List<MenuItemDto> Links);
 public sealed record MegaMenuPromoDto(string ImageUrl, string Heading, string? Link);
 ```
 
-**Phase 1 — Layer 1: curated header, wired to the menu that already exists.**
+**Phase 1 — Layer 1: curated header, wired to the menu that already exists. Done.**
 - Frontend only. `app.ts` fetches `GET /api/catalog/navigation/menus/main-menu` and renders the header's
   top-level items from it instead of `topLevelCategories()`.
 - **Fallback preserved, not a breaking change**: when the menu has zero items authored (every existing
@@ -167,7 +168,7 @@ public sealed record MegaMenuPromoDto(string ImageUrl, string Heading, string? L
 - Smallest phase, ships independently, immediately fixes the large-catalog header-overflow problem for
   any merchant who curates their menu.
 
-**Phase 2 — Admin menu editor rebuild.**
+**Phase 2 — Admin menu editor rebuild. Done.**
 - Rebuild `admin-navigation.component.ts`: top-level item list with `cdkDropList`/`cdkDrag` reorder
   (same pattern as the theme editor), each item's link chosen via a target-type picker (Category /
   Collection / Page / Custom URL — reusing the product/category/collection search-picker pattern already
@@ -183,28 +184,40 @@ public sealed record MegaMenuPromoDto(string ImageUrl, string Heading, string? L
   actual storefront mega-menu component inside the admin shell, which is a meaningfully bigger lift than
   the editor itself.
 
-**Phase 3 — Desktop mega-menu rendering.**
-- Replace the current Category-only `activeMegaMenu` markup in `app.html` with menu-driven rendering: a
+**Phase 3 — Desktop mega-menu rendering. Done.**
+- Replaced the current Category-only `activeMegaMenu` markup in `app.html` with menu-driven rendering: a
   top-level item with `megaMenu.columns.length` renders the multi-column grid + promo tile; one with only
-  `children` renders today's simple flat list (same component, conditional layout — not two components);
-  a plain item with neither renders no dropdown at all.
+  `children` renders a simple flat list (same component, conditional layout — not two components); a
+  plain item with neither renders no dropdown at all. New `activeCuratedMenu` hover-state signal, keyed
+  by array index (separate from the category-fallback path's `activeMegaMenu`, keyed by categoryId).
 
-**Phase 4 — Mobile drill-down (net-new, not a responsive tweak).**
-- New hamburger icon + slide-in drawer component — doesn't exist today at all, per the gap found above.
-- Tapping a top-level item with children/mega-menu content slides to a full-screen panel listing that
-  item's columns stacked vertically (or its plain children list), with a back arrow to the top level.
-  Items with neither just navigate directly.
-- This phase alone (independent of mega-menu content existing) already fixes "subcategories are
-  undiscoverable on mobile" for every tenant, including ones that never touch the menu editor, as long as
-  Phase 1's fallback still surfaces the Category tree through this new mobile component too.
+**Phase 4 — Mobile drill-down (net-new, not a responsive tweak). Done.**
+- New `MobileNavDrawerComponent`: hamburger icon + slide-in drawer — none of this existed at all before,
+  per the gap found above. Tapping a top-level item with children/mega-menu content drills into a
+  full-screen panel listing that item's columns stacked vertically (or its plain children list), with a
+  back arrow to the top level. Items with neither navigate directly and close the drawer.
+- Fed by a new `effectiveNavItems` computed in `app.ts` that applies the *same* curated-or-category-
+  fallback logic as desktop, collapsed into one `MenuItem[]` shape — so the drawer component doesn't need
+  to know or care which source its data came from, and every tenant (curated or not) gets the fix.
 
-**Phase 5 — Content pass.**
-- Tag-based "Shop by Concern/Ingredient" `Collection`s + a real authored mega-menu on at least one
-  flagship theme, proving the whole system end-to-end the way R2/R3 proved Rich Themes with real content
-  rather than an empty capability nobody's used yet.
+**Phase 5 — Content pass. Done, live on bazaar.**
+- Two real `Collection`s created via the admin API: **Budget Picks** (Automated, `price lte 300` — 9
+  products matched with zero manual tagging needed) and **Best Sellers** (Manual, 3 hand-picked Personal
+  Care products) — proving the "reuse tag/Collection infrastructure, no new engineering" reading from
+  earlier in this plan.
+- A real curated `main-menu` saved through the exact same `PUT /api/admin/navigation/menus/main-menu`
+  endpoint the rebuilt editor calls: 5 top-level items (Electronics, Mobile Phones, Personal Care,
+  Fashion, Groceries) — 4 stay plain links, only **Personal Care** gets a mega-menu (**"Shop by
+  Category"**: the 4 real subcategories added earlier this session; **"Shop by Type"**: the two new
+  Collections; plus a promo tile) — deliberately matching Shopify's actual pattern of richness being
+  opt-in per item, not forced on every one.
+- Verified live end-to-end via the real rendered HTML (not just a successful save): the curated 5-item
+  header replaced the old auto-category-icon bar, all mega-menu content (both column headings, all 6
+  links, the promo heading) is present in the server-rendered DOM, and the mobile hamburger button
+  renders. Left in place as real, working demonstration content rather than cleaned up as scratch data.
 
-Sizing, unchanged from the original estimate despite the smaller-than-expected backend surface: still
-subsystem-sized (same weight class as metafields/version-history) because Phases 2 and 4 are both real,
-non-trivial UI builds, not settings-wiring fixes. Not included in this plan, flagged rather than silently
-assumed: true faceted PLP filtering (parked separately in the dynamic-sections plan) and any app-
-extension/third-party mega-menu source — both explicitly out of scope for reasons recorded elsewhere.
+All 5 phases shipped together (commit `71c506f`), deployed via §10-WAV, no database migration required —
+confirms the estimate that this was mostly a UI build on top of an already-adequate backend model.
+Not included in this plan, flagged rather than silently assumed: true faceted PLP filtering (parked
+separately in the dynamic-sections plan) and any app-extension/third-party mega-menu source — both
+explicitly out of scope for reasons recorded elsewhere.
