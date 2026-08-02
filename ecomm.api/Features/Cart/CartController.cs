@@ -39,6 +39,10 @@ public class CartController : ControllerBase
     public async Task<IActionResult> Clear(CancellationToken ct)
         => Ok(ApiResponse<CartDto>.Ok(await _cart.ClearAsync(CurrentUserId, CartToken, ct), "Cart cleared."));
 
+    [HttpPut("notes")]
+    public async Task<IActionResult> SetNotes(SetCartNotesRequest request, CancellationToken ct)
+        => Ok(ApiResponse<CartDto>.Ok(await _cart.SetNotesAsync(CurrentUserId, CartToken, request.Notes, ct), "Note saved."));
+
     [Authorize]
     [HttpPost("merge")]
     public async Task<IActionResult> Merge(CancellationToken ct)

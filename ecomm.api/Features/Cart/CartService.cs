@@ -20,6 +20,7 @@ public interface ICartService
     Task<CartDto> RemoveItemAsync(long? userId, string? sessionId, long itemId, CancellationToken ct = default);
     Task<CartDto> ClearAsync(long? userId, string? sessionId, CancellationToken ct = default);
     Task<CartDto> MergeAsync(long userId, string? sessionId, CancellationToken ct = default);
+    Task<CartDto> SetNotesAsync(long? userId, string? sessionId, string? notes, CancellationToken ct = default);
 }
 
 public sealed class CartService : ICartService
@@ -178,6 +179,15 @@ public sealed class CartService : ICartService
         return await BuildDtoAsync(userCart, ct);
     }
 
+    public async Task<CartDto> SetNotesAsync(long? userId, string? sessionId, string? notes, CancellationToken ct = default)
+    {
+        var cart = await GetOrCreateCartAsync(userId, sessionId, ct);
+        cart.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim()[..Math.Min(notes.Trim().Length, 500)];
+        cart.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return await BuildDtoAsync(cart, ct);
+    }
+
     // ----- helpers -----
 
     private Task<CartEntity?> FindCartAsync(long? userId, string? sessionId, CancellationToken ct)
@@ -258,6 +268,6 @@ public sealed class CartService : ICartService
                 x.UnitPrice, x.Quantity, x.UnitPrice * x.Quantity, available, available > 0);
         }).ToList();
 
-        return new CartDto(cart.CartId, items, items.Sum(i => i.Quantity), items.Count, items.Sum(i => i.LineTotal), taxMode);
+        return new CartDto(cart.CartId, items, items.Sum(i => i.Quantity), items.Count, items.Sum(i => i.LineTotal), taxMode, cart.Notes);
     }
 }

@@ -20,4 +20,5 @@ export interface Cart {
   distinctCount: number;
   subtotal: number;
   taxMode: string;
+  notes: string | null;
 }

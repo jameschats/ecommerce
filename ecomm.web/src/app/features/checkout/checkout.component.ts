@@ -1,7 +1,7 @@
 import { CurrencyPipe, isPlatformBrowser } from '@angular/common';
 import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Address } from '../../core/models/account.model';
 import { CheckoutQuote, PlaceOrderResult } from '../../core/models/order.model';
 import { AccountService } from '../../core/services/account.service';
@@ -150,6 +150,7 @@ export class CheckoutComponent implements OnInit {
   private readonly cart = inject(CartService);
   private readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly addresses = signal<Address[]>([]);
@@ -168,6 +169,11 @@ export class CheckoutComponent implements OnInit {
     !this.processing() && !!this.selectedId() && !!this.quote()?.serviceable && (this.quote()?.lines.length ?? 0) > 0);
 
   ngOnInit(): void {
+    // Carried over from the cart page's own coupon field (Part 3 of the dynamic-sections parity plan)
+    // — applying a code there redirects here with ?coupon=, so the shopper never has to retype it.
+    const coupon = this.route.snapshot.queryParamMap.get('coupon');
+    if (coupon) { this.appliedCoupon.set(coupon.trim().toUpperCase()); this.couponInput.set(coupon.trim().toUpperCase()); }
+
     this.account.listAddresses().subscribe({
       next: (list) => {
         this.addresses.set(list);

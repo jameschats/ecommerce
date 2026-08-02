@@ -8,7 +8,8 @@ public sealed record CartItemDto(
 
 public sealed record CartDto(
     long CartId, IReadOnlyList<CartItemDto> Items,
-    int ItemCount, int DistinctCount, decimal Subtotal, string TaxMode);
+    int ItemCount, int DistinctCount, decimal Subtotal, string TaxMode, string? Notes = null);
 
 public sealed record AddToCartRequest(long ProductId, long? ProductVariantId, int Quantity);
 public sealed record UpdateCartItemRequest(int Quantity);
+public sealed record SetCartNotesRequest(string? Notes);

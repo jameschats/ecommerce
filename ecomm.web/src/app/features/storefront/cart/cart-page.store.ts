@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { Cart, CartItem } from '../../../core/models/cart.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
+import { CatalogService, ShippingQuote } from '../../../core/services/catalog.service';
 
 /**
  * All state + behaviour for the cart page. Provided at the CartPageComponent level
@@ -14,6 +15,7 @@ import { CartService } from '../../../core/services/cart.service';
 @Injectable()
 export class CartPageStore {
   private readonly cartService = inject(CartService);
+  private readonly catalog = inject(CatalogService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
@@ -21,9 +23,33 @@ export class CartPageStore {
   readonly subtotal = this.cartService.subtotal;
   readonly count = this.cartService.itemCount;
   readonly taxMode = computed(() => this.cartService.cart()?.taxMode ?? 'Exclusive');
+  readonly notes = computed(() => this.cartService.cart()?.notes ?? null);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly checkoutNote = signal<string | null>(null);
+
+  readonly savingNotes = signal(false);
+  saveNotes(notes: string): void {
+    this.savingNotes.set(true);
+    this.cartService.setNotes(notes).subscribe({
+      next: () => this.savingNotes.set(false),
+      error: () => this.savingNotes.set(false),
+    });
+  }
+
+  /** Delivery pincode estimator, mirroring the PDP's existing pincode-check pattern. */
+  readonly pincode = signal('');
+  readonly pincodeChecking = signal(false);
+  readonly pincodeResult = signal<ShippingQuote | null>(null);
+  setPincode(v: string): void { this.pincode.set(v.replace(/\D/g, '').slice(0, 6)); this.pincodeResult.set(null); }
+  checkPincode(): void {
+    if (this.pincode().length !== 6) return;
+    this.pincodeChecking.set(true);
+    this.catalog.checkShipping(this.pincode()).subscribe({
+      next: (r) => { this.pincodeResult.set(r); this.pincodeChecking.set(false); },
+      error: () => this.pincodeChecking.set(false),
+    });
+  }
 
   readonly canCheckout = computed(() =>
     !this.busy() && this.items().length > 0 && this.items().every((i) => i.inStock && i.quantity <= i.availableQty));

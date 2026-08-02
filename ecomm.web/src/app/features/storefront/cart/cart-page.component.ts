@@ -4,7 +4,7 @@ import { ThemeSection, ThemeService } from '../../../core/services/theme.service
 import { StorefrontSectionComponent } from '../storefront-section.component';
 import { SectionSlot, slotsFrom } from '../section-slot';
 import { CartPageStore } from './cart-page.store';
-import { CartItemsComponent, CartSummaryComponent } from './cart-sections.component';
+import { CartCrossSellComponent, CartItemsComponent, CartSummaryComponent } from './cart-sections.component';
 
 /** Default `cart` layout when the theme defines no cart template. Matches today's page. */
 const DEFAULT_CART_SECTIONS = ['CartItems', 'CartSummary'];
@@ -22,7 +22,7 @@ interface EmptyStateCfg { heading?: string; body?: string; buttonText?: string; 
  */
 @Component({
   selector: 'app-cart-page',
-  imports: [RouterLink, StorefrontSectionComponent, CartItemsComponent, CartSummaryComponent],
+  imports: [RouterLink, StorefrontSectionComponent, CartItemsComponent, CartSummaryComponent, CartCrossSellComponent],
   providers: [CartPageStore],
   template: `
     <section class="page-container py-8">
@@ -42,7 +42,8 @@ interface EmptyStateCfg { heading?: string; body?: string; buttonText?: string; 
           @for (slot of slots(); track $index) {
             @switch (slot.type) {
               @case ('CartItems') { <div class="lg:col-span-2"><app-cart-items /></div> }
-              @case ('CartSummary') { <app-cart-summary /> }
+              @case ('CartSummary') { <app-cart-summary [settingsJson]="slot.data?.settings ?? null" /> }
+              @case ('CartCrossSell') { <app-cart-cross-sell [settingsJson]="slot.data?.settings ?? null" /> }
               @default { @if (slot.data) { <div class="lg:col-span-3"><app-storefront-section [section]="slot.data" /></div> } }
             }
           }

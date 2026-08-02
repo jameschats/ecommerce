@@ -343,8 +343,22 @@ public static class SectionTypeRegistry
             BlockTypes: [], Kind: "dynamic", Scope: ["list-collections"]),
         new("CartItems", "Cart items", "cart", "The line items in the cart.",
             Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["cart"]),
-        new("CartSummary", "Cart summary", "tag", "Totals and checkout button.",
-            Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["cart"]),
+        new("CartSummary", "Cart summary", "tag", "Totals, checkout button, coupon field, shipping estimator and order notes.",
+            Settings:
+            [
+                new("showCouponField", "Show coupon field", "boolean", true),
+                new("showShippingEstimator", "Show delivery pincode estimator", "boolean", true),
+                new("showOrderNotes", "Show \"Add a note\"", "boolean", true),
+            ],
+            BlockTypes: [], Kind: "dynamic", Scope: ["cart"]),
+        new("CartCrossSell", "Cart cross-sell", "grid", "A product rail (\"You might also like\") shown alongside the cart.",
+            Settings:
+            [
+                new("heading", "Heading", "text", "You might also like"),
+                new("source", "Source", "select", "bestsellers", ["bestsellers", "featured", "newest"]),
+                new("count", "How many", "number", 4),
+            ],
+            BlockTypes: [], Kind: "dynamic", Scope: ["cart"]),
         new("SearchBar", "Search bar", "search", "The storefront search input.",
             Settings: [], BlockTypes: [], Kind: "dynamic", Scope: ["search"]),
         new("SearchResults", "Search results", "grid", "Results for the current query.",

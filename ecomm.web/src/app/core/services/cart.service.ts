@@ -69,6 +69,10 @@ export class CartService {
     return this.mutate(this.http.delete<ApiResponse<Cart>>(this.base, { headers: this.headers() }));
   }
 
+  setNotes(notes: string): Observable<Cart> {
+    return this.mutate(this.http.put<ApiResponse<Cart>>(`${this.base}/notes`, { notes }, { headers: this.headers() }));
+  }
+
   private mergeThenReload(): void {
     this.http.post<ApiResponse<Cart>>(`${this.base}/merge`, {}, { headers: this.headers() })
       .pipe(map((r) => r.data!))
