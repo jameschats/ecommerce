@@ -215,12 +215,31 @@ edited against real data. Nothing below is started.
 
 **From the 2026-08-01 Shopify-parity gap analysis** (themes + store builder perspective), roughly
 ordered by recommended priority:
-- **Responsive/optimized images** — plain `<img>` site-wide, no srcset/WebP/resize, raw-passthrough
-  file storage (`LocalDiskStorage.cs`, no ImageSharp/SixLabors). Highest ratio of "feels like Shopify"
-  to effort since it's invisible infra touching every page load. Medium size.
-- **4 of 11 templates ship empty** (search, list-collections, 404, password, account — authored with
-  zero sections in all 9 prebuilt bundles even though the plumbing fully supports them). Cheap to close,
-  same shape as the R2/R3 content-authoring passes already done. Small size.
+- **Responsive/optimized images — partially done (2026-08-02, commit `eeb33ae`).** Backend:
+  `SixLabors.ImageSharp` (pinned to 3.1.12 — 4.x now requires a paid Six Labors license key at build
+  time, a real gotcha worth remembering if this ever gets bumped) generates 400w/800w/1600w WebP
+  siblings for every upload via deterministic naming (`{stem}-{w}w.webp`), best-effort so a
+  corrupt/unsupported file never blocks the original upload; a re-runnable admin backfill endpoint
+  (`POST /api/admin/media/backfill-variants`) covers pre-existing uploads. Frontend: `ResponsiveImgDirective`
+  (`[appImgSrc]`) adds a `srcset` to an existing `<img>` in place — deliberately not a wrapping
+  component, since this codebase's `<img>` tags lean on fine-grained Tailwind class toggles
+  (`[class.group-hover:opacity-0]`, etc.) a wrapper's host element can't forward without per-site
+  plumbing. Wired into `ProductCardComponent` (covers PLP/home rails/search/wishlist/cross-sell
+  everywhere it's reused — the highest total image count on any page), the cart line-item thumbnail,
+  and Collection's category tiles + list-view. Live-verified on bazaar (scratch upload → confirmed
+  400w/800w WebP variants generated, 1600w correctly skipped since the 1200px test image doesn't need
+  upscaling; a category's tile swapped to the uploaded image rendered the exact 3-candidate `srcset`
+  in the live HTML; backfill endpoint re-run confirmed idempotent). **Not done, documented not
+  skipped**: PDP gallery and the ~15 home-page section-block image slots (Hero, TileGrid, PromoTiles,
+  Collage, mega-menu promo, admin theme-editor previews) — same directive, just needs the same
+  `[appImgSrc]` swap per site; deferred since a single PLP/collection page shows far more images at
+  once than any of those.
+- **4 of 11 templates ship empty** (search, list-collections, 404, password, account — still zero
+  sections in all 9 prebuilt bundles as of 2026-08-02, confirmed via `bazaar.json`'s `templateKey`
+  list. The *rendering* gap is now closed — search and list-collections got real dedicated renderers
+  in the dynamic-sections-parity-plan's Part 4/5 — but none of the 9 bundles actually author content
+  into them yet). Cheap to close, same shape as the R2/R3 content-authoring passes already done.
+  Small size.
 - **No accessibility nudges in the theme editor** — no alt-text-missing warnings, no contrast checks;
   most image fields don't even have an alt input. Medium size.
 - **Undo/redo is session-scoped** — confirmed in code (E6 comment says so explicitly): wiped on reload,
