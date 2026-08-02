@@ -117,22 +117,94 @@ own thing rather than a shrunk desktop sidebar.
   drawer) is the other half of this story: once a shopper lands inside a category via the mega-menu, the
   category page's own sub-category tiles + filters are what let them keep narrowing. Already done.
 
-## Sizing and sequencing
+## Confirmed reusable infrastructure (code-grounded, changes the estimate)
 
-This is subsystem-sized — same weight class as metafields/version-history already parked in the
-storefront roadmap's pending list, not a quick features pass. Recommended order if/when picked up:
+A follow-up pass to firm this up for real execution found the actual new-build surface is smaller than
+it first looked, and found one more real gap worth calling out on its own:
 
-1. **Layer 1 alone** (curated header from `Menu` instead of auto-dumped categories) — smallest piece,
-   highest leverage for the large-catalog case specifically, and unblocks everything else since Layer 2
-   attaches to Layer 1's items. Ship-able independently.
-2. **Admin menu editor rebuild** (real add/remove/reorder tree, target-type picker) — needed before Layer
-   2 has anywhere to be authored.
-3. **Layer 2 desktop rendering** (mega-menu columns + promo tile).
-4. **Layer 2 mobile drill-down** (its own component, not deferred as an afterthought — matches the "no
-   compromise on UI/UX" instruction this plan was requested under).
-5. **Content pass**: tag-based "Shop by Concern/Ingredient" Collections + wiring them into a real menu on
-   at least one flagship theme, to prove the whole thing end-to-end the way R2/R3 proved Rich Themes.
+- **The public menu-fetch endpoint already exists**: `GET /api/catalog/navigation/menus/{handle}`
+  (`NavigationPublicController`, anonymous) returns a full `MenuDto` today. Layer 1 needs **zero new
+  backend endpoints** — the gap is entirely that the storefront never calls it (`app.ts`/`app.html` build
+  the header from `topLevelCategories()` instead).
+- **`MediaPickerComponent`** (`app-media-picker`, self-contained modal, `(picked)`/`(close)` outputs) is
+  directly reusable for the mega-menu promo tile's image field — no new upload/picker UI needed.
+- **Angular CDK drag-drop is already a dependency and already used** for reordering in
+  `admin-theme-editor.component.ts` (`cdkDropList`/`cdkDrag`, nested lists for sections + blocks) — the
+  same mechanism covers mega-menu column reorder and link-within-column reorder with no new library.
+- **One more real gap, found while confirming the above**: there is **no mobile navigation pattern at
+  all** today — no hamburger icon, no drawer, no `mobileMenuOpen` state anywhere in `app.html`/`app.ts`.
+  The category bar is literally the same markup at every viewport width, just horizontally scrollable.
+  Since the desktop mega-menu is hover-triggered, **subcategories are currently undiscoverable on mobile
+  through the header at all** — tapping a category navigates straight through via its `<a>`, never
+  showing children. (The Collection page's own mobile filter drawer, built earlier this session, lists
+  *all* categories flatly — not scoped to the current parent's children — so it doesn't cover this gap
+  either.) This means the mobile drill-down isn't just "the mega-menu's mobile mode" — it's fixing a
+  standing mobile-navigation gap that predates this plan.
+- **`admin-navigation.component.ts` needs a near-total rebuild**, confirmed by reading it in full: it's
+  currently two `<input>`s per row (label, url) in a flat array, no children/nesting UI at all (even
+  though the backend `MenuItemDto` already supports `Children`), no drag-reorder, no image field.
 
-Not included in this plan, flagged rather than silently assumed: true faceted PLP filtering (already
-parked separately in the dynamic-sections plan) and any app-extension/third-party mega-menu source —
-both explicitly out of scope for the reasons already recorded elsewhere.
+## Concrete implementation plan
+
+**Data model** — extends the existing `MenuItemDto` record (`NavigationService.cs`) with an optional
+mega-menu payload; still just JSON inside `Menu.ItemsJson`, matching this codebase's established
+convention for flexible authored content (theme section settings/blocks, coupon rules, etc. are all JSON
+blobs, not new relational tables) — **no migration needed**:
+```csharp
+public sealed record MenuItemDto(string Label, string Url, List<MenuItemDto>? Children = null, MegaMenuDto? MegaMenu = null);
+public sealed record MegaMenuDto(List<MegaMenuColumnDto> Columns, MegaMenuPromoDto? Promo = null);
+public sealed record MegaMenuColumnDto(string Heading, List<MenuItemDto> Links);   // reuses MenuItemDto for link rows
+public sealed record MegaMenuPromoDto(string ImageUrl, string Heading, string? Link);
+```
+
+**Phase 1 — Layer 1: curated header, wired to the menu that already exists.**
+- Frontend only. `app.ts` fetches `GET /api/catalog/navigation/menus/main-menu` and renders the header's
+  top-level items from it instead of `topLevelCategories()`.
+- **Fallback preserved, not a breaking change**: when the menu has zero items authored (every existing
+  tenant today), keep today's auto-generated category bar exactly as-is — same "fall back when
+  unauthored" convention used everywhere else in this theme system (Collection/Collections-list/Custom
+  Pages all do this). A merchant only gets curation once they touch the menu editor.
+- Smallest phase, ships independently, immediately fixes the large-catalog header-overflow problem for
+  any merchant who curates their menu.
+
+**Phase 2 — Admin menu editor rebuild.**
+- Rebuild `admin-navigation.component.ts`: top-level item list with `cdkDropList`/`cdkDrag` reorder
+  (same pattern as the theme editor), each item's link chosen via a target-type picker (Category /
+  Collection / Page / Custom URL — reusing the product/category/collection search-picker pattern already
+  built for Coupons' gift-product picker and Bundles' component picker this session) that auto-fills
+  label+url from the selected entity.
+- Per top-level item: expandable row, toggle between **Children** (simple nested links — finally exposes
+  what the backend already supports) and **Mega menu** (reveals the column editor).
+- Column editor: add/remove/reorder columns (heading + `cdkDropList` of link rows, same target-type
+  picker), one optional promo tile (`<app-media-picker>` for the image + heading + link fields).
+- No live-preview-in-editor for v1 — flagging as a deliberate scope cut, not a silent omission: build it
+  as "author, save, then check the real site" first (matching how the admin Collections editor works
+  today), add a live preview later if it proves needed. A full live-preview would mean rendering the
+  actual storefront mega-menu component inside the admin shell, which is a meaningfully bigger lift than
+  the editor itself.
+
+**Phase 3 — Desktop mega-menu rendering.**
+- Replace the current Category-only `activeMegaMenu` markup in `app.html` with menu-driven rendering: a
+  top-level item with `megaMenu.columns.length` renders the multi-column grid + promo tile; one with only
+  `children` renders today's simple flat list (same component, conditional layout — not two components);
+  a plain item with neither renders no dropdown at all.
+
+**Phase 4 — Mobile drill-down (net-new, not a responsive tweak).**
+- New hamburger icon + slide-in drawer component — doesn't exist today at all, per the gap found above.
+- Tapping a top-level item with children/mega-menu content slides to a full-screen panel listing that
+  item's columns stacked vertically (or its plain children list), with a back arrow to the top level.
+  Items with neither just navigate directly.
+- This phase alone (independent of mega-menu content existing) already fixes "subcategories are
+  undiscoverable on mobile" for every tenant, including ones that never touch the menu editor, as long as
+  Phase 1's fallback still surfaces the Category tree through this new mobile component too.
+
+**Phase 5 — Content pass.**
+- Tag-based "Shop by Concern/Ingredient" `Collection`s + a real authored mega-menu on at least one
+  flagship theme, proving the whole system end-to-end the way R2/R3 proved Rich Themes with real content
+  rather than an empty capability nobody's used yet.
+
+Sizing, unchanged from the original estimate despite the smaller-than-expected backend surface: still
+subsystem-sized (same weight class as metafields/version-history) because Phases 2 and 4 are both real,
+non-trivial UI builds, not settings-wiring fixes. Not included in this plan, flagged rather than silently
+assumed: true faceted PLP filtering (parked separately in the dynamic-sections plan) and any app-
+extension/third-party mega-menu source — both explicitly out of scope for reasons recorded elsewhere.
