@@ -7,25 +7,26 @@ import { ColorSwatchService } from '../../core/services/color-swatch.service';
 import { QuickViewService } from '../../core/services/quick-view.service';
 import { CompareButtonComponent } from '../compare-button/compare-button.component';
 import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.component';
+import { ResponsiveImgDirective } from '../responsive-img/responsive-img.directive';
 
 const MAX_SWATCHES_SHOWN = 5;
 
 @Component({
   selector: 'app-product-card',
-  imports: [RouterLink, CurrencyPipe, DecimalPipe, WishlistButtonComponent, CompareButtonComponent],
+  imports: [RouterLink, CurrencyPipe, DecimalPipe, WishlistButtonComponent, CompareButtonComponent, ResponsiveImgDirective],
   template: `
     <a [routerLink]="['/product', product().slug]"
        class="group block overflow-hidden sf-card">
       <div class="relative bg-slate-50 overflow-hidden" [class]="aspectRatio() === 'portrait' ? 'aspect-[3/4]' : 'aspect-square'">
         @if (product().primaryImageUrl) {
-          <img [src]="product().primaryImageUrl" [alt]="product().name"
+          <img [src]="product().primaryImageUrl" [appImgSrc]="product().primaryImageUrl" appImgSizes="(min-width: 768px) 25vw, 50vw" [alt]="product().name"
                class="w-full h-full object-cover transition"
                [class.group-hover:opacity-0]="!!product().secondaryImageUrl" loading="lazy" />
         } @else {
           <div class="w-full h-full flex items-center justify-center text-slate-300 text-sm">No image</div>
         }
         @if (product().secondaryImageUrl) {
-          <img [src]="product().secondaryImageUrl" [alt]="product().name"
+          <img [src]="product().secondaryImageUrl" [appImgSrc]="product().secondaryImageUrl" appImgSizes="(min-width: 768px) 25vw, 50vw" [alt]="product().name"
                class="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition" loading="lazy" />
         }
         <div class="absolute top-2 left-2 flex flex-col gap-1 items-start">

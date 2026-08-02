@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { ProductListItem } from '../../../core/models/catalog.model';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
+import { ResponsiveImgDirective } from '../../../shared/responsive-img/responsive-img.directive';
 import { CartPageStore } from './cart-page.store';
 
 function parseSettings(json: string | null | undefined): any {
@@ -15,13 +16,13 @@ function parseSettings(json: string | null | undefined): any {
 /** The cart line items with quantity steppers + remove. */
 @Component({
   selector: 'app-cart-items',
-  imports: [RouterLink, CurrencyPipe],
+  imports: [RouterLink, CurrencyPipe, ResponsiveImgDirective],
   template: `
     <div class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
       @for (it of store.items(); track it.cartItemId) {
         <div class="flex gap-4 p-4">
           <a [routerLink]="['/product', it.slug]" class="shrink-0">
-            <img [src]="it.imageUrl || 'https://placehold.co/96x96?text=No+image'" [alt]="it.name" class="w-20 h-20 object-cover rounded-lg border border-slate-100" />
+            <img [src]="it.imageUrl || 'https://placehold.co/96x96?text=No+image'" [appImgSrc]="it.imageUrl" appImgSizes="80px" [alt]="it.name" class="w-20 h-20 object-cover rounded-lg border border-slate-100" />
           </a>
           <div class="flex-1 min-w-0">
             <a [routerLink]="['/product', it.slug]" class="font-medium text-slate-800 hover:text-primary line-clamp-2">{{ it.name }}</a>

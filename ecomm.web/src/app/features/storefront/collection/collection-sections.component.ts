@@ -3,6 +3,7 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
+import { ResponsiveImgDirective } from '../../../shared/responsive-img/responsive-img.directive';
 import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 import { CollectionPageStore } from './collection-page.store';
 
@@ -87,7 +88,7 @@ export class CollectionHeaderComponent {
  * has already drilled into a category. */
 @Component({
   selector: 'app-collection-categories',
-  imports: [RouterLink],
+  imports: [RouterLink, ResponsiveImgDirective],
   template: `
     @if (!store.activeCategory() && store.categories().length) {
       <div class="mb-8">
@@ -96,7 +97,7 @@ export class CollectionHeaderComponent {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" [style.--cols]="columns()">
             @for (c of store.categories(); track c.categoryId) {
               <a [routerLink]="['/category', c.slug]" class="block p-4 text-center rounded-xl border border-slate-200 hover:border-primary transition">
-                @if (c.imageUrl) { <img [src]="c.imageUrl" [alt]="c.name" class="w-10 h-10 mx-auto object-contain mb-2" loading="lazy" /> }
+                @if (c.imageUrl) { <img [src]="c.imageUrl" [appImgSrc]="c.imageUrl" appImgSizes="40px" [alt]="c.name" class="w-10 h-10 mx-auto object-contain mb-2" loading="lazy" /> }
                 <div class="text-sm font-medium text-slate-700">{{ c.name }}</div>
               </a>
             }
@@ -107,7 +108,7 @@ export class CollectionHeaderComponent {
               <a [routerLink]="['/category', c.slug]" class="group text-center">
                 <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
                   @if (c.imageUrl) {
-                    <img [src]="c.imageUrl" [alt]="c.name" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+                    <img [src]="c.imageUrl" [appImgSrc]="c.imageUrl" appImgSizes="(min-width: 768px) 16vw, 33vw" [alt]="c.name" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
                   } @else {
                     <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 group-hover:from-primary/10 group-hover:to-primary/20 transition">
                       <span class="text-2xl font-semibold text-slate-400 group-hover:text-primary">{{ c.name.charAt(0) }}</span>
@@ -350,7 +351,7 @@ export class CollectionFacetsComponent {
  * filter at all on this page. */
 @Component({
   selector: 'app-collection-grid',
-  imports: [FormsModule, RouterLink, CurrencyPipe, DecimalPipe, ProductCardComponent, WishlistButtonComponent, CollectionFacetsComponent],
+  imports: [FormsModule, RouterLink, CurrencyPipe, DecimalPipe, ProductCardComponent, WishlistButtonComponent, CollectionFacetsComponent, ResponsiveImgDirective],
   template: `
     <div class="flex flex-wrap items-center gap-3 mb-4">
       @if (showFilters()) {
@@ -494,7 +495,7 @@ export class CollectionFacetsComponent {
               @for (p of store.result()!.items; track p.productId) {
                 <a [routerLink]="['/product', p.slug]" class="flex gap-4 py-4 hover:bg-slate-50 px-2 -mx-2 rounded-lg">
                   <div class="w-24 h-24 shrink-0 bg-slate-50 rounded-lg overflow-hidden">
-                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" loading="lazy" /> }
+                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [appImgSrc]="p.primaryImageUrl" appImgSizes="96px" [alt]="p.name" class="w-full h-full object-cover" loading="lazy" /> }
                   </div>
                   <div class="flex-1 min-w-0">
                     <p class="text-xs text-slate-400">{{ p.brandName ?? p.categoryName }}</p>

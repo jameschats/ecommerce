@@ -30,4 +30,10 @@ public sealed class MediaController : ControllerBase
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     { await _media.DeleteAsync(id, ct); return Ok(ApiResponse<object>.Ok(new { }, "File deleted.")); }
+
+    /// <summary>One-off (re-runnable) job: generates responsive WebP variants for every image uploaded
+    /// before ImageVariantService existed, so older product/banner/theme images also get a srcset.</summary>
+    [HttpPost("backfill-variants")]
+    public async Task<IActionResult> BackfillVariants(CancellationToken ct)
+        => Ok(ApiResponse<BackfillResultDto>.Ok(await _media.BackfillVariantsAsync(ct), "Variant backfill complete."));
 }
