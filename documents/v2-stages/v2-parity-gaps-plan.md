@@ -30,10 +30,56 @@ with a reason, not silently skipped.
     `RESPONSE`/request-response token, checked against the redirect table before Angular bootstraps,
     setting the status explicitly) since `Router.navigateByUrl` has no per-call status-code option.
     Small fast-follow, not done in this pass.
-- [ ] **Guest checkout is hard-gated behind login** — `/checkout` has `canActivate: [authGuard]`; an
-  anonymous shopper cannot place an order at all, despite the guest cart (X-Cart-Token) working fine
-  through `/cart`. This is the single highest-value item in the whole plan. **Needs a design decision
-  before starting — see "Guest checkout: the actual design fork" below.** Large.
+- [x] **Guest checkout is hard-gated behind login** — `/checkout` had `canActivate: [authGuard]`; an
+  anonymous shopper could not place an order at all, despite the guest cart (X-Cart-Token) working fine
+  through `/cart`. **Status: done (2026-08-02, commits `15efeae`, `67b6eb0`), option 1 (silent
+  passwordless-account provisioning) as agreed.**
+  - Backend: `AuthService.GuestCheckoutAsync` — new/reused passwordless `User` (a prior guest checkout,
+    or any OTP/Google-only signup, is safe to reuse; a REAL password-protected account with the same
+    email is a hard 409 asking them to sign in instead, not silently attached to). New
+    `POST /api/auth/guest-checkout`. Also fixed `RequestPasswordResetAsync`, which previously silently
+    skipped every passwordless account — the only way a guest-checkout account could ever gain a real
+    password was through that exact flow, so excluding it was a dead end.
+  - Frontend: `checkout.component.ts` branches on `auth.isAuthenticated()` — logged-in shoppers see the
+    unchanged saved-address picker; guests see an inline address form. Submitting it calls
+    `guestCheckout()` (logs them in via the same session path as `login()`/`register()`, so
+    `CartService`'s existing login-triggered merge effect picks up the guest cart automatically — zero
+    new code needed there) then reuses the ordinary `POST /account/addresses` endpoint — after that,
+    quote/place/pay/order-confirmation is the exact same authenticated flow every shopper already uses.
+    `authGuard` removed from `/checkout`.
+  - **Live-verified on bazaar via a full API round-trip** (not just unit-level): guest cart → add item →
+    `guest-checkout` (fresh email) → `cart/merge` confirmed the guest cart items landed in the new
+    account's cart → `account/addresses` → `orders/quote` (serviceable, COD enabled) →
+    `POST /api/orders` placed a real COD order (`ORD20260802-00011`) → order detail fetch confirmed
+    "Confirmed" status. Re-running `guest-checkout` with the same email reused the same `userId` (no
+    duplicate account). An email with a real password correctly 409'd instead of silently attaching an
+    order to someone else's account. Confirmed `/checkout` no longer redirects anonymous visitors to
+    `/login` (still returns the page, not a 302).
+  - **A real bug was caught and fixed during this verification**: `Users.PhoneNumber` has a per-tenant
+    unique constraint (`uq_users_tenant_phone`, backing OTP login) that the first version didn't account
+    for — a phone number already tied to a different account threw a raw, unhandled `DbUpdateException`
+    (500) instead of a clean response. Fixed by checking availability first and simply leaving the
+    phone unset on collision rather than failing checkout over it (the real shipping contact number
+    lives on the `CustomerAddress` created right after, which has no such constraint, so nothing is
+    functionally lost).
+  - **Deploy incident, noted rather than glossed over**: the phone-collision fix's redeploy skipped the
+    `chown -R www-data:www-data` step (wrongly assumed a backend-only change didn't need the full
+    sequence) — the freshly-published DLL was root-owned, `wavcomm-api` crash-looped
+    (`FileLoadException: Access is denied`) for roughly one minute in a restart loop before the mistake
+    was caught and fixed. Both `wavcomm-api`/`wavcomm-ssr` confirmed healthy afterward. Root cause: an
+    unwarranted shortcut on a step §10-WAV's redeploy recipe always includes — no shortcuts on the
+    ownership/restart sequence going forward, regardless of how small the change looks.
+  - **Separate, pre-existing bug discovered as a side effect of this verification, explicitly NOT fixed
+    here** (out of scope — not part of guest checkout, affects the whole registration system): every
+    account created on bazaar's tenant — via normal `/api/auth/register` too, not just guest checkout —
+    comes back with an empty `roles` array in its JWT. `AssignRoleAsync` silently no-ops when the
+    tenant has no seeded "CUSTOMER" role row, and bazaar appears to be missing one. Confirmed by
+    registering a normal test account directly (`roles: []` there too). Practical impact: these
+    accounts don't show up in the admin **Customers** list (`CustomerAdminService` appears to filter by
+    CUSTOMER-role membership), though the accounts themselves, their carts, addresses, and orders all
+    function correctly regardless. **Flagging as its own separate bug, not folded into this item.**
+  - Scratch test accounts/order left on bazaar (a disposable test/SIT tenant, not production) since the
+    admin Customers endpoint can't see them to delete them (the bug above) — harmless.
 - [ ] **Newsletter signup has no email capture** — `CtaNewsletter` section is a promo banner with a
   button, no email input, no subscriber table anywhere. Small-medium: add an email input + submit to a
   new lightweight `NewsletterSubscriber` table + admin list/export (reuse the existing
@@ -46,6 +92,8 @@ with a reason, not silently skipped.
   used elsewhere in the editor. Small: swap the theme-settings Logo/Favicon inputs for the picker.
 
 ## Guest checkout: the actual design fork
+**Resolved: option 1, built and shipped — see the Phase 0 entry above.** Kept below for the record of
+why, since it was a real architectural decision, not a coin flip.
 
 Investigated `checkout.component.ts` in full: it's built entirely around an authenticated user's
 *saved* `CustomerAddress` rows (`account.listAddresses()` → pick one by id → `orders.quote(addressId,
