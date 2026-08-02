@@ -6,8 +6,16 @@
 -- so it survives a reload, and checkout carries it through automatically.
 -- =====================================================================
 
-ALTER TABLE `Carts`
-  ADD COLUMN `Notes` VARCHAR(500) NULL AFTER `Status`;
+-- Guarded (this tenant's MySQL build doesn't accept `ADD COLUMN IF NOT EXISTS`) so the script is safely
+-- re-runnable — same pattern as 260_product_bundles.sql, after that one caught a real partial-failure.
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Cart' AND COLUMN_NAME = 'Notes');
+SET @ddl := IF(@col_exists = 0,
+  'ALTER TABLE `Cart` ADD COLUMN `Notes` VARCHAR(500) NULL AFTER `Status`',
+  'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 INSERT INTO `__schema_migrations` (`script_name`)
 SELECT '261_cart_notes.sql'
