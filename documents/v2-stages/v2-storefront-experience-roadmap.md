@@ -258,3 +258,97 @@ ordered by recommended priority:
   for V1 single-seller; only relevant once V3 marketplace apps exist. Not sized/scheduled.
 - **No A/B testing / traffic-split between theme variants** — lower priority; even Shopify does this
   mostly via apps, not natively.
+
+## Round 2 audit (2026-08-02) — 6 parallel research passes, code-grounded
+
+Full re-audit against Shopify, going deeper than the 2026-08-01 pass. Six areas, each independently
+researched and verified by reading actual code (not inferred from names/doc comments). Grouped by
+severity below; file:line references live in the individual agent reports, not repeated here.
+
+**Correction to the record**: `robots.txt` is genuinely absent, but `ecomm.api/Features/Seo/SitemapController.cs`
+**already exists** and serves a live `GET /api/sitemap.xml` from categories/products — the "SEO infra
+(sitemap/robots) deferred" note elsewhere in this doc is half-stale. Only robots.txt remains missing.
+
+### Broken / misleading — looks done but isn't (highest priority: these actively cost conversions or trust)
+- **Guest checkout doesn't actually work.** The guest cart (X-Cart-Token) works fine through `/cart`,
+  but `/checkout` itself is hard-gated by `authGuard` — an anonymous shopper is forced to `/login`
+  before they can place an order at all. Every real storefront (Shopify's default included) allows
+  guest checkout; this is a conversion-killing bug dressed up as a missing feature, not a parity gap.
+  Large size (real guest-order flow: address capture without an account, order-to-email linking).
+- **URL redirects are built but dead.** Full CRUD exists — `UrlRedirect` entity, `NavigationService`,
+  admin API, a working admin UI — but the storefront's 404 handling never calls the resolve endpoint.
+  A merchant can add a redirect in the admin, believe it works, and every visitor still hits a hard
+  404. Small size to fix (wire the existing `/api/redirect` lookup into the 404 path) — the bug is
+  the gap, not missing infrastructure.
+- **Newsletter signup section has no email capture.** `CtaNewsletter` renders a heading/subtext/button
+  — no email input, no form submission, no subscriber table anywhere in the backend. It's a generic
+  promo banner mislabeled as a newsletter section. Small-medium to make real (email input + a
+  subscriber entity + admin list/export).
+- **Abandoned-cart recovery has the data but zero automation.** `Cart.Abandoned` status and an admin
+  analytics report both exist — but no background job ever fires a recovery email. This is one of the
+  highest-ROI features in commerce and it's sitting fully inert. Medium size (hosted service + email
+  template + opt-out).
+- **"Logo upload" is a URL-paste field, not an upload widget** — Logo/Favicon are plain text inputs on
+  the theme settings tab, not wired to the existing `MediaPickerComponent` used elsewhere in the
+  editor. Small to fix (swap the text input for the picker that already exists).
+
+### Real, common Shopify features — confirmed absent
+- **No cart drawer/mini-cart.** Every add-to-cart is either a full nav to `/cart` or an inline "✓
+  Added" message on the PDP — no flyout. Medium size.
+- **No blog/articles engine** — zero entities, controllers, or routes; a real content-marketing/SEO
+  gap. Large size (a genuine new subsystem, in the same weight class as metafields/localization).
+- **No gift cards** — no product type, no stored-value ledger, no checkout redemption. Large size.
+- **No size charts** — a boutique theme's FAQ copy literally references "the size chart on each
+  product page," which doesn't exist. Medium size.
+- **No back-in-stock notifications** and **no wishlist price-drop/restock alerts** — both fully
+  absent as shopper-facing features (restock only exists as an admin-facing AI-copy generator).
+  Small-medium each, and they share the same underlying trigger infrastructure.
+- **No checkout branding** — checkout is 100% fixed styling, doesn't read theme colors/logo at all
+  (contrast with the rest of the site, which does). Medium size.
+- **No checkout upsell/cross-sell** — the cart page has one, checkout doesn't. Medium size.
+- **"Buy now" doesn't actually skip to checkout** — it's identical to Add to cart, just redirects to
+  `/cart` instead of showing a toast. Small size to make it a true one-item express flow.
+- **No per-product/collection alternate templates** — one universal `product` template for literally
+  every product, no per-item override (Shopify's `product.giftcard`-style variants). Large size.
+- **No per-section/block mobile-only or desktop-only visibility** — `isVisible` is a single flat
+  bool, no breakpoint targeting. Medium size.
+- **No customer-segment-targeted content or coupons** — segments exist only as an admin customer-list
+  filter, never as an eligibility condition for a banner/section/discount. Medium-large size.
+- **No B2B/tiered customer pricing** — one price for every shopper, no customer groups. Large size.
+- **No local pickup option at checkout** — delivery-only; the only "pickup" concept is admin-side
+  courier pickup scheduling, unrelated to customer-facing store pickup. Large size.
+- **Color-scheme system is half-wired** — a scheme has 4 editable fields (background/text/button/
+  border) but only background+text are ever actually read by the renderer; button and border colors
+  are dead settings that look functional in the editor. Small to wire in properly.
+- **Footer "socials" don't exist** — the Footer section's doc-comment says "Link columns, socials and
+  legal," but blocks are generic link columns only; no platform-icon social-link row. Small-medium.
+- **No themeable icon system** — the `icon` field type is literally free-text emoji entry; chrome
+  icons (cart/search/chevrons) are hardcoded inline SVG per component, not a swappable icon set.
+  Large size, and genuinely low priority (emoji icons read as fine on most of the seeded demo themes).
+
+### Smaller / quick wins
+- **Collection pages emit no JSON-LD** (PDP/home/FAQ all do) — no `ItemList`/`BreadcrumbList` structured
+  data on category pages, so they're not rich-result eligible. Small — same pattern already used
+  elsewhere, straightforward to extend.
+- **No per-page `noindex`/robots meta control** — can't mark thin pages (empty search, filter combos)
+  noindex. Small.
+- **No `<link rel="preconnect">` for Google Fonts** — every store pays an uncached DNS+TLS+request
+  round-trip before the theme font paints; `font-display: swap` is at least already correct so text
+  isn't invisible while waiting. Small (self-hosting fonts instead is medium).
+- **Theme banner/hero image alt text has no fallback** — falls back to `''` when a merchant leaves it
+  blank (PDP images are safe, they fall back to the product name). Small.
+- **Add-section picker is a flat, uncategorized list** — the ~33 section types aren't grouped
+  (Product/Promotional/Content-style), unlike the template picker which is. Small.
+- **No copy-section-to-another-page/theme** — only same-template duplicate and whole-theme duplicate
+  exist, no in-between. Medium.
+- **Device preview has no tablet breakpoint** — desktop/mobile only. Small.
+- **No true personalized "for you" rail** — `RecentlyViewed` is explicitly browser-local, `RelatedProducts`
+  is same-category-only; nothing surfaces a shopper's own purchase-history-driven recommendations.
+  Medium.
+
+### Confirmed NOT gaps (verified real, not just plausible-looking)
+Automated/rule-based collections, collection product pinning/ordering, the draft-preview shareable
+link, the global design-token system for corner-radius/button-style/card-style/spacing-density
+(genuinely wired to CSS custom properties theme-wide), and the font picker (heading/body, curated
+16-font allowlist by design, not broken) — all real, all already shipped, none of these are gaps
+despite looking like plausible candidates going in.
