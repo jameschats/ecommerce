@@ -4,7 +4,10 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 
-export interface MenuItem { label: string; url: string; children?: MenuItem[]; }
+export interface MenuItem { label: string; url: string; children?: MenuItem[] | null; megaMenu?: MegaMenu | null; }
+export interface MegaMenuColumn { heading: string; links: MenuItem[]; }
+export interface MegaMenuPromo { imageUrl: string; heading: string; link?: string | null; }
+export interface MegaMenu { columns: MegaMenuColumn[]; promo?: MegaMenuPromo | null; }
 export interface Menu { handle: string; title: string; items: MenuItem[]; }
 export interface UrlRedirect { urlRedirectId: number; fromPath: string; toPath: string; }
 

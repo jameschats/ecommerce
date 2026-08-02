@@ -11,6 +11,11 @@ export interface PublicCollection {
   metaTitle: string | null; metaDescription: string | null; products: PublicCollectionProduct[];
 }
 export interface PublicCollectionSummary { collectionId: number; name: string; slug: string; imageUrl: string | null; productCount: number; }
+export interface MenuItem { label: string; url: string; children?: MenuItem[] | null; megaMenu?: MegaMenu | null; }
+export interface MegaMenuColumn { heading: string; links: MenuItem[]; }
+export interface MegaMenuPromo { imageUrl: string; heading: string; link?: string | null; }
+export interface MegaMenu { columns: MegaMenuColumn[]; promo?: MegaMenuPromo | null; }
+export interface Menu { handle: string; title: string; items: MenuItem[]; }
 export interface StorePolicy { handle: string; title: string; bodyHtml: string | null; hasContent: boolean; }
 export interface PolicyLink { handle: string; title: string; }
 export interface StoreSeo { title: string | null; description: string | null; image: string | null; }
@@ -74,6 +79,14 @@ export class CatalogService {
       catchError(() => of(null)),
     );
   }
+  /** A storefront navigation menu by handle (e.g. "main-menu") — merchant-curated top-level nav items. */
+  getMenu(handle: string): Observable<Menu | null> {
+    return this.http.get<ApiResponse<Menu>>(`${this.base}/navigation/menus/${handle}`).pipe(
+      map((r) => r.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   getPolicyLinks(): Observable<PolicyLink[]> {
     return this.http.get<ApiResponse<PolicyLink[]>>(`${this.base}/policies`).pipe(
       map((r) => r.data ?? []),

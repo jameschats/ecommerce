@@ -7,7 +7,7 @@ import { Subject, debounceTime, distinctUntilChanged, filter, of, switchMap } fr
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
-import { CatalogService } from './core/services/catalog.service';
+import { CatalogService, MenuItem } from './core/services/catalog.service';
 import { PlatformInfoService } from './core/services/platform-info.service';
 import { ThemeService } from './core/services/theme.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
@@ -15,12 +15,13 @@ import { NotificationBellComponent } from './shared/notification-bell/notificati
 import { AnnouncementBarComponent } from './features/storefront/announcement-bar.component';
 import { QuickViewComponent } from './shared/quick-view/quick-view.component';
 import { CompareBarComponent } from './shared/compare-bar/compare-bar.component';
+import { MobileNavDrawerComponent } from './shared/mobile-nav-drawer/mobile-nav-drawer.component';
 
 @Component({
   selector: 'app-root',
   imports: [
     RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, NotificationBellComponent, AnnouncementBarComponent,
-    QuickViewComponent, CompareBarComponent,
+    QuickViewComponent, CompareBarComponent, MobileNavDrawerComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -51,6 +52,19 @@ export class App implements OnInit {
   readonly policyLinks = signal<{ handle: string; title: string }[]>([]);
   readonly menuOpen = signal(false);
 
+  /** Curated header nav (Phase 1 of the mega-menu plan): a merchant can pick exactly what shows in the
+   *  header, in what order, via /admin/navigation — instead of every top-level Category being auto-
+   *  dumped into the row (which breaks down entirely for large catalogs). Falls back to today's
+   *  auto-category behaviour when nothing's been authored, same "fall back when unauthored" convention
+   *  used everywhere else in this theme system — no visible change for a tenant that never touches it.
+   *  Dropdown/mega-menu content for curated items lands in a later phase; for now curated items are
+   *  plain links, same as the fallback path's "All" link already is. */
+  readonly mainMenuItems = signal<MenuItem[]>([]);
+  readonly hasCuratedMenu = computed(() => this.mainMenuItems().length > 0);
+  /** Hover state for the curated menu's dropdown/mega-menu (Phase 3) — keyed by array index since
+   *  MenuItem has no stable id, separate from activeMegaMenu (category-fallback path, keyed by categoryId). */
+  readonly activeCuratedMenu = signal<number | null>(null);
+
   /** Mega menu (T12): child categories grouped by parent, driving a hover dropdown in the
    *  category bar. No merchant setup required — built from the same category tree the storefront
    *  already fetches, not from Menu/MenuItem (whose admin editor can't save nested items today). */
@@ -67,6 +81,19 @@ export class App implements OnInit {
   });
   readonly activeMegaMenu = signal<number | null>(null);
   childrenOf(categoryId: number): Category[] { return this.categoryChildren().get(categoryId) ?? []; }
+
+  /** Unified nav data for the mobile drill-down drawer (Phase 4) — same curated-menu-or-category-
+   *  fallback logic as the desktop bar, collapsed into one MenuItem[] shape so the drawer component
+   *  doesn't need to know which source it came from. */
+  readonly mobileNavOpen = signal(false);
+  readonly effectiveNavItems = computed<MenuItem[]>(() => {
+    if (this.hasCuratedMenu()) return this.mainMenuItems();
+    return this.topLevelCategories().map((c) => ({
+      label: c.name,
+      url: `/category/${c.slug}`,
+      children: this.childrenOf(c.categoryId).map((ch) => ({ label: ch.name, url: `/category/${ch.slug}` })),
+    }));
+  });
   readonly isAdminRoute = signal(false);
   // Storefront chrome is hidden on platform surfaces that bring their own: admin/super-admin/landing/signup
   // (route-based), and on the apex host entirely (the platform is never a store).
@@ -99,6 +126,7 @@ export class App implements OnInit {
     this.theme.load().subscribe();
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
     this.catalog.getPolicyLinks().subscribe((p) => this.policyLinks.set(p));
+    this.catalog.getMenu('main-menu').subscribe((m) => this.mainMenuItems.set(m?.items ?? []));
     // The apex host is the platform, never a store → never show storefront chrome there.
     this.platform.hostInfo().subscribe((info) => this.isApexHost.set(info.hostType === 'apex'));
 

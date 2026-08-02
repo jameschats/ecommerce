@@ -7,6 +7,9 @@
       <!-- Centered: logo centered with actions on the right; full-width search below. -->
       <div class="page-container py-3">
         <div class="relative flex items-center justify-center min-h-10">
+          <button type="button" (click)="mobileNavOpen.set(true)" aria-label="Open menu" class="absolute left-0 md:hidden text-slate-600 p-1">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
           <a routerLink="/" class="flex items-center">
             @if (logo()) {
               <img [src]="logo()" [alt]="storeName() || 'Store'" class="h-9 w-auto max-w-[180px] object-contain" />
@@ -25,6 +28,9 @@
     } @else {
       <!-- Standard / minimal: logo · search? · actions -->
       <div class="page-container flex items-center gap-4 h-14">
+        <button type="button" (click)="mobileNavOpen.set(true)" aria-label="Open menu" class="md:hidden text-slate-600 p-1 -ml-1 shrink-0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
         <a routerLink="/" class="shrink-0 flex items-center">
           @if (logo()) {
             <img [src]="logo()" [alt]="storeName() || 'Store'" class="h-8 w-auto max-w-[160px] object-contain" />
@@ -40,9 +46,62 @@
     }
 
     <!-- Category bar (hidden on the minimal header) -->
-    @if (showCategoryBar() && categories().length) {
+    @if (showCategoryBar() && (hasCuratedMenu() || categories().length)) {
       <nav class="border-t border-slate-100">
         <div class="page-container flex items-center gap-7 overflow-x-auto md:overflow-x-visible py-2" [class.justify-center]="headerLayout() === 'centered'">
+          @if (hasCuratedMenu()) {
+            <!-- Merchant-curated nav (Phase 1): exactly what was authored under /admin/navigation, in
+                 that order — replaces the auto-dumped-every-category row below, which breaks down once a
+                 catalog has more categories than fit on one line. Dropdown/mega-menu content per item
+                 (Phase 3) mirrors Shopify's own model: most items are plain links, richness is opt-in
+                 per item, not forced on every one. -->
+            @for (item of mainMenuItems(); track item.label + item.url; let i = $index) {
+              <div class="relative shrink-0" (mouseenter)="activeCuratedMenu.set(i)" (mouseleave)="activeCuratedMenu.set(null)">
+                <a [routerLink]="item.url" class="text-sm font-medium text-slate-600 hover:text-primary shrink-0 whitespace-nowrap">{{ item.label }}</a>
+
+                @if (activeCuratedMenu() === i && item.megaMenu?.columns?.length) {
+                  <!-- Mega menu: independently-labeled columns side by side, plus an optional promo tile —
+                       the shape a plain link tree can't express (columns aren't children of one parent). -->
+                  <div class="absolute left-0 top-full pt-2 z-40">
+                    <div class="bg-white rounded-xl shadow-lg border border-slate-100 p-5 flex gap-8 w-max max-w-[90vw]">
+                      @for (col of item.megaMenu!.columns; track col.heading) {
+                        <div class="min-w-[140px]">
+                          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">{{ col.heading }}</p>
+                          <ul class="space-y-1.5">
+                            @for (link of col.links; track link.label) {
+                              <li><a [routerLink]="link.url" class="text-sm text-slate-700 hover:text-primary">{{ link.label }}</a></li>
+                            }
+                          </ul>
+                        </div>
+                      }
+                      @if (item.megaMenu!.promo; as promo) {
+                        <a [routerLink]="promo.link || '/products'" class="block w-40 shrink-0 rounded-lg overflow-hidden group">
+                          @if (promo.imageUrl) {
+                            <div class="aspect-square bg-slate-100 overflow-hidden">
+                              <img [src]="promo.imageUrl" [alt]="promo.heading" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+                            </div>
+                          }
+                          <p class="text-sm font-medium text-slate-800 mt-2">{{ promo.heading }}</p>
+                        </a>
+                      }
+                    </div>
+                  </div>
+                } @else if (activeCuratedMenu() === i && item.children?.length) {
+                  <!-- Simple dropdown: one flat list of links, same visual treatment as the category
+                       fallback's flyout. -->
+                  <div class="absolute left-0 top-full pt-2 z-40">
+                    <div class="bg-white rounded-xl shadow-lg border border-slate-100 p-4 w-max max-w-[90vw] min-w-[160px]">
+                      <ul class="space-y-1.5">
+                        @for (child of item.children!; track child.label) {
+                          <li><a [routerLink]="child.url" class="block text-sm text-slate-700 hover:text-primary">{{ child.label }}</a></li>
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          } @else {
           <a routerLink="/products" class="flex flex-col items-center gap-1 text-slate-600 hover:text-primary shrink-0">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             <span class="text-xs font-medium whitespace-nowrap">All</span>
@@ -100,10 +159,12 @@
               }
             </div>
           }
+          }
         </div>
       </nav>
     }
   </header>
+  <app-mobile-nav-drawer [items]="effectiveNavItems()" [open]="mobileNavOpen()" (closed)="mobileNavOpen.set(false)" />
   }
 
   <main class="flex-1">

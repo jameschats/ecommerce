@@ -7,7 +7,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Navigation;
 
-public sealed record MenuItemDto(string Label, string Url, List<MenuItemDto>? Children = null);
+public sealed record MenuItemDto(string Label, string Url, List<MenuItemDto>? Children = null, MegaMenuDto? MegaMenu = null);
+/// <summary>Rich, multi-column dropdown content for one top-level menu item — independent groupings side
+/// by side (e.g. "Shop by Concern" / "Shop by Ingredients" / "Skin Care"), not a category's children.
+/// Optional per item; an item with none just renders its plain Children (if any) or nothing.</summary>
+public sealed record MegaMenuDto(List<MegaMenuColumnDto> Columns, MegaMenuPromoDto? Promo = null);
+public sealed record MegaMenuColumnDto(string Heading, List<MenuItemDto> Links);
+public sealed record MegaMenuPromoDto(string ImageUrl, string Heading, string? Link);
 public sealed record MenuDto(string Handle, string Title, IReadOnlyList<MenuItemDto> Items);
 public sealed record SaveMenuRequest(IReadOnlyList<MenuItemDto> Items);
 
