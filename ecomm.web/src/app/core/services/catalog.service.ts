@@ -10,6 +10,7 @@ export interface PublicCollection {
   collectionId: number; name: string; slug: string; description: string | null; imageUrl: string | null;
   metaTitle: string | null; metaDescription: string | null; products: PublicCollectionProduct[];
 }
+export interface PublicCollectionSummary { collectionId: number; name: string; slug: string; imageUrl: string | null; productCount: number; }
 export interface StorePolicy { handle: string; title: string; bodyHtml: string | null; hasContent: boolean; }
 export interface PolicyLink { handle: string; title: string; }
 export interface StoreSeo { title: string | null; description: string | null; image: string | null; }
@@ -39,6 +40,14 @@ export class CatalogService {
 
   getBrands(): Observable<Brand[]> {
     return this.http.get<ApiResponse<Brand[]>>(`${this.base}/brands`).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
+    );
+  }
+
+  /** All active collections, lightweight — for the "all collections" index page/section. */
+  getCollections(): Observable<PublicCollectionSummary[]> {
+    return this.http.get<ApiResponse<PublicCollectionSummary[]>>(`${this.base}/collections`).pipe(
       map((r) => r.data ?? []),
       catchError(() => of([])),
     );

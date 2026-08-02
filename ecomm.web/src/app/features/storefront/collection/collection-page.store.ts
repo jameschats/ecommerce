@@ -27,6 +27,7 @@ export class CollectionPageStore {
   readonly brands = signal<Brand[]>([]);
   readonly activeCategory = signal<Category | null>(null);
   readonly loading = signal(true);
+  readonly loadingMore = signal(false);
   /** Placeholder cards shown while products load (keeps layout height stable). */
   readonly skeletons = Array.from({ length: 10 }, (_, i) => i);
   /** Pure UI state, not persisted/URL-driven — resets to grid each visit, same as most sites. */
@@ -39,8 +40,15 @@ export class CollectionPageStore {
   minPrice: number | '' = '';
   maxPrice: number | '' = '';
 
-  /** Wire the route → data pipeline (called once by the host). */
-  init(): void {
+  /** Driven by CollectionGrid's own authored settings — read once by the host before init() so the
+   * very first query already uses the right page size, instead of racing a signal update against it. */
+  private pageSize = 12;
+  private lastQuery: ProductQuery | null = null;
+
+  /** Wire the route → data pipeline (called once by the host, after it's resolved the template's
+   * CollectionGrid settings). */
+  init(pageSize = 12): void {
+    this.pageSize = pageSize > 0 ? pageSize : 12;
     this.catalog.getBrands().subscribe((b) => this.brands.set(b));
 
     combineLatest([this.route.paramMap, this.route.queryParamMap])
@@ -68,8 +76,9 @@ export class CollectionPageStore {
                 minPrice: this.minPrice || undefined,
                 maxPrice: this.maxPrice || undefined,
                 page: query.get('page') ? +query.get('page')! : 1,
-                pageSize: 12,
+                pageSize: this.pageSize,
               };
+              this.lastQuery = q;
               return this.catalog.getProducts(q);
             }),
           );
@@ -83,6 +92,23 @@ export class CollectionPageStore {
         },
         error: () => this.loading.set(false),
       });
+  }
+
+  /** "Load more" pagination: appends the next page onto the current results instead of replacing them. */
+  loadMore(): void {
+    const current = this.result();
+    if (!current || !this.lastQuery || this.loadingMore()) return;
+    const nextPage = current.page + 1;
+    if (nextPage > current.totalPages) return;
+    this.loadingMore.set(true);
+    this.catalog.getProducts({ ...this.lastQuery, page: nextPage }).subscribe({
+      next: (res) => {
+        this.result.set({ ...res, items: [...current.items, ...res.items] });
+        this.lastQuery = { ...this.lastQuery!, page: nextPage };
+        this.loadingMore.set(false);
+      },
+      error: () => this.loadingMore.set(false),
+    });
   }
 
   private applySeo(): void {

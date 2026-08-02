@@ -23,6 +23,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/storefront/collection/collection-page.component').then((m) => m.CollectionPageComponent),
   },
   {
+    path: 'collections',
+    loadComponent: () => import('./features/storefront/collections-list/collections-list-page.component').then((m) => m.CollectionsListPageComponent),
+  },
+  {
     path: 'product/:slug',
     loadComponent: () => import('./features/storefront/product/product-page.component').then((m) => m.ProductPageComponent),
   },

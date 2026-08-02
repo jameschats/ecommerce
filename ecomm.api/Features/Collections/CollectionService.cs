@@ -28,9 +28,14 @@ public sealed record PublicCollectionDto(
     long CollectionId, string Name, string Slug, string? Description, string? ImageUrl,
     string? MetaTitle, string? MetaDescription, IReadOnlyList<CollectionProductDto> Products);
 
+/// <summary>Lightweight — for the "all collections" index page. No embedded product list (that would be
+/// wasteful for a page listing every collection); just enough to render a tile grid.</summary>
+public sealed record PublicCollectionSummaryDto(long CollectionId, string Name, string Slug, string? ImageUrl, int ProductCount);
+
 public interface ICollectionService
 {
     Task<IReadOnlyList<CollectionDto>> ListAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PublicCollectionSummaryDto>> ListPublicAsync(CancellationToken ct = default);
     Task<CollectionDto> GetAsync(long id, CancellationToken ct = default);
     Task<CollectionDto> CreateAsync(SaveCollectionRequest req, CancellationToken ct = default);
     Task<CollectionDto> UpdateAsync(long id, SaveCollectionRequest req, CancellationToken ct = default);
@@ -54,6 +59,15 @@ public sealed class CollectionService(EcommerceDbContext db) : ICollectionServic
         var result = new List<CollectionDto>();
         foreach (var c in cols)
             result.Add(ToDto(c, await CountAsync(c, ct)));
+        return result;
+    }
+
+    public async Task<IReadOnlyList<PublicCollectionSummaryDto>> ListPublicAsync(CancellationToken ct = default)
+    {
+        var cols = await db.Collections.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name).ToListAsync(ct);
+        var result = new List<PublicCollectionSummaryDto>();
+        foreach (var c in cols)
+            result.Add(new PublicCollectionSummaryDto(c.CollectionId, c.Name, c.Slug, c.ImageUrl, await MembersQuery(c, activeOnly: true).CountAsync(ct)));
         return result;
     }
 

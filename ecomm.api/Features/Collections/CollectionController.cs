@@ -46,6 +46,11 @@ public sealed class CollectionAdminController(ICollectionService collections) : 
 [Route("api/catalog/collections")]
 public sealed class CollectionPublicController(ICollectionService collections) : ControllerBase
 {
+    /// <summary>All active collections, lightweight — for the "all collections" index page/section.</summary>
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<PublicCollectionSummaryDto>>.Ok(await collections.ListPublicAsync(ct)));
+
     [HttpGet("{slug}")]
     public async Task<IActionResult> BySlug(string slug, CancellationToken ct)
     {

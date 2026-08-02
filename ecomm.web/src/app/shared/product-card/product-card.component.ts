@@ -16,7 +16,7 @@ const MAX_SWATCHES_SHOWN = 5;
   template: `
     <a [routerLink]="['/product', product().slug]"
        class="group block overflow-hidden sf-card">
-      <div class="relative aspect-square bg-slate-50 overflow-hidden">
+      <div class="relative bg-slate-50 overflow-hidden" [class]="aspectRatio() === 'portrait' ? 'aspect-[3/4]' : 'aspect-square'">
         @if (product().primaryImageUrl) {
           <img [src]="product().primaryImageUrl" [alt]="product().name"
                class="w-full h-full object-cover transition"
@@ -79,6 +79,7 @@ const MAX_SWATCHES_SHOWN = 5;
 })
 export class ProductCardComponent {
   product = input.required<ProductListItem>();
+  aspectRatio = input<'square' | 'portrait'>('square');
   readonly quickView = inject(QuickViewService);
 
   private readonly swatchSvc = inject(ColorSwatchService);

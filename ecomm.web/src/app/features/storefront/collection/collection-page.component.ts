@@ -6,10 +6,15 @@ import { ThemeService } from '../../../core/services/theme.service';
 import { StorefrontSectionComponent } from '../storefront-section.component';
 import { SectionSlot, slotsFrom } from '../section-slot';
 import { CollectionPageStore } from './collection-page.store';
-import { CollectionBreadcrumbsComponent, CollectionGridComponent, CollectionHeaderComponent } from './collection-sections.component';
+import {
+  CollectionBreadcrumbsComponent,
+  CollectionCategoriesComponent,
+  CollectionGridComponent,
+  CollectionHeaderComponent,
+} from './collection-sections.component';
 
 /** Default `collection` layout when the theme defines no collection template. Matches today's page. */
-const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionGrid'];
+const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionCategories', 'CollectionGrid'];
 
 /**
  * Section-composed collection/listing page (S3). Serves /products, /category/:slug
@@ -25,15 +30,16 @@ const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionGrid'];
  */
 @Component({
   selector: 'app-collection-page',
-  imports: [StorefrontSectionComponent, CollectionBreadcrumbsComponent, CollectionHeaderComponent, CollectionGridComponent],
+  imports: [StorefrontSectionComponent, CollectionBreadcrumbsComponent, CollectionHeaderComponent, CollectionCategoriesComponent, CollectionGridComponent],
   providers: [CollectionPageStore],
   template: `
     <section class="page-container py-8">
       @for (slot of slots(); track $index) {
         @switch (slot.type) {
           @case ('Breadcrumbs') { <app-collection-breadcrumbs /> }
-          @case ('CollectionHeader') { <app-collection-header /> }
-          @case ('CollectionGrid') { <app-collection-grid /> }
+          @case ('CollectionHeader') { <app-collection-header [settingsJson]="slot.data?.settings ?? null" /> }
+          @case ('CollectionCategories') { <app-collection-categories [settingsJson]="slot.data?.settings ?? null" /> }
+          @case ('CollectionGrid') { <app-collection-grid [settingsJson]="slot.data?.settings ?? null" /> }
           @default { @if (slot.data) { <app-storefront-section [section]="slot.data" /> } }
         }
       }
@@ -57,7 +63,16 @@ export class CollectionPageComponent implements OnInit {
           switchMap((info) => (info.authored ? of(info.sections) : this.theme.getTemplate('collection'))),
         );
       }),
-    ).subscribe((sections) => this.slots.set(slotsFrom(sections, DEFAULT_COLLECTION_SECTIONS)));
-    this.store.init();
+    ).subscribe((sections) => {
+      this.slots.set(slotsFrom(sections, DEFAULT_COLLECTION_SECTIONS));
+      // Read CollectionGrid's own "products per page" setting once, before starting the query
+      // pipeline, so the very first fetch already uses it instead of racing a settings update.
+      const gridSection = sections.find((s) => s.sectionType === 'CollectionGrid');
+      let pageSize = 12;
+      if (gridSection?.settings) {
+        try { pageSize = Number(JSON.parse(gridSection.settings).productsPerPage) || 12; } catch { /* keep default */ }
+      }
+      this.store.init(pageSize);
+    });
   }
 }

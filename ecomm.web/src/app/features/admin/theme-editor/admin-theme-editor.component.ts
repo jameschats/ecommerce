@@ -861,7 +861,7 @@ export class AdminThemeEditorComponent implements OnInit, OnDestroy {
     switch (key) {
       case 'product': return this.sampleProductSlug ? `/product/${this.sampleProductSlug}` : '/products';
       case 'collection': return this.sampleCategorySlug ? `/category/${this.sampleCategorySlug}` : '/products';
-      case 'list-collections': return '/products';
+      case 'list-collections': return '/collections';
       case 'search': return '/products?search=a';
       case 'cart': return '/cart';
       case 'password': return '/password';
