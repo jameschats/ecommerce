@@ -1,4 +1,4 @@
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -12,7 +12,7 @@ const MAX_SWATCHES_SHOWN = 5;
 
 @Component({
   selector: 'app-product-card',
-  imports: [RouterLink, CurrencyPipe, WishlistButtonComponent, CompareButtonComponent],
+  imports: [RouterLink, CurrencyPipe, DecimalPipe, WishlistButtonComponent, CompareButtonComponent],
   template: `
     <a [routerLink]="['/product', product().slug]"
        class="group block overflow-hidden sf-card">
@@ -53,6 +53,14 @@ const MAX_SWATCHES_SHOWN = 5;
       <div class="p-3">
         <p class="text-xs text-slate-400">{{ product().brandName ?? product().categoryName }}</p>
         <h3 class="text-sm font-medium text-slate-800 line-clamp-2 min-h-[2.5rem]">{{ product().name }}</h3>
+        @if (reviewCount() > 0) {
+          <div class="mt-1 flex items-center gap-1.5">
+            <span class="inline-flex items-center gap-0.5 rounded bg-green-600 text-white text-[11px] font-semibold px-1.5 py-0.5">
+              {{ rating() | number:'1.1-1' }}<span class="text-[9px] leading-none">★</span>
+            </span>
+            <span class="text-[11px] text-slate-400">({{ reviewCount() }})</span>
+          </div>
+        }
         <div class="mt-1 flex items-baseline gap-2">
           <span class="text-base font-semibold text-slate-900">{{ product().price | currency:'INR':'symbol':'1.0-0' }}</span>
           @if (product().compareAtPrice && product().compareAtPrice! > product().price) {
@@ -84,6 +92,9 @@ export class ProductCardComponent {
 
   private readonly swatchSvc = inject(ColorSwatchService);
   private readonly allSwatches = toSignal(this.swatchSvc.list(), { initialValue: [] });
+
+  readonly rating = computed(() => this.product().rating ?? 0);
+  readonly reviewCount = computed(() => this.product().reviewCount ?? 0);
 
   readonly discount = computed(() => {
     const p = this.product();

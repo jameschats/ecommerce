@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
-import { Brand, BundleComponent, Category, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
+import { Brand, BundleComponent, Category, Facets, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
 
 export interface PublicCollectionProduct { productId: number; name: string; slug: string; price: number; primaryImageUrl: string | null; }
 export interface PublicCollection {
@@ -113,7 +113,8 @@ export class CatalogService {
     );
   }
 
-  getProducts(query: ProductQuery): Observable<PagedResult<ProductListItem>> {
+  /** Shared query→HttpParams builder so the product list and the facet call filter identically. */
+  private buildParams(query: ProductQuery, includePaging: boolean): HttpParams {
     let params = new HttpParams();
     if (query.search) params = params.set('search', query.search);
     if (query.categoryId != null) params = params.set('categoryId', query.categoryId);
@@ -123,13 +124,37 @@ export class CatalogService {
     if (query.ids?.length) for (const id of query.ids) params = params.append('ids', id);
     if (query.minPrice != null) params = params.set('minPrice', query.minPrice);
     if (query.maxPrice != null) params = params.set('maxPrice', query.maxPrice);
+    if (query.brandIds?.length) for (const id of query.brandIds) params = params.append('brandIds', id);
+    if (query.color?.length) for (const c of query.color) params = params.append('color', c);
+    if (query.size?.length) for (const s of query.size) params = params.append('size', s);
+    if (query.attr?.length) for (const a of query.attr) params = params.append('attr', a);
+    if (query.inStock) params = params.set('inStock', true);
+    if (query.onSale) params = params.set('onSale', true);
+    if (query.minRating != null) params = params.set('minRating', query.minRating);
+    if (includePaging) params = params.set('page', query.page ?? 1).set('pageSize', query.pageSize ?? 12);
+    return params;
+  }
+
+  getProducts(query: ProductQuery): Observable<PagedResult<ProductListItem>> {
     const pageSize = query.pageSize ?? 12;
-    params = params.set('page', query.page ?? 1).set('pageSize', pageSize);
     return this.http
-      .get<ApiResponse<PagedResult<ProductListItem>>>(`${this.base}/products`, { params })
+      .get<ApiResponse<PagedResult<ProductListItem>>>(`${this.base}/products`, { params: this.buildParams(query, true) })
       .pipe(
         map((r) => r.data!),
         catchError(() => of({ items: [], page: query.page ?? 1, pageSize, totalCount: 0, totalPages: 0 })),
+      );
+  }
+
+  /** Available filter values + counts for the current filter set (drives the facet rail). */
+  getFacets(query: ProductQuery): Observable<Facets> {
+    return this.http
+      .get<ApiResponse<Facets>>(`${this.base}/facets`, { params: this.buildParams(query, false) })
+      .pipe(
+        map((r) => r.data!),
+        catchError(() => of<Facets>({
+          total: 0, brands: [], colors: [], sizes: [], attributes: [],
+          priceMin: 0, priceMax: 0, ratingCounts: [0, 0, 0, 0, 0], inStockCount: 0, onSaleCount: 0,
+        })),
       );
   }
 

@@ -67,6 +67,8 @@ export interface ProductListItem {
   colorOptions: string[];
   createdAt: string;
   secondaryImageUrl: string | null;
+  rating?: number;
+  reviewCount?: number;
 }
 
 export interface ProductDetail {
@@ -121,4 +123,29 @@ export interface ProductQuery {
   ids?: number[];
   minPrice?: number;
   maxPrice?: number;
+  // Faceted filters (multi-value)
+  brandIds?: number[];
+  color?: string[];
+  size?: string[];
+  attr?: string[];        // "code:value"
+  inStock?: boolean;
+  onSale?: boolean;
+  minRating?: number;
+}
+
+// ---- Facets ----
+export interface BrandFacet { brandId: number; name: string; count: number; }
+export interface ValueFacet { value: string; count: number; hex: string | null; }
+export interface AttributeFacet { code: string; name: string; values: ValueFacet[]; }
+export interface Facets {
+  total: number;
+  brands: BrandFacet[];
+  colors: ValueFacet[];
+  sizes: ValueFacet[];
+  attributes: AttributeFacet[];
+  priceMin: number;
+  priceMax: number;
+  ratingCounts: number[];   // index 0 = 1★+, … index 4 = 5★
+  inStockCount: number;
+  onSaleCount: number;
 }

@@ -3,10 +3,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest, switchMap } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
 import { PagedResult } from '../../../core/models/api-response.model';
-import { Brand, Category, ProductListItem, ProductQuery } from '../../../core/models/catalog.model';
+import { Brand, Category, Facets, ProductListItem, ProductQuery } from '../../../core/models/catalog.model';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
 import { ThemeService } from '../../../core/services/theme.service';
+
+/** One applied filter, for the removable chip row. */
+export interface FilterChip { label: string; remove: () => void; }
 
 /**
  * All state + behaviour for the collection/listing page (also serves search via
@@ -23,6 +26,7 @@ export class CollectionPageStore {
   private readonly siteUrl = inject(SITE_URL);
 
   readonly result = signal<PagedResult<ProductListItem> | null>(null);
+  readonly facets = signal<Facets | null>(null);
   readonly categories = signal<Category[]>([]);
   readonly brands = signal<Brand[]>([]);
   readonly activeCategory = signal<Category | null>(null);
@@ -39,6 +43,16 @@ export class CollectionPageStore {
   brandId: number | '' = '';
   minPrice: number | '' = '';
   maxPrice: number | '' = '';
+
+  // Multi-value facet selections — mirror the URL (?brandIds=&color=&size=&attr=&inStock=&onSale=&minRating=).
+  // Re-read from the query params on every navigation, exactly like the scalar fields above.
+  brandIds: number[] = [];
+  colors: string[] = [];
+  sizes: string[] = [];
+  attrs: string[] = []; // "code:value"
+  inStock = false;
+  onSale = false;
+  minRating: number | '' = '';
 
   /** Driven by CollectionGrid's own authored settings — read once by the host before init() so the
    * very first query already uses the right page size, instead of racing a signal update against it. */
@@ -67,6 +81,13 @@ export class CollectionPageStore {
               this.brandId = query.get('brandId') ? +query.get('brandId')! : '';
               this.minPrice = query.get('minPrice') ? +query.get('minPrice')! : '';
               this.maxPrice = query.get('maxPrice') ? +query.get('maxPrice')! : '';
+              this.brandIds = query.getAll('brandIds').map(Number).filter((n) => !isNaN(n));
+              this.colors = query.getAll('color');
+              this.sizes = query.getAll('size');
+              this.attrs = query.getAll('attr');
+              this.inStock = query.get('inStock') === 'true';
+              this.onSale = query.get('onSale') === 'true';
+              this.minRating = query.get('minRating') ? +query.get('minRating')! : '';
 
               const q: ProductQuery = {
                 search: this.searchText || undefined,
@@ -75,18 +96,28 @@ export class CollectionPageStore {
                 sort: this.sort || undefined,
                 minPrice: this.minPrice || undefined,
                 maxPrice: this.maxPrice || undefined,
+                brandIds: this.brandIds.length ? this.brandIds : undefined,
+                color: this.colors.length ? this.colors : undefined,
+                size: this.sizes.length ? this.sizes : undefined,
+                attr: this.attrs.length ? this.attrs : undefined,
+                inStock: this.inStock || undefined,
+                onSale: this.onSale || undefined,
+                minRating: this.minRating || undefined,
                 page: query.get('page') ? +query.get('page')! : 1,
                 pageSize: this.pageSize,
               };
               this.lastQuery = q;
-              return this.catalog.getProducts(q);
+              // Facets reflect the current filter set (server applies per-facet exclusion so multi-select
+              // stays usable); load them next to the products so the rail and grid update together.
+              return combineLatest([this.catalog.getProducts(q), this.catalog.getFacets(q)]);
             }),
           );
         }),
       )
       .subscribe({
-        next: (res) => {
+        next: ([res, facets]) => {
           this.result.set(res);
+          this.facets.set(facets);
           this.loading.set(false);
           this.applySeo();
         },
@@ -130,6 +161,78 @@ export class CollectionPageStore {
       ...extra,
     };
     this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' });
+  }
+
+  // ---- Facet filters -------------------------------------------------------
+  // Each toggle rewrites its own URL param (arrays for multi-select) and resets to page 1; the route
+  // pipeline above re-reads the params, re-queries products + facets, and the rail/grid re-render.
+
+  /** Merge facet params into the URL, always resetting pagination. Empty arrays clear the key. */
+  private navFacets(params: Record<string, string | number | boolean | string[] | number[] | null>): void {
+    const cleaned: Record<string, string | number | boolean | string[] | number[] | null> = { page: null };
+    for (const [k, v] of Object.entries(params)) cleaned[k] = Array.isArray(v) && v.length === 0 ? null : v;
+    this.router.navigate([], { relativeTo: this.route, queryParams: cleaned, queryParamsHandling: 'merge' });
+  }
+
+  private toggle<T>(list: T[], value: T): T[] {
+    return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
+  }
+
+  toggleBrand(id: number): void { this.navFacets({ brandIds: this.toggle(this.brandIds, id) }); }
+  toggleColor(v: string): void { this.navFacets({ color: this.toggle(this.colors, v) }); }
+  toggleSize(v: string): void { this.navFacets({ size: this.toggle(this.sizes, v) }); }
+  toggleAttr(code: string, value: string): void { this.navFacets({ attr: this.toggle(this.attrs, `${code}:${value}`) }); }
+  isAttrActive(code: string, value: string): boolean { return this.attrs.includes(`${code}:${value}`); }
+
+  setInStock(on: boolean): void { this.navFacets({ inStock: on ? true : null }); }
+  setOnSale(on: boolean): void { this.navFacets({ onSale: on ? true : null }); }
+  /** Toggle the "n★ & up" rating filter; clicking the active one clears it. */
+  setMinRating(n: number): void { this.navFacets({ minRating: this.minRating === n ? null : n }); }
+
+  setPrice(min: number | '' | null, max: number | '' | null): void {
+    this.navFacets({ minPrice: min || null, maxPrice: max || null });
+  }
+
+  setSort(sort: string): void {
+    this.sort = sort;
+    this.navFacets({ sort: sort || null });
+  }
+
+  /** Any storefront filter active (not counting sort/search) — drives the chip row + "clear all". */
+  get hasActiveFilters(): boolean {
+    return this.brandIds.length > 0 || this.colors.length > 0 || this.sizes.length > 0 || this.attrs.length > 0
+      || this.inStock || this.onSale || this.minRating !== '' || this.minPrice !== '' || this.maxPrice !== '';
+  }
+
+  clearAll(): void {
+    this.navFacets({
+      brandIds: null, color: null, size: null, attr: null,
+      inStock: null, onSale: null, minRating: null, minPrice: null, maxPrice: null,
+    });
+  }
+
+  /** Removable chips for every applied filter — label + its own undo action. */
+  get chips(): FilterChip[] {
+    const chips: FilterChip[] = [];
+    const brandName = (id: number) => this.brands().find((b) => b.brandId === id)?.name ?? `Brand ${id}`;
+    for (const id of this.brandIds) chips.push({ label: brandName(id), remove: () => this.toggleBrand(id) });
+    for (const c of this.colors) chips.push({ label: c, remove: () => this.toggleColor(c) });
+    for (const s of this.sizes) chips.push({ label: `Size: ${s}`, remove: () => this.toggleSize(s) });
+    for (const a of this.attrs) {
+      const [code, ...rest] = a.split(':');
+      const value = rest.join(':');
+      const name = this.facets()?.attributes.find((at) => at.code === code)?.name ?? code;
+      chips.push({ label: `${name}: ${value}`, remove: () => this.toggleAttr(code, value) });
+    }
+    if (this.inStock) chips.push({ label: 'In stock', remove: () => this.setInStock(false) });
+    if (this.onSale) chips.push({ label: 'On sale', remove: () => this.setOnSale(false) });
+    if (this.minRating !== '') chips.push({ label: `${this.minRating}★ & up`, remove: () => this.setMinRating(this.minRating as number) });
+    if (this.minPrice !== '' || this.maxPrice !== '') {
+      const lo = this.minPrice === '' ? '0' : this.minPrice;
+      const hi = this.maxPrice === '' ? '∞' : this.maxPrice;
+      chips.push({ label: `₹${lo}–${hi}`, remove: () => this.setPrice(null, null) });
+    }
+    return chips;
   }
 
   goToPage(page: number): void {
