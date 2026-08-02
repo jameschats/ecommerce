@@ -160,6 +160,7 @@ builder.Services.AddScoped<ecomm.api.Features.Growth.IBrandKitService, ecomm.api
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthGenerationService, ecomm.api.Features.Growth.GrowthGenerationService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthCampaignService, ecomm.api.Features.Growth.GrowthCampaignService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthImageService, ecomm.api.Features.Growth.GrowthImageService>();
+builder.Services.AddScoped<ecomm.api.Features.Growth.ICatalogImageService, ecomm.api.Features.Growth.CatalogImageService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Dashboard.IDashboardService, ecomm.api.Features.Dashboard.DashboardService>();
