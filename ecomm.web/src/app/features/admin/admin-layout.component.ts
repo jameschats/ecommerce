@@ -12,7 +12,7 @@ import { Announcement } from '../../core/models/superadmin.model';
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <div class="min-h-screen flex bg-slate-50">
-      <aside class="w-56 bg-white border-r border-slate-200 flex flex-col">
+      <aside class="w-56 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen self-start">
         <div class="h-14 flex items-center px-4 border-b border-slate-200 font-bold text-slate-800">Admin</div>
         <nav class="flex-1 p-3 text-sm overflow-auto">
           @for (g of groups; track g.title) {
