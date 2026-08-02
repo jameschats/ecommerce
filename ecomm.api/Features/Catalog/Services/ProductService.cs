@@ -13,6 +13,7 @@ namespace ecomm.api.Features.Catalog.Services;
 public interface IProductService
 {
     Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default);
+    Task<FacetsDto> FacetsAsync(ProductQuery query, CancellationToken ct = default);
     Task<ProductDetailDto?> GetByIdAsync(long id, CancellationToken ct = default);
     Task<ProductDetailDto?> GetBySlugAsync(string slug, CancellationToken ct = default);
     Task<ProductDetailDto> CreateAsync(SaveProductRequest req, long? userId, CancellationToken ct = default);
@@ -44,57 +45,23 @@ public sealed class ProductService : IProductService
         var page = Math.Max(1, query.Page);
         var pageSize = Math.Clamp(query.PageSize, 1, 100);
 
-        var q = _db.Products.Where(p => p.TenantId == Tenant && !p.IsDeleted);
+        var categoryIds = await ExpandCategoryAsync(query.CategoryId, ct);
+        var attrFilters = ParseAttrs(query.Attr);
 
-        if (!adminView)
-            q = q.Where(p => p.IsActive && p.Status == "Active");
-        else if (!string.IsNullOrWhiteSpace(query.Status))
-            q = q.Where(p => p.Status == query.Status);
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var s = query.Search.Trim();
-            // MySQL FULLTEXT (boolean + prefix) on Name/ShortDescription/Description, with a LIKE fallback
-            // for SKUs and short tokens that full-text ignores.
-            var tokens = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => t.Length >= 3).ToList();
-            if (tokens.Count > 0)
-            {
-                var boolQuery = string.Join(' ', tokens.Select(t => $"+{t}*"));
-                q = q.Where(p =>
-                    EF.Functions.Match(new[] { p.Name, p.ShortDescription!, p.Description! }, boolQuery, MySqlMatchSearchMode.Boolean) > 0
-                    || p.Sku.Contains(s)
-                    || p.Category!.Name.Contains(s)
-                    || (p.Brand != null && p.Brand.Name.Contains(s))
-                    || p.AttributeValues.Any(av =>
-                        (av.ValueText != null && av.ValueText.Contains(s)) || (av.Value != null && av.Value.Value.Contains(s))));
-            }
-            else
-            {
-                q = q.Where(p =>
-                    p.Name.Contains(s) || p.Sku.Contains(s)
-                    || p.Category!.Name.Contains(s)
-                    || (p.Brand != null && p.Brand.Name.Contains(s))
-                    || p.AttributeValues.Any(av =>
-                        (av.ValueText != null && av.ValueText.Contains(s)) || (av.Value != null && av.Value.Value.Contains(s))));
-            }
-        }
-        if (query.CategoryId is { } cat) q = q.Where(p => p.CategoryId == cat);
-        if (query.BrandId is { } brand) q = q.Where(p => p.BrandId == brand);
-        if (query.IsFeatured is { } feat) q = q.Where(p => p.IsFeatured == feat);
-        if (query.Ids is { Count: > 0 } ids) q = q.Where(p => ids.Contains(p.ProductId));
-        if (query.MinPrice is { } min) q = q.Where(p => p.Price >= min);
-        if (query.MaxPrice is { } max) q = q.Where(p => p.Price <= max);
+        var q = ApplyFacetFilters(BaseBrowseQuery(query, adminView), query, categoryIds, attrFilters, exclude: null);
 
         q = query.Sort switch
         {
             "price" => q.OrderBy(p => p.Price),
             "price_desc" => q.OrderByDescending(p => p.Price),
             "name" => q.OrderBy(p => p.Name),
+            "rating" => q.OrderByDescending(p =>
+                _db.Reviews.Where(r => r.ProductId == p.ProductId && r.IsApproved).Average(r => (double?)r.Rating) ?? 0),
+            "discount" => q.OrderByDescending(p =>
+                p.CompareAtPrice != null && p.CompareAtPrice > p.Price ? (p.CompareAtPrice.Value - p.Price) / p.CompareAtPrice.Value : 0),
             // All-time total quantity sold (not date-ranged like AnalyticsService.BestSellersAsync,
             // which is a separate admin-report concern) — a correlated subquery since Product has no
-            // reverse nav to OrderItem. Previously this string silently fell through to the default
-            // (CreatedAt desc) for every caller, including FeaturedProducts CMS sections configured
-            // with source: bestsellers — this both adds the PLP "Popularity" sort and fixes that.
+            // reverse nav to OrderItem.
             "bestsellers" => q.OrderByDescending(p =>
                 _db.OrderItems.Where(oi => oi.ProductId == p.ProductId && SoldStatuses.Contains(oi.Order!.Status))
                     .Sum(oi => (int?)oi.Quantity) ?? 0),
@@ -104,20 +71,124 @@ public sealed class ProductService : IProductService
         var total = await q.LongCountAsync(ct);
         var items = await q
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(ListItemProjection)
+            .Select(ListItemProjection())
             .ToListAsync(ct);
 
-        return new PagedResult<ProductListItemDto>
-        {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalCount = total,
-        };
+        return new PagedResult<ProductListItemDto> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };
     }
 
-    /// <summary>Shared with <see cref="GetFrequentlyBoughtTogetherAsync"/> — one projection, two callers.</summary>
-    private static readonly Expression<Func<Product, ProductListItemDto>> ListItemProjection = p => new ProductListItemDto(
+    /// <summary>Base set + visibility + search, before facet filters. Shared by browse and facet counting.</summary>
+    private IQueryable<Product> BaseBrowseQuery(ProductQuery query, bool adminView)
+    {
+        var q = _db.Products.Where(p => p.TenantId == Tenant && !p.IsDeleted);
+        if (!adminView) q = q.Where(p => p.IsActive && p.Status == "Active");
+        else if (!string.IsNullOrWhiteSpace(query.Status)) q = q.Where(p => p.Status == query.Status);
+        if (query.IsFeatured is { } feat) q = q.Where(p => p.IsFeatured == feat);
+        if (query.Ids is { Count: > 0 } ids) q = q.Where(p => ids.Contains(p.ProductId));
+        return ApplySearch(q, query.Search);
+    }
+
+    private static IQueryable<Product> ApplySearch(IQueryable<Product> q, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return q;
+        var s = search.Trim();
+        // MySQL FULLTEXT (boolean + prefix) on Name/ShortDescription/Description, with a LIKE fallback
+        // for SKUs and short tokens that full-text ignores.
+        var tokens = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => t.Length >= 3).ToList();
+        if (tokens.Count > 0)
+        {
+            var boolQuery = string.Join(' ', tokens.Select(t => $"+{t}*"));
+            return q.Where(p =>
+                EF.Functions.Match(new[] { p.Name, p.ShortDescription!, p.Description! }, boolQuery, MySqlMatchSearchMode.Boolean) > 0
+                || p.Sku.Contains(s) || p.Category!.Name.Contains(s) || (p.Brand != null && p.Brand.Name.Contains(s))
+                || p.AttributeValues.Any(av => (av.ValueText != null && av.ValueText.Contains(s)) || (av.Value != null && av.Value.Value.Contains(s))));
+        }
+        return q.Where(p =>
+            p.Name.Contains(s) || p.Sku.Contains(s) || p.Category!.Name.Contains(s) || (p.Brand != null && p.Brand.Name.Contains(s))
+            || p.AttributeValues.Any(av => (av.ValueText != null && av.ValueText.Contains(s)) || (av.Value != null && av.Value.Value.Contains(s))));
+    }
+
+    /// <summary>
+    /// Applies every facet filter except the one named in <paramref name="exclude"/>. That exclusion is
+    /// what lets a facet's own counts stay usable for multi-select (choosing "Silk" mustn't zero "Cotton").
+    /// Exclude keys: "category", "brand", "price", "color", "size", "stock", "sale", "rating", or "attr:{code}".
+    /// </summary>
+    private IQueryable<Product> ApplyFacetFilters(
+        IQueryable<Product> q, ProductQuery query, IReadOnlyCollection<long> categoryIds,
+        IReadOnlyDictionary<string, List<string>> attrFilters, string? exclude)
+    {
+        if (exclude != "category" && categoryIds.Count > 0)
+            q = q.Where(p => categoryIds.Contains(p.CategoryId));
+
+        if (exclude != "brand")
+        {
+            var brandIds = (query.BrandIds ?? new List<long>()).ToList();
+            if (query.BrandId is { } b && !brandIds.Contains(b)) brandIds.Add(b);
+            if (brandIds.Count > 0) q = q.Where(p => p.BrandId != null && brandIds.Contains(p.BrandId.Value));
+        }
+        if (exclude != "price")
+        {
+            if (query.MinPrice is { } min) q = q.Where(p => p.Price >= min);
+            if (query.MaxPrice is { } max) q = q.Where(p => p.Price <= max);
+        }
+        if (exclude != "color" && query.Color is { Count: > 0 } colors)
+            q = q.Where(p => p.Variants.Any(v => v.Options.Any(o => o.OptionName == "Color" && colors.Contains(o.OptionValue))));
+        if (exclude != "size" && query.Size is { Count: > 0 } sizes)
+            q = q.Where(p => p.Variants.Any(v => v.Options.Any(o => o.OptionName == "Size" && sizes.Contains(o.OptionValue))));
+
+        foreach (var (code, values) in attrFilters)
+            if (exclude != "attr:" + code)
+                q = q.Where(p => p.AttributeValues.Any(av =>
+                    av.Attribute!.Code == code &&
+                    ((av.ValueText != null && values.Contains(av.ValueText)) || (av.Value != null && values.Contains(av.Value.Value)))));
+
+        if (exclude != "stock" && query.InStock == true)
+            q = q.Where(p => p.InventoryRecords.Sum(i => i.AvailableQty) > 0);
+        if (exclude != "sale" && query.OnSale == true)
+            q = q.Where(p => p.CompareAtPrice != null && p.CompareAtPrice > p.Price);
+        if (exclude != "rating" && query.MinRating is { } mr)
+            q = q.Where(p => (_db.Reviews.Where(r => r.ProductId == p.ProductId && r.IsApproved).Average(r => (double?)r.Rating) ?? 0) >= mr);
+
+        return q;
+    }
+
+    /// <summary>A category id expands to itself + all descendants, so browsing a parent shows child products.</summary>
+    private async Task<IReadOnlyCollection<long>> ExpandCategoryAsync(long? categoryId, CancellationToken ct)
+    {
+        if (categoryId is not { } root) return Array.Empty<long>();
+        var all = await _db.Categories.AsNoTracking()
+            .Select(c => new { c.CategoryId, c.ParentCategoryId }).ToListAsync(ct);
+        var byParent = all.ToLookup(c => c.ParentCategoryId);
+        var result = new List<long>();
+        var stack = new Stack<long>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var id = stack.Pop();
+            result.Add(id);
+            foreach (var child in byParent[id]) stack.Push(child.CategoryId);
+        }
+        return result;
+    }
+
+    /// <summary>Parse <c>["fabric:Silk","fabric:Cotton","occasion:Wedding"]</c> into code → [values].</summary>
+    private static Dictionary<string, List<string>> ParseAttrs(IReadOnlyList<string>? attrs)
+    {
+        var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in attrs ?? new List<string>())
+        {
+            var i = raw.IndexOf(':');
+            if (i <= 0 || i == raw.Length - 1) continue;
+            var code = raw[..i].Trim();
+            var value = raw[(i + 1)..].Trim();
+            if (code.Length == 0 || value.Length == 0) continue;
+            (map.TryGetValue(code, out var list) ? list : map[code] = new List<string>()).Add(value);
+        }
+        return map;
+    }
+
+    /// <summary>Card projection. Instance (not static) so it can carry the review-rating subquery.</summary>
+    private Expression<Func<Product, ProductListItemDto>> ListItemProjection() => p => new ProductListItemDto(
         p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
         p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
         p.Category!.Name,
@@ -127,7 +198,98 @@ public sealed class ProductService : IProductService
         p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
         p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList(),
         p.CreatedAt,
-        p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault());
+        p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault(),
+        _db.Reviews.Where(r => r.ProductId == p.ProductId && r.IsApproved).Average(r => (double?)r.Rating) ?? 0,
+        _db.Reviews.Count(r => r.ProductId == p.ProductId && r.IsApproved));
+
+    /// <summary>
+    /// Available filter values + counts for the current result set (the facet rail). Each multi-select
+    /// facet is counted with its own selection excluded (see <see cref="ApplyFacetFilters"/>), so a shopper
+    /// can pick more than one value in a group.
+    /// </summary>
+    public async Task<FacetsDto> FacetsAsync(ProductQuery query, CancellationToken ct = default)
+    {
+        var categoryIds = await ExpandCategoryAsync(query.CategoryId, ct);
+        var attrFilters = ParseAttrs(query.Attr);
+        var baseQ = BaseBrowseQuery(query, adminView: false);
+
+        // The fully-filtered set drives the toggle counts, price range and total.
+        var full = ApplyFacetFilters(baseQ, query, categoryIds, attrFilters, exclude: null);
+        var total = await full.CountAsync(ct);
+        var priceMin = total == 0 ? 0 : await full.MinAsync(p => p.Price, ct);
+        var priceMax = total == 0 ? 0 : await full.MaxAsync(p => p.Price, ct);
+        var inStockCount = await full.CountAsync(p => p.InventoryRecords.Sum(i => i.AvailableQty) > 0, ct);
+        var onSaleCount = await full.CountAsync(p => p.CompareAtPrice != null && p.CompareAtPrice > p.Price, ct);
+
+        // Facet value counts are computed as "distinct products per value" over the set filtered by all
+        // OTHER facets — so each group's own selection doesn't zero its siblings (multi-select). The value
+        // aggregation materializes distinct (product, value) pairs then groups in memory: one shape that
+        // both MySQL and the in-memory test provider translate cleanly, and correct for count-distinct.
+
+        // Rating buckets (exclude rating).
+        var ratingIds = await FacetSetIdsAsync(baseQ, query, categoryIds, attrFilters, "rating", ct);
+        var avgByProduct = (await _db.Reviews.AsNoTracking()
+                .Where(r => r.IsApproved && ratingIds.Contains(r.ProductId))
+                .GroupBy(r => r.ProductId)
+                .Select(g => new { g.Key, Avg = g.Average(x => (double)x.Rating) }).ToListAsync(ct))
+            .ToDictionary(x => x.Key, x => x.Avg);
+        var ratingCounts = new int[5];
+        for (var star = 1; star <= 5; star++)
+            ratingCounts[star - 1] = ratingIds.Count(id => avgByProduct.TryGetValue(id, out var a) && a >= star);
+
+        // Brand facet (exclude brand).
+        var brandIdSet = await FacetSetIdsAsync(baseQ, query, categoryIds, attrFilters, "brand", ct);
+        var brands = (await _db.Products.AsNoTracking()
+                .Where(p => brandIdSet.Contains(p.ProductId) && p.BrandId != null)
+                .Select(p => new { Id = p.BrandId!.Value, p.Brand!.Name }).ToListAsync(ct))
+            .GroupBy(x => (x.Id, x.Name))
+            .Select(g => new BrandFacetDto(g.Key.Id, g.Key.Name, g.Count()))
+            .OrderByDescending(b => b.Count).ToList();
+
+        // Colour + size, from variant options — distinct products per value.
+        var colorIds = await FacetSetIdsAsync(baseQ, query, categoryIds, attrFilters, "color", ct);
+        var colorPairs = await _db.VariantOptions.AsNoTracking()
+            .Where(o => o.OptionName == "Color" && colorIds.Contains(o.Variant!.ProductId))
+            .Select(o => new { Pid = o.Variant!.ProductId, o.OptionValue }).Distinct().ToListAsync(ct);
+        var colors = GroupValues(colorPairs.Select(x => (x.Pid, x.OptionValue)));
+
+        var sizeIds = await FacetSetIdsAsync(baseQ, query, categoryIds, attrFilters, "size", ct);
+        var sizePairs = await _db.VariantOptions.AsNoTracking()
+            .Where(o => o.OptionName == "Size" && sizeIds.Contains(o.Variant!.ProductId))
+            .Select(o => new { Pid = o.Variant!.ProductId, o.OptionValue }).Distinct().ToListAsync(ct);
+        var sizes = GroupValues(sizePairs.Select(x => (x.Pid, x.OptionValue)));
+
+        // One attribute facet per filterable attribute, each excluding its own selection.
+        var filterable = await _db.Attributes.AsNoTracking()
+            .Where(a => a.IsFilterable && a.IsActive)
+            .Select(a => new { a.Code, a.Name }).ToListAsync(ct);
+        var attributes = new List<AttributeFacetDto>();
+        foreach (var a in filterable)
+        {
+            var code = a.Code;
+            var ids = await FacetSetIdsAsync(baseQ, query, categoryIds, attrFilters, "attr:" + code, ct);
+            var pairs = await _db.ProductAttributeValues.AsNoTracking()
+                .Where(av => av.Attribute!.Code == code && ids.Contains(av.ProductId))
+                .Select(av => new { av.ProductId, Val = av.ValueText ?? av.Value!.Value }).Distinct().ToListAsync(ct);
+            var values = GroupValues(pairs.Select(x => (x.ProductId, x.Val)));
+            if (values.Count > 0) attributes.Add(new AttributeFacetDto(code, a.Name, values));
+        }
+
+        return new FacetsDto(total, brands, colors, sizes, attributes, priceMin, priceMax, ratingCounts, inStockCount, onSaleCount);
+    }
+
+    /// <summary>Product ids matching every facet except <paramref name="exclude"/>.</summary>
+    private async Task<HashSet<long>> FacetSetIdsAsync(
+        IQueryable<Product> baseQ, ProductQuery query, IReadOnlyCollection<long> categoryIds,
+        IReadOnlyDictionary<string, List<string>> attrFilters, string exclude, CancellationToken ct) =>
+        (await ApplyFacetFilters(baseQ, query, categoryIds, attrFilters, exclude)
+            .Select(p => p.ProductId).ToListAsync(ct)).ToHashSet();
+
+    /// <summary>Distinct (productId, value) pairs → value facets with distinct-product counts, biggest first.</summary>
+    private static List<ValueFacetDto> GroupValues(IEnumerable<(long Pid, string Value)> pairs) =>
+        pairs.GroupBy(p => p.Value)
+            .Select(g => new ValueFacetDto(g.Key, g.Select(x => x.Pid).Distinct().Count(), null))
+            .OrderByDescending(v => v.Count).ThenBy(v => v.Value).ToList();
 
     public async Task<List<ProductListItemDto>> GetFrequentlyBoughtTogetherAsync(long productId, int take, CancellationToken ct = default)
     {
@@ -151,7 +313,7 @@ public sealed class ProductService : IProductService
 
         var items = await _db.Products
             .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active" && rankedIds.Contains(p.ProductId))
-            .Select(ListItemProjection)
+            .Select(ListItemProjection())
             .ToListAsync(ct);
 
         var rank = rankedIds.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);

@@ -56,6 +56,26 @@ public sealed class CatalogController : ControllerBase
         return Ok(ApiResponse<PagedResult<ProductListItemDto>>.Ok(result));
     }
 
+    /// <summary>Available filter values + counts for the current result set — drives the facet rail.</summary>
+    [HttpGet("facets")]
+    public async Task<IActionResult> Facets([FromQuery] ProductQuery query, CancellationToken ct)
+    {
+        var facets = await _products.FacetsAsync(query, ct);
+
+        // Enrich colour values with their hex so the storefront can draw real swatch dots.
+        var swatches = (await _swatches.ListAsync(ct))
+            .GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().HexCode, StringComparer.OrdinalIgnoreCase);
+        if (facets.Colors.Count > 0)
+        {
+            var colors = facets.Colors
+                .Select(c => c with { Hex = swatches.TryGetValue(c.Value, out var hex) ? hex : null })
+                .ToList();
+            facets = facets with { Colors = colors };
+        }
+        return Ok(ApiResponse<FacetsDto>.Ok(facets));
+    }
+
     [HttpGet("suggest")]
     public async Task<IActionResult> Suggest([FromQuery] string q, CancellationToken ct)
         => Ok(ApiResponse<List<string>>.Ok(await _search.SuggestAsync(q ?? string.Empty, ct)));

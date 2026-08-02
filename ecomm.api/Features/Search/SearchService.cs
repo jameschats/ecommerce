@@ -39,18 +39,29 @@ public sealed class SearchService : ISearchService
         await _db.SaveChangesAsync(ct);
     }
 
-    public Task<List<string>> SuggestAsync(string prefix, CancellationToken ct = default)
+    public async Task<List<string>> SuggestAsync(string prefix, CancellationToken ct = default)
     {
         var s = (prefix ?? string.Empty).Trim();
-        if (s.Length < 2) return Task.FromResult(new List<string>());
+        if (s.Length < 2) return new List<string>();
 
-        return _db.Products
+        // Products first (the primary intent), then matching category and brand names so a shopper can
+        // jump straight to a section. Deduped, product suggestions kept ahead of taxonomy ones.
+        var products = await _db.Products
             .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active" && p.Name.Contains(s))
-            .OrderBy(p => p.Name)
-            .Select(p => p.Name)
-            .Distinct()
-            .Take(8)
-            .ToListAsync(ct);
+            .OrderBy(p => p.Name).Select(p => p.Name).Distinct().Take(6).ToListAsync(ct);
+
+        var categories = await _db.Categories
+            .Where(c => c.TenantId == Tenant && c.IsActive && c.Name.Contains(s))
+            .OrderBy(c => c.Name).Select(c => c.Name).Take(3).ToListAsync(ct);
+
+        var brands = await _db.Brands
+            .Where(b => b.TenantId == Tenant && b.IsActive && b.Name.Contains(s))
+            .OrderBy(b => b.Name).Select(b => b.Name).Take(3).ToListAsync(ct);
+
+        return products
+            .Concat(categories).Concat(brands)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(10).ToList();
     }
 
     public Task<List<PopularTermDto>> PopularAsync(int top, CancellationToken ct = default) =>

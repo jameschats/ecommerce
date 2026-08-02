@@ -36,7 +36,9 @@ public sealed class WishlistService : IWishlistService
                 p.InventoryRecords.Any(i => i.ReorderLevel > 0 && i.AvailableQty <= i.ReorderLevel),
                 p.Variants.SelectMany(v => v.Options).Where(o => o.OptionName == "Color").Select(o => o.OptionValue).Distinct().ToList(),
                 p.CreatedAt,
-                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault()))
+                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).Skip(1).FirstOrDefault(),
+                _db.Reviews.Where(r => r.ProductId == p.ProductId && r.IsApproved).Average(r => (double?)r.Rating) ?? 0,
+                _db.Reviews.Count(r => r.ProductId == p.ProductId && r.IsApproved)))
             .ToListAsync(ct);
 
     public Task<List<long>> GetProductIdsAsync(long userId, CancellationToken ct = default) =>
