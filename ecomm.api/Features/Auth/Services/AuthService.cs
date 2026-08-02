@@ -11,6 +11,7 @@ public interface IAuthService
     Task<AuthConfigResponse> GetConfigAsync(CancellationToken ct = default);
     Task<AuthResponse> RegisterAsync(RegisterRequest request, string? ip, CancellationToken ct = default);
     Task<AuthResponse> LoginAsync(LoginRequest request, string? ip, CancellationToken ct = default);
+    Task<AuthResponse> GuestCheckoutAsync(GuestCheckoutRequest request, string? ip, CancellationToken ct = default);
     Task RequestOtpAsync(OtpRequestDto request, CancellationToken ct = default);
     Task<AuthResponse> VerifyOtpAsync(OtpVerifyDto request, string? ip, CancellationToken ct = default);
     Task<AuthResponse> GoogleAsync(GoogleLoginRequest request, string? ip, CancellationToken ct = default);
@@ -127,6 +128,65 @@ public sealed class AuthService : IAuthService
         return await IssueTokensAsync(user, ip, ct);
     }
 
+    /// <summary>
+    /// Guest checkout (option 1 of the guest-checkout design fork, 2026-08-02): silently provisions a
+    /// passwordless account for the email so the rest of checkout — quote/place/pay/order-history — is
+    /// the exact same authenticated flow every logged-in shopper already uses, unchanged. Not gated
+    /// behind the Email/Password provider toggle since, from the shopper's side, no password is ever
+    /// typed or shown — this is a distinct mechanism, not password sign-in.
+    ///
+    /// An existing REAL (password-protected) account with the same email is a hard stop: silently
+    /// attaching an order to somebody else's account just because you know their email would be an
+    /// account-takeover-adjacent info leak, so this asks them to sign in instead. An existing
+    /// passwordless account (a prior guest checkout, or an OTP/Google-only signup) is safe to reuse —
+    /// nothing about the response reveals to the caller which case applies, matching the anti-
+    /// enumeration posture the rest of this service already uses.
+    /// </summary>
+    public async Task<AuthResponse> GuestCheckoutAsync(GuestCheckoutRequest request, string? ip, CancellationToken ct = default)
+    {
+        var email = (request.Email ?? string.Empty).Trim();
+        if (email.Length == 0 || !email.Contains('@'))
+            throw new AppException("A valid email is required.");
+
+        var normalized = email.ToUpperInvariant();
+        var existing = await _db.Users.FirstOrDefaultAsync(
+            u => u.TenantId == DefaultTenantId && u.NormalizedEmail == normalized && !u.IsDeleted, ct);
+
+        if (existing is not null)
+        {
+            if (!string.IsNullOrEmpty(existing.PasswordHash))
+                throw new AppException("An account already exists with this email. Please sign in to continue.", StatusCodes.Status409Conflict);
+            if (!existing.IsActive)
+                throw new AppException("Your account is disabled.", StatusCodes.Status403Forbidden);
+
+            existing.LastLoginAt = DateTime.UtcNow;
+            if (string.IsNullOrWhiteSpace(existing.FullName)) existing.FullName = request.FullName;
+            if (string.IsNullOrWhiteSpace(existing.PhoneNumber)) existing.PhoneNumber = request.PhoneNumber;
+            await _db.SaveChangesAsync(ct);
+            return await IssueTokensAsync(existing, ip, ct);
+        }
+
+        var now = DateTime.UtcNow;
+        var user = new User
+        {
+            TenantId = DefaultTenantId,
+            Email = email,
+            NormalizedEmail = normalized,
+            FullName = request.FullName,
+            PhoneNumber = request.PhoneNumber,
+            IsActive = true,
+            CreatedAt = now,
+            // PasswordHash intentionally left null — this is what marks the account as guest-created.
+            // They can turn it into a real password-login account anytime via the ordinary "forgot
+            // password" flow, which now also accepts passwordless accounts (see RequestPasswordResetAsync).
+        };
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        await AssignRoleAsync(user, CustomerRole, ct);
+        return await IssueTokensAsync(user, ip, ct);
+    }
+
     /// <summary>Count a failed password attempt; lock the account for a window once the limit is hit.</summary>
     private async Task RegisterFailedLoginAsync(User user, DateTime now, CancellationToken ct)
     {
@@ -147,8 +207,11 @@ public sealed class AuthService : IAuthService
         if (normalized.Length == 0) return;
         var user = await _db.Users.FirstOrDefaultAsync(
             u => u.TenantId == DefaultTenantId && u.NormalizedEmail == normalized && !u.IsDeleted && u.IsActive, ct);
-        // Anti-enumeration: silently no-op unless the account exists and can use password login.
-        if (user is null || string.IsNullOrEmpty(user.PasswordHash) || string.IsNullOrWhiteSpace(user.Email)) return;
+        // Anti-enumeration: silently no-op unless the account exists. Deliberately NOT excluding
+        // passwordless accounts (guest checkout, OTP/Google-only signups) — for them this is really
+        // "set your first password," not "reset," and it's the only way a guest-checkout account can
+        // ever gain password-login capability. Same OTP-gated flow either way, no security change.
+        if (user is null || string.IsNullOrWhiteSpace(user.Email)) return;
         try { await _otp.RequestAsync(user.Email!.Trim().ToLowerInvariant(), "Email", "ResetPassword", ct); }
         catch (AppException) { /* swallow cooldown/rate-limit so the response is always uniform */ }
     }

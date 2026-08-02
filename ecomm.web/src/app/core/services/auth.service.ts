@@ -29,6 +29,13 @@ export class AuthService {
     return this.post('login', body);
   }
 
+  /** Silently provisions (or reuses) a passwordless account for checkout — logs the shopper in exactly
+   * like login()/register() do (same session storage, same currentUser signal update), so every
+   * downstream authenticated flow (cart merge, quote, place order, order history) just works unchanged. */
+  guestCheckout(body: { email: string; fullName?: string | null; phoneNumber?: string | null }): Observable<AuthResponse> {
+    return this.post('guest-checkout', body);
+  }
+
   requestOtp(phoneNumber: string): Observable<void> {
     return this.http
       .post<ApiResponse<unknown>>(`${this.base}/otp/request`, { phoneNumber })

@@ -3,6 +3,9 @@ namespace ecomm.api.Features.Auth.Dtos;
 // --- Requests ---
 public sealed record RegisterRequest(string Email, string Password, string? FullName, string? PhoneNumber);
 public sealed record LoginRequest(string Email, string Password);
+/// <summary>Guest checkout: silently provisions (or reuses) a passwordless account for the email so
+/// checkout can proceed with zero login friction. See AuthService.GuestCheckoutAsync.</summary>
+public sealed record GuestCheckoutRequest(string Email, string? FullName, string? PhoneNumber);
 public sealed record OtpRequestDto(string PhoneNumber);
 public sealed record OtpVerifyDto(string PhoneNumber, string Code);
 public sealed record GoogleLoginRequest(string IdToken);

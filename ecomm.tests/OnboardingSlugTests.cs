@@ -19,6 +19,7 @@ public class OnboardingSlugTests
         public Task<AuthConfigResponse> GetConfigAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<AuthResponse> RegisterAsync(RegisterRequest r, string? ip, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<AuthResponse> LoginAsync(LoginRequest r, string? ip, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<AuthResponse> GuestCheckoutAsync(GuestCheckoutRequest r, string? ip, CancellationToken ct = default) => throw new NotImplementedException();
         public Task RequestOtpAsync(OtpRequestDto r, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<AuthResponse> VerifyOtpAsync(OtpVerifyDto r, string? ip, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<AuthResponse> GoogleAsync(GoogleLoginRequest r, string? ip, CancellationToken ct = default) => throw new NotImplementedException();

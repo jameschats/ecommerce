@@ -39,8 +39,9 @@ export const routes: Routes = [
     loadComponent: () => import('./features/storefront/compare/compare-page.component').then((m) => m.ComparePageComponent),
   },
   {
+    // No authGuard: guest checkout is a first-class flow (silently provisions a passwordless account —
+    // see AuthService.GuestCheckoutAsync / CheckoutComponent's guest form).
     path: 'checkout',
-    canActivate: [authGuard],
     loadComponent: () => import('./features/checkout/checkout.component').then((m) => m.CheckoutComponent),
   },
   {

@@ -35,6 +35,13 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.LoginAsync(request, Ip, ct)));
 
+    /// <summary>Guest checkout: silently provisions (or reuses) a passwordless account so an anonymous
+    /// shopper can complete checkout without ever seeing a login/register screen.</summary>
+    [EnableRateLimiting("auth")]
+    [HttpPost("guest-checkout")]
+    public async Task<IActionResult> GuestCheckout(GuestCheckoutRequest request, CancellationToken ct)
+        => Ok(ApiResponse<AuthResponse>.Ok(await _auth.GuestCheckoutAsync(request, Ip, ct)));
+
     [EnableRateLimiting("auth")]
     [HttpPost("otp/request")]
     public async Task<IActionResult> OtpRequest(OtpRequestDto request, CancellationToken ct)

@@ -10,6 +10,12 @@ import { CartService } from '../../core/services/cart.service';
 import { OrderService } from '../../core/services/order.service';
 import { ThemeService } from '../../core/services/theme.service';
 
+interface GuestForm {
+  email: string; fullName: string; phone: string;
+  line1: string; line2: string; city: string; state: string; pincode: string;
+}
+const EMPTY_GUEST_FORM: GuestForm = { email: '', fullName: '', phone: '', line1: '', line2: '', city: '', state: '', pincode: '' };
+
 type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } };
 
 @Component({
@@ -30,9 +36,37 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
             <div class="bg-white rounded-xl border border-slate-200 p-5">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="font-semibold text-slate-800">Delivery address</h2>
-                <a routerLink="/account/addresses" class="text-sm text-primary hover:underline">Manage</a>
+                @if (auth.isAuthenticated()) {
+                  <a routerLink="/account/addresses" class="text-sm text-primary hover:underline">Manage</a>
+                }
               </div>
-              @if (loadingAddr()) { <p class="text-slate-400 text-sm">Loading…</p> }
+
+              @if (!auth.isAuthenticated()) {
+                @if (!guestAddressSaved()) {
+                  <form (ngSubmit)="submitGuestDetails()" class="space-y-3">
+                    <p class="text-xs text-slate-400 -mt-1 mb-2">Checking out as a guest — no account needed. Already have one? <a routerLink="/login" [queryParams]="{ returnUrl: '/checkout' }" class="text-primary hover:underline">Sign in</a> instead.</p>
+                    <div class="grid sm:grid-cols-2 gap-3">
+                      <input [(ngModel)]="guestForm.email" name="email" type="email" required placeholder="Email" class="input sm:col-span-2" />
+                      <input [(ngModel)]="guestForm.fullName" name="fullName" required placeholder="Full name" class="input" />
+                      <input [(ngModel)]="guestForm.phone" name="phone" required placeholder="Phone" class="input" />
+                      <input [(ngModel)]="guestForm.line1" name="line1" required placeholder="Address line 1" class="input sm:col-span-2" />
+                      <input [(ngModel)]="guestForm.line2" name="line2" placeholder="Address line 2 (optional)" class="input sm:col-span-2" />
+                      <input [(ngModel)]="guestForm.city" name="city" required placeholder="City" class="input" />
+                      <input [(ngModel)]="guestForm.state" name="state" required placeholder="State" class="input" />
+                      <input [(ngModel)]="guestForm.pincode" name="pincode" required placeholder="Pincode" class="input" />
+                    </div>
+                    @if (guestError(); as ge) { <p class="text-sm text-red-600">{{ ge }}</p> }
+                    <button type="submit" [disabled]="guestSubmitting()" class="btn-primary px-5 py-2.5 disabled:opacity-50">
+                      {{ guestSubmitting() ? 'Saving…' : 'Continue' }}
+                    </button>
+                  </form>
+                } @else {
+                  <div class="text-sm">
+                    <div class="font-medium text-slate-800">{{ guestForm.fullName }}</div>
+                    <div class="text-slate-500">{{ guestForm.line1 }}@if (guestForm.line2) {, {{ guestForm.line2 }}}, {{ guestForm.city }}, {{ guestForm.state }} {{ guestForm.pincode }}</div>
+                  </div>
+                }
+              } @else if (loadingAddr()) { <p class="text-slate-400 text-sm">Loading…</p> }
               @else if (addresses().length === 0) {
                 <p class="text-slate-500 text-sm">No saved addresses. <a routerLink="/account/addresses" class="text-primary hover:underline">Add one</a> to continue.</p>
               } @else {
@@ -146,7 +180,7 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
 export class CheckoutComponent implements OnInit {
   private readonly orders = inject(OrderService);
   private readonly account = inject(AccountService);
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly cart = inject(CartService);
   private readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
@@ -164,6 +198,13 @@ export class CheckoutComponent implements OnInit {
   readonly appliedCoupon = signal<string | null>(null);
   readonly payMethod = signal<'Online' | 'COD'>('Online');
 
+  // Guest checkout (option 1: silent passwordless-account provisioning — see AuthService.GuestCheckoutAsync).
+  // Plain object, not a signal, since ngModel two-way binds directly onto its fields.
+  guestForm: GuestForm = { ...EMPTY_GUEST_FORM };
+  readonly guestAddressSaved = signal(false);
+  readonly guestSubmitting = signal(false);
+  readonly guestError = signal<string | null>(null);
+
   readonly cartEmpty = computed(() => this.cart.itemCount() === 0 && !this.processing());
   readonly canPlace = computed(() =>
     !this.processing() && !!this.selectedId() && !!this.quote()?.serviceable && (this.quote()?.lines.length ?? 0) > 0);
@@ -174,6 +215,7 @@ export class CheckoutComponent implements OnInit {
     const coupon = this.route.snapshot.queryParamMap.get('coupon');
     if (coupon) { this.appliedCoupon.set(coupon.trim().toUpperCase()); this.couponInput.set(coupon.trim().toUpperCase()); }
 
+    if (!this.auth.isAuthenticated()) { this.loadingAddr.set(false); return; }
     this.account.listAddresses().subscribe({
       next: (list) => {
         this.addresses.set(list);
@@ -189,6 +231,43 @@ export class CheckoutComponent implements OnInit {
   selectAddress(id: number): void {
     this.selectedId.set(id);
     this.loadQuote(id);
+  }
+
+  /** Guest form "Continue": provisions/reuses a passwordless account, saves the typed address to it
+   * (reusing the ordinary account-addresses endpoint — no new backend address surface needed), then
+   * proceeds through the exact same quote/place/pay flow every logged-in shopper already uses. */
+  submitGuestDetails(): void {
+    const f = this.guestForm;
+    if (!f.email.trim() || !f.fullName.trim() || !f.phone.trim() || !f.line1.trim() || !f.city.trim() || !f.state.trim() || !f.pincode.trim()) {
+      this.guestError.set('Please fill in all required fields.');
+      return;
+    }
+    this.guestSubmitting.set(true);
+    this.guestError.set(null);
+    this.auth.guestCheckout({ email: f.email.trim(), fullName: f.fullName.trim(), phoneNumber: f.phone.trim() }).subscribe({
+      next: () => {
+        this.account.createAddress({
+          recipientName: f.fullName.trim(), phone: f.phone.trim(),
+          line1: f.line1.trim(), line2: f.line2.trim() || null,
+          city: f.city.trim(), state: f.state.trim(), pincode: f.pincode.trim(),
+          country: 'India', addressType: 'Both', isDefault: true,
+        }).subscribe({
+          next: (addr) => {
+            this.guestSubmitting.set(false);
+            this.guestAddressSaved.set(true);
+            this.addresses.set([addr]);
+            this.selectedId.set(addr.customerAddressId);
+            this.loadingAddr.set(false);
+            this.loadQuote(addr.customerAddressId);
+          },
+          error: () => { this.guestSubmitting.set(false); this.guestError.set('Could not save your address. Please try again.'); },
+        });
+      },
+      error: (e: unknown) => {
+        this.guestSubmitting.set(false);
+        this.guestError.set((e as { error?: { message?: string } })?.error?.message ?? 'Could not continue as guest.');
+      },
+    });
   }
 
   gatewayLabel(): string {
