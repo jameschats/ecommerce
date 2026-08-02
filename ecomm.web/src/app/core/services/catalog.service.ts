@@ -87,6 +87,15 @@ export class CatalogService {
     );
   }
 
+  /** Looks up a merchant-configured URL redirect for a path that's about to 404 (renamed/deleted
+   * product, collection, or arbitrary page). Null when no redirect is configured. */
+  checkRedirect(path: string): Observable<string | null> {
+    return this.http.get<ApiResponse<{ to: string | null }>>(`${this.base}/navigation/redirect`, { params: { path } }).pipe(
+      map((r) => r.data?.to ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   getPolicyLinks(): Observable<PolicyLink[]> {
     return this.http.get<ApiResponse<PolicyLink[]>>(`${this.base}/policies`).pipe(
       map((r) => r.data ?? []),

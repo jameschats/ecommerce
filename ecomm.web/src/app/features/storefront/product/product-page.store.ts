@@ -104,8 +104,7 @@ export class ProductPageStore {
       next: (product) => {
         this.loading.set(false);
         if (!product) {
-          this.notFound.set(true);
-          this.seo.setMeta({ title: `Product not found — ${this.theme.storeName() || 'our store'}` });
+          this.goToRedirectOr404(slug);
           return;
         }
         this.product.set(product);
@@ -125,7 +124,18 @@ export class ProductPageStore {
         if (this.isAuthenticated()) this.loadEligibility(product.productId);
         this.recentlyViewed.record(product.productId);
       },
-      error: () => { this.loading.set(false); this.notFound.set(true); },
+      error: () => { this.loading.set(false); this.goToRedirectOr404(slug); },
+    });
+  }
+
+  /** A discontinued/renamed product's slug should honour a merchant-configured redirect (e.g. to its
+   * replacement) instead of just 404ing — same fix as the wildcard 404 page, applied here since a
+   * matched `/product/:slug` route never falls through to NotFoundComponent. */
+  private goToRedirectOr404(slug: string): void {
+    this.catalog.checkRedirect(`/product/${slug}`).subscribe((to) => {
+      if (to) { this.router.navigateByUrl(to, { replaceUrl: true }); return; }
+      this.notFound.set(true);
+      this.seo.setMeta({ title: `Product not found — ${this.theme.storeName() || 'our store'}` });
     });
   }
 
