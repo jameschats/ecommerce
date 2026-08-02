@@ -183,14 +183,33 @@ Built while a concurrent session was actively modifying `ecomm.api/Features/Cata
 `git diff` on every shared file (`SectionTypeRegistry.cs`) before staging.
 
 ## Part 4 — Search
+**Status: done (2026-08-02, commit `3be4067`).**
 
-- Ship the two missing components from Part 0 (`SearchBar`, `SearchResults`) as real, dedicated renderers.
+- `SearchBar`: new self-contained component, bound to the shared `CollectionPageStore` (`searchText`
+  pre-filled from the current query, submit re-navigates via `store.applyFilters()`). One authored
+  setting (`placeholder`).
+- `SearchResults`: rather than a second, competing grid renderer, it's aliased straight to the existing
+  `CollectionGridComponent` — same filter rail/sort/pagination/mobile drawer the collection page already
+  has, so it inherits every future PLP improvement (including the concurrent faceted-search work) for
+  free. Its settings schema was rewritten to mirror `CollectionGrid`'s exactly (was a single unused
+  `columns` field that did nothing).
+- `EmptyState` on the `search` template — declared in the schema since day one but never actually
+  rendered (search always fell through to the generic `collection` template with no way to show an
+  authored "no results" message) — now wired the same way the cart/404 pages already do it: extracted
+  before slotting, shown only when the search returns zero results.
+- Verified live on bazaar (scratch `search` template: SearchBar + SearchResults + EmptyState, deleted
+  after): `?search=a` (29 results) rendered the pre-filled search box + result count + product grid,
+  with the EmptyState block correctly absent from the *rendered* HTML (an initial grep hit was a
+  TransferState-JSON false positive, same gotcha as Part 2 — re-verified with an exact rendered-tag
+  match); a nonsense query correctly rendered the authored "No luck this time" / "Try a different search
+  term." / "Browse all products" EmptyState. Unauthored fallback (falls back to the `collection`
+  template) re-confirmed still working after cleanup. `dotnet test`: 284/284.
 - **No predictive/typeahead search exists at all** — confirmed via a full grep of the storefront app,
   zero matches for autocomplete/predictive/typeahead patterns. Today search is purely submit-and-load-
   results-page. Shopify's predictive search shows live product thumbnails+prices in a dropdown as the
-  shopper types. This is a genuine, well-known Shopify differentiator and a real gap — sizing it as its
-  own follow-up (needs a debounced lightweight search-suggest endpoint + a dropdown UI), not bundled into
-  the Part 0/4 renderer fix.
+  shopper types. This is a genuine, well-known Shopify differentiator and a real gap — deliberately left
+  out of this pass (needs a debounced lightweight search-suggest endpoint + a dropdown UI) since it's a
+  sizeable feature of its own, not a renderer fix.
 
 ## Part 5 — Collections list (build the missing page for real)
 **Status: done (2026-08-02, commit `88949ba`).** Went with the recommended reading below (curated
