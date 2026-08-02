@@ -17,12 +17,19 @@ with a reason, not silently skipped.
   (`ProductPageStore.load`, which never falls through to the wildcard route since `/product/:slug` is
   a matched route) now check for a redirect before showing "not found," navigating there instead when
   one exists. **Status: done (2026-08-02).**
-  - *Known limitation, not silently glossed over*: this is a client-side `router.navigateByUrl`, not a
-    true HTTP 301 from SSR (the SSR server has no response-object/redirect wiring anywhere in the
-    codebase — confirmed via `ecomm.web/src/server.ts`). Search engines that crawl the *old* URL
-    directly via SSR will still get a 200-with-redirect-then-render rather than a 301 status. Real fix
-    needs `@angular/ssr`'s response injection token wired into `server.ts`, checked against the same
-    redirect table before Angular even renders — noted as a small fast-follow, not done in this pass.
+  - *Verified live, and better than expected*: assumed going in that a client-side `router.navigateByUrl`
+    wouldn't produce a real HTTP redirect during SSR (no explicit response-object wiring exists in
+    `ecomm.web/src/server.ts`) — that assumption was wrong. `@angular/ssr`'s Express server
+    automatically converts a `navigateByUrl` triggered during initial render into a real HTTP redirect:
+    `curl -sI https://bazaar.wavcommerce.online/old-clearance-sale` → `HTTP/1.1 302 Found`,
+    `location: /products`. Correcting the record here rather than leaving the wrong caveat in place.
+    **One real remaining gap**: it's a **302 (temporary)**, not a 301 — for a genuinely permanent
+    redirect (discontinued product merged into its replacement, renamed collection) a 301 is the
+    correct SEO signal so crawlers consolidate link equity onto the new URL instead of continuing to
+    index the old one. Getting a 301 specifically needs explicit `server.ts` customization (a
+    `RESPONSE`/request-response token, checked against the redirect table before Angular bootstraps,
+    setting the status explicitly) since `Router.navigateByUrl` has no per-call status-code option.
+    Small fast-follow, not done in this pass.
 - [ ] **Guest checkout is hard-gated behind login** — `/checkout` has `canActivate: [authGuard]`; an
   anonymous shopper cannot place an order at all, despite the guest cart (X-Cart-Token) working fine
   through `/cart`. This is the single highest-value item in the whole plan. **Needs a design decision
