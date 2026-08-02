@@ -1,10 +1,12 @@
-# Dynamic sections parity plan — Product / Collection / Cart / Search
+# Dynamic sections parity plan — Product / Collection / Cart / Search / Collections-list
 
 **Status: design only, not started.** Triggered by a live review of the Collection (PLP) page against
-Shopify, which surfaced two systemic architectural defects that turned out not to be Collection-specific
-— they affect every "dynamic" section across Product, Collection, Cart and Search. This plan fixes the
-architecture once, then closes every page's gaps using it. No compromises: every declared setting gets
-wired, every section type gets a real renderer, mobile gets equal treatment to desktop.
+Shopify, which surfaced three systemic defects that turned out not to be Collection-specific — they
+affect every "dynamic" section across Product, Collection, Cart and Search, plus one entire template
+(`list-collections`) that doesn't have a real page behind it at all. This plan fixes the architecture
+once, then closes every page's gaps using it. No compromises: every declared setting gets wired, every
+section type gets a real renderer, every selectable template actually renders somewhere, mobile gets
+equal treatment to desktop.
 
 ## Root causes (found by reading code, not assumed)
 
@@ -27,7 +29,19 @@ returns nothing — `collection-page.component.ts`'s `@switch(slot.type)` only s
 class as the `ProductGallery`/`Breadcrumbs`(collection)/`EmptyState`(cart) fixes already shipped this
 session — just two instances that weren't caught yet.
 
-**The fix for both is the same shape and should happen first, once, before any page-specific work**:
+**3. One entire template has no page behind it — worse than #1 or #2.** `list-collections` (Shopify's
+"All Collections" index — a grid of every collection/category the store has) is fully scaffolded in the
+editor: it's a selectable template in the navigator, has its own `CollectionsList` section type with a
+declared `columns` setting, an "Add section" control. But `app.routes.ts` has zero public routes for it
+(the only `/collections*` paths are `admin/collections/*`, the merchant's curated-collections CRUD — a
+different page entirely). The editor's own preview-path resolver admits it:
+`case 'list-collections': return '/products';` in `admin-theme-editor.component.ts` — hardcoded, because
+there's genuinely nowhere real to point the iframe. Confirmed via grep that zero of the 9 prebuilt themes
+have ever authored a section for this template. A merchant who designs this page in the editor gets
+nothing on their live storefront and no signal that anything's wrong — worse than #1/#2 because those at
+least render *something*, even if wrong or inert.
+
+**The fix for #1 and #2 is the same shape and should happen first, once, before any page-specific work**:
 every dynamic section component needs to (a) actually exist and be switched-to on its page, and (b)
 receive its own authored settings as a real `@Input()` it reads. Doing this as a first pass avoids
 re-discovering root cause #1 five more times while going page by page.
@@ -114,16 +128,54 @@ settings here without reading the cart flow as carefully as Collection was read 
   own follow-up (needs a debounced lightweight search-suggest endpoint + a dropdown UI), not bundled into
   the Part 0/4 renderer fix.
 
+## Part 5 — Collections list (build the missing page for real)
+
+**Open design decision first, not silently assumed**: the platform has two parallel browse concepts —
+Category taxonomy (`/category/:slug`, header nav strip, the tile grid on Collection's "All products" view)
+and curated merchandising Collections (`/collection/:slug`, a distinct `CollectionComponent`, already
+public). Shopify unifies both under one "Collection" concept; we don't. Recommendation: `list-collections`
+should enumerate curated **Collections** primarily — Categories already have two nav surfaces (header
+strip + tile grid), so a dedicated index page adds the most new value surfacing Collections, which
+currently have *no* discovery surface other than a direct link. Confirm this reading before building.
+
+What's actually needed (confirmed by reading the code, not assumed complete):
+
+- **New backend endpoint.** `CatalogService`/`catalog.service.ts` only has `getCollection(slug)` (single,
+  with embedded `products[]`) and `getCollectionMembers(id, limit)` — there is no "list all public
+  collections" endpoint at all. Needs a new lightweight public endpoint returning
+  `{ collectionId, name, slug, imageUrl, productCount }[]` (no embedded product arrays — that would be
+  wasteful for an index page listing every collection).
+- **Real route + page component.** Add a public route (e.g. `/collections`) and a
+  `CollectionsListPageComponent` mirroring `CollectionPageComponent`'s section-slot pattern
+  (`DEFAULT_COLLECTION_SECTIONS`-style fallback layout when nothing's authored).
+- **Wire `CollectionsList`'s `columns` setting for real** — same Part 0 architecture fix, applied here.
+- **Fix the preview-path fallback** — `previewPath('list-collections')` should point at the new real
+  route instead of the hardcoded `/products` stand-in.
+- **Nav exposure.** Once real, nothing currently links to it — needs a footer/nav link option (e.g. "Shop
+  all collections") or it stays reachable only by typing the URL, which defeats the SEO/discovery point of
+  having it at all.
+- **Content pass, scoped separately.** None of the 9 prebuilt themes author this template today; once the
+  page is real, giving it authored content in the flagship themes is an R2/R3-style content pass, not part
+  of the core build.
+
+Sizing: **small–medium**, not a new subsystem — the sibling single-collection page, the Category tile-grid
+pattern, and the section-slot page-composition pattern all already exist. This is "finish half-built
+plumbing," in the same weight class as Part 0/4, not the deferred faceted-search/predictive-search items.
+
 ## Suggested sequencing (no compromise on completeness, but sized honestly)
 
 1. **Part 0** (architecture fix + guardrail) — small, blocks everything else, do first.
-2. **Part 1** (PDP dead-settings wiring + trust-badge block) — small.
-3. **Part 2, wiring + column/products-per-page/card-style settings + CollectionHeader banner settings** —
+2. **Part 5** (Collections-list: new endpoint, real route/page, wire `columns`, fix preview fallback, nav
+   link) — small–medium, same shape as Part 0/4's "give every section type a real home" work, natural to
+   batch together.
+3. **Part 1** (PDP dead-settings wiring + trust-badge block) — small.
+4. **Part 2, wiring + column/products-per-page/card-style settings + CollectionHeader banner settings** —
    medium.
-4. **Part 2, mobile filter drawer** — medium, high-impact (this is the sharpest real gap in the review).
-5. **Part 3** (cart audit + fixes) — size unknown until audited.
-6. **Part 4, SearchBar/SearchResults renderers** — small (same shape as Part 0's guardrail fix).
-7. **Deferred, sized separately, not part of this plan's initial scope**: full faceted filtering with live
+5. **Part 2, mobile filter drawer** — medium, high-impact (this is the sharpest real gap in the Collection
+   review).
+6. **Part 3** (cart audit + fixes) — size unknown until audited.
+7. **Part 4, SearchBar/SearchResults renderers** — small (same shape as Part 0's guardrail fix).
+8. **Deferred, sized separately, not part of this plan's initial scope**: full faceted filtering with live
    counts (Part 2's largest item), predictive/typeahead search (Part 4's largest item). Both are
    genuinely new subsystem-sized work, same category as the metafields/version-history items already
    sitting in the storefront roadmap's pending list — sequence them there, not squeezed into this pass.
