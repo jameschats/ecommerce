@@ -151,13 +151,36 @@ these gaps found by reading `CollectionGridComponent`'s actual template:
   too, not just to the grid.
 
 ## Part 3 — Cart page
+**Status: done (2026-08-02, commits `b8c0cff` + `c2c3b97`).**
 
-Not yet audited to the same depth — `CartItems`/`CartSummary` both currently declare zero settings, so
-there's nothing "dead" to find, but that likely means the page is under-featured rather than clean. Needs
-its own pass before implementation: candidates to evaluate are an order-notes field, a shipping estimator,
-cross-sell/upsell block in the cart (Shopify has native cart upsell blocks), and whether the coupon field's
-placement/visibility should be a section setting. Scope this pass alongside Part 4 rather than guessing at
-settings here without reading the cart flow as carefully as Collection was read for this plan.
+Confirmed `CartItems`/`CartSummary` had zero declared settings — genuinely under-featured, not dead
+settings to wire. Built all four candidates: order notes (new `Cart.Notes` column — `PlaceOrderRequest.
+Notes` already flowed into `Order.Notes` end-to-end, but nothing on the frontend ever captured a note at
+all), a cart-page coupon field (carries the code to checkout via `?coupon=` rather than duplicating
+apply logic — checkout's own field already existed and works, this just avoids retyping), a delivery
+pincode estimator (reuses the existing `checkShipping` API, same pattern as the PDP's), and a new
+`CartCrossSell` section ("you might also like", sourced via the existing product-listing query, no new
+backend method). All three `CartSummary` additions are independently togglable via real settings;
+`CartCrossSell` is opt-in, not added to the default section fallback, matching this session's "new
+capability = opt-in" convention.
+
+**Real bug caught during deploy**: migration 261 used `Carts` (plural) but `Cart.cs` maps to table `Cart`
+(singular, confirmed via `EcommerceDbContext`'s `ToTable("Cart")`) — this migration skipped the local-
+MySQL verification step that caught migration 260's FK bug, and paid for it (`ERROR 1146: table doesn't
+exist`). Fixed the table name and added the same column-exists guard used in 260 for re-run safety,
+verified against real local MySQL including a repeat run before redeploying.
+
+**Verified live** via the real API on bazaar (not just a build passing): added an item to a guest cart,
+set a note, reloaded the cart, confirmed the note persisted — proving the DB round-trip that the wrong-
+table bug would otherwise have silently broken. The populated-cart UI itself (coupon field, shipping
+estimator, cross-sell rail, notes textarea) is client-rendered only once a cart has items — unlike
+Collection/mega-menu, cart state isn't part of the initial SSR HTML (`CartService.reload()` is browser-
+only), so this piece was verified via code review + the successful build rather than a curl-fetched
+render. Noting that honestly rather than overclaiming.
+
+Built while a concurrent session was actively modifying `ecomm.api/Features/Catalog/**` and
+`CollectionService.cs` for faceted search — scoped entirely away from those files/areas, confirmed via
+`git diff` on every shared file (`SectionTypeRegistry.cs`) before staging.
 
 ## Part 4 — Search
 
