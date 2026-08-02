@@ -62,8 +62,23 @@ public sealed class OpenAiService : IAiService
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
-        var text = root.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        var choice = root.GetProperty("choices")[0];
+        var text = choice.GetProperty("message").GetProperty("content").GetString() ?? "";
         var model = root.TryGetProperty("model", out var m) ? m.GetString() ?? _opt.Model : _opt.Model;
+
+        // Truncation (hit the token cap) or empty content — common with reasoning models — would otherwise
+        // surface downstream as an opaque JSON-parse error. Fail here with a message the merchant can act on.
+        var finish = choice.TryGetProperty("finish_reason", out var fr) ? fr.GetString() : null;
+        if (finish == "length")
+        {
+            _log.LogWarning("OpenAI response truncated (finish_reason=length, model {Model}, max_completion_tokens {Max}).", model, prompt.MaxTokens);
+            throw new AppException("The response was too large to finish. Please try again with fewer categories or products.", 502);
+        }
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _log.LogWarning("OpenAI returned empty content (finish_reason={Finish}, model {Model}).", finish, model);
+            throw new AppException("The AI returned an empty response. Please try again.", 502);
+        }
         int pt = 0, cmp = 0;
         if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
         {

@@ -68,9 +68,13 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
         var user = $"Store: {brief}.\nGenerate about {cats} top-level categories and about {per} products per category. " +
                    "A few categories may have 2-3 subcategories.";
 
+        // Budget must scale with the requested size, or a large catalog gets truncated mid-JSON and fails to
+        // parse. Roughly ~300 tokens per product plus headroom; capped so a runaway request stays bounded.
+        var maxTokens = Math.Min(16_000, 1_500 + cats * per * 300);
+
         var catalog = await credits.MeterAsync(AiCreditPricing.SampleCatalog, async ai =>
         {
-            var c = await ai.CompleteAsync(new AiPrompt(system, user, Json: true, MaxTokens: 4000), ct);
+            var c = await ai.CompleteAsync(new AiPrompt(system, user, Json: true, MaxTokens: maxTokens), ct);
             var parsed = Parse(c.Text, storeType, themeKeys);
             return (parsed, c);
         }, ct);
