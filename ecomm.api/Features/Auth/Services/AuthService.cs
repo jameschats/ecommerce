@@ -161,7 +161,8 @@ public sealed class AuthService : IAuthService
 
             existing.LastLoginAt = DateTime.UtcNow;
             if (string.IsNullOrWhiteSpace(existing.FullName)) existing.FullName = request.FullName;
-            if (string.IsNullOrWhiteSpace(existing.PhoneNumber)) existing.PhoneNumber = request.PhoneNumber;
+            if (string.IsNullOrWhiteSpace(existing.PhoneNumber) && await IsPhoneAvailableAsync(request.PhoneNumber, existing.UserId, ct))
+                existing.PhoneNumber = request.PhoneNumber;
             await _db.SaveChangesAsync(ct);
             return await IssueTokensAsync(existing, ip, ct);
         }
@@ -173,7 +174,11 @@ public sealed class AuthService : IAuthService
             Email = email,
             NormalizedEmail = normalized,
             FullName = request.FullName,
-            PhoneNumber = request.PhoneNumber,
+            // A phone already tied to a different account is left off rather than failing checkout over
+            // it — `Users.PhoneNumber` is unique per tenant (used for OTP login), but the real shipping
+            // contact number lives on the CustomerAddress created right after this, which has no such
+            // constraint. Two guests plausibly sharing a phone (family, a typo) shouldn't be a hard stop.
+            PhoneNumber = await IsPhoneAvailableAsync(request.PhoneNumber, null, ct) ? request.PhoneNumber : null,
             IsActive = true,
             CreatedAt = now,
             // PasswordHash intentionally left null — this is what marks the account as guest-created.
@@ -185,6 +190,16 @@ public sealed class AuthService : IAuthService
 
         await AssignRoleAsync(user, CustomerRole, ct);
         return await IssueTokensAsync(user, ip, ct);
+    }
+
+    /// <summary>True if nobody else in this tenant already holds this phone number — `Users.PhoneNumber`
+    /// has a per-tenant unique constraint (`uq_users_tenant_phone`), so blindly assigning a colliding
+    /// number throws a raw DbUpdateException instead of a clean, handled error.</summary>
+    private async Task<bool> IsPhoneAvailableAsync(string? phone, long? excludeUserId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return false;
+        return !await _db.Users.AnyAsync(
+            u => u.TenantId == DefaultTenantId && u.PhoneNumber == phone && u.UserId != (excludeUserId ?? 0), ct);
     }
 
     /// <summary>Count a failed password attempt; lock the account for a window once the limit is hit.</summary>
