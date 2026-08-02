@@ -1,6 +1,10 @@
 # Dynamic sections parity plan — Product / Collection / Cart / Search / Collections-list
 
-**Status: design only, not started.** Triggered by a live review of the Collection (PLP) page against
+**Status: Parts 2 and 5 done (2026-08-02) — Collection page rebuild + real Collections-list page.
+Parts 1, 3, 4 (Product/Cart/Search) and the deferred faceted-search/predictive-search items remain
+not started — held per explicit instruction to build Collection + Collections-list first, one by one.**
+
+Triggered by a live review of the Collection (PLP) page against
 Shopify, which surfaced three systemic defects that turned out not to be Collection-specific — they
 affect every "dynamic" section across Product, Collection, Cart and Search, plus one entire template
 (`list-collections`) that doesn't have a real page behind it at all. This plan fixes the architecture
@@ -77,12 +81,49 @@ re-discovering root cause #1 five more times while going page by page.
 | Gallery layout | No layout options — thumbnails are always left-of-image on desktop, no mobile-carousel vs stacked choice | New setting: layout (thumbnails-left / thumbnails-bottom / carousel) |
 
 ## Part 2 — Collection page (PLP) — the main trigger for this plan
+**Status: done (2026-08-02, commit `88949ba` + theme-content fix `22171e4`).**
 
-**Split the category-tile grid out of `CollectionHeader`.** Today it's invisible, non-removable,
-non-reorderable, baked into the header component and only shown when `!activeCategory()`. Reuse the
-existing `Categories` section type (already built, used elsewhere) so a merchant can add/remove/reorder/
-restyle it like any other section, with the collection template pre-seeding it on install rather than
-hardcoding it into the page shell.
+**Split the category-tile grid out of `CollectionHeader`** into a new `CollectionCategories` dynamic
+section (not a reuse of the generic static `Categories` type — that would have lost the existing
+root-only-visible behavior, since `Categories` has no concept of "hide once a specific category is
+active" and the `collection` template is shared by every category page). Preserves the original
+conditional display while being addable/removable/reorderable/restylable via its own settings
+(heading/style/columns) instead of unconditional non-editable markup.
+
+**Real bug caught during deploy, not just design**: all 9 prebuilt themes already author their
+`collection` template (from earlier R1-R3 work) with just `CollectionHeader` + `CollectionGrid` — so
+moving the tiles into a new section type they'd never authored made the tiles silently disappear on
+every already-installed store, including live bazaar. Fixed by inserting `CollectionCategories` into all
+9 theme JSON bundles (future installs) and patching bazaar's already-live theme directly via the admin
+theme API (`POST .../sections` + `PUT .../reorder` — installed themes don't re-read the bundle file).
+Caught by an SSR content check against the real live page, not just a build passing.
+
+**Wired `CollectionGrid`'s settings for real** — replaced the 3 previously-dead settings
+(`columns`/`showFilters`/`showSort`) with a fuller set, all actually read by `CollectionGridComponent`
+now: `columnsDesktop`/`columnsMobile` (was one fixed breakpoint ladder, not a setting at all),
+`showFilters`, `showSort`, `showCategorySidebar`, `productsPerPage` (wired into `CollectionPageStore`,
+read once before the first query to avoid a race against the settings load), `cardAspect`
+(square/portrait — new `ProductCardComponent` input), `paginationStyle` (numbered / load-more, the
+latter backed by a new `CollectionPageStore.loadMore()` that appends rather than replaces results).
+
+**Built the mobile "Filter & Sort" drawer** — the sharpest gap from the review. The desktop category
+sidebar was `hidden md:block` with zero mobile equivalent; mobile shoppers had no way to browse by
+category or filter at all. New bottom-sheet drawer surfaces category list + brand + price + sort,
+gated by the same `showFilters`/`showSort`/`showCategorySidebar` settings as the desktop bar.
+
+**`CollectionHeader` gets real settings** — banner image override, overlay color, text alignment,
+description override — previously zero settings, no way to author a promotional collection banner at all.
+
+Verified live on `bazaar.wavcommerce.online`: root `/products` renders the category tiles (confirmed via
+exact rendered-`<h2>`-tag match, not a naive text grep — an initial check gave a false positive matching
+JSON embedded in the SSR TransferState script, not actual rendered HTML), `/category/mobile-phones`
+correctly hides the tiles and renders real products (Xperia 5G etc.), the mobile "Filter & Sort" button
+renders. `dotnet test` (276 tests) and the `PrebuiltThemeCatalogTests` bundle-validation suite (6 tests)
+both pass after the theme JSON edits.
+
+Deliberately not done in this pass (still open, matches the original design): full faceted filtering
+with live per-option counts — flagged from the start as its own subsystem-sized follow-up, not bundled
+into this build.
 
 **Wire `CollectionGrid`'s existing settings for real** — `columns`, `showFilters`, `showSort` — then close
 these gaps found by reading `CollectionGridComponent`'s actual template:
@@ -129,6 +170,8 @@ settings here without reading the cart flow as carefully as Collection was read 
   the Part 0/4 renderer fix.
 
 ## Part 5 — Collections list (build the missing page for real)
+**Status: done (2026-08-02, commit `88949ba`).** Went with the recommended reading below (curated
+Collections, not Category taxonomy) without further pushback needed.
 
 **Open design decision first, not silently assumed**: the platform has two parallel browse concepts —
 Category taxonomy (`/category/:slug`, header nav strip, the tile grid on Collection's "All products" view)
@@ -157,6 +200,22 @@ What's actually needed (confirmed by reading the code, not assumed complete):
 - **Content pass, scoped separately.** None of the 9 prebuilt themes author this template today; once the
   page is real, giving it authored content in the flagship themes is an R2/R3-style content pass, not part
   of the core build.
+
+**Built**: `GET /api/catalog/collections` (new, lightweight, no embedded products — `CollectionService.
+ListPublicAsync`), the `/collections` route + `CollectionsListPageComponent` + `CollectionsListGridComponent`
+following the Collection page's exact section-slot pattern, `CollectionsList`'s `columns`/`heading`
+settings wired for real, and the editor's `previewPath('list-collections')` fallback fixed to point at
+the new real route instead of `/products`. Verified live: created a scratch curated Collection with 2
+real products on bazaar, confirmed it round-trips through the public list endpoint (`productCount: 2`)
+and — critically — through the actual server-rendered `/collections` HTML (not just the API response),
+then deleted the scratch data.
+
+**Not done in this pass, noted rather than silently skipped**: nav exposure (footer/menu link to
+`/collections`). The page is fully real and reachable by direct link or via the Footer's existing
+"Links (JSON)" editor (already supports arbitrary internal links, no code change needed to add one) —
+but none of the 9 themes have been given that link by default. Content-pass work, same category as the
+"give it authored content" item above — held per the instruction to keep this pass to the two pages
+themselves.
 
 Sizing: **small–medium**, not a new subsystem — the sibling single-collection page, the Category tile-grid
 pattern, and the section-slot page-composition pattern all already exist. This is "finish half-built
