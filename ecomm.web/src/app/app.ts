@@ -1,4 +1,4 @@
-import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, PLATFORM_ID, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
@@ -120,6 +120,38 @@ export class App implements OnInit {
   readonly suggestions = signal<string[]>([]);
   readonly showSuggest = signal(false);
   private readonly searchInput$ = new Subject<string>();
+
+  /**
+   * E6-parity for the app shell. The theme editor's "Inspect" toggle already suspends click-through
+   * inside individual sections (see storefront-section.component.ts) — but the header/footer chrome
+   * (search suggestions, mega-menu, account menu, cart, footer links) lives outside that per-section
+   * system entirely and had zero editor-mode awareness, so it was ALWAYS live real navigation
+   * regardless of the toggle, hijacking the editor's canvas iframe onto a real page. Mirrors the exact
+   * same capture-phase intercept + postMessage listener, applied at the header/footer root instead of
+   * per-section.
+   */
+  private readonly headerRoot = viewChild<ElementRef<HTMLElement>>('headerRoot');
+  private readonly footerRoot = viewChild<ElementRef<HTMLElement>>('footerRoot');
+  private readonly inspectorSuspended = signal(false);
+  private readonly onEditorMessage = (event: MessageEvent) => {
+    if (event.data?.type === 'theme-editor:inspector') this.inspectorSuspended.set(!!event.data.enabled);
+  };
+  private readonly onEditorChromeClick = (event: Event) => {
+    if (this.inspectorSuspended()) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  constructor() {
+    effect(() => {
+      if (!isPlatformBrowser(this.platformId) || !this.theme.editorMode()) return;
+      window.addEventListener('message', this.onEditorMessage);
+      for (const root of [this.headerRoot(), this.footerRoot()]) {
+        root?.nativeElement.addEventListener('mousedown', this.onEditorChromeClick, { capture: true });
+        root?.nativeElement.addEventListener('click', this.onEditorChromeClick, { capture: true });
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.webAnalytics.init();

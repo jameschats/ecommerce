@@ -127,7 +127,8 @@ interface TemplateGroup { group: string; templates: ThemeTemplateSummary[]; }
           </button>
           <button type="button" (click)="toggleSettings()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50"
                   [class.bg-slate-100]="settingsMode()">⚙ Theme settings</button>
-          <button type="button" (click)="reloadPreview()" class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">↻ Preview</button>
+          <button type="button" (click)="reloadPreview()" title="Force-reload the canvas — use if it looks out of sync with your edits"
+                  class="text-sm px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-50">↻ Reload preview</button>
         </div>
       </header>
 

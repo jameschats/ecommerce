@@ -1,7 +1,7 @@
 <div class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
   @if (!hideStorefrontChrome()) {
   <app-announcement-bar />
-  <header class="bg-white shadow-sm z-30" [class.sticky]="stickyHeader()" [class.top-0]="stickyHeader()">
+  <header #headerRoot class="bg-white shadow-sm z-30" [class.sticky]="stickyHeader()" [class.top-0]="stickyHeader()">
 
     @if (headerLayout() === 'centered') {
       <!-- Centered: logo centered with actions on the right; full-width search below. -->
@@ -174,7 +174,7 @@
   @if (!hideStorefrontChrome()) {
     @if (footerLayout() === 'simple') {
       <!-- Simple footer: centered brand + inline links + socials + copyright. -->
-      <footer class="bg-slate-900 text-slate-300 mt-12">
+      <footer #footerRoot class="bg-slate-900 text-slate-300 mt-12">
         <div class="page-container py-10 text-center">
           <a routerLink="/" class="font-bold text-xl text-white">{{ storeName() || 'Store' }}</a>
           <div class="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
@@ -192,7 +192,7 @@
       </footer>
     } @else {
       <!-- Columns footer (default). -->
-      <footer class="bg-slate-900 text-slate-300 mt-12">
+      <footer #footerRoot class="bg-slate-900 text-slate-300 mt-12">
         <div class="page-container py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
           <div class="col-span-2 md:col-span-1">
             <a routerLink="/" class="font-bold text-xl text-white">{{ storeName() || 'Store' }}</a>
