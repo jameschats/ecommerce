@@ -17,7 +17,7 @@
               <span class="font-bold text-2xl tracking-tight">{{ storeName() || 'Store' }}</span>
             }
           </a>
-          <div class="absolute right-0"><ng-container [ngTemplateOutlet]="storeActions" /></div>
+          <div class="absolute right-0 flex items-center gap-5 text-sm"><ng-container [ngTemplateOutlet]="storeActions" /></div>
         </div>
         @if (showSearch()) {
           <div class="mt-3 flex justify-center">
