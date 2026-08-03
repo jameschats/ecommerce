@@ -89,24 +89,6 @@ import { Dashboard, TestOrderResult } from '../../../core/models/admin-catalog.m
           </div>
         </div>
       } @else {
-        <!-- AI quick-start (new stores only) -->
-        @if (ai.enabled() && d.checklistDone < d.checklistTotal) {
-          <div class="mb-6 rounded-xl border border-violet-200 bg-violet-50 p-5">
-            <h2 class="font-semibold text-violet-900">✨ Quick start with AI</h2>
-            <p class="text-sm text-violet-700/80 mt-0.5 mb-3">New store? Let AI do the heavy lifting — you can edit everything afterwards.</p>
-            <div class="grid sm:grid-cols-2 gap-3">
-              <a routerLink="/admin/ai/catalog" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
-                <div class="text-sm font-medium text-slate-800">Generate a catalog</div>
-                <div class="text-xs text-slate-500 mt-0.5">Pick a store type → products in seconds.</div>
-              </a>
-              <a routerLink="/admin/ai/import" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
-                <div class="text-sm font-medium text-slate-800">Import your products</div>
-                <div class="text-xs text-slate-500 mt-0.5">Moving from Shopify/Woo/Wix or a spreadsheet.</div>
-              </a>
-            </div>
-          </div>
-        }
-
         <!-- Setup checklist -->
         <div class="bg-white border border-slate-200 rounded-xl p-5">
               <div class="flex items-center justify-between mb-1">
@@ -136,6 +118,32 @@ import { Dashboard, TestOrderResult } from '../../../core/models/admin-catalog.m
                 <p class="text-sm text-slate-500 mt-4 pt-4 border-t border-slate-100">🎉 Every setup step is done — your store is ready.</p>
               }
         </div>
+
+        <!-- AI quick-start: only while there's no product yet — once "Add your first product" is done,
+             running "Generate a catalog" again would dump AI-invented samples on top of a real store, and
+             "Import your products" already has a permanent home (Products → Import/Export). -->
+        @if (ai.enabled() && !stepDone(d, 'product')) {
+          <div class="mt-6 rounded-xl border border-violet-200 bg-violet-50 p-5">
+            <h2 class="font-semibold text-violet-900">✨ Quick start with AI</h2>
+            <p class="text-sm text-violet-700/80 mt-0.5 mb-3">
+              @if (stepDone(d, 'theme')) {
+                Ready to add products? Let AI do the heavy lifting — you can edit everything afterwards.
+              } @else {
+                New store? Let AI do the heavy lifting — you can edit everything afterwards.
+              }
+            </p>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <a routerLink="/admin/ai/catalog" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
+                <div class="text-sm font-medium text-slate-800">Generate a catalog</div>
+                <div class="text-xs text-slate-500 mt-0.5">Pick a store type → products in seconds.</div>
+              </a>
+              <a routerLink="/admin/ai/import" class="block rounded-lg bg-white border border-violet-200 p-3 hover:border-violet-400 transition">
+                <div class="text-sm font-medium text-slate-800">Import your products</div>
+                <div class="text-xs text-slate-500 mt-0.5">Moving from Shopify/Woo/Wix or a spreadsheet.</div>
+              </a>
+            </div>
+          </div>
+        }
 
         <!-- Test order: prove the whole pipeline works before a real customer hits it -->
         <div class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
@@ -214,6 +222,12 @@ export class AdminHomeComponent implements OnInit {
     const name = this.auth.currentUser()?.fullName?.split(' ')[0];
     return name ? `Welcome back, ${name}` : 'Welcome back';
   });
+
+  /** Whether a specific setup-checklist step is done, by key — used to gate/word the AI quick-start
+   *  panel off real store progress instead of the blunt "checklist isn't 100% done yet" check. */
+  stepDone(d: Dashboard, key: string): boolean {
+    return d.checklist.find((i) => i.key === key)?.done ?? false;
+  }
 
   readonly testOrder = signal<TestOrderResult | null>(null);
   readonly placingTestOrder = signal(false);
