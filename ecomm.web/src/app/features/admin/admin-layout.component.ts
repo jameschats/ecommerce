@@ -14,6 +14,7 @@ import { Announcement } from '../../core/models/superadmin.model';
 const NAV_ICONS: Record<string, string> = {
   home: '<path d="M3.5 9 10 4l6.5 5"/><path d="M5 8.5V16a1 1 0 0 0 1 1h3v-4.5h2V17h3a1 1 0 0 0 1-1V8.5"/>',
   list: '<rect x="4.5" y="2.5" width="11" height="15" rx="1.5"/><path d="M7.5 7h5M7.5 10h5M7.5 13h3"/>',
+  draft: '<path d="M12.5 3.5 16 7l-8 8-4 1 1-4 7.5-7.5Z"/><path d="M4 16.5h4"/>',
   box: '<path d="M10 2.5 17 6v8l-7 3.5L3 14V6l7-3.5Z"/><path d="M3 6l7 3.5 7-3.5M10 9.5V17"/>',
   folder: '<path d="M2.5 5.5A1.5 1.5 0 0 1 4 4h3.5l1.5 2H16a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5v-9Z"/>',
   layers: '<path d="M10 3 17 6.5 10 10 3 6.5 10 3Z"/><path d="M3 10.5 10 14l7-3.5M3 13.5 10 17l7-3.5"/>',
@@ -59,7 +60,10 @@ interface NavGroup { title: string | null; color?: string; links: NavLink[]; }
               @if (g.title) {
                 <button type="button" (click)="toggle(g.title)"
                         class="w-full flex items-center justify-between px-2.5 pt-2.5 pb-1 text-[10.5px] font-semibold text-slate-400 uppercase tracking-wide hover:text-slate-600">
-                  <span>{{ g.title }}</span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full shrink-0" [style.background-color]="g.color"></span>
+                    {{ g.title }}
+                  </span>
                   <svg class="w-3 h-3 transition-transform" [class.rotate-90]="isOpen(g.title)"
                        viewBox="0 0 12 12" fill="none" aria-hidden="true">
                     <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -68,8 +72,9 @@ interface NavGroup { title: string | null; color?: string; links: NavLink[]; }
               }
               @if (!g.title || isOpen(g.title)) {
                 @for (l of g.links; track l.path) {
-                  <a [routerLink]="l.path" routerLinkActive="bg-slate-100 text-slate-900 font-medium"
-                     [routerLinkActiveOptions]="{ exact: l.exact ?? false }"
+                  <a [routerLink]="l.path" routerLinkActive [routerLinkActiveOptions]="{ exact: l.exact ?? false }" #rla="routerLinkActive"
+                     [class.font-medium]="rla.isActive" [class.text-slate-900]="rla.isActive"
+                     [style.background-color]="rla.isActive ? tint(g.color) : null"
                      class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50">
                     <svg class="w-[18px] h-[18px] shrink-0" viewBox="0 0 20 20" fill="none"
                          [style.color]="g.color ?? '#64748b'" stroke="currentColor" stroke-width="1.6"
@@ -163,51 +168,67 @@ export class AdminLayoutComponent implements OnInit {
   readonly trialDaysLeft = signal<number | null>(null);
 
   /**
-   * Accordion nav: at most one group open at a time (previously any number could stay open, which got
-   * long and hard to scan). The group containing the current route is always the one shown open, so
-   * navigating anywhere reveals where you are and collapses whatever else was open; manually clicking a
-   * different group's header browses it instead, closing the previous one. Persisted so a manually
-   * -opened group (e.g. browsing from Home, which has no group of its own) survives a reload.
+   * Bounded accordion: at most MAX_OPEN groups open at once, most-recently-touched first. Plain "only
+   * one open" cost real convenience (bouncing between e.g. Products and Discounts while setting up a
+   * promotion meant losing your place every time); plain "unlimited open" was the original complaint
+   * (7 groups' worth of items pile up over a session). This is the middle ground: navigating into a
+   * group always reveals it (bumping it to most-recent), and it only evicts the group you've touched
+   * least recently once a third would otherwise open — so two sections can coexist for a cross-section
+   * task, but it never balloons back to "everything's open."
    */
-  private readonly expandedGroup = signal<string | null>(this.loadExpanded());
-  private readonly activeGroup = signal<string | null>(null);
+  private static readonly MAX_OPEN = 2;
+  private readonly openGroups = signal<string[]>(this.loadExpanded());
 
   isOpen(title: string): boolean {
-    return this.expandedGroup() === title;
+    return this.openGroups().includes(title);
   }
 
   toggle(title: string): void {
-    const next = this.expandedGroup() === title ? null : title;
-    this.expandedGroup.set(next);
+    const current = this.openGroups();
+    const next = current.includes(title)
+      ? current.filter((t) => t !== title)
+      : [title, ...current].slice(0, AdminLayoutComponent.MAX_OPEN);
+    this.openGroups.set(next);
     this.saveExpanded(next);
   }
 
-  private saveExpanded(title: string | null): void {
+  /** Marks a group as most-recently-touched (moves it to front, opening it if it wasn't), without
+   *  disturbing whether any other currently-open group stays open — only evicts on overflow. */
+  private touchGroup(title: string): void {
+    const current = this.openGroups();
+    const next = [title, ...current.filter((t) => t !== title)].slice(0, AdminLayoutComponent.MAX_OPEN);
+    this.openGroups.set(next);
+    this.saveExpanded(next);
+  }
+
+  private saveExpanded(groups: string[]): void {
+    try { localStorage.setItem('adminNavExpanded', JSON.stringify(groups)); } catch { /* ignore */ }
+  }
+
+  private loadExpanded(): string[] {
     try {
-      if (title) localStorage.setItem('adminNavExpanded', title);
-      else localStorage.removeItem('adminNavExpanded');
-    } catch { /* ignore */ }
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('adminNavExpanded') : null;
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
   }
 
-  private loadExpanded(): string | null {
-    try { return typeof localStorage !== 'undefined' ? localStorage.getItem('adminNavExpanded') : null; }
-    catch { return null; }
-  }
-
-  /** Finds which group owns the current URL, opens it (collapsing any other), so the sidebar always
-   *  shows exactly where you are. Landing on a route with no group (e.g. Home) leaves whatever the
-   *  user last opened as-is, rather than force-collapsing it. */
+  /** Finds which group owns the current URL and reveals it (see touchGroup) so the sidebar always shows
+   *  where you are. Landing on a route with no group (e.g. Home) leaves open groups untouched. */
   private computeActiveGroup(url: string): void {
     for (const g of this.groups) {
       if (!g.title) continue;
       if (g.links.some((l) => url === l.path || url.startsWith(l.path + '/'))) {
-        this.activeGroup.set(g.title);
-        this.expandedGroup.set(g.title);
-        this.saveExpanded(g.title);
+        this.touchGroup(g.title);
         return;
       }
     }
-    this.activeGroup.set(null);
+  }
+
+  /** Pale wash of a section's colour for its active item's background — mild, not a solid fill. */
+  tint(hex: string | undefined): string | null {
+    if (!hex) return null;
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.1)`;
   }
 
   ngOnInit(): void {
@@ -253,7 +274,7 @@ export class AdminLayoutComponent implements OnInit {
     { title: null, links: [{ path: '/admin', label: 'Home', exact: true, icon: 'home' }] },
     { title: 'Orders', color: '#0284c7', links: [
       { path: '/admin/orders', label: 'Orders', icon: 'list' },
-      { path: '/admin/draft-orders', label: 'Draft orders', icon: 'list' },
+      { path: '/admin/draft-orders', label: 'Draft orders', icon: 'draft' },
     ] },
     { title: 'Products', color: '#2563eb', links: [
       { path: '/admin/products', label: 'Products', icon: 'box' },
@@ -293,7 +314,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/preferences', label: 'Preferences', icon: 'sliders' },
       { path: '/admin/faq', label: 'FAQs', icon: 'help' },
     ] },
-    { title: 'Analytics', color: '#6366f1', links: [
+    { title: 'Analytics', color: '#7c3aed', links: [
       { path: '/admin/analytics', label: 'Analytics', icon: 'chart' },
       { path: '/admin/notifications', label: 'Notifications', icon: 'bell' },
     ] },
