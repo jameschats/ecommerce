@@ -42,7 +42,11 @@ public sealed class OpenAiOptions
     // which would break catalog/mapping/SEO/page generation. Override via Ai:OpenAi:Model if desired.
     public string Model { get; set; } = "gpt-4.1-mini";
     public string BaseUrl { get; set; } = "https://api.openai.com/";
-    public int TimeoutSeconds { get; set; } = 60;
+    // 60s was too tight for large structured completions (e.g. a multi-category sample-catalog
+    // generation) — a big JSON response from a mini model can legitimately take 60-90s, which was
+    // surfacing as an unhandled TaskCanceledException/500 on bigger requests. 120s matches the image
+    // tier below and stays well under the reverse proxy's 300s read timeout.
+    public int TimeoutSeconds { get; set; } = 120;
 
     // Real provider cost, used only to estimate AiUsageLog.CostMicros for margin tuning (not billing).
     public decimal InputUsdPerMTok { get; set; } = 0.15m;
