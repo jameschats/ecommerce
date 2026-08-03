@@ -27,7 +27,7 @@ public class DashboardTests
 
         var d = await svc.GetAsync();
 
-        Assert.Equal(6, d.ChecklistTotal);
+        Assert.Equal(7, d.ChecklistTotal);
         Assert.Equal(0, d.ChecklistDone);
         Assert.All(d.Checklist, i => Assert.False(i.Done));
     }
@@ -142,6 +142,39 @@ public class DashboardTests
 
         Assert.True(domain.Done);
         Assert.Equal("shop.acme.in", domain.CurrentValue);
+    }
+
+    [Fact]
+    public async Task Only_the_auto_provisioned_starter_theme_does_not_complete_the_theme_step()
+    {
+        var svc = NewService(out var db);
+        using var _ = db;
+
+        // Exactly what signup provisions (see OnboardingService) — a single published starter theme,
+        // never actually visited in the theme library.
+        db.Themes.Add(new Theme { Name = "Minimal", Status = "Published", Source = "minimal" });
+        await db.SaveChangesAsync();
+
+        var theme = (await svc.GetAsync()).Checklist.Single(i => i.Key == "theme");
+
+        Assert.False(theme.Done);
+        Assert.Null(theme.CurrentValue);
+    }
+
+    [Fact]
+    public async Task A_second_theme_completes_the_theme_step_and_names_the_published_one()
+    {
+        var svc = NewService(out var db);
+        using var _ = db;
+
+        db.Themes.Add(new Theme { Name = "Minimal", Status = "Draft", Source = "minimal" });
+        db.Themes.Add(new Theme { Name = "Bloom", Status = "Published", Source = "bloom" });
+        await db.SaveChangesAsync();
+
+        var theme = (await svc.GetAsync()).Checklist.Single(i => i.Key == "theme");
+
+        Assert.True(theme.Done);
+        Assert.Equal("Bloom", theme.CurrentValue);
     }
 
     [Fact]

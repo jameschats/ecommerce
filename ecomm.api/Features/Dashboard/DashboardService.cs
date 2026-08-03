@@ -62,8 +62,21 @@ public sealed class DashboardService(
             .FirstOrDefaultAsync(t => t.TenantId == currentTenant.CurrentTenantId, ct);
         var customDomainLive = tenant is { CustomDomainVerified: true } && !string.IsNullOrWhiteSpace(tenant.CustomDomain);
 
+        // Signup best-effort-installs and publishes a "minimal" starter theme so the storefront renders
+        // immediately (see OnboardingService) — that alone must not read as "done" here, or every store
+        // would show this step complete on day one without the merchant ever opening the theme library.
+        // More than that one auto-provisioned theme existing is real signal they've actually been in there.
+        var themeCount = await db.Themes.CountAsync(ct);
+        var publishedTheme = await db.Themes.AsNoTracking()
+            .Where(t => t.Status == "Published").Select(t => t.Name).FirstOrDefaultAsync(ct);
+        var hasChosenTheme = themeCount > 1;
+
         var items = new List<ChecklistItem>
         {
+            new("theme", "Choose your theme", "Pick a theme that fits your store, then customise it to match your brand.",
+                hasChosenTheme, "Browse themes", "/admin/themes",
+                hasChosenTheme ? publishedTheme : null),
+
             new("product", "Add your first product", "Stock your store with something to sell.",
                 productCount > 0, "Add product", "/admin/products/new",
                 productCount > 0 ? $"{productCount} product{(productCount == 1 ? "" : "s")}" : null),
