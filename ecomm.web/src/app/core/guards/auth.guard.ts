@@ -6,6 +6,13 @@ import { AuthService } from '../services/auth.service';
 import { PlatformInfoService } from '../services/platform-info.service';
 
 export const authGuard: CanActivateFn = (_route, state) => {
+  // The JWT lives in localStorage, which doesn't exist during SSR — so isAuthenticated() is always
+  // false server-side regardless of the visitor's real session, and this would otherwise 302 every
+  // hard reload of a guarded page straight to /login even for someone genuinely logged in (the guard
+  // redirect becomes a real HTTP redirect during SSR, not just client app state — see
+  // platformHostGuard below, which already carries this same guard for the same reason). Let the
+  // client re-run this guard after hydration, once localStorage is actually readable.
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) return true;
   const auth = inject(AuthService);
   const router = inject(Router);
   return auth.isAuthenticated()
@@ -44,6 +51,8 @@ export const welcomeGuard: CanActivateFn = () => {
 };
 
 export const adminGuard: CanActivateFn = (_route, state) => {
+  // Same SSR/localStorage reasoning as authGuard above.
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) return true;
   const auth = inject(AuthService);
   const router = inject(Router);
   if (auth.isAdmin()) return true;
@@ -51,6 +60,8 @@ export const adminGuard: CanActivateFn = (_route, state) => {
 };
 
 export const superAdminGuard: CanActivateFn = (_route, state) => {
+  // Same SSR/localStorage reasoning as authGuard above.
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) return true;
   const auth = inject(AuthService);
   const router = inject(Router);
   if (auth.isSuperAdmin()) return true;
