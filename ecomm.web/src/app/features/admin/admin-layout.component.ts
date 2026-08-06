@@ -5,7 +5,7 @@ import { filter } from 'rxjs';
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
 
-interface NavLink { path: string; label: string; }
+interface NavLink { path: string; label: string; perm: string; }
 interface NavGroup { key: string; label: string; dot: string; links: NavLink[]; }
 
 const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
@@ -19,6 +19,7 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
         <div class="h-14 flex items-center px-4 border-b border-slate-200 font-bold text-slate-800">Admin</div>
 
         <nav class="flex-1 overflow-y-auto p-3 text-sm">
+          @if (canSeeAnalytics()) {
           <!-- Analytics sits above the groups: it is where you land and what you check
                first, so burying it one click deep would be a step backwards. -->
           <a routerLink="/admin/analytics" routerLinkActive="bg-blue-50 text-blue-700 font-medium"
@@ -29,8 +30,9 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
             </svg>
             Analytics
           </a>
+          }
 
-          @for (g of groups; track g.key) {
+          @for (g of visibleGroups(); track g.key) {
             <div class="mt-3">
               <button type="button" (click)="toggle(g.key)"
                       class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold
@@ -73,7 +75,7 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
   `,
 })
 export class AdminLayoutComponent {
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -88,57 +90,58 @@ export class AdminLayoutComponent {
     {
       key: 'orders', label: 'Orders', dot: '#3b82f6',
       links: [
-        { path: '/admin/orders', label: 'Orders' },
-        { path: '/admin/payments', label: 'Payments to verify' },
+        { path: '/admin/orders', label: 'Orders', perm: 'order.view' },
+        { path: '/admin/payments', label: 'Payments to verify', perm: 'payment.verify' },
       ],
     },
     {
       key: 'products', label: 'Products', dot: '#6366f1',
       links: [
-        { path: '/admin/products', label: 'Products' },
-        { path: '/admin/categories', label: 'Categories' },
-        { path: '/admin/brands', label: 'Brands' },
-        { path: '/admin/attributes', label: 'Attributes' },
-        { path: '/admin/inventory', label: 'Inventory' },
-        { path: '/admin/suppliers', label: 'Suppliers' },
-        { path: '/admin/import', label: 'Import / Export' },
+        { path: '/admin/products', label: 'Products', perm: 'catalog.manage' },
+        { path: '/admin/categories', label: 'Categories', perm: 'catalog.manage' },
+        { path: '/admin/brands', label: 'Brands', perm: 'catalog.manage' },
+        { path: '/admin/attributes', label: 'Attributes', perm: 'catalog.manage' },
+        { path: '/admin/inventory', label: 'Inventory', perm: 'inventory.manage' },
+        { path: '/admin/suppliers', label: 'Suppliers', perm: 'catalog.manage' },
+        { path: '/admin/import', label: 'Import / Export', perm: 'import.manage' },
       ],
     },
     {
       key: 'customers', label: 'Customers', dot: '#8b5cf6',
       links: [
-        { path: '/admin/contacts', label: 'Contacts' },
-        { path: '/admin/reviews', label: 'Reviews' },
+        { path: '/admin/contacts', label: 'Contacts', perm: 'customer.view' },
+        { path: '/admin/reviews', label: 'Reviews', perm: 'review.moderate' },
       ],
     },
     {
       key: 'discounts', label: 'Discounts', dot: '#14b8a6',
-      links: [{ path: '/admin/coupons', label: 'Coupons' }],
+      links: [{ path: '/admin/coupons', label: 'Coupons', perm: 'coupon.manage' }],
     },
     {
       key: 'marketing', label: 'Marketing', dot: '#10b981',
       links: [
-        { path: '/admin/campaigns', label: 'Campaigns' },
-        { path: '/admin/abandoned', label: 'Abandoned estimates' },
+        { path: '/admin/campaigns', label: 'Campaigns', perm: 'customer.manage' },
+        { path: '/admin/abandoned', label: 'Abandoned estimates', perm: 'customer.view' },
       ],
     },
     {
       key: 'store', label: 'Online store', dot: '#1e40af',
       links: [
-        { path: '/admin/home-page', label: 'Home page' },
-        { path: '/admin/banners', label: 'Banners' },
-        { path: '/admin/gallery', label: 'Gallery' },
-        { path: '/admin/theme', label: 'Theme' },
+        { path: '/admin/home-page', label: 'Home page', perm: 'cms.manage' },
+        { path: '/admin/banners', label: 'Banners', perm: 'cms.manage' },
+        { path: '/admin/gallery', label: 'Gallery', perm: 'cms.manage' },
+        { path: '/admin/theme', label: 'Theme', perm: 'theme.manage' },
       ],
     },
     {
       key: 'settings', label: 'Settings', dot: '#64748b',
       links: [
-        { path: '/admin/store-settings', label: 'Store settings' },
-        { path: '/admin/shop-settings', label: 'Shop & payment settings' },
-        { path: '/admin/templates', label: 'Message templates' },
-        { path: '/admin/auth-providers', label: 'Sign-in methods' },
-        { path: '/admin/notifications', label: 'Notifications' },
+        { path: '/admin/store-settings', label: 'Store settings', perm: 'settings.manage' },
+        { path: '/admin/shop-settings', label: 'Shop & payment settings', perm: 'settings.manage' },
+        { path: '/admin/templates', label: 'Message templates', perm: 'settings.manage' },
+        { path: '/admin/auth-providers', label: 'Sign-in methods', perm: 'settings.manage' },
+        { path: '/admin/users', label: 'Users & roles', perm: 'user.manage' },
+        { path: '/admin/notifications', label: 'Notifications', perm: 'settings.manage' },
       ],
     },
   ];
@@ -165,8 +168,22 @@ export class AdminLayoutComponent {
    * showing. Without the second rule, following a link from elsewhere in the app would
    * leave the sidebar looking as though nothing were selected.
    */
+  /**
+   * Only what this person may reach, with groups that end up empty dropped entirely — an
+   * expandable heading over nothing is worse than no heading.
+   *
+   * This is presentation only. The API refuses a forbidden call regardless, and a route
+   * guard blocks the URL; hiding a link on its own would be decoration.
+   */
+  readonly visibleGroups = computed(() =>
+    this.groups
+      .map((g) => ({ ...g, links: g.links.filter((l) => this.auth.can(l.perm)) }))
+      .filter((g) => g.links.length > 0));
+
+  readonly canSeeAnalytics = computed(() => this.auth.can('report.view'));
+
   private readonly activeGroup = computed(() =>
-    this.groups.find((g) => g.links.some((l) => this.url().startsWith(l.path)))?.key ?? null);
+    this.visibleGroups().find((g) => g.links.some((l) => this.url().startsWith(l.path)))?.key ?? null);
 
   isOpen(key: string): boolean {
     const set = this.overrides().get(key);

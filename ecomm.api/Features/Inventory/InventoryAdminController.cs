@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Inventory;
 
 [ApiController]
 [Route("api/admin/inventory")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.InventoryManage)]
 public sealed class InventoryAdminController : ControllerBase
 {
     private const string XlsxMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

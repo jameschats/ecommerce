@@ -105,6 +105,7 @@ export const routes: Routes = [
       { path: 'analytics', loadComponent: () => import('./features/admin/analytics/admin-analytics.component').then((m) => m.AdminAnalyticsComponent) },
       { path: 'suppliers', loadComponent: () => import('./features/admin/suppliers/admin-suppliers.component').then((m) => m.AdminSuppliersComponent) },
       { path: 'contacts', loadComponent: () => import('./features/admin/contacts/admin-contacts.component').then((m) => m.AdminContactsComponent) },
+      { path: 'users', loadComponent: () => import('./features/admin/identity/admin-users.component').then((m) => m.AdminUsersComponent) },
       { path: 'abandoned', loadComponent: () => import('./features/admin/abandoned/admin-abandoned.component').then((m) => m.AdminAbandonedComponent) },
       { path: 'campaigns', loadComponent: () => import('./features/admin/campaigns/admin-campaigns.component').then((m) => m.AdminCampaignsComponent) },
       { path: 'templates', loadComponent: () => import('./features/admin/notifications/admin-templates.component').then((m) => m.AdminTemplatesComponent) },

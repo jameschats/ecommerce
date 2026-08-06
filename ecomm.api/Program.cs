@@ -161,7 +161,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             },
         };
     });
-builder.Services.AddAuthorization();
+// One policy per permission code. The JWT has carried a "perm" claim since the auth slice
+// was written and nothing ever checked it; this is what turns those claims into access
+// control. Admin holds every permission, so swapping a controller from Roles="Admin" to a
+// policy leaves Admin behaviour identical — which is what makes the change safe to do
+// across twenty controllers at once.
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var code in ecomm.api.Common.Security.Perm.All)
+    {
+        options.AddPolicy(code, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireClaim(ecomm.api.Common.Security.Perm.ClaimType, code));
+    }
+});
 
 // Trust the reverse proxy (Nginx on the same host) so the API sees the real client IP + scheme.
 builder.Services.Configure<ForwardedHeadersOptions>(o =>

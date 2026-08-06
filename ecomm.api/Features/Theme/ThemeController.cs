@@ -21,7 +21,7 @@ public sealed class ThemeController : ControllerBase
 /// <summary>Admin: view + update the active theme.</summary>
 [ApiController]
 [Route("api/admin/theme")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.ThemeManage)]
 public sealed class ThemeAdminController : ControllerBase
 {
     private readonly IThemeService _theme;

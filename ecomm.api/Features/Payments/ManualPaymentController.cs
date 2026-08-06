@@ -44,7 +44,7 @@ public sealed class ManualPaymentController : ControllerBase
 /// <summary>The admin side of manual payment: the queue and the confirmation.</summary>
 [ApiController]
 [Route("api/admin/payments")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.PaymentVerify)]
 public sealed class AdminPaymentsController : ControllerBase
 {
     private readonly EcommerceDbContext _db;

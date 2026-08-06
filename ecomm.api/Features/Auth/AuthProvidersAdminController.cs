@@ -9,7 +9,7 @@ namespace ecomm.api.Features.Auth;
 /// <summary>Admin: enable/disable auth providers and toggle self-registration.</summary>
 [ApiController]
 [Route("api/admin/auth-providers")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.SettingsManage)]
 public sealed class AuthProvidersAdminController : ControllerBase
 {
     private const long TenantId = 1;

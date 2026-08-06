@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Catalog;
 
 [ApiController]
 [Route("api/admin/brands")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CatalogManage)]
 public sealed class BrandsAdminController : ControllerBase
 {
     private readonly IBrandService _brands;

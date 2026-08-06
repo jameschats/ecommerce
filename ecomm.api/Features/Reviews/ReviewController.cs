@@ -42,7 +42,7 @@ public sealed class ReviewController : ControllerBase
 /// <summary>Admin: moderate reviews.</summary>
 [ApiController]
 [Route("api/admin/reviews")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.ReviewModerate)]
 public sealed class ReviewAdminController : ControllerBase
 {
     private readonly IReviewService _reviews;

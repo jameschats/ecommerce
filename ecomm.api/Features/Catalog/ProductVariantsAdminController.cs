@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Catalog;
 
 [ApiController]
 [Route("api/admin/products/{productId:long}/variants")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CatalogManage)]
 public sealed class ProductVariantsAdminController : ControllerBase
 {
     private readonly IVariantService _variants;

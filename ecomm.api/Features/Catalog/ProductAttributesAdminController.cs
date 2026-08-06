@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Catalog;
 
 [ApiController]
 [Route("api/admin/products/{productId:long}/attributes")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CatalogManage)]
 public sealed class ProductAttributesAdminController : ControllerBase
 {
     private readonly IProductAttributeService _service;

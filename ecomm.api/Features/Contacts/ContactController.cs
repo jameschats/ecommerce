@@ -34,7 +34,7 @@ public sealed class ContactController : ControllerBase
 /// <summary>The admin inbox: read enquiries, work through them, export the list.</summary>
 [ApiController]
 [Route("api/admin/contacts")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerView)]
 public sealed class ContactsAdminController : ControllerBase
 {
     private readonly IContactService _contacts;

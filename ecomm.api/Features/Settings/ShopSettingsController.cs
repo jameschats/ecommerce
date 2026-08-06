@@ -50,7 +50,7 @@ public sealed record SendTestEmailRequest(string To);
 /// </summary>
 [ApiController]
 [Route("api/admin/shop-settings")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.SettingsManage)]
 public sealed class ShopSettingsController : ControllerBase
 {
     private const long Tenant = 1;

@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Media;
 /// <summary>Admin: upload an image to media storage; returns the id + public URL to attach to a product.</summary>
 [ApiController]
 [Route("api/admin/media")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.MediaManage)]
 public sealed class MediaController : ControllerBase
 {
     private readonly IMediaService _media;

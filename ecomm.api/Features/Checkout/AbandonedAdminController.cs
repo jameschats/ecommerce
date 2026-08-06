@@ -7,7 +7,7 @@ namespace ecomm.api.Features.Checkout;
 /// <summary>Baskets a signed-in shopper built and did not order.</summary>
 [ApiController]
 [Route("api/admin/abandoned")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerView)]
 public sealed class AbandonedAdminController : ControllerBase
 {
     private readonly IAbandonedEstimateService _estimates;

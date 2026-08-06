@@ -33,7 +33,7 @@ public sealed class BannerController : ControllerBase
 /// <summary>Admin: banner CRUD + image upload.</summary>
 [ApiController]
 [Route("api/admin/cms/banners")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CmsManage)]
 public sealed class BannerAdminController : ControllerBase
 {
     private const long MaxImageBytes = 5 * 1024 * 1024;

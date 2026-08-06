@@ -7,7 +7,7 @@ namespace ecomm.api.Features.Suppliers;
 /// <summary>Admin: manage suppliers + assign them to products (for cost sourcing / profit-by-supplier).</summary>
 [ApiController]
 [Route("api/admin/suppliers")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CatalogManage)]
 public sealed class SupplierController : ControllerBase
 {
     private readonly ISupplierService _suppliers;
@@ -36,7 +36,7 @@ public sealed class SupplierController : ControllerBase
 /// <summary>Admin: the supplier links for a product (SKU, cost, primary).</summary>
 [ApiController]
 [Route("api/admin/products/{productId:long}/suppliers")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CatalogManage)]
 public sealed class ProductSuppliersController : ControllerBase
 {
     private readonly ISupplierService _suppliers;

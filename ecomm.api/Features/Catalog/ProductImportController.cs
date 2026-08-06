@@ -10,7 +10,7 @@ namespace ecomm.api.Features.Catalog;
 
 [ApiController]
 [Route("api/admin/products")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.ImportManage)]
 public sealed class ProductImportController : ControllerBase
 {
     private const string XlsxMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

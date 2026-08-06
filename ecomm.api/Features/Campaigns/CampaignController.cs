@@ -7,7 +7,7 @@ namespace ecomm.api.Features.Campaigns;
 /// <summary>Promotional email campaigns, sent in batches from the admin screen.</summary>
 [ApiController]
 [Route("api/admin/campaigns")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerManage)]
 public sealed class CampaignsAdminController : ControllerBase
 {
     private readonly ICampaignService _campaigns;

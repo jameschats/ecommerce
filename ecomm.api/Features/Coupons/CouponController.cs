@@ -7,7 +7,7 @@ namespace ecomm.api.Features.Coupons;
 /// <summary>Admin: manage discount coupons. (Customers apply codes via the checkout quote.)</summary>
 [ApiController]
 [Route("api/admin/coupons")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CouponManage)]
 public sealed class CouponAdminController : ControllerBase
 {
     private readonly ICouponService _coupons;

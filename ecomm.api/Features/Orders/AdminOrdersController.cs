@@ -6,7 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace ecomm.api.Features.Orders;
 
 [ApiController]
-[Authorize(Roles = "Admin")]
+// Read is gated at the class on order.view so an Accountant can review orders; every action
+// that changes one raises the bar to order.manage individually. Gating the whole controller on
+// manage would have hidden orders from the role that exists to look at them.
+[Authorize(Policy = ecomm.api.Common.Security.Perm.OrderView)]
 [Route("api/admin/orders")]
 public class AdminOrdersController : ControllerBase
 {
@@ -32,6 +35,7 @@ public class AdminOrdersController : ControllerBase
         return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto));
     }
 
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.OrderManage)]
     [HttpPost("{id:long}/status")]
     public async Task<IActionResult> UpdateStatus(long id, UpdateOrderStatusRequest request, CancellationToken ct)
     {
@@ -39,10 +43,12 @@ public class AdminOrdersController : ControllerBase
         return dto is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : Ok(ApiResponse<OrderDto>.Ok(dto, "Status updated."));
     }
 
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.OrderManage)]
     [HttpPost("{id:long}/cancel")]
     public async Task<IActionResult> Cancel(long id, CancelOrderRequest request, CancellationToken ct)
         => Ok(ApiResponse<OrderDto>.Ok(await _orders.CancelOrderAsync(CurrentUserId ?? 0, id, request, true, ct), "Order cancelled."));
 
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.OrderManage)]
     [HttpPost("{id:long}/shipment")]
     public async Task<IActionResult> CreateShipment(
         long id,
@@ -57,6 +63,7 @@ public class AdminOrdersController : ControllerBase
         return Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
     }
 
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.OrderManage)]
     [HttpPost("{id:long}/deliver")]
     public async Task<IActionResult> MarkDelivered(
         long id,

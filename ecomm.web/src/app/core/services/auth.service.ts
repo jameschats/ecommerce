@@ -16,6 +16,40 @@ export class AuthService {
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
   readonly isAdmin = computed(() => this.currentUser()?.roles?.includes('Admin') ?? false);
 
+  /**
+   * Permission codes from the token's "perm" claims.
+   *
+   * Read from the JWT rather than the login response because the token is what the server
+   * actually authorises against — anything else could drift from it and show a link the API
+   * then refuses. Recomputed with currentUser so it refreshes on sign-in and sign-out.
+   */
+  readonly permissions = computed<ReadonlySet<string>>(() => {
+    this.currentUser();   // dependency: re-read the token when the session changes
+    const token = this.storage.getAccessToken();
+    if (!token) return new Set();
+
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return new Set();
+      // base64url → base64, then pad. atob rejects the URL-safe alphabet.
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.length / 4) * 4, '='));
+      const claims = JSON.parse(json) as Record<string, unknown>;
+      const perm = claims['perm'];
+      if (Array.isArray(perm)) return new Set(perm.map(String));
+      return perm ? new Set([String(perm)]) : new Set();
+    } catch {
+      // A malformed token is a signed-out user as far as the UI is concerned.
+      return new Set();
+    }
+  });
+
+  can(permission: string): boolean {
+    return this.permissions().has(permission);
+  }
+
+  /** Anyone holding at least one permission belongs in the admin area. */
+  readonly isStaff = computed(() => this.isAdmin() || this.permissions().size > 0);
+
   getConfig(): Observable<AuthConfig> {
     return this.http.get<ApiResponse<AuthConfig>>(`${this.base}/config`).pipe(map((r) => r.data!));
   }

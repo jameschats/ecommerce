@@ -26,7 +26,7 @@ public sealed record TemplatePreviewDto(string Subject, string Body);
 /// </summary>
 [ApiController]
 [Route("api/admin/notification-templates")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.SettingsManage)]
 public sealed class TemplatesAdminController : ControllerBase
 {
     private const long Tenant = 1;

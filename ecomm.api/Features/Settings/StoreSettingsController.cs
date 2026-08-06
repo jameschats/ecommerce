@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ecomm.api.Features.Settings;
 
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.SettingsManage)]
 [Route("api/admin/store")]
 public class StoreSettingsController : ControllerBase
 {

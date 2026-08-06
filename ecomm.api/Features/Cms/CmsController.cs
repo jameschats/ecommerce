@@ -23,7 +23,7 @@ public sealed class CmsController : ControllerBase
 /// <summary>Admin: all home sections + reorder / show-hide / retitle.</summary>
 [ApiController]
 [Route("api/admin/cms")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CmsManage)]
 public sealed class CmsAdminController : ControllerBase
 {
     private readonly ICmsService _cms;

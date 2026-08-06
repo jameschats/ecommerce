@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Catalog;
 
 [ApiController]
 [Route("api/admin/categories")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CatalogManage)]
 public sealed class CategoriesAdminController : ControllerBase
 {
     private readonly ICategoryService _categories;

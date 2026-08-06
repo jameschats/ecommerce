@@ -8,7 +8,7 @@ namespace ecomm.api.Features.Analytics;
 /// <summary>Admin analytics: business-pulse widget + profit/margin reports (all reports take ?from=&to=).</summary>
 [ApiController]
 [Route("api/admin/analytics")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.ReportView)]
 public sealed class AnalyticsController : ControllerBase
 {
     private readonly IAnalyticsService _analytics;

@@ -33,7 +33,7 @@ public sealed class GalleryController : ControllerBase
 /// <summary>Admin: gallery CRUD + image upload.</summary>
 [ApiController]
 [Route("api/admin/cms/gallery")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ecomm.api.Common.Security.Perm.CmsManage)]
 public sealed class GalleryAdminController : ControllerBase
 {
     private const long MaxImageBytes = 5 * 1024 * 1024;
