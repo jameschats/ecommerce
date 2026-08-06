@@ -35,6 +35,11 @@ public sealed record QuickOrderQuoteDto(
 public sealed record StateMinOrderDto(string StateName, decimal MinOrderAmount);
 
 /// <summary>Delivery details captured on the order form, plus the basket.</summary>
+/// <summary>A basket to be rendered as a printable quotation.</summary>
+/// <param name="CustomerName">Who the quote is for. Optional — it prints as "Prepared for".</param>
+public sealed record QuoteDocumentRequest(
+    IReadOnlyList<QuickOrderLineRequest> Lines, string? State, string? CustomerName);
+
 /// <param name="BusinessName">Trading name when ordering for a shop. Optional.</param>
 /// <param name="Gstin">The buyer's GST number, printed on their bill. Optional.</param>
 /// <param name="ShipToDifferent">

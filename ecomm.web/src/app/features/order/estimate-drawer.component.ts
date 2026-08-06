@@ -1,5 +1,5 @@
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { QuickOrderService } from '../../core/services/quick-order.service';
 import { QuickOrderCheckoutService } from '../../core/services/quick-order-checkout.service';
@@ -117,6 +117,20 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
                     class="mt-3 w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-lg transition">
               Confirm estimate
             </button>
+
+            <!-- For a dealer quoting their own customer: the same basket on paper, without
+                 having to place an order to get a printable copy of it. -->
+            <button type="button" (click)="downloadQuote()" [disabled]="downloading()"
+                    class="mt-2 w-full flex items-center justify-center gap-2 border border-slate-300
+                           hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-medium py-2.5 rounded-lg transition">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
+              </svg>
+              {{ downloading() ? 'Preparing…' : 'Download quotation (PDF)' }}
+            </button>
+            @if (quoteError()) { <p class="mt-1 text-xs text-red-600 text-center">{{ quoteError() }}</p> }
+
             <button type="button" (click)="clearAll()"
                     class="mt-2 w-full text-sm text-slate-500 hover:text-red-600 py-1">
               Clear all items
@@ -156,5 +170,39 @@ export class EstimateDrawerComponent {
   clearAll(): void {
     this.quickOrder.clear();
     this.closed.emit();
+  }
+
+  readonly downloading = signal(false);
+  readonly quoteError = signal<string | null>(null);
+
+  /**
+   * Renders the basket as a quotation PDF.
+   *
+   * Built on the server rather than printed from the browser: the totals include packing
+   * and rounding that only the server computes, and a print stylesheet would produce a
+   * screenshot of a drawer rather than a document anyone would send a customer.
+   */
+  downloadQuote(): void {
+    if (!this.lineCount()) return;
+    this.downloading.set(true);
+    this.quoteError.set(null);
+
+    const lines = this.lines().map((l) => ({ productId: l.item.productId, quantity: l.qty }));
+
+    this.checkout.quotePdf(lines).subscribe({
+      next: (blob) => {
+        this.downloading.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `quotation-${new Date().toISOString().slice(0, 10)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.downloading.set(false);
+        this.quoteError.set('Could not prepare the quotation. Please try again.');
+      },
+    });
   }
 }

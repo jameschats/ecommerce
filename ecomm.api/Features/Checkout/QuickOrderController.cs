@@ -32,6 +32,24 @@ public sealed class QuickOrderController : ControllerBase
         => Ok(ApiResponse<QuickOrderQuoteDto>.Ok(await _quickOrder.QuoteAsync(req, ct)));
 
     /// <summary>
+    /// The same basket as a printable quotation.
+    ///
+    /// Anonymous, like pricing itself: a dealer working up a quote for their own customer
+    /// has not committed to anything, and making them sign in first would be a gate in front
+    /// of a sales tool. Priced through the same QuoteAsync call, so paper and screen agree.
+    /// </summary>
+    [HttpPost("quote/pdf")]
+    public async Task<IActionResult> QuotePdf(
+        [FromBody] QuoteDocumentRequest req,
+        [FromServices] IQuoteDocumentService quotes,
+        CancellationToken ct)
+    {
+        var pdf = await quotes.RenderAsync(
+            new QuickOrderQuoteRequest(req.Lines, req.State), req.CustomerName, ct);
+        return File(pdf.Content, "application/pdf", pdf.FileName);
+    }
+
+    /// <summary>
     /// Places the order. The only authenticated endpoint here — the buyer builds and prices
     /// freely, and identity is required at the point it becomes a commitment (design.md §7.2).
     /// </summary>

@@ -122,6 +122,16 @@ export class QuickOrderCheckoutService {
    * Places the order. Errors are deliberately NOT swallowed here — unlike quote(), a
    * failure to place must surface to the buyer rather than degrade to an empty result.
    */
+  /**
+   * The basket as a printable quotation. Rendered on the server, because the totals include
+   * packing and rounding that only the server computes.
+   */
+  quotePdf(lines: { productId: number; quantity: number }[], state?: string, customerName?: string): Observable<Blob> {
+    return this.http.post(`${this.base}/quote/pdf`,
+      { lines, state: state ?? null, customerName: customerName ?? null },
+      { responseType: 'blob' });
+  }
+
   place(req: PlaceQuickOrderRequest): Observable<PlacedOrder> {
     return this.http
       .post<ApiResponse<PlacedOrder>>(`${this.base}/place`, req)
