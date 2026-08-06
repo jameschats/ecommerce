@@ -129,6 +129,7 @@ export class AdminLayoutComponent {
       links: [
         { path: '/admin/store-settings', label: 'Store settings' },
         { path: '/admin/shop-settings', label: 'Shop & payment settings' },
+        { path: '/admin/templates', label: 'Message templates' },
         { path: '/admin/auth-providers', label: 'Sign-in methods' },
         { path: '/admin/notifications', label: 'Notifications' },
       ],
