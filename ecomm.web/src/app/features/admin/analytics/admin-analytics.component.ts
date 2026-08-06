@@ -2,10 +2,10 @@ import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow } from '../../../core/models/analytics.model';
+import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesPeriodRow } from '../../../core/models/analytics.model';
 import { AnalyticsService } from '../../../core/services/analytics.service';
 
-type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'supplier';
+type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'supplier';
 
 @Component({
   selector: 'app-admin-analytics',
@@ -38,6 +38,16 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
           }
         </div>
         <div class="flex items-center gap-1.5 ml-auto text-sm">
+          <!-- Only meaningful for the time report; the others group by product. -->
+          @if (tab() === 'sales') {
+            <div class="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 mr-1">
+              @for (b of buckets; track b) {
+                <button type="button" (click)="setBucket(b)"
+                        class="px-2.5 py-1 rounded-md capitalize transition"
+                        [class]="bucket() === b ? 'bg-white shadow-sm text-slate-900 font-medium' : 'text-slate-500'">{{ b }}</button>
+              }
+            </div>
+          }
           <input type="date" [(ngModel)]="from" (ngModelChange)="loadReport()" class="input py-1" />
           <span class="text-slate-400">to</span>
           <input type="date" [(ngModel)]="to" (ngModelChange)="loadReport()" class="input py-1" />
@@ -52,8 +62,11 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
           <table class="w-full text-sm">
             <thead class="text-left text-slate-400 border-b border-slate-100">
               <tr>
-                <th class="px-4 py-2">{{ isGroup() ? 'Group' : 'Product' }}</th>
-                @if (tab() === 'return') {
+                <th class="px-4 py-2">{{ tab() === 'sales' ? 'Period' : isGroup() ? 'Group' : 'Product' }}</th>
+                @if (tab() === 'sales') {
+                  <th class="px-2 py-2 text-right">Orders</th><th class="px-2 py-2 text-right">Units</th>
+                  <th class="px-4 py-2 w-1/3">Sales</th><th class="px-2 py-2 text-right">Profit</th><th class="px-2 py-2 text-right">Margin</th>
+                } @else if (tab() === 'return') {
                   <th class="px-2 py-2 text-right">Sold</th><th class="px-2 py-2 text-right">Returned</th><th class="px-4 py-2 w-1/3">Return rate</th>
                 } @else if (tab() === 'best') {
                   <th class="px-2 py-2 text-right">Units</th><th class="px-4 py-2 w-1/3">Revenue</th><th class="px-2 py-2 text-right">Profit</th>
@@ -63,7 +76,37 @@ type Tab = 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'suppli
               </tr>
             </thead>
             <tbody>
-              @if (tab() === 'return') {
+              @if (tab() === 'sales') {
+                @for (r of salesRows(); track r.period) {
+                  <!-- Months with no trade are shown rather than skipped: a gap that closes
+                       up hides the quiet month instead of reporting it. -->
+                  <tr class="border-b border-slate-50" [class.text-slate-400]="r.orders === 0">
+                    <td class="px-4 py-2 font-medium">{{ r.label }}</td>
+                    <td class="px-2 py-2 text-right">{{ r.orders }}</td>
+                    <td class="px-2 py-2 text-right">{{ r.units }}</td>
+                    <td class="px-4 py-2">
+                      <span class="flex items-center gap-2">
+                        <span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.revenue, maxSales())"></span>
+                        <span class="text-xs text-slate-600 whitespace-nowrap">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</span>
+                      </span>
+                    </td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">
+                      {{ r.costMissing ? '—' : (r.profit | currency:'INR':'symbol':'1.0-0') }}
+                    </td>
+                    <td class="px-2 py-2 text-right">{{ r.costMissing ? '—' : r.marginPct + '%' }}</td>
+                  </tr>
+                }
+                @if (salesRows().length) {
+                  <tr class="border-t-2 border-slate-200 font-semibold text-slate-900">
+                    <td class="px-4 py-2">Total</td>
+                    <td class="px-2 py-2 text-right">{{ salesTotals().orders }}</td>
+                    <td class="px-2 py-2 text-right">{{ salesTotals().units }}</td>
+                    <td class="px-4 py-2">{{ salesTotals().revenue | currency:'INR':'symbol':'1.0-0' }}</td>
+                    <td class="px-2 py-2 text-right">{{ salesTotals().profit | currency:'INR':'symbol':'1.0-0' }}</td>
+                    <td class="px-2 py-2 text-right"></td>
+                  </tr>
+                }
+              } @else if (tab() === 'return') {
                 @for (r of returnRows(); track r.productId) {
                   <tr class="border-b border-slate-50">
                     <td class="px-4 py-2 text-slate-800">{{ r.name }}</td>
@@ -114,6 +157,7 @@ export class AdminAnalyticsComponent implements OnInit {
   private readonly svc = inject(AnalyticsService);
 
   readonly tabs: { key: Tab; label: string }[] = [
+    { key: 'sales', label: 'Sales over time' },
     { key: 'best', label: 'Best sellers' },
     { key: 'marginHigh', label: 'Top margin' },
     { key: 'marginLow', label: 'Low margin' },
@@ -123,18 +167,50 @@ export class AdminAnalyticsComponent implements OnInit {
   ];
 
   readonly summary = signal<AnalyticsSummary | null>(null);
-  readonly tab = signal<Tab>('best');
+  // Sales over time leads: it is the report a business reads first, and the one that was
+  // missing entirely — every other report here groups by product rather than by time.
+  readonly tab = signal<Tab>('sales');
   readonly loading = signal(false);
   readonly productRows = signal<ProductReportRow[]>([]);
   readonly returnRows = signal<ReturnRateRow[]>([]);
   readonly groupRows = signal<GroupProfitRow[]>([]);
+  readonly salesRows = signal<SalesPeriodRow[]>([]);
+  readonly bucket = signal<'month' | 'year' | 'day'>('month');
+  readonly buckets: ('day' | 'month' | 'year')[] = ['day', 'month', 'year'];
 
   from = this.daysAgo(29);
   to = this.daysAgo(0);
 
+  readonly maxSales = computed(() => Math.max(1, ...this.salesRows().map((r) => r.revenue)));
+
+  readonly salesTotals = computed(() => this.salesRows().reduce(
+    (a, r) => ({
+      orders: a.orders + r.orders,
+      units: a.units + r.units,
+      revenue: a.revenue + r.revenue,
+      profit: a.profit + r.profit,
+    }),
+    { orders: 0, units: 0, revenue: 0, profit: 0 }));
+
+  /** Month or year needs a wider window than the 30-day default to say anything. */
+  setBucket(b: 'month' | 'year' | 'day'): void {
+    this.bucket.set(b);
+    if (b === 'month' && this.from === this.daysAgo(29)) this.from = this.daysAgo(364);
+    if (b === 'year') this.from = this.yearsAgo(3);
+    this.loadReport();
+  }
+
+  private yearsAgo(n: number): string {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - n);
+    return d.toISOString().slice(0, 10);
+  }
+
   readonly isGroup = computed(() => this.tab() === 'category' || this.tab() === 'supplier');
   readonly rowCount = computed(() =>
-    this.tab() === 'return' ? this.returnRows().length : this.isGroup() ? this.groupRows().length : this.productRows().length);
+    this.tab() === 'sales' ? this.salesRows().length
+      : this.tab() === 'return' ? this.returnRows().length
+      : this.isGroup() ? this.groupRows().length : this.productRows().length);
   readonly maxRevenue = computed(() => Math.max(1, ...this.productRows().map((r) => r.revenue)));
   readonly maxProfit = computed(() => Math.max(1, ...(this.isGroup() ? this.groupRows() : this.productRows()).map((r) => Math.max(0, r.profit))));
   readonly maxReturn = computed(() => Math.max(1, ...this.returnRows().map((r) => r.returnRatePct)));
@@ -150,7 +226,8 @@ export class AdminAnalyticsComponent implements OnInit {
     this.loading.set(true);
     const done = () => this.loading.set(false);
     const t = this.tab();
-    if (t === 'best') this.svc.bestSellers(this.from, this.to).subscribe({ next: (r) => { this.productRows.set(r); done(); }, error: done });
+    if (t === 'sales') this.svc.salesOverTime(this.from, this.to, this.bucket()).subscribe({ next: (r) => { this.salesRows.set(r); done(); }, error: done });
+    else if (t === 'best') this.svc.bestSellers(this.from, this.to).subscribe({ next: (r) => { this.productRows.set(r); done(); }, error: done });
     else if (t === 'marginHigh') this.svc.margins(this.from, this.to, 'high').subscribe({ next: (r) => { this.productRows.set(r); done(); }, error: done });
     else if (t === 'marginLow') this.svc.margins(this.from, this.to, 'low').subscribe({ next: (r) => { this.productRows.set(r); done(); }, error: done });
     else if (t === 'return') this.svc.returnRate(this.from, this.to).subscribe({ next: (r) => { this.returnRows.set(r); done(); }, error: done });
@@ -164,7 +241,10 @@ export class AdminAnalyticsComponent implements OnInit {
 
   exportCsv(): void {
     let headers: string[]; let rows: (string | number)[][];
-    if (this.tab() === 'return') {
+    if (this.tab() === 'sales') {
+      headers = ['Period', 'Orders', 'Units', 'Sales', 'Cost', 'Profit', 'Margin%'];
+      rows = this.salesRows().map((r) => [r.label, r.orders, r.units, r.revenue, r.cost, r.profit, r.marginPct]);
+    } else if (this.tab() === 'return') {
       headers = ['Product', 'Sold', 'Returned', 'ReturnRate%'];
       rows = this.returnRows().map((r) => [r.name, r.sold, r.returned, r.returnRatePct]);
     } else if (this.isGroup()) {

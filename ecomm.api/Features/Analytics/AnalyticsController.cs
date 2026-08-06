@@ -29,6 +29,16 @@ public sealed class AnalyticsController : ControllerBase
     public async Task<IActionResult> Summary(CancellationToken ct)
         => Ok(ApiResponse<AnalyticsSummaryDto>.Ok(await _analytics.SummaryAsync(ct)));
 
+    /// <summary>Sales grouped by time — ?bucket=day|month|year, defaulting to month.</summary>
+    [HttpGet("sales-over-time")]
+    public async Task<IActionResult> SalesOverTime(
+        [FromQuery] string? from, [FromQuery] string? to, [FromQuery] string? bucket, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<SalesPeriodRow>>.Ok(
+            await _analytics.SalesOverTimeAsync(f, t, bucket ?? "month", ct)));
+    }
+
     [HttpGet("best-sellers")]
     public async Task<IActionResult> BestSellers([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
     {

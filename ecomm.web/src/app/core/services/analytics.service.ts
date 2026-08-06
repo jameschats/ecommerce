@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
-import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow } from '../models/analytics.model';
+import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesPeriodRow } from '../models/analytics.model';
 import { ApiResponse } from '../models/api-response.model';
 
 @Injectable({ providedIn: 'root' })
@@ -34,5 +34,9 @@ export class AnalyticsService {
   }
   profitBySupplier(from: string, to: string): Observable<GroupProfitRow[]> {
     return this.unwrap(this.http.get<ApiResponse<GroupProfitRow[]>>(`${this.base}/profit-by-supplier${this.range(from, to)}`));
+  }
+  salesOverTime(from: string, to: string, bucket: 'month' | 'year' | 'day'): Observable<SalesPeriodRow[]> {
+    return this.unwrap(this.http.get<ApiResponse<SalesPeriodRow[]>>(
+      `${this.base}/sales-over-time${this.range(from, to)}&bucket=${bucket}`));
   }
 }
