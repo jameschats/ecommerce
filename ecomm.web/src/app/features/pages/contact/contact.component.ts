@@ -1,6 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { SITE_URL } from '../../../core/api.config';
+import { API_BASE_URL, SITE_URL } from '../../../core/api.config';
+import { ApiResponse } from '../../../core/models/api-response.model';
 import { SeoService } from '../../../core/services/seo.service';
 
 @Component({
@@ -40,12 +42,30 @@ import { SeoService } from '../../../core/services/seo.service';
             <form (ngSubmit)="submit()" class="space-y-4">
               <div class="grid sm:grid-cols-2 gap-4">
                 <div><label class="lbl">Name</label><input [(ngModel)]="form.name" name="name" required class="input" /></div>
-                <div><label class="lbl">Email</label><input [(ngModel)]="form.email" name="email" type="email" required class="input" /></div>
+                <div><label class="lbl">Email</label><input [(ngModel)]="form.email" name="email" type="email" class="input" /></div>
               </div>
+              <div><label class="lbl">Phone</label><input [(ngModel)]="form.phone" name="phone" type="tel" class="input" placeholder="So we can call you back" /></div>
               <div><label class="lbl">Subject</label><input [(ngModel)]="form.subject" name="subject" class="input" /></div>
               <div><label class="lbl">Message</label><textarea [(ngModel)]="form.message" name="message" rows="5" required class="input"></textarea></div>
-              <button type="submit" class="btn-primary">Send message</button>
-              <p class="text-xs text-slate-400">This is a demo form — submissions aren't stored yet.</p>
+
+              <!--
+                Honeypot. Hidden from people and skipped by the tab order, so anything in it
+                came from a bot filling every field it found. aria-hidden keeps it out of a
+                screen reader too — it is not a real question.
+              -->
+              <input [(ngModel)]="form.website" name="website" tabindex="-1" autocomplete="off"
+                     aria-hidden="true" class="hidden" />
+
+              <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="form.subscribe" name="subscribe" class="w-4 h-4 mt-0.5" />
+                <span class="text-sm text-slate-600">Email me about offers and new designs</span>
+              </label>
+
+              <button type="submit" [disabled]="sending()" class="btn-primary">
+                {{ sending() ? 'Sending…' : 'Send message' }}
+              </button>
+              @if (error(); as e) { <p class="text-sm text-red-600">{{ e }}</p> }
+              <p class="text-xs text-slate-400">Leave an email address or a phone number so we can reply.</p>
             </form>
           }
         </div>
@@ -56,8 +76,13 @@ import { SeoService } from '../../../core/services/seo.service';
 export class ContactComponent implements OnInit {
   private readonly seo = inject(SeoService);
 
+  private readonly http = inject(HttpClient);
+
   readonly sent = signal(false);
-  form = { name: '', email: '', subject: '', message: '' };
+  readonly sending = signal(false);
+  readonly error = signal<string | null>(null);
+
+  form = { name: '', email: '', phone: '', subject: '', message: '', website: '', subscribe: false };
 
   readonly details = [
     { icon: '📍', label: 'Address', value: 'CalendarShop\nChennai, Tamil Nadu, India' },
@@ -74,9 +99,43 @@ export class ContactComponent implements OnInit {
     });
   }
 
+  /**
+   * Sends the enquiry. This used to set a "thanks" message and clear the boxes without
+   * telling anyone — every message sent through this page was lost.
+   */
   submit(): void {
-    if (!this.form.name.trim() || !this.form.email.trim() || !this.form.message.trim()) return;
-    this.sent.set(true);
-    this.form = { name: '', email: '', subject: '', message: '' };
+    this.error.set(null);
+    if (!this.form.name.trim() || !this.form.message.trim()) {
+      this.error.set('Please enter your name and a message.');
+      return;
+    }
+    if (!this.form.email.trim() && !this.form.phone.trim()) {
+      this.error.set('Leave an email address or a phone number so we can reply.');
+      return;
+    }
+
+    this.sending.set(true);
+    this.http
+      .post<ApiResponse<unknown>>(`${API_BASE_URL}/contact`, {
+        name: this.form.name.trim(),
+        email: this.form.email.trim() || null,
+        phone: this.form.phone.trim() || null,
+        subject: this.form.subject.trim() || null,
+        message: this.form.message.trim(),
+        sourcePage: '/contact',
+        website: this.form.website,
+        subscribeToEmails: this.form.subscribe,
+      })
+      .subscribe({
+        next: () => {
+          this.sending.set(false);
+          this.sent.set(true);
+          this.form = { name: '', email: '', phone: '', subject: '', message: '', website: '', subscribe: false };
+        },
+        error: (e) => {
+          this.sending.set(false);
+          this.error.set(e?.error?.message ?? 'Could not send your message. Please try again.');
+        },
+      });
   }
 }

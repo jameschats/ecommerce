@@ -104,6 +104,7 @@ export const routes: Routes = [
       { path: 'coupons', loadComponent: () => import('./features/admin/coupons/admin-coupons.component').then((m) => m.AdminCouponsComponent) },
       { path: 'analytics', loadComponent: () => import('./features/admin/analytics/admin-analytics.component').then((m) => m.AdminAnalyticsComponent) },
       { path: 'suppliers', loadComponent: () => import('./features/admin/suppliers/admin-suppliers.component').then((m) => m.AdminSuppliersComponent) },
+      { path: 'contacts', loadComponent: () => import('./features/admin/contacts/admin-contacts.component').then((m) => m.AdminContactsComponent) },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'shop-settings', loadComponent: () => import('./features/admin/settings/admin-shop-settings.component').then((m) => m.AdminShopSettingsComponent) },

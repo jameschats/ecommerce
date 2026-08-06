@@ -73,6 +73,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Setting> Settings => Set<Setting>();
+    public DbSet<Contact> Contacts => Set<Contact>();
     public DbSet<StateMinOrderAmount> StateMinOrderAmounts => Set<StateMinOrderAmount>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
     public DbSet<GalleryImage> GalleryImages => Set<GalleryImage>();
@@ -332,6 +333,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<WishlistItem>(e => { e.ToTable("WishlistItems"); e.HasKey(x => x.WishlistItemId); });
         b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });
         b.Entity<Supplier>(e => { e.ToTable("Suppliers"); e.HasKey(x => x.SupplierId); });
+        b.Entity<Contact>(e => { e.ToTable("Contacts"); e.HasKey(x => x.ContactId); });
         b.Entity<ProductSupplier>(e =>
         {
             e.ToTable("ProductSuppliers");

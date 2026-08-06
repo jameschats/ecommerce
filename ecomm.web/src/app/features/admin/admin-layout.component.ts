@@ -45,6 +45,7 @@ export class AdminLayoutComponent {
     { path: '/admin/inventory', label: 'Inventory' },
     { path: '/admin/suppliers', label: 'Suppliers' },
     { path: '/admin/orders', label: 'Orders' },
+    { path: '/admin/contacts', label: 'Contacts' },
     { path: '/admin/payments', label: 'Payments to verify' },
     { path: '/admin/shop-settings', label: 'Shop & payment settings' },
     { path: '/admin/notifications', label: 'Notifications' },
