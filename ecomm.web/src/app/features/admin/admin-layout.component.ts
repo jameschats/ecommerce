@@ -116,6 +116,10 @@ export class AdminLayoutComponent {
       links: [{ path: '/admin/coupons', label: 'Coupons' }],
     },
     {
+      key: 'marketing', label: 'Marketing', dot: '#10b981',
+      links: [{ path: '/admin/campaigns', label: 'Campaigns' }],
+    },
+    {
       key: 'store', label: 'Online store', dot: '#1e40af',
       links: [
         { path: '/admin/home-page', label: 'Home page' },

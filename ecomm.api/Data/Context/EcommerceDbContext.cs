@@ -74,6 +74,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Setting> Settings => Set<Setting>();
     public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<CampaignRecipient> CampaignRecipients => Set<CampaignRecipient>();
     public DbSet<StateMinOrderAmount> StateMinOrderAmounts => Set<StateMinOrderAmount>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
     public DbSet<GalleryImage> GalleryImages => Set<GalleryImage>();
@@ -334,6 +336,8 @@ public class EcommerceDbContext : DbContext
         b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });
         b.Entity<Supplier>(e => { e.ToTable("Suppliers"); e.HasKey(x => x.SupplierId); });
         b.Entity<Contact>(e => { e.ToTable("Contacts"); e.HasKey(x => x.ContactId); });
+        b.Entity<Campaign>(e => { e.ToTable("Campaigns"); e.HasKey(x => x.CampaignId); });
+        b.Entity<CampaignRecipient>(e => { e.ToTable("CampaignRecipients"); e.HasKey(x => x.CampaignRecipientId); });
         b.Entity<ProductSupplier>(e =>
         {
             e.ToTable("ProductSuppliers");
