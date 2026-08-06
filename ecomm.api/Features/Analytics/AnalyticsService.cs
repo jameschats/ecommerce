@@ -12,7 +12,8 @@ public sealed record AnalyticsSummaryDto(
 /// <summary>A product row for best-sellers / margin reports. CostMissing ⇒ some units had no cost price.</summary>
 public sealed record ProductReportRow(long ProductId, string Name, int Units, decimal Revenue, decimal Cost, decimal Profit, decimal MarginPct, bool CostMissing);
 public sealed record ReturnRateRow(long ProductId, string Name, int Sold, int Returned, decimal ReturnRatePct);
-public sealed record GroupProfitRow(string Name, decimal Revenue, decimal Cost, decimal Profit, decimal MarginPct);
+/// <summary>Profit for a category or supplier. CostMissing ⇒ Cost/Profit/MarginPct are not known.</summary>
+public sealed record GroupProfitRow(string Name, decimal Revenue, decimal Cost, decimal Profit, decimal MarginPct, bool CostMissing);
 
 /// <summary>
 /// One period of trading. Revenue is the order total actually billed — including packing
@@ -75,6 +76,15 @@ public sealed class AnalyticsService : IAnalyticsService
     // ---------------- Reports ----------------
     private sealed record SoldLine(long ProductId, string ProductName, int Units, decimal Revenue, decimal? UnitCost, string CategoryName, string SupplierName);
 
+    /// <summary>
+    /// Cost comes from the line's own snapshot and nowhere else. It deliberately does *not*
+    /// fall back to the product's current CostPrice: products get renamed, repriced and
+    /// repurposed, so today's cost may belong to a different item than the one that was sold.
+    /// This catalogue was edited in place from its demo seed — order line "Wall Calendar 2026"
+    /// (₹660) and product 1 "10 x 15 Art Mount Lamination" (₹4, cost ₹2) share an id and
+    /// nothing else. Costing that sale at ₹2 reported a 99% margin that never happened.
+    /// A line with no snapshot has an <b>unknown</b> cost, and the reports say so.
+    /// </summary>
     private Task<List<SoldLine>> SoldLinesAsync(DateTime startUtc, DateTime endUtc, CancellationToken ct) =>
         (from oi in _db.OrderItems
          join o in _db.Orders on oi.OrderId equals o.OrderId
@@ -82,7 +92,7 @@ public sealed class AnalyticsService : IAnalyticsService
          where o.TenantId == Tenant && SoldStatuses.Contains(o.Status) && o.PlacedAt >= startUtc && o.PlacedAt <= endUtc
          select new SoldLine(
              oi.ProductId, oi.ProductName, oi.Quantity, oi.LineTotal,
-             oi.UnitCost ?? p.CostPrice,
+             oi.UnitCost,
              p.Category!.Name,
              _db.ProductSuppliers.Where(ps => ps.ProductId == oi.ProductId && ps.IsPrimary && ps.IsActive)
                  .Join(_db.Suppliers, ps => ps.SupplierId, s => s.SupplierId, (ps, s) => s.Name).FirstOrDefault() ?? "Unassigned"))
@@ -120,10 +130,9 @@ public sealed class AnalyticsService : IAnalyticsService
         var lines = await (
             from oi in _db.OrderItems
             join o in _db.Orders on oi.OrderId equals o.OrderId
-            join p in _db.Products on oi.ProductId equals p.ProductId
             where o.TenantId == Tenant && SoldStatuses.Contains(o.Status)
                   && o.PlacedAt >= startUtc && o.PlacedAt <= endUtc
-            select new { o.PlacedAt, oi.Quantity, Cost = oi.UnitCost ?? p.CostPrice })
+            select new { o.PlacedAt, oi.Quantity, Cost = oi.UnitCost })
             .ToListAsync(ct);
 
         var orderStats = orders
@@ -134,8 +143,7 @@ public sealed class AnalyticsService : IAnalyticsService
             .GroupBy(l => Key(l.PlacedAt!.Value, by))
             .ToDictionary(g => g.Key, g => (
                 Units: g.Sum(x => x.Quantity),
-                Cost: g.Sum(x => (x.Cost ?? 0m) * x.Quantity),
-                CostMissing: g.Any(x => x.Cost is null)));
+                Lines: g.Select(x => (x.Cost, x.Quantity)).ToList()));
 
         var periods = by == "day"
             ? orderStats.Keys.Union(lineStats.Keys).OrderBy(k => k).ToList()
@@ -145,11 +153,15 @@ public sealed class AnalyticsService : IAnalyticsService
         {
             orderStats.TryGetValue(k, out var o);
             lineStats.TryGetValue(k, out var l);
-            var profit = o.Revenue - l.Cost;
+
+            // A period that traded nothing is genuinely zero, not "cost unknown" — the
+            // gap-filled months exist to show quiet periods, and flagging them would cry wolf.
+            var c = o.Orders == 0
+                ? (Cost: 0m, Profit: 0m, MarginPct: 0m, CostMissing: false)
+                : Costing(o.Revenue, l.Lines ?? new List<(decimal?, int)>());
+
             return new SalesPeriodRow(
-                k, Label(k, by), o.Orders, l.Units, o.Revenue, l.Cost, profit,
-                o.Revenue > 0 ? Math.Round(profit / o.Revenue * 100m, 1) : 0m,
-                l.CostMissing);
+                k, Label(k, by), o.Orders, l.Units, o.Revenue, c.Cost, c.Profit, c.MarginPct, c.CostMissing);
         }).ToList();
     }
 
@@ -221,23 +233,43 @@ public sealed class AnalyticsService : IAnalyticsService
     }
 
     // ---------------- helpers (in-memory aggregation) ----------------
+
+    /// <summary>
+    /// Gross profit for a set of lines — or "unknown", if any line has no cost snapshot.
+    ///
+    /// A missing cost counted as zero understates cost and so overstates profit and margin:
+    /// the error always flatters. Rather than publish a number that is wrong in the
+    /// comfortable direction, the whole triple is reported as zero and flagged, and callers
+    /// must read CostMissing before reading Cost, Profit or MarginPct. Revenue and units are
+    /// exact either way — those are known whether or not the cost is.
+    /// </summary>
+    private static (decimal Cost, decimal Profit, decimal MarginPct, bool CostMissing) Costing(
+        decimal revenue, IEnumerable<(decimal? UnitCost, int Units)> lines)
+    {
+        var list = lines.ToList();
+        if (list.Count == 0 || list.Any(l => l.UnitCost is null)) return (0m, 0m, 0m, true);
+
+        var cost = list.Sum(l => l.UnitCost!.Value * l.Units);
+        var profit = revenue - cost;
+        return (cost, profit, revenue > 0 ? Math.Round(profit / revenue * 100m, 1) : 0m, false);
+    }
+
     private static List<ProductReportRow> ByProduct(List<SoldLine> lines) =>
         lines.GroupBy(l => new { l.ProductId, l.ProductName }).Select(g =>
         {
             var revenue = g.Sum(l => l.Revenue);
-            var cost = g.Sum(l => (l.UnitCost ?? 0m) * l.Units);
-            var profit = revenue - cost;
+            var c = Costing(revenue, g.Select(l => (l.UnitCost, l.Units)));
             return new ProductReportRow(g.Key.ProductId, g.Key.ProductName, g.Sum(l => l.Units),
-                revenue, cost, profit, revenue > 0 ? Math.Round(profit / revenue * 100m, 1) : 0m,
-                g.Any(l => l.UnitCost is null));
+                revenue, c.Cost, c.Profit, c.MarginPct, c.CostMissing);
         }).ToList();
 
+    // Ordered by revenue, not profit: a group whose cost is unknown reports zero profit, and
+    // ordering by profit would bury exactly the rows that need attention.
     private static List<GroupProfitRow> ByGroup(List<SoldLine> lines, Func<SoldLine, string> key) =>
         lines.GroupBy(key).Select(g =>
         {
             var revenue = g.Sum(l => l.Revenue);
-            var cost = g.Sum(l => (l.UnitCost ?? 0m) * l.Units);
-            var profit = revenue - cost;
-            return new GroupProfitRow(g.Key, revenue, cost, profit, revenue > 0 ? Math.Round(profit / revenue * 100m, 1) : 0m);
-        }).OrderByDescending(r => r.Profit).ToList();
+            var c = Costing(revenue, g.Select(l => (l.UnitCost, l.Units)));
+            return new GroupProfitRow(g.Key, revenue, c.Cost, c.Profit, c.MarginPct, c.CostMissing);
+        }).OrderByDescending(r => r.Revenue).ToList();
 }

@@ -121,7 +121,10 @@ public sealed class InvoiceService : IInvoiceService
 
     private static byte[] BuildPdf(Invoice inv, List<InvoiceItem> items, Order order, string sellerName, string sellerState)
     {
-        var docTitle = inv.TaxAmount <= 0m ? "BILL OF SUPPLY" : "TAX INVOICE";
+        // Inferred from the document's own stored amounts, not the current TaxMode setting, so
+        // an invoice issued under an older setting still prints the way it was charged.
+        var billOfSupply = inv.TaxAmount <= 0m;
+        var docTitle = billOfSupply ? "BILL OF SUPPLY" : "TAX INVOICE";
         var doc = Document.Create(container =>
         {
             container.Page(page =>
@@ -189,7 +192,10 @@ public sealed class InvoiceService : IInvoiceService
                             c.RelativeColumn(1.3f);
                             c.RelativeColumn(0.8f);
                             c.RelativeColumn(1.3f);
-                            c.RelativeColumn(1f);
+                            // No GST% column on a Bill of Supply: a document that charges no GST
+                            // should not have a tax column at all, and one reading "0%" on every
+                            // line invites the question of why it is there.
+                            if (!billOfSupply) c.RelativeColumn(1f);
                             c.RelativeColumn(1.5f);
                         });
                         table.Header(h =>
@@ -199,7 +205,9 @@ public sealed class InvoiceService : IInvoiceService
                                 var cell = h.Cell().Background(Colors.Grey.Lighten3).Padding(4);
                                 (right ? cell.AlignRight() : cell.AlignLeft()).Text(t).Bold().FontSize(8);
                             }
-                            Hd("Item"); Hd("HSN"); Hd("Qty"); Hd("Rate", true); Hd("GST%", true); Hd("Amount", true);
+                            Hd("Item"); Hd("HSN"); Hd("Qty"); Hd("Rate", true);
+                            if (!billOfSupply) Hd("GST%", true);
+                            Hd("Amount", true);
                         });
                         foreach (var it in items)
                         {
@@ -207,15 +215,13 @@ public sealed class InvoiceService : IInvoiceService
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.HsnCode ?? "-");
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.Quantity.ToString());
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(Money(it.UnitPrice));
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text($"{it.TaxRate:0.##}%");
+                            if (!billOfSupply)
+                                table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text($"{it.TaxRate:0.##}%");
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(Money(it.LineTotal));
                         }
                     });
 
                     var shipping = order.ShippingAmount;
-                    // Infer how the order was charged from its stored amounts (order-accurate,
-                    // independent of the current TaxMode setting).
-                    var billOfSupply = inv.TaxAmount <= 0m;
                     var taxAddedOnTop = Math.Abs(order.TotalAmount - (inv.Subtotal + inv.TaxAmount + shipping)) < 0.01m;
                     var inclusive = !billOfSupply && !taxAddedOnTop;
 

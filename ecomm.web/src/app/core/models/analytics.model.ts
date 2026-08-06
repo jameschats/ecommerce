@@ -51,4 +51,6 @@ export interface GroupProfitRow {
   cost: number;
   profit: number;
   marginPct: number;
+  /** True ⇒ cost/profit/marginPct are unknown, not zero. Show a dash, never the number. */
+  costMissing: boolean;
 }

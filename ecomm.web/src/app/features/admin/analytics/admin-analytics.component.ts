@@ -58,6 +58,15 @@ type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category'
       @if (loading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
       @else if (!rowCount()) { <div class="p-8 text-center text-slate-400">No data for this range.</div> }
       @else {
+        @if (anyCostMissing()) {
+          <div class="mb-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
+            <strong>Profit is shown as “—” where the cost isn’t known.</strong>
+            Orders record what each item cost at the moment it was sold. Orders placed before that
+            was introduced have no such record, and the product’s cost price today can’t stand in for
+            it — products get renamed and repriced, so today’s figure may belong to a different item.
+            Sales and units below are exact; only cost, profit and margin are withheld.
+          </div>
+        }
         <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-left text-slate-400 border-b border-slate-100">
@@ -102,7 +111,7 @@ type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category'
                     <td class="px-2 py-2 text-right">{{ salesTotals().orders }}</td>
                     <td class="px-2 py-2 text-right">{{ salesTotals().units }}</td>
                     <td class="px-4 py-2">{{ salesTotals().revenue | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-2 py-2 text-right">{{ salesTotals().profit | currency:'INR':'symbol':'1.0-0' }}</td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="salesTotals().costMissing">{{ salesTotals().costMissing ? '—' : (salesTotals().profit | currency:'INR':'symbol':'1.0-0') }}</td>
                     <td class="px-2 py-2 text-right"></td>
                   </tr>
                 }
@@ -127,11 +136,14 @@ type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category'
               } @else if (isGroup()) {
                 @for (r of groupRows(); track r.name) {
                   <tr class="border-b border-slate-50">
-                    <td class="px-4 py-2 text-slate-800">{{ r.name }}</td>
+                    <td class="px-4 py-2 text-slate-800">{{ r.name }} @if (r.costMissing) { <span class="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1">no cost</span> }</td>
                     <td class="px-2 py-2 text-right">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-2 py-2 text-right">{{ r.cost | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-4 py-2"><span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.0-0' }}</span></span></td>
-                    <td class="px-2 py-2 text-right">{{ r.marginPct }}%</td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.cost | currency:'INR':'symbol':'1.0-0') }}</td>
+                    <td class="px-4 py-2">
+                      @if (r.costMissing) { <span class="text-xs text-slate-400">—</span> }
+                      @else { <span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.0-0' }}</span></span> }
+                    </td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : r.marginPct + '%' }}</td>
                   </tr>
                 }
               } @else {
@@ -139,9 +151,13 @@ type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category'
                   <tr class="border-b border-slate-50">
                     <td class="px-4 py-2 text-slate-800">{{ r.name }} @if (r.costMissing) { <span class="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1">no cost</span> }</td>
                     <td class="px-2 py-2 text-right">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-2 py-2 text-right">{{ r.cost | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-4 py-2"><span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.0-0' }}</span></span></td>
-                    <td class="px-2 py-2 text-right font-medium" [class]="r.marginPct < 15 ? 'text-red-600' : 'text-slate-800'">{{ r.marginPct }}%</td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.cost | currency:'INR':'symbol':'1.0-0') }}</td>
+                    <td class="px-4 py-2">
+                      @if (r.costMissing) { <span class="text-xs text-slate-400">—</span> }
+                      @else { <span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.0-0' }}</span></span> }
+                    </td>
+                    <td class="px-2 py-2 text-right font-medium"
+                        [class]="r.costMissing ? 'text-slate-400' : (r.marginPct < 15 ? 'text-red-600' : 'text-slate-800')">{{ r.costMissing ? '—' : r.marginPct + '%' }}</td>
                   </tr>
                 }
               }
@@ -183,14 +199,33 @@ export class AdminAnalyticsComponent implements OnInit {
 
   readonly maxSales = computed(() => Math.max(1, ...this.salesRows().map((r) => r.revenue)));
 
-  readonly salesTotals = computed(() => this.salesRows().reduce(
-    (a, r) => ({
-      orders: a.orders + r.orders,
-      units: a.units + r.units,
-      revenue: a.revenue + r.revenue,
-      profit: a.profit + r.profit,
-    }),
-    { orders: 0, units: 0, revenue: 0, profit: 0 }));
+  /** Drives the explanation banner — the return-rate report carries no cost, so it never applies. */
+  readonly anyCostMissing = computed(() => {
+    if (this.tab() === 'sales') return this.salesRows().some((r) => r.costMissing);
+    if (this.tab() === 'return') return false;
+    if (this.isGroup()) return this.groupRows().some((r) => r.costMissing);
+    return this.productRows().some((r) => r.costMissing);
+  });
+
+  /**
+   * Orders, units and revenue always total. Profit only totals when every period in view has
+   * a known cost — summing across periods where cost is unknown would quietly reintroduce the
+   * fabricated figure that suppressing the per-row number exists to prevent.
+   */
+  readonly salesTotals = computed(() => {
+    const rows = this.salesRows();
+    return {
+      ...rows.reduce(
+        (a, r) => ({
+          orders: a.orders + r.orders,
+          units: a.units + r.units,
+          revenue: a.revenue + r.revenue,
+          profit: a.profit + r.profit,
+        }),
+        { orders: 0, units: 0, revenue: 0, profit: 0 }),
+      costMissing: rows.some((r) => r.costMissing),
+    };
+  });
 
   /** Month or year needs a wider window than the 30-day default to say anything. */
   setBucket(b: 'month' | 'year' | 'day'): void {
@@ -240,19 +275,32 @@ export class AdminAnalyticsComponent implements OnInit {
   }
 
   exportCsv(): void {
+    // Blank, not zero, where the cost is unknown: a spreadsheet sums a zero and reports a
+    // profit nobody can vouch for, whereas an empty cell has to be dealt with.
+    const known = (missing: boolean, value: number): string | number => (missing ? '' : value);
+
     let headers: string[]; let rows: (string | number)[][];
     if (this.tab() === 'sales') {
-      headers = ['Period', 'Orders', 'Units', 'Sales', 'Cost', 'Profit', 'Margin%'];
-      rows = this.salesRows().map((r) => [r.label, r.orders, r.units, r.revenue, r.cost, r.profit, r.marginPct]);
+      headers = ['Period', 'Orders', 'Units', 'Sales', 'Cost', 'Profit', 'Margin%', 'CostMissing'];
+      rows = this.salesRows().map((r) => [
+        r.label, r.orders, r.units, r.revenue,
+        known(r.costMissing, r.cost), known(r.costMissing, r.profit), known(r.costMissing, r.marginPct),
+        r.costMissing ? 'yes' : '']);
     } else if (this.tab() === 'return') {
       headers = ['Product', 'Sold', 'Returned', 'ReturnRate%'];
       rows = this.returnRows().map((r) => [r.name, r.sold, r.returned, r.returnRatePct]);
     } else if (this.isGroup()) {
-      headers = ['Group', 'Revenue', 'Cost', 'Profit', 'Margin%'];
-      rows = this.groupRows().map((r) => [r.name, r.revenue, r.cost, r.profit, r.marginPct]);
+      headers = ['Group', 'Revenue', 'Cost', 'Profit', 'Margin%', 'CostMissing'];
+      rows = this.groupRows().map((r) => [
+        r.name, r.revenue,
+        known(r.costMissing, r.cost), known(r.costMissing, r.profit), known(r.costMissing, r.marginPct),
+        r.costMissing ? 'yes' : '']);
     } else {
       headers = ['Product', 'Units', 'Revenue', 'Cost', 'Profit', 'Margin%', 'CostMissing'];
-      rows = this.productRows().map((r) => [r.name, r.units, r.revenue, r.cost, r.profit, r.marginPct, r.costMissing ? 'yes' : '']);
+      rows = this.productRows().map((r) => [
+        r.name, r.units, r.revenue,
+        known(r.costMissing, r.cost), known(r.costMissing, r.profit), known(r.costMissing, r.marginPct),
+        r.costMissing ? 'yes' : '']);
     }
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const csv = [headers, ...rows].map((r) => r.map(esc).join(',')).join('\n');
