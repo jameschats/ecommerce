@@ -44,7 +44,10 @@ public sealed class InvoiceService : IInvoiceService
         var cgst = interState ? 0m : Math.Round(order.TaxAmount / 2m, 2, MidpointRounding.AwayFromZero);
         var sgst = interState ? 0m : order.TaxAmount - cgst;
         var igst = interState ? order.TaxAmount : 0m;
-        var sellerGstin = await SettingAsync("StoreGstin", ct);
+        // The seller's GSTIN belongs on a tax invoice, not on a Bill of Supply — a document
+        // that charges no GST has no business carrying a GST number, and printing one that
+        // is still the seeded placeholder would be worse than printing none.
+        var sellerGstin = order.TaxAmount > 0m ? await SettingAsync("StoreGstin", ct) : null;
 
         var invoice = new Invoice
         {

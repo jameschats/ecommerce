@@ -35,11 +35,16 @@ public sealed class QuickOrderService : IQuickOrderService
 
     private readonly EcommerceDbContext _db;
     private readonly Notifications.IOrderMailer _mailer;
+    private readonly Inventory.IInventoryService _inventory;
 
-    public QuickOrderService(EcommerceDbContext db, Notifications.IOrderMailer mailer)
+    public QuickOrderService(
+        EcommerceDbContext db,
+        Notifications.IOrderMailer mailer,
+        Inventory.IInventoryService inventory)
     {
         _db = db;
         _mailer = mailer;
+        _inventory = inventory;
     }
 
     public async Task<QuickOrderConfigDto> GetConfigAsync(CancellationToken ct = default)
@@ -216,17 +221,23 @@ public sealed class QuickOrderService : IQuickOrderService
 
             // Reserve rather than deduct: stock is committed when the payment is confirmed
             // and released if the order is cancelled, matching the platform's existing model.
-            var inventory = await _db.Inventory
+            //
+            // Through IInventoryService rather than mutating Inventory here, so the movement
+            // lands in InventoryTransactions and the low-stock alert can fire. Doing it inline
+            // left the shop's primary order path invisible to both — the stock ledger recorded
+            // nothing for the orders that actually happen, and nobody was ever told to reorder.
+            //
+            // Only what exists is reserved: Phase 1 does not refuse an order for want of stock,
+            // so a short line reserves the remainder instead of failing the sale.
+            var available = await _db.Inventory
                 .Where(i => i.TenantId == Tenant && i.ProductId == line.ProductId)
                 .OrderByDescending(i => i.AvailableQty)
+                .Select(i => i.AvailableQty)
                 .FirstOrDefaultAsync(ct);
 
-            if (inventory is not null)
-            {
-                var take = Math.Min(inventory.AvailableQty, line.Quantity);
-                inventory.AvailableQty -= take;
-                inventory.ReservedQty += take;
-            }
+            var take = Math.Min(available, line.Quantity);
+            if (take > 0)
+                await _inventory.ReserveAsync(line.ProductId, null, take, "Order", order.OrderId, ct);
         }
 
         await SyncProfileAndAddressAsync(userId, req, mobile, now, ct);

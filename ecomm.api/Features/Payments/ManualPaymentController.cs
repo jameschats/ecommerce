@@ -86,6 +86,8 @@ public sealed class AdminPaymentsController : ControllerBase
     public async Task<IActionResult> Confirm(
         long orderId,
         [FromServices] Notifications.IOrderMailer mailer,
+        [FromServices] Orders.IInvoiceService invoices,
+        [FromServices] Inventory.IInventoryService inventory,
         CancellationToken ct)
     {
         var adminId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : (long?)null;
@@ -121,17 +123,22 @@ public sealed class AdminPaymentsController : ControllerBase
         payment.ConfirmedBy = adminId;
 
         // Commit the reservation: the goods are now sold, not merely held.
+        // Through IInventoryService so the sale is written to InventoryTransactions —
+        // decrementing ReservedQty inline recorded the movement nowhere, leaving the stock
+        // ledger blind to every order the shop actually takes.
         var items = await _db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
         foreach (var item in items)
-        {
-            var inventory = await _db.Inventory
-                .Where(i => i.TenantId == 1 && i.ProductId == item.ProductId && i.ReservedQty > 0)
-                .OrderByDescending(i => i.ReservedQty)
-                .FirstOrDefaultAsync(ct);
+            await inventory.CommitAsync(item.ProductId, item.ProductVariantId, item.Quantity, "Order", orderId, ct);
 
-            if (inventory is not null)
-                inventory.ReservedQty -= Math.Min(inventory.ReservedQty, item.Quantity);
-        }
+        await _db.SaveChangesAsync(ct);
+
+        // The invoice is part of confirming payment, not an afterthought. Until now it was
+        // generated only on the Razorpay path, so the shop's actual flow — quick order paid
+        // by UPI — produced orders that were Paid with no invoice at all: the download 404'd
+        // and the customer's Invoice button never appeared, because it gates on the invoice
+        // number. Inside the transaction, so an order can never be Paid without one.
+        // Idempotent: re-confirming returns the existing invoice rather than issuing a second.
+        await invoices.GenerateForOrderAsync(orderId, ct);
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -139,5 +146,44 @@ public sealed class AdminPaymentsController : ControllerBase
         await mailer.SendPaymentConfirmedAsync(orderId, ct);
 
         return Ok(ApiResponse<object>.Ok(new { orderId, status = order.Status }, "Payment confirmed."));
+    }
+
+    /// <summary>
+    /// Issues invoices for orders that were paid before invoicing was wired to this path.
+    ///
+    /// Those orders are Paid with no invoice, so their customers see no download at all.
+    /// Idempotent — orders that already have one are skipped, so it is safe to re-run.
+    /// </summary>
+    [HttpPost("backfill-invoices")]
+    public async Task<IActionResult> BackfillInvoices(
+        [FromServices] Orders.IInvoiceService invoices,
+        CancellationToken ct)
+    {
+        var missing = await _db.Orders
+            .Where(o => o.TenantId == 1 && o.Status == "Paid"
+                        && !_db.Invoices.Any(i => i.OrderId == o.OrderId))
+            .Select(o => o.OrderId)
+            .ToListAsync(ct);
+
+        var created = 0;
+        var failed = new List<long>();
+        foreach (var id in missing)
+        {
+            // One bad order must not stop the rest — a partially backfilled set is far more
+            // useful than none, and the failures are reported back rather than swallowed.
+            try
+            {
+                await invoices.GenerateForOrderAsync(id, ct);
+                created++;
+            }
+            catch (Exception)
+            {
+                failed.Add(id);
+            }
+        }
+
+        return Ok(ApiResponse<object>.Ok(
+            new { candidates = missing.Count, created, failed },
+            $"Issued {created} invoice(s)." + (failed.Count > 0 ? $" {failed.Count} failed." : "")));
     }
 }
