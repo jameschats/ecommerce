@@ -136,8 +136,12 @@
   animation: announce-scroll 24s linear infinite;
   will-change: transform;
 }
-/* Pause on hover so a passing notice can actually be read. */
-.marquee-box:hover .marquee-group { animation-play-state: paused; }
+/* Pause on hover so a passing notice can actually be read. (hover: hover) excludes touch
+   screens, where a tap leaves :hover "stuck" active and would otherwise freeze the scroll
+   until the visitor taps elsewhere. */
+@media (hover: hover) {
+  .marquee-box:hover .marquee-group { animation-play-state: paused; }
+}
 
 /* Moving text is a genuine accessibility problem for some readers, so honour the
    system preference and simply truncate instead. */
@@ -219,7 +223,10 @@
 }
 .marquee-track { animation: marquee-up 24s linear infinite; }
 .marquee-track.slow { animation-duration: 34s; }
-.marquee-fade:hover .marquee-track { animation-play-state: paused; }
+/* (hover: hover) excludes touch screens — see the identical note on .marquee-box above. */
+@media (hover: hover) {
+  .marquee-fade:hover .marquee-track { animation-play-state: paused; }
+}
 .marquee-fade {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);

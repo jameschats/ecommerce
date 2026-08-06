@@ -32,7 +32,7 @@ import { GalleryImage } from '../../core/models/gallery.model';
         </div>
 
         <!-- Mobile: vertical continuous scroll -->
-        <div class="sm:hidden marquee-fade overflow-hidden h-[520px]">
+        <div class="sm:hidden marquee-fade overflow-hidden h-[70vh]">
           <div class="marquee-track flex flex-col gap-4">
             @for (copy of [0, 1]; track copy) {
               @for (img of images(); track img.galleryImageId) {
@@ -46,11 +46,11 @@ import { GalleryImage } from '../../core/models/gallery.model';
 
     <ng-template #card let-img>
       @if (img.link) {
-        <a [routerLink]="img.link" class="block shrink-0 w-40 sm:w-48 h-60 sm:h-72 rounded-xl overflow-hidden bg-slate-100">
+        <a [routerLink]="img.link" class="block shrink-0 w-[82%] sm:w-80 aspect-[2/3] rounded-xl overflow-hidden bg-slate-100">
           <img [src]="img.imageUrl" [alt]="img.title ?? ''" class="w-full h-full object-cover" loading="lazy" />
         </a>
       } @else {
-        <div class="shrink-0 w-40 sm:w-48 h-60 sm:h-72 rounded-xl overflow-hidden bg-slate-100">
+        <div class="shrink-0 w-[82%] sm:w-80 aspect-[2/3] rounded-xl overflow-hidden bg-slate-100">
           <img [src]="img.imageUrl" [alt]="img.title ?? ''" class="w-full h-full object-cover" loading="lazy" />
         </div>
       }
