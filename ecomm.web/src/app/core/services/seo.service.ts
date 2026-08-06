@@ -8,6 +8,8 @@ export interface SeoData {
   image?: string;
   url?: string;
   type?: string;
+  /** Comma-separated. Ignored by Google, still read by some AI crawlers and cheap to emit. */
+  keywords?: string;
 }
 
 /**
@@ -25,6 +27,7 @@ export class SeoService {
     const desc = data.description ?? '';
     this.title.setTitle(data.title);
     this.meta.updateTag({ name: 'description', content: desc });
+    if (data.keywords) this.meta.updateTag({ name: 'keywords', content: data.keywords });
     this.meta.updateTag({ property: 'og:title', content: data.title });
     this.meta.updateTag({ property: 'og:description', content: desc });
     this.meta.updateTag({ property: 'og:type', content: data.type ?? 'website' });

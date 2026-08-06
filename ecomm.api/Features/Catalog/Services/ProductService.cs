@@ -201,6 +201,9 @@ public sealed class ProductService : IProductService
             CategoryId = req.CategoryId,
             BrandId = req.BrandId,
             ShortDescription = req.ShortDescription,
+            MetaTitle = req.MetaTitle?.Trim(),
+            MetaDescription = req.MetaDescription?.Trim(),
+            MetaKeywords = req.MetaKeywords?.Trim(),
             Description = req.Description,
             HsnCode = req.HsnCode,
             Price = req.Price,
@@ -238,6 +241,9 @@ public sealed class ProductService : IProductService
         product.CategoryId = req.CategoryId;
         product.BrandId = req.BrandId;
         product.ShortDescription = req.ShortDescription;
+        product.MetaTitle = req.MetaTitle?.Trim();
+        product.MetaDescription = req.MetaDescription?.Trim();
+        product.MetaKeywords = req.MetaKeywords?.Trim();
         product.Description = req.Description;
         product.HsnCode = req.HsnCode;
         product.Price = req.Price;
@@ -425,6 +431,7 @@ public sealed class ProductService : IProductService
             p.Price, p.CompareAtPrice, p.CostPrice, p.HsnCode, p.Status, p.IsFeatured, p.IsActive,
             p.CategoryId, p.Category!.Name, p.BrandId, p.Brand != null ? p.Brand.Name : null,
             p.InventoryRecords.Sum(i => i.AvailableQty), p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
+            p.MetaTitle, p.MetaDescription, p.MetaKeywords,
             p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder)
                 .Select(i => new ProductImageDto(i.ProductImageId, i.Url, i.AltText, i.DisplayOrder, i.IsPrimary))
                 .ToList(),

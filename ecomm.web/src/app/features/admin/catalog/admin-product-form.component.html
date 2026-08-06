@@ -63,6 +63,33 @@
           }
         </div>
         <div><label class="lbl">HSN code</label><input [(ngModel)]="form.hsnCode" class="input" /></div>
+
+        <!-- Search & AI. Left blank these fall back to the name and short description,
+             which is exactly what every product used before these fields existed. -->
+        <div class="sm:col-span-2 border-t border-slate-100 pt-4 mt-2">
+          <p class="text-sm font-semibold text-slate-800 mb-1">Search &amp; AI listing</p>
+          <p class="text-xs text-slate-500 mb-3">
+            How this product reads in Google and to AI assistants. Leave blank to use the name
+            and short description.
+          </p>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="lbl">Meta title</label>
+              <input [(ngModel)]="form.metaTitle" class="input" maxlength="200"
+                     [placeholder]="form.name ? form.name + ' — CalendarShop' : 'Defaults to the product name'" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="lbl">Meta description</label>
+              <textarea [(ngModel)]="form.metaDescription" rows="2" class="input" maxlength="500"
+                        placeholder="One or two sentences. This is the line quoted in results."></textarea>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="lbl">Keywords</label>
+              <input [(ngModel)]="form.metaKeywords" class="input" maxlength="500"
+                     placeholder="wall calendar, wholesale, 2027" />
+            </div>
+          </div>
+        </div>
         <div>
           <label class="lbl">Status</label>
           <select [(ngModel)]="form.status" class="input">

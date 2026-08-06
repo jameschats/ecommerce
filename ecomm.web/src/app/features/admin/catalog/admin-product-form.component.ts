@@ -89,6 +89,7 @@ export class AdminProductFormComponent implements OnInit {
     return {
       sku: '', designNo: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
       shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false, images: [],
+      metaTitle: '', metaDescription: '', metaKeywords: '',
     };
   }
 
@@ -104,6 +105,7 @@ export class AdminProductFormComponent implements OnInit {
           sku: p.sku, designNo: p.designNo ?? '', name: p.name, categoryId: p.categoryId, brandId: p.brandId,
           price: p.price, compareAtPrice: p.compareAtPrice, costPrice: p.costPrice,
           shortDescription: p.shortDescription, description: p.description, hsnCode: p.hsnCode,
+          metaTitle: p.metaTitle ?? '', metaDescription: p.metaDescription ?? '', metaKeywords: p.metaKeywords ?? '',
           status: p.status, isFeatured: p.isFeatured,
           images: p.images.map((i) => ({ url: i.url, altText: i.altText, displayOrder: i.displayOrder, isPrimary: i.isPrimary })),
         };

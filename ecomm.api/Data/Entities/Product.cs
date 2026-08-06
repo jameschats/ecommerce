@@ -21,6 +21,14 @@ public class Product
     public string Slug { get; set; } = string.Empty;
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Search and AI-crawler metadata. Null falls back to the name and short description,
+    /// which is what every product used before these existed.
+    /// </summary>
+    public string? MetaTitle { get; set; }
+    public string? MetaDescription { get; set; }
+    public string? MetaKeywords { get; set; }
     public string? HsnCode { get; set; }
     public decimal Price { get; set; }
     public decimal? CompareAtPrice { get; set; }

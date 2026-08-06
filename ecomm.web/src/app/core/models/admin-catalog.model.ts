@@ -43,6 +43,10 @@ export interface SaveProductRequest {
   status: string;
   isFeatured: boolean;
   images?: ProductImageInput[];
+  /** Search and AI-crawler metadata. Blank falls back to the name and short description. */
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  metaKeywords?: string | null;
 }
 
 export interface VariantOptionInput {

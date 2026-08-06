@@ -74,6 +74,10 @@ export interface ProductDetail {
   slug: string;
   shortDescription: string | null;
   description: string | null;
+  /** Search and AI-crawler metadata. Null falls back to the name and short description. */
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  metaKeywords?: string | null;
   price: number;
   compareAtPrice: number | null;
   costPrice: number | null;

@@ -55,7 +55,27 @@ export class HomeComponent implements OnInit, OnDestroy {
         '@context': 'https://schema.org', '@type': 'WebSite', name: 'CalendarShop', url: SITE_URL,
         potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
       },
-      { '@context': 'https://schema.org', '@type': 'Organization', name: 'CalendarShop', url: SITE_URL },
+      // LocalBusiness rather than a bare Organization: an AI asked "who sells wholesale
+      // calendars in Madurai" can only answer from data that says where the shop is and
+      // what it sells. Name and URL alone answer nothing.
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Store',
+        name: 'DailyCalendarShop',
+        url: SITE_URL,
+        description:
+          'Wholesale calendar printing — wall, desk, tent and pocket calendars, panchangam '
+          + 'and cake calendars, sold to dealers and shops by design number at trade rates.',
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Madurai',
+          addressRegion: 'Tamil Nadu',
+          addressCountry: 'IN',
+        },
+        areaServed: 'IN',
+        currenciesAccepted: 'INR',
+        paymentAccepted: 'UPI, Bank transfer',
+      },
     ]);
 
     // Preloaded by homeResolver → present on first render (no reflow).

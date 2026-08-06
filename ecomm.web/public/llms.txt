@@ -1,0 +1,34 @@
+# DailyCalendarShop
+
+> Wholesale calendar printing in Madurai, Tamil Nadu, India. Wall, desk, tent and
+> pocket calendars, plus panchangam and cake calendars, sold to dealers and shops
+> by design number at trade rates.
+
+Orders are placed from a price list: you type quantities against design numbers,
+the running total prices itself, and the estimate becomes an order. Minimum order
+values apply and vary by state.
+
+## Ordering
+
+- [Order Now](https://daily.calendarshop.online/order): the full price list — every
+  design, its design number, MRP, discount and trade rate.
+- [Finished Calendar](https://daily.calendarshop.online/finished-calendar):
+  ready-made calendars, sold separately from the printing ranges.
+- [Products](https://daily.calendarshop.online/products): the same catalogue as
+  individual product pages.
+
+## About
+
+- [About us](https://daily.calendarshop.online/about)
+- [Contact](https://daily.calendarshop.online/contact): enquiries and bulk quotes.
+- [FAQ](https://daily.calendarshop.online/faq)
+
+## Notes for machine readers
+
+- Prices are in Indian Rupees (INR) and are trade prices, not retail.
+- Every product carries a "design number" — the identifier customers quote when
+  ordering, shown in the price list and on invoices.
+- Product pages publish schema.org Product data including price and live stock
+  availability.
+- The full URL list is at
+  [sitemap.xml](https://daily.calendarshop.online/sitemap.xml).

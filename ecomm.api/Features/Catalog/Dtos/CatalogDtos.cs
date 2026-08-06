@@ -29,6 +29,7 @@ public sealed record ProductDetailDto(
     decimal Price, decimal? CompareAtPrice, decimal? CostPrice, string? HsnCode, string Status,
     bool IsFeatured, bool IsActive, long CategoryId, string CategoryName, long? BrandId, string? BrandName,
     int AvailableQty, bool InStock,
+    string? MetaTitle, string? MetaDescription, string? MetaKeywords,
     IReadOnlyList<ProductImageDto> Images,
     IReadOnlyList<ProductVariantDto> Variants,
     IReadOnlyList<ProductAttributeValueDto> Attributes);
@@ -36,7 +37,8 @@ public sealed record ProductDetailDto(
 public sealed record SaveProductRequest(
     string Sku, string? DesignNo, string Name, string? Slug, long CategoryId, long? BrandId, decimal Price,
     decimal? CompareAtPrice, decimal? CostPrice, string? ShortDescription, string? Description,
-    string? HsnCode, string Status, bool IsFeatured, IReadOnlyList<ProductImageInput>? Images);
+    string? HsnCode, string Status, bool IsFeatured, IReadOnlyList<ProductImageInput>? Images,
+    string? MetaTitle = null, string? MetaDescription = null, string? MetaKeywords = null);
 
 public sealed record ProductQuery(
     string? Search, long? CategoryId, long? BrandId, string? Status, bool? IsFeatured,
