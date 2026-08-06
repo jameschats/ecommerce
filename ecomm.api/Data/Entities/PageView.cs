@@ -11,6 +11,7 @@ public class PageView
     public string? Referrer { get; set; }
     public string DeviceType { get; set; } = "Desktop";
     public string? Country { get; set; }
+    public string? State { get; set; }
     public string? City { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -31,6 +31,7 @@ public sealed record DeviceBreakdownDto(string Device, int Sessions, double Pct)
 public sealed record SourceBreakdownDto(string Source, int Sessions, double Pct);
 public sealed record TopPageDto(string Path, int Views);
 public sealed record GeoBreakdownDto(string Country, string City, int Sessions);
+public sealed record StateBreakdownDto(string Country, string State, int Sessions);
 public sealed record NewVsReturningDto(int New, int Returning);
 
 public interface IAnalyticsService
@@ -49,6 +50,7 @@ public interface IAnalyticsService
     Task<List<SourceBreakdownDto>> TrafficBySourceAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<List<TopPageDto>> TopPagesAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<List<GeoBreakdownDto>> TrafficByGeoAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<StateBreakdownDto>> TrafficByStateAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<NewVsReturningDto> NewVsReturningAsync(DateTime from, DateTime to, CancellationToken ct = default);
 }
 
@@ -251,12 +253,12 @@ public sealed class AnalyticsService : IAnalyticsService
 
     // ---------------- Traffic (first-party, PageViews) ----------------
 
-    private sealed record RawView(string VisitorId, string SessionId, string Path, string? Referrer, string DeviceType, string? Country, string? City, DateTime CreatedAt);
+    private sealed record RawView(string VisitorId, string SessionId, string Path, string? Referrer, string DeviceType, string? Country, string? State, string? City, DateTime CreatedAt);
 
     private Task<List<RawView>> ViewsAsync(DateTime from, DateTime to, CancellationToken ct) =>
         _db.PageViews.AsNoTracking()
             .Where(p => p.TenantId == Tenant && p.CreatedAt >= from && p.CreatedAt <= to)
-            .Select(p => new RawView(p.VisitorId, p.SessionId, p.Path, p.Referrer, p.DeviceType, p.Country, p.City, p.CreatedAt))
+            .Select(p => new RawView(p.VisitorId, p.SessionId, p.Path, p.Referrer, p.DeviceType, p.Country, p.State, p.City, p.CreatedAt))
             .ToListAsync(ct);
 
     /// <summary>Same length window immediately before `from`, for the "compared to previous period" figure.</summary>
@@ -341,6 +343,16 @@ public sealed class AnalyticsService : IAnalyticsService
         return views.Where(v => v.Country != null)
             .GroupBy(v => new { Country = v.Country!, City = v.City ?? "Unknown" })
             .Select(g => new GeoBreakdownDto(g.Key.Country, g.Key.City, g.Select(v => v.SessionId).Distinct().Count()))
+            .OrderByDescending(r => r.Sessions).Take(10).ToList();
+    }
+
+    /// <summary>Coarser than TrafficByGeoAsync's city breakdown — one row per country+state, e.g. "Tamil Nadu, India".</summary>
+    public async Task<List<StateBreakdownDto>> TrafficByStateAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var views = await ViewsAsync(from, to, ct);
+        return views.Where(v => v.Country != null && v.State != null)
+            .GroupBy(v => new { Country = v.Country!, State = v.State! })
+            .Select(g => new StateBreakdownDto(g.Key.Country, g.Key.State, g.Select(v => v.SessionId).Distinct().Count()))
             .OrderByDescending(r => r.Sessions).Take(10).ToList();
     }
 

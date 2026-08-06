@@ -118,6 +118,13 @@ public sealed class AnalyticsController : ControllerBase
         return Ok(ApiResponse<List<GeoBreakdownDto>>.Ok(await _analytics.TrafficByGeoAsync(f, t, ct)));
     }
 
+    [HttpGet("traffic-by-state")]
+    public async Task<IActionResult> TrafficByState([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<StateBreakdownDto>>.Ok(await _analytics.TrafficByStateAsync(f, t, ct)));
+    }
+
     [HttpGet("new-vs-returning")]
     public async Task<IActionResult> NewVsReturning([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
     {

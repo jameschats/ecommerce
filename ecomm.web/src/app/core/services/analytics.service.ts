@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
   AnalyticsSummary, DeviceBreakdown, GeoBreakdown, GroupProfitRow, NewVsReturning, ProductReportRow,
-  ReturnRateRow, SalesPeriodRow, SourceBreakdown, TopPage, TrafficPoint, TrafficSummary,
+  ReturnRateRow, SalesPeriodRow, SourceBreakdown, StateBreakdown, TopPage, TrafficPoint, TrafficSummary,
 } from '../models/analytics.model';
 import { ApiResponse } from '../models/api-response.model';
 
@@ -61,6 +61,9 @@ export class AnalyticsService {
   }
   trafficByGeo(from: string, to: string): Observable<GeoBreakdown[]> {
     return this.unwrap(this.http.get<ApiResponse<GeoBreakdown[]>>(`${this.base}/traffic-by-geo${this.range(from, to)}`));
+  }
+  trafficByState(from: string, to: string): Observable<StateBreakdown[]> {
+    return this.unwrap(this.http.get<ApiResponse<StateBreakdown[]>>(`${this.base}/traffic-by-state${this.range(from, to)}`));
   }
   newVsReturning(from: string, to: string): Observable<NewVsReturning> {
     return this.unwrap(this.http.get<ApiResponse<NewVsReturning>>(`${this.base}/new-vs-returning${this.range(from, to)}`));

@@ -1,6 +1,6 @@
 import { Component, OnChanges, inject, input, signal } from '@angular/core';
 import {
-  DeviceBreakdown, GeoBreakdown, NewVsReturning, SourceBreakdown, TopPage, TrafficPoint, TrafficSummary,
+  DeviceBreakdown, GeoBreakdown, NewVsReturning, SourceBreakdown, StateBreakdown, TopPage, TrafficPoint, TrafficSummary,
 } from '../../../core/models/analytics.model';
 import { AnalyticsService } from '../../../core/services/analytics.service';
 import { ChartPoint, MiniAreaChartComponent } from '../../../shared/mini-area-chart/mini-area-chart.component';
@@ -100,14 +100,29 @@ import { ChartPoint, MiniAreaChartComponent } from '../../../shared/mini-area-ch
         </div>
       </div>
 
-      <!-- Geo breakdown — only shown once a GeoLite2 database is configured server-side -->
-      @if (geo().length) {
-        <div class="bg-white border border-slate-200 rounded-xl p-4">
-          <div class="text-xs text-slate-400 mb-3">Sessions by location</div>
-          @for (g of geo(); track g.country + g.city) {
-            <div class="flex items-center justify-between text-sm py-1 border-b border-slate-50 last:border-0">
-              <span class="text-slate-700">{{ g.city }}, {{ g.country }}</span>
-              <span class="text-slate-500 text-xs">{{ g.sessions }}</span>
+      <!-- Geo breakdowns — only shown once a GeoLite2 database is configured server-side -->
+      @if (states().length || geo().length) {
+        <div class="grid sm:grid-cols-2 gap-4">
+          @if (states().length) {
+            <div class="bg-white border border-slate-200 rounded-xl p-4">
+              <div class="text-xs text-slate-400 mb-3">Sessions by state</div>
+              @for (s of states(); track s.country + s.state) {
+                <div class="flex items-center justify-between text-sm py-1 border-b border-slate-50 last:border-0">
+                  <span class="text-slate-700">{{ s.state }}, {{ s.country }}</span>
+                  <span class="text-slate-500 text-xs">{{ s.sessions }}</span>
+                </div>
+              }
+            </div>
+          }
+          @if (geo().length) {
+            <div class="bg-white border border-slate-200 rounded-xl p-4">
+              <div class="text-xs text-slate-400 mb-3">Sessions by city</div>
+              @for (g of geo(); track g.country + g.city) {
+                <div class="flex items-center justify-between text-sm py-1 border-b border-slate-50 last:border-0">
+                  <span class="text-slate-700">{{ g.city }}, {{ g.country }}</span>
+                  <span class="text-slate-500 text-xs">{{ g.sessions }}</span>
+                </div>
+              }
             </div>
           }
         </div>
@@ -128,6 +143,7 @@ export class AdminTrafficComponent implements OnChanges {
   readonly sources = signal<SourceBreakdown[]>([]);
   readonly pages = signal<TopPage[]>([]);
   readonly geo = signal<GeoBreakdown[]>([]);
+  readonly states = signal<StateBreakdown[]>([]);
   readonly newVsReturning = signal<NewVsReturning | null>(null);
 
   readonly chartPoints = () => this.points().map((p): ChartPoint => ({ label: p.label, value: p.sessions }));
@@ -139,7 +155,7 @@ export class AdminTrafficComponent implements OnChanges {
   private load(): void {
     this.loading.set(true);
     const f = this.from(), t = this.to();
-    let pending = 7;
+    let pending = 8;
     const done = () => { if (--pending === 0) this.loading.set(false); };
 
     this.svc.trafficSummary(f, t).subscribe({ next: (r) => { this.summary.set(r); done(); }, error: done });
@@ -148,6 +164,7 @@ export class AdminTrafficComponent implements OnChanges {
     this.svc.trafficBySource(f, t).subscribe({ next: (r) => { this.sources.set(r); done(); }, error: done });
     this.svc.topPages(f, t).subscribe({ next: (r) => { this.pages.set(r); done(); }, error: done });
     this.svc.trafficByGeo(f, t).subscribe({ next: (r) => { this.geo.set(r); done(); }, error: done });
+    this.svc.trafficByState(f, t).subscribe({ next: (r) => { this.states.set(r); done(); }, error: done });
     this.svc.newVsReturning(f, t).subscribe({ next: (r) => { this.newVsReturning.set(r); done(); }, error: done });
   }
 

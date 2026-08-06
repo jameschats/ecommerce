@@ -13,14 +13,14 @@ public sealed class GeoIpOptions
 
 public interface IGeoLookupService
 {
-    (string? Country, string? City) Lookup(string? ipAddress);
+    (string? Country, string? State, string? City) Lookup(string? ipAddress);
 }
 
 /// <summary>
-/// Resolves an IP to a country/city via a local MaxMind GeoLite2 database. The database file
-/// is not part of this repo (a free MaxMind account + licence key is needed to download it —
-/// see documents for the production setup note); until one is configured, every lookup
-/// returns (null, null) rather than failing, so traffic tracking works with plain
+/// Resolves an IP to a country/state/city via a local MaxMind GeoLite2 database. The database
+/// file is not part of this repo (a free MaxMind account + licence key is needed to download
+/// it — see documents for the production setup note); until one is configured, every lookup
+/// returns (null, null, null) rather than failing, so traffic tracking works with plain
 /// device/source/page data and geo fills in once the file is in place.
 /// </summary>
 public sealed class GeoLookupService : IGeoLookupService, IDisposable
@@ -34,12 +34,12 @@ public sealed class GeoLookupService : IGeoLookupService, IDisposable
         var path = options.Value.DatabasePath;
         if (string.IsNullOrWhiteSpace(path))
         {
-            _logger.LogInformation("GeoIp:DatabasePath not configured — country/city traffic breakdown disabled.");
+            _logger.LogInformation("GeoIp:DatabasePath not configured — country/state/city traffic breakdown disabled.");
             return;
         }
         if (!File.Exists(path))
         {
-            _logger.LogWarning("GeoIp database not found at {Path} — country/city traffic breakdown disabled.", path);
+            _logger.LogWarning("GeoIp database not found at {Path} — country/state/city traffic breakdown disabled.", path);
             return;
         }
         try
@@ -48,25 +48,27 @@ public sealed class GeoLookupService : IGeoLookupService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to open GeoIp database at {Path} — country/city traffic breakdown disabled.", path);
+            _logger.LogWarning(ex, "Failed to open GeoIp database at {Path} — country/state/city traffic breakdown disabled.", path);
         }
     }
 
-    public (string? Country, string? City) Lookup(string? ipAddress)
+    public (string? Country, string? State, string? City) Lookup(string? ipAddress)
     {
-        if (_reader is null || string.IsNullOrWhiteSpace(ipAddress)) return (null, null);
-        if (!IPAddress.TryParse(ipAddress, out var ip) || IsPrivate(ip)) return (null, null);
+        if (_reader is null || string.IsNullOrWhiteSpace(ipAddress)) return (null, null, null);
+        if (!IPAddress.TryParse(ipAddress, out var ip) || IsPrivate(ip)) return (null, null, null);
 
         try
         {
             var result = _reader.City(ip);
-            return (result.Country.Name, result.City.Name);
+            // MostSpecificSubdivision is the state/province (e.g. "Tamil Nadu") — GeoLite2-City
+            // supports up to two subdivision levels, but one is plenty for a state-level report.
+            return (result.Country.Name, result.MostSpecificSubdivision.Name, result.City.Name);
         }
         catch
         {
             // Unmapped IP ranges (test ranges, some hosting blocks) throw AddressNotFoundException —
             // no different from "we don't know", so it isn't worth its own branch.
-            return (null, null);
+            return (null, null, null);
         }
     }
 

@@ -31,7 +31,7 @@ public sealed partial class PageViewTrackingService : IPageViewTrackingService
             || string.IsNullOrWhiteSpace(req.Path)) return;
         if (IsBot(userAgent)) return;
 
-        var (country, city) = _geo.Lookup(ipAddress);
+        var (country, state, city) = _geo.Lookup(ipAddress);
 
         _db.PageViews.Add(new PageView
         {
@@ -42,6 +42,7 @@ public sealed partial class PageViewTrackingService : IPageViewTrackingService
             Referrer = string.IsNullOrWhiteSpace(req.Referrer) ? null : Truncate(req.Referrer, 500),
             DeviceType = DetectDevice(userAgent),
             Country = country,
+            State = state,
             City = city,
             CreatedAt = DateTime.UtcNow,
         });

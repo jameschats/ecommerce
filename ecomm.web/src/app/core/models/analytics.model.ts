@@ -69,4 +69,5 @@ export interface DeviceBreakdown { device: string; sessions: number; pct: number
 export interface SourceBreakdown { source: string; sessions: number; pct: number; }
 export interface TopPage { path: string; views: number; }
 export interface GeoBreakdown { country: string; city: string; sessions: number; }
+export interface StateBreakdown { country: string; state: string; sessions: number; }
 export interface NewVsReturning { new: number; returning: number; }
