@@ -35,9 +35,23 @@ public sealed record QuickOrderQuoteDto(
 public sealed record StateMinOrderDto(string StateName, decimal MinOrderAmount);
 
 /// <summary>Delivery details captured on the order form, plus the basket.</summary>
+/// <param name="BusinessName">Trading name when ordering for a shop. Optional.</param>
+/// <param name="Gstin">The buyer's GST number, printed on their bill. Optional.</param>
+/// <param name="ShipToDifferent">
+/// When false — the common case — the delivery address is the billing address and every
+/// Ship* field is ignored. Defaulted so existing callers and the old payload still work.
+/// </param>
 public sealed record PlaceQuickOrderRequest(
     IReadOnlyList<QuickOrderLineRequest> Lines,
-    string State, string? City, string Name, string Mobile, string? Email, string Address);
+    string State, string? City, string Name, string Mobile, string? Email, string Address,
+    string? BusinessName = null,
+    string? Gstin = null,
+    bool ShipToDifferent = false,
+    string? ShipName = null,
+    string? ShipMobile = null,
+    string? ShipAddress = null,
+    string? ShipCity = null,
+    string? ShipState = null);
 
 public sealed record PlaceQuickOrderResult(
     long OrderId, string OrderNumber, decimal OverallAmount, string Status);

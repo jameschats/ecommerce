@@ -59,7 +59,19 @@ export interface PlaceQuickOrderRequest {
   name: string;
   mobile: string;
   email: string;
+  /** Billing address. Also the delivery address unless shipToDifferent is set. */
   address: string;
+  /** Trading name, when ordering for a shop rather than as an individual. */
+  businessName?: string | null;
+  /** The buyer's GST number, printed on their bill. */
+  gstin?: string | null;
+  /** When false, every ship* field below is ignored and the billing address is used. */
+  shipToDifferent?: boolean;
+  shipName?: string | null;
+  shipMobile?: string | null;
+  shipAddress?: string | null;
+  shipCity?: string | null;
+  shipState?: string | null;
 }
 
 const EMPTY_QUOTE: QuickOrderQuote = {

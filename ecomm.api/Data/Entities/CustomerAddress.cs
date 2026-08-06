@@ -7,6 +7,12 @@ public class CustomerAddress
     public long UserId { get; set; }
     public string? Label { get; set; }
     public string? RecipientName { get; set; }
+
+    /// <summary>Trading name, when ordering for a shop rather than as an individual.</summary>
+    public string? CompanyName { get; set; }
+
+    /// <summary>The buyer's GST number, printed on their bill when supplied.</summary>
+    public string? Gstin { get; set; }
     public string? Phone { get; set; }
     public string Line1 { get; set; } = string.Empty;
     public string? Line2 { get; set; }

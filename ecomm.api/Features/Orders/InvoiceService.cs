@@ -39,6 +39,14 @@ public sealed class InvoiceService : IInvoiceService
 
         var billing = order.BillingAddressId ?? order.ShippingAddressId;
         var addr = billing is null ? null : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == billing, ct);
+
+        // Only worth printing separately when it genuinely differs — the usual case is one
+        // address for both, and repeating it under two headings just adds noise.
+        var shipId = order.ShippingAddressId;
+        var shipAddr = shipId is null || shipId == billing
+            ? null
+            : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == shipId, ct);
+
         var interState = await _tax.IsInterStateAsync(addr?.State, ct);
 
         var cgst = interState ? 0m : Math.Round(order.TaxAmount / 2m, 2, MidpointRounding.AwayFromZero);
@@ -56,8 +64,13 @@ public sealed class InvoiceService : IInvoiceService
             InvoiceNumber = $"TMP-{Guid.NewGuid():N}".Substring(0, 20),
             InvoiceDate = DateTime.UtcNow.Date,
             BillingName = addr?.RecipientName,
+            BuyerCompanyName = addr?.CompanyName,
             BillingAddress = addr is null ? null : FormatAddress(addr),
+            ShippingAddress = shipAddr is null ? null : FormatShipTo(shipAddr),
             GstNumber = sellerGstin,
+            // Snapshotted, like the name and address beside it: correcting a GST number in
+            // the address book must not rewrite a document already issued.
+            BuyerGstin = addr?.Gstin,
             Subtotal = order.Subtotal,
             TaxAmount = order.TaxAmount,
             CgstAmount = cgst,
@@ -140,13 +153,31 @@ public sealed class InvoiceService : IInvoiceService
 
                 page.Content().PaddingVertical(10).Column(col =>
                 {
+                    // Bill To and, only when it differs, Ship To — side by side so a
+                    // dispatcher can read the delivery address without hunting for it.
                     if (!string.IsNullOrEmpty(inv.BillingName) || !string.IsNullOrEmpty(inv.BillingAddress))
                     {
-                        col.Item().PaddingBottom(8).Column(c =>
+                        col.Item().PaddingBottom(8).Row(row =>
                         {
-                            c.Item().Text("Bill To").Bold();
-                            if (!string.IsNullOrEmpty(inv.BillingName)) c.Item().Text(inv.BillingName);
-                            if (!string.IsNullOrEmpty(inv.BillingAddress)) c.Item().Text(inv.BillingAddress);
+                            row.RelativeItem().Column(c =>
+                            {
+                                c.Item().Text("Bill To").Bold();
+                                // Trading name first when there is one: the bill belongs to
+                                // the shop, with the person named under it.
+                                if (!string.IsNullOrEmpty(inv.BuyerCompanyName)) c.Item().Text(inv.BuyerCompanyName).Bold();
+                                if (!string.IsNullOrEmpty(inv.BillingName)) c.Item().Text(inv.BillingName);
+                                if (!string.IsNullOrEmpty(inv.BillingAddress)) c.Item().Text(inv.BillingAddress);
+                                if (!string.IsNullOrEmpty(inv.BuyerGstin)) c.Item().PaddingTop(2).Text($"GSTIN: {inv.BuyerGstin}").Bold();
+                            });
+
+                            if (!string.IsNullOrEmpty(inv.ShippingAddress))
+                            {
+                                row.RelativeItem().Column(c =>
+                                {
+                                    c.Item().Text("Ship To").Bold();
+                                    c.Item().Text(inv.ShippingAddress);
+                                });
+                            }
                         });
                     }
 
@@ -231,8 +262,21 @@ public sealed class InvoiceService : IInvoiceService
 
     private static string FormatAddress(CustomerAddress a)
     {
-        var parts = new[] { a.Line1, a.Line2, $"{a.City}, {a.State} {a.Pincode}", a.Country };
+        var parts = new[] { a.Line1, a.Line2, $"{a.City}, {a.State} {a.Pincode}".Trim().TrimEnd(','), a.Country };
         return string.Join("\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    /// <summary>
+    /// Ship To reads as a delivery label, so it leads with who is receiving it and ends with
+    /// a number to call — the two things a courier actually needs and Bill To does not carry.
+    /// </summary>
+    private static string FormatShipTo(CustomerAddress a)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(a.RecipientName)) parts.Add(a.RecipientName!);
+        parts.Add(FormatAddress(a));
+        if (!string.IsNullOrWhiteSpace(a.Phone)) parts.Add($"Ph: {a.Phone}");
+        return string.Join("\n", parts);
     }
 
     private Task<string?> SettingAsync(string key, CancellationToken ct) =>

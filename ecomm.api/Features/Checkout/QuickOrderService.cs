@@ -179,8 +179,31 @@ public sealed class QuickOrderService : IQuickOrderService
         var now = DateTime.UtcNow;
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
+        // Real address rows, resolved before the order so it can point at them. Until now
+        // the delivery details were serialised into Orders.Notes as prose — unqueryable, and
+        // useless for an invoice "Bill To" block — while BillingAddressId and
+        // ShippingAddressId sat NULL despite having existed since 005.
+        var billingId = await ResolveAddressAsync(
+            userId, "Billing", req.Name, req.BusinessName, req.Gstin, mobile,
+            req.Address, req.City, req.State, now, ct);
+
+        // Ship-to falls back to bill-to, which is the common case: one address, entered once.
+        var shippingId = req.ShipToDifferent && !string.IsNullOrWhiteSpace(req.ShipAddress)
+            ? await ResolveAddressAsync(
+                userId, "Shipping",
+                string.IsNullOrWhiteSpace(req.ShipName) ? req.Name : req.ShipName,
+                req.BusinessName, null,
+                string.IsNullOrWhiteSpace(req.ShipMobile) ? mobile : req.ShipMobile,
+                req.ShipAddress,
+                string.IsNullOrWhiteSpace(req.ShipCity) ? req.City : req.ShipCity,
+                string.IsNullOrWhiteSpace(req.ShipState) ? req.State : req.ShipState,
+                now, ct)
+            : billingId;
+
         var order = new Order
         {
+            BillingAddressId = billingId,
+            ShippingAddressId = shippingId,
             TenantId = Tenant,
             UserId = userId,
             OrderNumber = await NextOrderNumberAsync(ct),
@@ -192,11 +215,10 @@ public sealed class QuickOrderService : IQuickOrderService
             TaxAmount = 0m,                       // Prices are tax-inclusive in Phase 1 (design.md §14.1)
             ShippingAmount = quote.PackingCharges,
             TotalAmount = quote.OverallAmount,
-            // Free-text delivery details: Phase 1 ships by transport to the buyer's city,
-            // so the platform's address book and pincode serviceability are not used.
-            Notes = $"Name: {req.Name.Trim()}\nMobile: {mobile}\nEmail: {req.Email?.Trim()}\n"
-                  + $"State: {req.State}\nCity: {req.City?.Trim()}\nAddress: {req.Address.Trim()}\n"
-                  + $"Round off: {quote.RoundOff:0.00}",
+            // Addresses live in CustomerAddresses now, linked above. Notes keeps only what
+            // has nowhere else to go: the contact email, and the rounding applied to the
+            // total, which is otherwise unrecoverable from the stored amounts.
+            Notes = $"Email: {req.Email?.Trim()}\nRound off: {quote.RoundOff:0.00}",
             PlacedAt = now,
             CreatedAt = now,
         };
@@ -254,7 +276,7 @@ public sealed class QuickOrderService : IQuickOrderService
                 await _inventory.ReserveAsync(line.ProductId, null, take, "Order", order.OrderId, ct);
         }
 
-        await SyncProfileAndAddressAsync(userId, req, mobile, now, ct);
+        await SyncProfileAsync(userId, req, mobile, now, ct);
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -268,17 +290,18 @@ public sealed class QuickOrderService : IQuickOrderService
     }
 
     /// <summary>
-    /// Copies what the order form told us into the customer's profile and address book.
+    /// Copies what the order form told us into the customer's profile.
     ///
     /// A mobile-OTP account is created with nothing but a phone number, so "My account"
-    /// sits empty even though the buyer has just typed their name, email and address into
-    /// the order form. This fills those in.
+    /// sits empty even though the buyer has just typed their name and email into the order
+    /// form. This fills those in. The address is no longer handled here — it is a real
+    /// linked row now, resolved by ResolveAddressAsync before the order is created.
     ///
     /// Blanks only — never overwrite something the customer has set themselves. A dealer
     /// ordering on behalf of a shop may put the shop's name on the order, and that should
     /// not silently rename their account.
     /// </summary>
-    private async Task SyncProfileAndAddressAsync(
+    private async Task SyncProfileAsync(
         long userId, PlaceQuickOrderRequest req, string mobile, DateTime now, CancellationToken ct)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId, ct);
@@ -322,39 +345,76 @@ public sealed class QuickOrderService : IQuickOrderService
         }
 
         user.UpdatedAt = now;
+    }
 
-        // Save the delivery address, unless the same one is already on file. Re-ordering
-        // every week should not leave a customer with fifty identical address rows.
-        var line1 = req.Address?.Trim() ?? string.Empty;
-        var city = req.City?.Trim() ?? string.Empty;
-        var state = req.State?.Trim() ?? string.Empty;
-        if (line1.Length == 0) return;
+    /// <summary>
+    /// Finds the customer's matching address or creates one, and returns its id so the order
+    /// can point at it.
+    ///
+    /// Matched on the address itself — line, city, state and purpose — so a dealer ordering
+    /// every week reuses one row instead of accumulating fifty identical ones. When a match
+    /// is found its company name and GSTIN are refreshed from what was just typed, because
+    /// the buyer correcting their own GST number should take effect, not be quietly ignored.
+    ///
+    /// Returns null only when there is no address line at all, which the caller has already
+    /// rejected — the order simply ends up unlinked rather than the placement failing.
+    /// </summary>
+    private async Task<long?> ResolveAddressAsync(
+        long userId, string addressType,
+        string? recipientName, string? companyName, string? gstin, string? phone,
+        string? address, string? city, string? state,
+        DateTime now, CancellationToken ct)
+    {
+        var line1 = address?.Trim() ?? string.Empty;
+        if (line1.Length == 0) return null;
 
-        var exists = await _db.CustomerAddresses.AnyAsync(
-            a => a.UserId == userId && !a.IsDeleted
-                 && a.Line1 == line1 && a.City == city && a.State == state, ct);
-        if (exists) return;
+        var theCity = city?.Trim() ?? string.Empty;
+        var theState = state?.Trim() ?? string.Empty;
+        var company = string.IsNullOrWhiteSpace(companyName) ? null : companyName.Trim();
+        // Uppercased: GSTINs are conventionally written that way, and it keeps the same
+        // number typed in two cases from reading as two different registrations.
+        var gst = string.IsNullOrWhiteSpace(gstin) ? null : gstin.Trim().ToUpperInvariant();
+
+        var existing = await _db.CustomerAddresses.FirstOrDefaultAsync(
+            a => a.UserId == userId && !a.IsDeleted && a.AddressType == addressType
+                 && a.Line1 == line1 && a.City == theCity && a.State == theState, ct);
+
+        if (existing is not null)
+        {
+            if (company is not null) existing.CompanyName = company;
+            if (gst is not null) existing.Gstin = gst;
+            existing.UpdatedAt = now;
+            return existing.CustomerAddressId;
+        }
 
         var isFirst = !await _db.CustomerAddresses.AnyAsync(a => a.UserId == userId && !a.IsDeleted, ct);
 
-        _db.CustomerAddresses.Add(new CustomerAddress
+        var created = new CustomerAddress
         {
             TenantId = Tenant,
             UserId = userId,
-            Label = "Delivery",
-            RecipientName = name,
-            Phone = mobile,
+            Label = addressType == "Shipping" ? "Delivery" : "Billing",
+            RecipientName = string.IsNullOrWhiteSpace(recipientName) ? null : recipientName.Trim(),
+            CompanyName = company,
+            Gstin = gst,
+            Phone = phone,
             Line1 = line1,
-            City = city,
-            State = state,
+            City = theCity,
+            State = theState,
             // Phase 1 ships by transport to the buyer's city, so no pincode is collected
             // (design.md §14.3). The column is non-null, hence the empty string.
             Pincode = string.Empty,
             Country = "India",
-            AddressType = "Both",
+            AddressType = addressType,
             IsDefault = isFirst,
             CreatedAt = now,
-        });
+        };
+        _db.CustomerAddresses.Add(created);
+
+        // Saved here rather than with the order: the order carries this row's id as a foreign
+        // key, and an unsaved row has no id to carry.
+        await _db.SaveChangesAsync(ct);
+        return created.CustomerAddressId;
     }
 
     /// <summary>

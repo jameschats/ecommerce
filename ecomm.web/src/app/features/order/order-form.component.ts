@@ -98,11 +98,77 @@ import { OtpGateComponent } from './otp-gate.component';
                 <input type="email" [(ngModel)]="email" name="email" class="form-input" placeholder="Optional" />
               </label>
 
+              <label class="block">
+                <span class="form-label">Business name</span>
+                <input type="text" [(ngModel)]="businessName" name="businessName" class="form-input"
+                       placeholder="Shop or firm name (optional)" />
+              </label>
+
+              <label class="block">
+                <span class="form-label">GSTIN</span>
+                <input type="text" [(ngModel)]="gstin" name="gstin" maxlength="15"
+                       class="form-input uppercase" placeholder="Optional — printed on your bill" />
+                @if (gstin() && !gstinValid()) {
+                  <span class="text-xs text-red-600 mt-1 block">A GSTIN is 15 characters.</span>
+                }
+              </label>
+
               <label class="block sm:col-span-2">
                 <span class="form-label">Address <span class="text-red-500">*</span></span>
                 <textarea [(ngModel)]="address" name="address" rows="3" class="form-input"
-                          placeholder="Delivery address"></textarea>
+                          placeholder="Billing address"></textarea>
               </label>
+
+              <!-- Ship-to is opt-in. Most orders go to the address just typed, and a second
+                   set of fields shown by default would be five more boxes to scroll past on
+                   the screen a dealer uses every week. -->
+              <label class="block sm:col-span-2 flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" [ngModel]="shipToDifferent()" (ngModelChange)="shipToDifferent.set($event)"
+                       name="shipDiff" class="w-4 h-4" />
+                <span class="text-sm text-slate-700">Deliver to a different address</span>
+              </label>
+
+              @if (shipToDifferent()) {
+                <div class="sm:col-span-2 grid sm:grid-cols-2 gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="sm:col-span-2 text-sm font-semibold text-slate-800">Delivery address</p>
+
+                  <label class="block">
+                    <span class="form-label">Contact name</span>
+                    <input type="text" [(ngModel)]="shipName" name="shipName" class="form-input"
+                           placeholder="Leave blank to use the same name" />
+                  </label>
+
+                  <label class="block">
+                    <span class="form-label">Mobile No</span>
+                    <input type="tel" [(ngModel)]="shipMobile" name="shipMobile" maxlength="10" inputmode="numeric"
+                           class="form-input" placeholder="Leave blank to use the same number" />
+                  </label>
+
+                  <label class="block">
+                    <span class="form-label">State</span>
+                    <select [(ngModel)]="shipState" name="shipState" class="form-input">
+                      <option value="">Same as billing</option>
+                      @for (s of states(); track s) { <option [value]="s">{{ s }}</option> }
+                    </select>
+                  </label>
+
+                  <label class="block">
+                    <span class="form-label">City</span>
+                    <input type="text" [(ngModel)]="shipCity" name="shipCity" class="form-input" placeholder="City" />
+                  </label>
+
+                  <label class="block sm:col-span-2">
+                    <span class="form-label">Address <span class="text-red-500">*</span></span>
+                    <textarea [(ngModel)]="shipAddress" name="shipAddress" rows="3" class="form-input"
+                              placeholder="Where the goods should be delivered"></textarea>
+                  </label>
+                  @if (shipToDifferent() && !shipAddress().trim()) {
+                    <span class="sm:col-span-2 text-xs text-red-600 -mt-2">
+                      Enter the delivery address, or untick the box above.
+                    </span>
+                  }
+                </div>
+              }
             </div>
 
             <!-- ------------------------------- summary ------------------------------- -->
@@ -206,6 +272,15 @@ export class OrderFormComponent {
   readonly mobile = signal('');
   readonly email = signal('');
   readonly address = signal('');
+  readonly businessName = signal('');
+  readonly gstin = signal('');
+
+  readonly shipToDifferent = signal(false);
+  readonly shipName = signal('');
+  readonly shipMobile = signal('');
+  readonly shipAddress = signal('');
+  readonly shipCity = signal('');
+  readonly shipState = signal('');
 
   readonly quote = signal<QuickOrderQuote>({
     lines: [], itemCount: 0, totalUnits: 0, netTotal: 0, discountTotal: 0, subTotal: 0,
@@ -220,12 +295,26 @@ export class OrderFormComponent {
   /** The reference site's rule, and a good one — it keeps a lot of bad data out. */
   readonly mobileValid = computed(() => /^\d{10}$/.test(this.mobile()));
 
+  /**
+   * Length only. A GSTIN has a checksum, but rejecting a real number because of a rule
+   * implemented slightly wrong here would block a sale — and the number is printed on the
+   * bill, not used to compute anything. Blank is fine; it is optional.
+   */
+  readonly gstinValid = computed(() => {
+    const g = this.gstin().trim();
+    return g.length === 0 || g.length === 15;
+  });
+
   readonly formErrors = computed(() => {
     const errors: string[] = [];
     if (!this.state()) errors.push('Select your state.');
     if (!this.name().trim()) errors.push('Enter your name.');
     if (!this.mobileValid()) errors.push('Enter a valid 10-digit mobile number.');
-    if (!this.address().trim()) errors.push('Enter your delivery address.');
+    if (!this.address().trim()) errors.push('Enter your billing address.');
+    if (!this.gstinValid()) errors.push('A GSTIN is 15 characters.');
+    if (this.shipToDifferent() && !this.shipAddress().trim()) {
+      errors.push('Enter the delivery address, or untick "deliver to a different address".');
+    }
     if (this.quote().minOrderAmount > 0 && !this.quote().meetsMinimum) {
       errors.push('Your order is below the minimum for the selected state.');
     }
@@ -292,6 +381,14 @@ export class OrderFormComponent {
         mobile: this.mobile(),
         email: this.email(),
         address: this.address(),
+        businessName: this.businessName().trim() || null,
+        gstin: this.gstin().trim().toUpperCase() || null,
+        shipToDifferent: this.shipToDifferent(),
+        shipName: this.shipName().trim() || null,
+        shipMobile: this.shipMobile().trim() || null,
+        shipAddress: this.shipAddress().trim() || null,
+        shipCity: this.shipCity().trim() || null,
+        shipState: this.shipState() || null,
       })
       .subscribe({
         next: (result) => {
