@@ -203,6 +203,19 @@ public sealed class QuickOrderService : IQuickOrderService
         _db.Orders.Add(order);
         await _db.SaveChangesAsync(ct);
 
+        // Cost at the moment of sale, read here rather than carried on the quote: the quote
+        // is sent to the browser, and cost price is nobody's business but the shop's.
+        //
+        // Snapshotting it is what keeps the margin reports honest. AnalyticsService falls back
+        // to the product's *current* CostPrice when the snapshot is missing, so with quick
+        // orders never recording one, every historical margin silently moved the moment a cost
+        // price was edited — last year's profit changing because this year's cost did.
+        var lineProductIds = quote.Lines.Select(l => l.ProductId).ToList();
+        var costs = await _db.Products
+            .Where(p => p.TenantId == Tenant && lineProductIds.Contains(p.ProductId))
+            .Select(p => new { p.ProductId, p.CostPrice })
+            .ToDictionaryAsync(x => x.ProductId, x => x.CostPrice, ct);
+
         foreach (var line in quote.Lines)
         {
             _db.OrderItems.Add(new OrderItem
@@ -211,6 +224,7 @@ public sealed class QuickOrderService : IQuickOrderService
                 ProductId = line.ProductId,
                 Sku = line.Sku,
                 ProductName = line.Name,
+                UnitCost = costs.TryGetValue(line.ProductId, out var cost) ? cost : null,
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
                 DiscountAmount = Round(((line.CompareAtPrice ?? line.UnitPrice) - line.UnitPrice) * line.Quantity),
