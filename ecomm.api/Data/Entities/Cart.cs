@@ -7,6 +7,9 @@ public class Cart
     public long? UserId { get; set; }
     public string? SessionId { get; set; }
     public string Status { get; set; } = "Active";   // Active | Converted | Abandoned
+
+    /// <summary>When a recovery reminder was sent, so one basket is never chased twice.</summary>
+    public DateTime? AbandonedRemindedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

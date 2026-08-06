@@ -138,6 +138,34 @@ export class QuickOrderService {
     });
     this.restored.set(false);
     this.saveToStorage();
+    this.scheduleServerSync();
+  }
+
+  /**
+   * Mirrors the estimate to the server so the shop can see an unfinished basket.
+   *
+   * Debounced hard, because this fires on every keystroke in a table a dealer fills sixty
+   * rows of — one request per character would be indefensible for a convenience feature.
+   * Failures are swallowed: this exists for the shop's benefit, and must never interrupt
+   * someone building an order.
+   */
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private scheduleServerSync(): void {
+    if (typeof setTimeout === 'undefined') return;   // SSR
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => this.syncToServer(), 4000);
+  }
+
+  private syncToServer(): void {
+    const lines = Object.entries(this.quantities())
+      .map(([id, qty]) => ({ productId: Number(id), quantity: qty }));
+
+    this.http.post(`${this.base}/estimate`, { lines }).subscribe({
+      next: () => {},
+      // 401 is the normal case for an anonymous shopper, not an error worth surfacing.
+      error: () => {},
+    });
   }
 
   clear(): void {

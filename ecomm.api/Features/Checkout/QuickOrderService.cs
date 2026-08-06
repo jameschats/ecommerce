@@ -278,6 +278,18 @@ public sealed class QuickOrderService : IQuickOrderService
 
         await SyncProfileAsync(userId, req, mobile, now, ct);
 
+        // The mirrored estimate became a sale, so it must stop showing as abandoned. Done
+        // inline rather than by a job: the one moment we know for certain it converted is
+        // right here.
+        var openCarts = await _db.Carts
+            .Where(c => c.TenantId == Tenant && c.UserId == userId && c.Status == "Active")
+            .ToListAsync(ct);
+        foreach (var cart in openCarts)
+        {
+            cart.Status = "Converted";
+            cart.UpdatedAt = now;
+        }
+
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 

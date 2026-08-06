@@ -117,7 +117,10 @@ export class AdminLayoutComponent {
     },
     {
       key: 'marketing', label: 'Marketing', dot: '#10b981',
-      links: [{ path: '/admin/campaigns', label: 'Campaigns' }],
+      links: [
+        { path: '/admin/campaigns', label: 'Campaigns' },
+        { path: '/admin/abandoned', label: 'Abandoned estimates' },
+      ],
     },
     {
       key: 'store', label: 'Online store', dot: '#1e40af',

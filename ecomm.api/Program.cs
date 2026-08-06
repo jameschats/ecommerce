@@ -115,6 +115,7 @@ builder.Services.AddScoped<ecomm.api.Features.Checkout.ITaxService, ecomm.api.Fe
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IShippingService, ecomm.api.Features.Checkout.ShippingService>();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IQuickOrderService, ecomm.api.Features.Checkout.QuickOrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IQuoteDocumentService, ecomm.api.Features.Checkout.QuoteDocumentService>();
+builder.Services.AddScoped<ecomm.api.Features.Checkout.IAbandonedEstimateService, ecomm.api.Features.Checkout.AbandonedEstimateService>();
 builder.Services.AddScoped<ecomm.api.Features.Payments.IManualPaymentService, ecomm.api.Features.Payments.ManualPaymentService>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.IOrderMailer, ecomm.api.Features.Notifications.OrderMailer>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductImageZipService, ecomm.api.Features.Catalog.Services.ProductImageZipService>();

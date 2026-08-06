@@ -50,6 +50,25 @@ public sealed class QuickOrderController : ControllerBase
     }
 
     /// <summary>
+    /// Mirrors the signed-in shopper's estimate to the server so an unfinished basket is
+    /// visible to the shop. Fire-and-forget from the client's point of view: it is a
+    /// convenience for the shop, and must never interrupt someone building an order.
+    /// </summary>
+    [Authorize]
+    [HttpPost("estimate")]
+    public async Task<IActionResult> SaveEstimate(
+        [FromBody] SaveEstimateRequest req,
+        [FromServices] IAbandonedEstimateService estimates,
+        CancellationToken ct)
+    {
+        var userId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
+        if (userId == 0) return Ok(ApiResponse<object>.Ok(new { saved = false }));
+
+        await estimates.SaveAsync(userId, req, ct);
+        return Ok(ApiResponse<object>.Ok(new { saved = true }));
+    }
+
+    /// <summary>
     /// Places the order. The only authenticated endpoint here — the buyer builds and prices
     /// freely, and identity is required at the point it becomes a commitment (design.md §7.2).
     /// </summary>
