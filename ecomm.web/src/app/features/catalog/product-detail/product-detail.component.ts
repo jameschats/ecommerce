@@ -224,7 +224,14 @@ export class ProductDetailComponent implements OnInit {
         aggregateRating: this.reviewCount() > 0
           ? { '@type': 'AggregateRating', ratingValue: this.avgRating(), reviewCount: this.reviewCount() }
           : undefined,
-        offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.price, availability: 'https://schema.org/InStock', url },
+        // Availability read from stock rather than asserted. It was hardcoded to InStock,
+        // so every sold-out product published a machine-readable claim that it was
+        // available — wrong for the AI and search engines that consume this, and against
+        // Google Merchant policy.
+        offers: {
+          '@type': 'Offer', priceCurrency: 'INR', price: p.price, url,
+          availability: p.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        },
       },
       {
         '@context': 'https://schema.org', '@type': 'BreadcrumbList',

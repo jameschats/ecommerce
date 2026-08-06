@@ -7,7 +7,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
 declare const google: any;
 
-type Method = 'email' | 'otp';
+type Method = 'emailOtp' | 'otp' | 'email';
 
 @Component({
   selector: 'app-login',
@@ -29,6 +29,19 @@ export class LoginComponent implements OnInit {
   private readonly providers = signal<AuthProvider[]>([]);
   readonly emailProvider = computed(() => this.enabled('EmailPassword'));
   readonly otpProvider = computed(() => this.enabled('MobileOtp'));
+  readonly emailOtpProvider = computed(() => this.enabled('EmailOtp'));
+
+  /**
+   * The sign-in methods on offer, so the switcher adapts instead of assuming two.
+   * Turning Mobile OTP off in production must leave a usable page, not a broken grid.
+   */
+  readonly methods = computed(() => {
+    const out: { key: Method; label: string }[] = [];
+    if (this.emailOtpProvider()) out.push({ key: 'emailOtp', label: 'Email OTP' });
+    if (this.otpProvider()) out.push({ key: 'otp', label: 'Mobile OTP' });
+    if (this.emailProvider()) out.push({ key: 'email', label: 'Password' });
+    return out;
+  });
   readonly googleProvider = computed(() => {
     const p = this.enabled('Google');
     return p && p.clientId ? p : null;
@@ -45,8 +58,9 @@ export class LoginComponent implements OnInit {
     this.auth.getConfig().subscribe({
       next: (cfg) => {
         this.providers.set(cfg.providers);
-        // Mobile-first: default to OTP when available, else email.
-        this.method.set(this.otpProvider() ? 'otp' : 'email');
+        // Whatever is on offer first — the order comes from admin, so the shop decides
+        // which method leads rather than it being fixed here.
+        this.method.set(this.methods()[0]?.key ?? 'email');
         this.loadingConfig.set(false);
         if (this.googleProvider()) this.initGoogle();
       },
@@ -82,9 +96,40 @@ export class LoginComponent implements OnInit {
     this.run(this.auth.verifyOtp(this.phone.trim(), this.code.trim()));
   }
 
+  // Email OTP — the same two-step shape as mobile, against the endpoints the quick-order
+  // checkout gate has always used.
+  sendEmailOtp(): void {
+    const email = this.email.trim();
+    if (!email.includes('@')) {
+      this.error.set('Enter a valid email address.');
+      return;
+    }
+    this.submitting.set(true);
+    this.error.set(null);
+    this.auth.requestEmailOtp(email).subscribe({
+      next: () => {
+        this.otpSent.set(true);
+        this.submitting.set(false);
+      },
+      error: (e) => this.fail(e),
+    });
+  }
+
+  verifyEmailOtp(): void {
+    this.run(this.auth.verifyEmailOtp(this.email.trim(), this.code.trim()));
+  }
+
   resetOtp(): void {
     this.otpSent.set(false);
     this.code = '';
+  }
+
+  /** Switching method must not carry a half-finished OTP attempt across. */
+  chooseMethod(m: Method): void {
+    this.method.set(m);
+    this.otpSent.set(false);
+    this.code = '';
+    this.error.set(null);
   }
 
   // --- Google Identity Services (only when enabled + configured) ---

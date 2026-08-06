@@ -88,6 +88,18 @@ window.__APP_CONFIG__ = {
 };
 EOF
 
+# robots.txt has to name an absolute sitemap URL, which is per-domain — and the copy in
+# the repo names the neighbouring site, so every crawler reading it here was sent to a
+# different shop's sitemap. Rewritten for the same reason config.js is: one build, many
+# domains. Only the Sitemap line is touched, so the disallow rules stay in the repo.
+ROBOTS="$WEB_DIST/browser/robots.txt"
+if [ -f "$ROBOTS" ]; then
+  sed -i "s|^Sitemap: .*|Sitemap: ${SITE_URL}/sitemap.xml|" "$ROBOTS"
+  echo "    robots.txt sitemap -> ${SITE_URL}/sitemap.xml"
+else
+  echo "WARNING: $ROBOTS missing — crawlers will not be told where the sitemap is" >&2
+fi
+
 # ---------------------------------------------------------------- ship
 echo "==> Uploading API"
 ssh "$REMOTE_HOST" "rm -rf ${BASE}/api.new && mkdir -p ${BASE}/api.new"

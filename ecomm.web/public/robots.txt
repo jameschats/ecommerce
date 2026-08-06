@@ -8,4 +8,6 @@ Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
 
-Sitemap: https://calendarshop.online/sitemap.xml
+# Rewritten per-domain at deploy time (deploy/deploy-dailycal.sh) — this value is the
+# local-development default, not the one that ships.
+Sitemap: https://daily.calendarshop.online/sitemap.xml
