@@ -8,6 +8,7 @@ import { QuickOrderService } from './core/services/quick-order.service';
 import { BrandingService } from './core/services/branding.service';
 import { CatalogService } from './core/services/catalog.service';
 import { ThemeService } from './core/services/theme.service';
+import { TrackingService } from './core/services/tracking.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
 
@@ -24,6 +25,7 @@ export class App implements OnInit {
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
   private readonly webAnalytics = inject(WebAnalyticsService);
+  private readonly tracking = inject(TrackingService);
 
   readonly user = this.auth.currentUser;
   readonly isAuthenticated = this.auth.isAuthenticated;
@@ -129,11 +131,24 @@ export class App implements OnInit {
     });
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
 
-    this.isAdminRoute.set(this.router.url.startsWith('/admin'));
+    const adminNow = this.router.url.startsWith('/admin');
+    this.isAdminRoute.set(adminNow);
+    if (!adminNow) this.tracking.track(this.router.url);
+    this.lastTrackedUrl = this.router.url;
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.isAdminRoute.set(e.urlAfterRedirects.startsWith('/admin')));
+      .subscribe((e) => {
+        const admin = e.urlAfterRedirects.startsWith('/admin');
+        this.isAdminRoute.set(admin);
+        // Skip the very first NavigationEnd if we already tracked it above (SSR bootstrap
+        // fires one for the initial route too) — cheap dedupe by comparing to what we sent.
+        if (!admin && e.urlAfterRedirects !== this.lastTrackedUrl) this.tracking.track(e.urlAfterRedirects);
+        this.lastTrackedUrl = e.urlAfterRedirects;
+      });
   }
+
+  /** Guards against double-tracking the initial route (tracked eagerly above, then again via the first NavigationEnd). */
+  private lastTrackedUrl: string | null = null;
 
   logout(): void {
     this.menuOpen.set(false);

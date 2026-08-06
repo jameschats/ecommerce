@@ -95,6 +95,11 @@ builder.Services.AddScoped<ecomm.api.Features.Reviews.IReviewService, ecomm.api.
 builder.Services.AddScoped<ecomm.api.Features.Coupons.ICouponService, ecomm.api.Features.Coupons.CouponService>();
 builder.Services.AddScoped<ecomm.api.Features.Wishlist.IWishlistService, ecomm.api.Features.Wishlist.WishlistService>();
 builder.Services.AddScoped<ecomm.api.Features.Analytics.IAnalyticsService, ecomm.api.Features.Analytics.AnalyticsService>();
+// First-party traffic tracking (Features/Analytics). GeoLookupService loads the GeoLite2 file
+// once at startup, so it's a singleton; no-ops until GeoIp:DatabasePath points at a real file.
+builder.Services.Configure<ecomm.api.Features.Analytics.GeoIpOptions>(builder.Configuration.GetSection(ecomm.api.Features.Analytics.GeoIpOptions.SectionName));
+builder.Services.AddSingleton<ecomm.api.Features.Analytics.IGeoLookupService, ecomm.api.Features.Analytics.GeoLookupService>();
+builder.Services.AddScoped<ecomm.api.Features.Analytics.IPageViewTrackingService, ecomm.api.Features.Analytics.PageViewTrackingService>();
 builder.Services.AddScoped<ecomm.api.Features.Suppliers.ISupplierService, ecomm.api.Features.Suppliers.SupplierService>();
 builder.Services.AddScoped<ecomm.api.Features.Contacts.IContactService, ecomm.api.Features.Contacts.ContactService>();
 builder.Services.AddScoped<ecomm.api.Features.Campaigns.ICampaignService, ecomm.api.Features.Campaigns.CampaignService>();

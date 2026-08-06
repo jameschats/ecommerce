@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AnalyticsSummary, GroupProfitRow, ProductReportRow, ReturnRateRow, SalesPeriodRow } from '../../../core/models/analytics.model';
 import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AdminTrafficComponent } from './admin-traffic.component';
 
-type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'supplier';
+type Tab = 'sales' | 'traffic' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category' | 'supplier';
 
 @Component({
   selector: 'app-admin-analytics',
-  imports: [FormsModule, CurrencyPipe, RouterLink],
+  imports: [FormsModule, CurrencyPipe, RouterLink, AdminTrafficComponent],
   template: `
     <div class="max-w-5xl mx-auto p-6">
       <h1 class="text-xl font-bold text-slate-900 mb-1">Analytics</h1>
@@ -51,11 +52,15 @@ type Tab = 'sales' | 'best' | 'marginHigh' | 'marginLow' | 'return' | 'category'
           <input type="date" [(ngModel)]="from" (ngModelChange)="loadReport()" class="input py-1" />
           <span class="text-slate-400">to</span>
           <input type="date" [(ngModel)]="to" (ngModelChange)="loadReport()" class="input py-1" />
-          <button type="button" (click)="exportCsv()" [disabled]="!rowCount()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50">CSV</button>
+          @if (tab() !== 'traffic') {
+            <button type="button" (click)="exportCsv()" [disabled]="!rowCount()" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50">CSV</button>
+          }
         </div>
       </div>
 
-      @if (loading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
+      @if (tab() === 'traffic') {
+        <app-admin-traffic [from]="from" [to]="to" />
+      } @else if (loading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
       @else if (!rowCount()) { <div class="p-8 text-center text-slate-400">No data for this range.</div> }
       @else {
         @if (anyCostMissing()) {
@@ -174,6 +179,7 @@ export class AdminAnalyticsComponent implements OnInit {
 
   readonly tabs: { key: Tab; label: string }[] = [
     { key: 'sales', label: 'Sales over time' },
+    { key: 'traffic', label: 'Traffic' },
     { key: 'best', label: 'Best sellers' },
     { key: 'marginHigh', label: 'Top margin' },
     { key: 'marginLow', label: 'Low margin' },
@@ -258,6 +264,9 @@ export class AdminAnalyticsComponent implements OnInit {
   setTab(t: Tab): void { this.tab.set(t); this.loadReport(); }
 
   loadReport(): void {
+    // Traffic manages its own fetching/loading state (AdminTrafficComponent reacts to the
+    // from/to inputs via ngOnChanges) — it doesn't populate any of the table signals here.
+    if (this.tab() === 'traffic') return;
     this.loading.set(true);
     const done = () => this.loading.set(false);
     const t = this.tab();

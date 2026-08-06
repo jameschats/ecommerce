@@ -73,4 +73,55 @@ public sealed class AnalyticsController : ControllerBase
         var (f, t) = Range(from, to);
         return Ok(ApiResponse<List<GroupProfitRow>>.Ok(await _analytics.ProfitBySupplierAsync(f, t, ct)));
     }
+
+    // ---------------- Traffic ----------------
+
+    [HttpGet("traffic-summary")]
+    public async Task<IActionResult> TrafficSummary([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<TrafficSummaryDto>.Ok(await _analytics.TrafficSummaryAsync(f, t, ct)));
+    }
+
+    [HttpGet("traffic-over-time")]
+    public async Task<IActionResult> TrafficOverTime([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<TrafficPointDto>>.Ok(await _analytics.TrafficOverTimeAsync(f, t, ct)));
+    }
+
+    [HttpGet("traffic-by-device")]
+    public async Task<IActionResult> TrafficByDevice([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<DeviceBreakdownDto>>.Ok(await _analytics.TrafficByDeviceAsync(f, t, ct)));
+    }
+
+    [HttpGet("traffic-by-source")]
+    public async Task<IActionResult> TrafficBySource([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<SourceBreakdownDto>>.Ok(await _analytics.TrafficBySourceAsync(f, t, ct)));
+    }
+
+    [HttpGet("top-pages")]
+    public async Task<IActionResult> TopPages([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<TopPageDto>>.Ok(await _analytics.TopPagesAsync(f, t, ct)));
+    }
+
+    [HttpGet("traffic-by-geo")]
+    public async Task<IActionResult> TrafficByGeo([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<List<GeoBreakdownDto>>.Ok(await _analytics.TrafficByGeoAsync(f, t, ct)));
+    }
+
+    [HttpGet("new-vs-returning")]
+    public async Task<IActionResult> NewVsReturning([FromQuery] string? from, [FromQuery] string? to, CancellationToken ct)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(ApiResponse<NewVsReturningDto>.Ok(await _analytics.NewVsReturningAsync(f, t, ct)));
+    }
 }

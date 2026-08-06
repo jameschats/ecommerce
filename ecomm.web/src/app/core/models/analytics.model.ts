@@ -54,3 +54,19 @@ export interface GroupProfitRow {
   /** True ⇒ cost/profit/marginPct are unknown, not zero. Show a dash, never the number. */
   costMissing: boolean;
 }
+
+// ---------------- Traffic (first-party) ----------------
+
+export interface TrafficSummary {
+  sessions: number;
+  uniqueVisitors: number;
+  sessionsChangePct: number;
+  visitorsChangePct: number;
+}
+
+export interface TrafficPoint { date: string; label: string; sessions: number; }
+export interface DeviceBreakdown { device: string; sessions: number; pct: number; }
+export interface SourceBreakdown { source: string; sessions: number; pct: number; }
+export interface TopPage { path: string; views: number; }
+export interface GeoBreakdown { country: string; city: string; sessions: number; }
+export interface NewVsReturning { new: number; returning: number; }

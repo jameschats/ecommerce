@@ -24,6 +24,15 @@ public sealed record SalesPeriodRow(
     string Period, string Label, int Orders, int Units,
     decimal Revenue, decimal Cost, decimal Profit, decimal MarginPct, bool CostMissing);
 
+// ---------------- Traffic (first-party, PageViews) ----------------
+public sealed record TrafficSummaryDto(int Sessions, int UniqueVisitors, double SessionsChangePct, double VisitorsChangePct);
+public sealed record TrafficPointDto(string Date, string Label, int Sessions);
+public sealed record DeviceBreakdownDto(string Device, int Sessions, double Pct);
+public sealed record SourceBreakdownDto(string Source, int Sessions, double Pct);
+public sealed record TopPageDto(string Path, int Views);
+public sealed record GeoBreakdownDto(string Country, string City, int Sessions);
+public sealed record NewVsReturningDto(int New, int Returning);
+
 public interface IAnalyticsService
 {
     Task<AnalyticsSummaryDto> SummaryAsync(CancellationToken ct = default);
@@ -33,6 +42,14 @@ public interface IAnalyticsService
     Task<List<GroupProfitRow>> ProfitByCategoryAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<List<GroupProfitRow>> ProfitBySupplierAsync(DateTime from, DateTime to, CancellationToken ct = default);
     Task<List<SalesPeriodRow>> SalesOverTimeAsync(DateTime from, DateTime to, string bucket, CancellationToken ct = default);
+
+    Task<TrafficSummaryDto> TrafficSummaryAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<TrafficPointDto>> TrafficOverTimeAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<DeviceBreakdownDto>> TrafficByDeviceAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<SourceBreakdownDto>> TrafficBySourceAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<TopPageDto>> TopPagesAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<List<GeoBreakdownDto>> TrafficByGeoAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    Task<NewVsReturningDto> NewVsReturningAsync(DateTime from, DateTime to, CancellationToken ct = default);
 }
 
 public sealed class AnalyticsService : IAnalyticsService
@@ -230,6 +247,123 @@ public sealed class AnalyticsService : IAnalyticsService
             return new ReturnRateRow(g.Key.ProductId, g.Key.ProductName, sold, returned,
                 total > 0 ? Math.Round((decimal)returned / total * 100m, 1) : 0m);
         }).Where(r => r.Returned > 0).OrderByDescending(r => r.ReturnRatePct).ToList();
+    }
+
+    // ---------------- Traffic (first-party, PageViews) ----------------
+
+    private sealed record RawView(string VisitorId, string SessionId, string Path, string? Referrer, string DeviceType, string? Country, string? City, DateTime CreatedAt);
+
+    private Task<List<RawView>> ViewsAsync(DateTime from, DateTime to, CancellationToken ct) =>
+        _db.PageViews.AsNoTracking()
+            .Where(p => p.TenantId == Tenant && p.CreatedAt >= from && p.CreatedAt <= to)
+            .Select(p => new RawView(p.VisitorId, p.SessionId, p.Path, p.Referrer, p.DeviceType, p.Country, p.City, p.CreatedAt))
+            .ToListAsync(ct);
+
+    /// <summary>Same length window immediately before `from`, for the "compared to previous period" figure.</summary>
+    private static (DateTime From, DateTime To) PriorPeriod(DateTime from, DateTime to)
+    {
+        var span = to - from;
+        return (from - span - TimeSpan.FromTicks(1), from - TimeSpan.FromTicks(1));
+    }
+
+    public async Task<TrafficSummaryDto> TrafficSummaryAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var current = await ViewsAsync(from, to, ct);
+        var (prevFrom, prevTo) = PriorPeriod(from, to);
+        var previous = await ViewsAsync(prevFrom, prevTo, ct);
+
+        var sessions = current.Select(v => v.SessionId).Distinct().Count();
+        var visitors = current.Select(v => v.VisitorId).Distinct().Count();
+        var prevSessions = previous.Select(v => v.SessionId).Distinct().Count();
+        var prevVisitors = previous.Select(v => v.VisitorId).Distinct().Count();
+
+        return new TrafficSummaryDto(sessions, visitors, ChangePct(sessions, prevSessions), ChangePct(visitors, prevVisitors));
+    }
+
+    private static double ChangePct(int current, int previous) =>
+        previous == 0 ? (current == 0 ? 0 : 100) : Math.Round((current - previous) / (double)previous * 100, 1);
+
+    /// <summary>Always day-bucketed — the traffic chart is meant for a "last N days" window, not a year view.</summary>
+    public async Task<List<TrafficPointDto>> TrafficOverTimeAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var views = await ViewsAsync(from, to, ct);
+        var bySessionPerDay = views
+            .GroupBy(v => v.CreatedAt.Date)
+            .ToDictionary(g => g.Key, g => g.Select(v => v.SessionId).Distinct().Count());
+
+        var points = new List<TrafficPointDto>();
+        for (var d = from.Date; d <= to.Date; d = d.AddDays(1))
+        {
+            bySessionPerDay.TryGetValue(d, out var sessions);
+            points.Add(new TrafficPointDto(d.ToString("yyyy-MM-dd"), d.ToString("dd MMM"), sessions));
+        }
+        return points;
+    }
+
+    public async Task<List<DeviceBreakdownDto>> TrafficByDeviceAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var views = await ViewsAsync(from, to, ct);
+        var bySession = views.GroupBy(v => v.SessionId).Select(g => g.First().DeviceType).ToList();
+        var total = bySession.Count;
+        return bySession.GroupBy(d => d)
+            .Select(g => new DeviceBreakdownDto(g.Key, g.Count(), total == 0 ? 0 : Math.Round(g.Count() / (double)total * 100, 1)))
+            .OrderByDescending(r => r.Sessions).ToList();
+    }
+
+    /// <summary>Groups a referrer URL into "Direct" (none) or its registrable host, e.g. "google.com".</summary>
+    private static string SourceFromReferrer(string? referrer)
+    {
+        if (string.IsNullOrWhiteSpace(referrer)) return "Direct";
+        return Uri.TryCreate(referrer, UriKind.Absolute, out var uri) ? uri.Host.Replace("www.", "") : "Direct";
+    }
+
+    public async Task<List<SourceBreakdownDto>> TrafficBySourceAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var views = await ViewsAsync(from, to, ct);
+        var bySession = views.GroupBy(v => v.SessionId).Select(g => SourceFromReferrer(g.First().Referrer)).ToList();
+        var total = bySession.Count;
+        return bySession.GroupBy(s => s)
+            .Select(g => new SourceBreakdownDto(g.Key, g.Count(), total == 0 ? 0 : Math.Round(g.Count() / (double)total * 100, 1)))
+            .OrderByDescending(r => r.Sessions).Take(10).ToList();
+    }
+
+    public async Task<List<TopPageDto>> TopPagesAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var views = await ViewsAsync(from, to, ct);
+        return views.GroupBy(v => v.Path)
+            .Select(g => new TopPageDto(g.Key, g.Count()))
+            .OrderByDescending(r => r.Views).Take(10).ToList();
+    }
+
+    public async Task<List<GeoBreakdownDto>> TrafficByGeoAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var views = await ViewsAsync(from, to, ct);
+        return views.Where(v => v.Country != null)
+            .GroupBy(v => new { Country = v.Country!, City = v.City ?? "Unknown" })
+            .Select(g => new GeoBreakdownDto(g.Key.Country, g.Key.City, g.Select(v => v.SessionId).Distinct().Count()))
+            .OrderByDescending(r => r.Sessions).Take(10).ToList();
+    }
+
+    /// <summary>
+    /// New = this visitor's very first page view (ever) falls inside the requested period;
+    /// Returning = they were already seen before it started. Classified per visitor, not
+    /// per session, so a visitor who comes back twice in one period is still one "returning".
+    /// </summary>
+    public async Task<NewVsReturningDto> NewVsReturningAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var visitorIds = await _db.PageViews.AsNoTracking()
+            .Where(p => p.TenantId == Tenant && p.CreatedAt >= from && p.CreatedAt <= to)
+            .Select(p => p.VisitorId).Distinct().ToListAsync(ct);
+        if (visitorIds.Count == 0) return new NewVsReturningDto(0, 0);
+
+        var firstSeen = await _db.PageViews.AsNoTracking()
+            .Where(p => p.TenantId == Tenant && visitorIds.Contains(p.VisitorId))
+            .GroupBy(p => p.VisitorId)
+            .Select(g => g.Min(p => p.CreatedAt))
+            .ToListAsync(ct);
+
+        var newCount = firstSeen.Count(d => d >= from);
+        return new NewVsReturningDto(newCount, firstSeen.Count - newCount);
     }
 
     // ---------------- helpers (in-memory aggregation) ----------------
