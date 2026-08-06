@@ -84,6 +84,15 @@ public sealed class AuthController : ControllerBase
     }
 
     [Authorize]
+    [HttpPost("password/change")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        await _auth.ChangePasswordAsync(CurrentUserId, request, ct);
+        return Ok(ApiResponse<object>.Ok(new { changed = true },
+            "Your password has been updated. Please sign in again."));
+    }
+
+    [Authorize]
     [HttpPost("email/verify/request")]
     public async Task<IActionResult> RequestEmailVerification(CancellationToken ct)
     {

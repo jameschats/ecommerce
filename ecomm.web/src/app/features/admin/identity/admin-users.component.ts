@@ -11,6 +11,11 @@ interface AdminUser {
   userId: number; fullName: string | null; email: string | null; phoneNumber: string | null;
   isActive: boolean; createdAt: string; roles: string[];
 }
+/** userId null ⇒ creating. Password and roles are only asked for on create. */
+interface StaffForm {
+  userId: number | null; fullName: string; email: string;
+  phoneNumber: string; password: string; roles: string[];
+}
 
 /**
  * Who has access, and what that access means.
@@ -97,19 +102,80 @@ interface AdminUser {
           <label class="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" [(ngModel)]="staffOnly" (ngModelChange)="loadUsers()" class="w-4 h-4" /> staff only
           </label>
+          <button type="button" (click)="startCreate()"
+                  class="ml-auto px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+            Add staff member
+          </button>
         </div>
+
+        @if (form(); as f) {
+          <div class="mb-4 bg-white border border-slate-200 rounded-xl p-4">
+            <h2 class="font-semibold text-slate-900 mb-3">{{ f.userId ? 'Edit ' + (f.fullName || 'staff member') : 'New staff member' }}</h2>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="text-sm">
+                <span class="block text-slate-600 mb-1">Name</span>
+                <input [(ngModel)]="f.fullName" class="input w-full" placeholder="Full name" />
+              </label>
+              <label class="text-sm">
+                <span class="block text-slate-600 mb-1">Email <span class="text-red-500">*</span></span>
+                <input [(ngModel)]="f.email" type="email" class="input w-full" placeholder="name@example.com" />
+              </label>
+              <label class="text-sm">
+                <span class="block text-slate-600 mb-1">Mobile</span>
+                <input [(ngModel)]="f.phoneNumber" class="input w-full" placeholder="Optional" />
+              </label>
+              @if (!f.userId) {
+                <label class="text-sm">
+                  <span class="block text-slate-600 mb-1">Initial password <span class="text-red-500">*</span></span>
+                  <input [(ngModel)]="f.password" class="input w-full" placeholder="At least 6 characters" />
+                  <span class="block text-[11px] text-slate-400 mt-1">Pass this on, then ask them to change it.</span>
+                </label>
+              }
+            </div>
+
+            @if (!f.userId) {
+              <div class="mt-3">
+                <span class="block text-sm text-slate-600 mb-1">Roles <span class="text-red-500">*</span></span>
+                <div class="flex flex-wrap gap-3">
+                  @for (r of assignableRoles(); track r.roleId) {
+                    <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input type="checkbox" class="w-4 h-4" [checked]="f.roles.includes(r.name)"
+                             (change)="toggleFormRole(r.name, $any($event.target).checked)" />
+                      {{ r.name }}
+                    </label>
+                  }
+                </div>
+              </div>
+            }
+
+            <div class="flex items-center gap-2 mt-4">
+              <button type="button" (click)="save()" [disabled]="saving()"
+                      class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50">
+                {{ saving() ? 'Saving…' : 'Save' }}
+              </button>
+              <button type="button" (click)="form.set(null)" class="px-4 py-2 rounded-lg border border-slate-300 text-sm">Cancel</button>
+            </div>
+          </div>
+        }
 
         @if (users().length) {
           <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="text-left text-slate-400 border-b border-slate-100">
-                <tr><th class="px-4 py-2">Person</th><th class="px-4 py-2">Roles</th></tr>
+                <tr>
+                  <th class="px-4 py-2">Person</th>
+                  <th class="px-4 py-2">Roles</th>
+                  <th class="px-4 py-2 text-right">Actions</th>
+                </tr>
               </thead>
               <tbody>
                 @for (u of users(); track u.userId) {
-                  <tr class="border-b border-slate-50">
+                  <tr class="border-b border-slate-50" [class.opacity-60]="!u.isActive">
                     <td class="px-4 py-2">
-                      <div class="text-slate-800">{{ u.fullName || 'Unnamed' }}</div>
+                      <div class="text-slate-800">
+                        {{ u.fullName || 'Unnamed' }}
+                        @if (!u.isActive) { <span class="ml-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1">switched off</span> }
+                      </div>
                       <div class="text-xs text-slate-500">{{ u.email || u.phoneNumber || '—' }}</div>
                     </td>
                     <td class="px-4 py-2">
@@ -123,6 +189,23 @@ interface AdminUser {
                           </label>
                         }
                       </div>
+                    </td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap">
+                      <!-- Customers are listed and their roles are assignable, but their own
+                           details are theirs to change — so the actions only apply to staff. -->
+                      @if (isStaff(u)) {
+                        <button type="button" (click)="startEdit(u)" class="text-blue-600 hover:underline">Edit</button>
+                        <span class="text-slate-300 mx-1.5">·</span>
+                        <button type="button" (click)="sendReset(u)" class="text-blue-600 hover:underline">Send reset</button>
+                        <span class="text-slate-300 mx-1.5">·</span>
+                        <button type="button" (click)="setActive(u, !u.isActive)" class="text-blue-600 hover:underline">
+                          {{ u.isActive ? 'Switch off' : 'Switch on' }}
+                        </button>
+                        <span class="text-slate-300 mx-1.5">·</span>
+                        <button type="button" (click)="remove(u)" class="text-red-600 hover:underline">Delete</button>
+                      } @else {
+                        <span class="text-xs text-slate-400">customer</span>
+                      }
                     </td>
                   </tr>
                 }
@@ -144,6 +227,7 @@ export class AdminUsersComponent implements OnInit {
 
   readonly matrix = signal<AccessMatrix | null>(null);
   readonly users = signal<AdminUser[]>([]);
+  readonly form = signal<StaffForm | null>(null);
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
@@ -198,6 +282,102 @@ export class AdminUsersComponent implements OnInit {
           this.error.set(e?.error?.message ?? 'Could not update access.');
           this.loadMatrix();   // put the checkbox back where the server says it belongs
         },
+      });
+  }
+
+  // --- Create / edit / retire ---
+
+  /** Everything except Customer: this form exists to make someone staff. */
+  readonly assignableRoles = computed(() => this.allRoles().filter((r) => r.name !== 'Customer'));
+
+  /**
+   * "Not a customer" rather than "has a staff role" — an account stripped of every role is a
+   * staff member, and hiding its actions would strand it with no way to edit or remove it.
+   * Mirrors LoadStaffAsync on the server.
+   */
+  isStaff(u: AdminUser): boolean {
+    return !(u.roles.length > 0 && u.roles.every((r) => r === 'Customer'));
+  }
+
+  startCreate(): void {
+    this.error.set(null);
+    this.form.set({ userId: null, fullName: '', email: '', phoneNumber: '', password: '', roles: [] });
+  }
+
+  startEdit(u: AdminUser): void {
+    this.error.set(null);
+    this.form.set({
+      userId: u.userId, fullName: u.fullName ?? '', email: u.email ?? '',
+      phoneNumber: u.phoneNumber ?? '', password: '', roles: [...u.roles],
+    });
+  }
+
+  toggleFormRole(name: string, checked: boolean): void {
+    const f = this.form();
+    if (!f) return;
+    f.roles = checked ? [...f.roles, name] : f.roles.filter((r) => r !== name);
+  }
+
+  save(): void {
+    const f = this.form();
+    if (!f) return;
+
+    this.saving.set(true);
+    this.error.set(null);
+
+    const done = (msg: string) => {
+      this.saving.set(false);
+      this.form.set(null);
+      this.flash(msg);
+      this.loadUsers();
+    };
+    const failed = (e: unknown) => {
+      this.saving.set(false);
+      this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'Could not save.');
+    };
+
+    if (f.userId) {
+      const body = { fullName: f.fullName, email: f.email, phoneNumber: f.phoneNumber };
+      this.http.put<ApiResponse<unknown>>(`${API_BASE_URL}/admin/users/${f.userId}`, body)
+        .subscribe({ next: (r) => done(r.message ?? 'Saved.'), error: failed });
+    } else {
+      this.http.post<ApiResponse<unknown>>(`${API_BASE_URL}/admin/users`, f)
+        .subscribe({ next: (r) => done(r.message ?? 'Staff member added.'), error: failed });
+    }
+  }
+
+  setActive(u: AdminUser, isActive: boolean): void {
+    // Honest about the window: their sign-in token is refused immediately and they cannot sign
+    // in again, but an access token already in their browser stays valid until it expires.
+    if (!isActive && !confirm(
+      `Switch off ${u.fullName || u.email}? They will not be able to sign in again, `
+      + `and any session they have open stops working within the hour.`)) return;
+
+    this.error.set(null);
+    this.http.put<ApiResponse<unknown>>(`${API_BASE_URL}/admin/users/${u.userId}/active`, { isActive })
+      .subscribe({
+        next: (r) => { this.flash(r.message ?? 'Updated.'); this.loadUsers(); },
+        error: (e) => this.error.set(e?.error?.message ?? 'Could not update the account.'),
+      });
+  }
+
+  remove(u: AdminUser): void {
+    if (!confirm(`Delete ${u.fullName || u.email}? Their orders are kept, and their email and mobile become free to use again.`)) return;
+
+    this.error.set(null);
+    this.http.delete<ApiResponse<unknown>>(`${API_BASE_URL}/admin/users/${u.userId}`)
+      .subscribe({
+        next: (r) => { this.flash(r.message ?? 'Deleted.'); this.loadUsers(); },
+        error: (e) => this.error.set(e?.error?.message ?? 'Could not delete the account.'),
+      });
+  }
+
+  sendReset(u: AdminUser): void {
+    this.error.set(null);
+    this.http.post<ApiResponse<unknown>>(`${API_BASE_URL}/admin/users/${u.userId}/send-reset`, {})
+      .subscribe({
+        next: (r) => this.flash(r.message ?? 'Reset link sent.'),
+        error: (e) => this.error.set(e?.error?.message ?? 'Could not send the reset link.'),
       });
   }
 

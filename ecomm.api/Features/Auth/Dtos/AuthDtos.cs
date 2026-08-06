@@ -10,6 +10,7 @@ public sealed record RefreshRequest(string RefreshToken);
 public sealed record ForgotPasswordRequest(string Email);
 public sealed record ResetPasswordRequest(string Email, string Code, string NewPassword);
 public sealed record VerifyEmailRequest(string Code);
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 // --- Responses ---
 public sealed record AuthUserDto(

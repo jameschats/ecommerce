@@ -101,6 +101,13 @@ export class AuthService {
   // login. Handling the token separately in the gate component would be a second, subtly
   // different code path for the same thing.
 
+  /** Change your own password while signed in. Ends every other session. */
+  changePassword(currentPassword: string, newPassword: string): Observable<void> {
+    return this.http
+      .post<ApiResponse<unknown>>(`${this.base}/password/change`, { currentPassword, newPassword })
+      .pipe(map(() => void 0));
+  }
+
   requestEmailOtp(email: string): Observable<void> {
     return this.http
       .post<ApiResponse<unknown>>(`${this.base}/otp/email/request`, { email })

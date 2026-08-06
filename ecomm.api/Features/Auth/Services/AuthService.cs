@@ -19,6 +19,7 @@ public interface IAuthService
     Task<AuthResponse> RefreshAsync(RefreshRequest request, string? ip, CancellationToken ct = default);
     Task RequestPasswordResetAsync(string email, CancellationToken ct = default);
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default);
+    Task ChangePasswordAsync(long userId, ChangePasswordRequest request, CancellationToken ct = default);
     Task RequestEmailVerificationAsync(long userId, CancellationToken ct = default);
     Task<bool> ConfirmEmailVerificationAsync(long userId, string code, CancellationToken ct = default);
 }
@@ -366,6 +367,40 @@ public sealed class AuthService : IAuthService
         return await IssueTokensAsync(user, ip, ct);
     }
 
+    /// <summary>
+    /// Change your own password while signed in.
+    ///
+    /// Staff accounts are created with a password an admin chose and passed on by hand, so
+    /// there has to be a way to replace it that does not route back through that admin. The
+    /// reset-by-email flow already existed but depends on mail actually arriving; this does not.
+    /// </summary>
+    public async Task ChangePasswordAsync(long userId, ChangePasswordRequest request, CancellationToken ct = default)
+    {
+        var newPassword = request.NewPassword ?? "";
+        if (newPassword.Length < 6)
+            throw new AppException("Password must be at least 6 characters.");
+
+        var user = await _db.Users.FirstOrDefaultAsync(
+            u => u.UserId == userId && u.TenantId == DefaultTenantId && !u.IsDeleted && u.IsActive, ct)
+            ?? throw new AppException("Account not found.", StatusCodes.Status401Unauthorized);
+
+        // An account created by OTP or Google has no password to confirm against; it is
+        // setting one for the first time rather than changing it.
+        if (!string.IsNullOrEmpty(user.PasswordHash)
+            && !_hasher.Verify(request.CurrentPassword ?? "", user.PasswordHash))
+            throw new AppException("Your current password is not correct.");
+
+        user.PasswordHash = _hasher.Hash(newPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        // Every other session dies with the old password — that is most of the point of
+        // changing it.
+        foreach (var t in await _db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null).ToListAsync(ct))
+            t.RevokedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+    }
+
     public async Task<AuthResponse> RefreshAsync(RefreshRequest request, string? ip, CancellationToken ct = default)
     {
         var hash = _jwt.HashRefreshToken(request.RefreshToken ?? "");
@@ -374,6 +409,18 @@ public sealed class AuthService : IAuthService
 
         if (token is null || token.RevokedAt is not null || token.ExpiresAt < DateTime.UtcNow || token.User is null)
             throw new AppException("Invalid or expired refresh token.", StatusCodes.Status401Unauthorized);
+
+        // The person behind the token, not just the token. Refresh is a rolling grant — each
+        // one mints a fresh 7-day token — so without this check an account that was switched
+        // off or deleted keeps renewing itself forever and never returns to the login page,
+        // where IsActive *is* checked. Deactivating someone has to end their access, or the
+        // button that does it is decoration.
+        if (!token.User.IsActive || token.User.IsDeleted)
+        {
+            token.RevokedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            throw new AppException("This account is no longer active.", StatusCodes.Status401Unauthorized);
+        }
 
         var response = await IssueTokensAsync(token.User, ip, ct);
 

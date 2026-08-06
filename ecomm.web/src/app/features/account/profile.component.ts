@@ -61,6 +61,36 @@ import { AuthService } from '../../core/services/auth.service';
         </form>
       }
     </div>
+
+    <!-- Staff accounts are created with a password an admin chose and handed over, so there
+         has to be a way to replace it that doesn't route back through that admin. -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 max-w-lg mt-4">
+      <h2 class="font-semibold text-slate-800 mb-4">Change password</h2>
+      <form (ngSubmit)="changePassword()" class="space-y-4">
+        <div>
+          <label class="lbl">Current password</label>
+          <input class="input" type="password" [(ngModel)]="currentPassword" name="currentPassword" autocomplete="current-password" />
+        </div>
+        <div>
+          <label class="lbl">New password</label>
+          <input class="input" type="password" [(ngModel)]="newPassword" name="newPassword" autocomplete="new-password"
+                 placeholder="At least 6 characters" />
+        </div>
+        <div>
+          <label class="lbl">Confirm new password</label>
+          <input class="input" type="password" [(ngModel)]="confirmPassword" name="confirmPassword" autocomplete="new-password" />
+        </div>
+        <div class="flex items-center gap-3 pt-1">
+          <button type="submit" [disabled]="changingPw()" class="btn-primary px-5 py-2.5">
+            {{ changingPw() ? 'Updating…' : 'Update password' }}
+          </button>
+        </div>
+        @if (pwMsg()) { <p class="text-sm" [class]="pwErr() ? 'text-red-600' : 'text-green-600'">{{ pwMsg() }}</p> }
+      </form>
+      <p class="text-xs text-slate-400 mt-3">
+        For security this signs you out on every device, including this one — sign in again with your new password.
+      </p>
+    </div>
   `,
 })
 export class ProfileComponent implements OnInit {
@@ -75,12 +105,50 @@ export class ProfileComponent implements OnInit {
   fullName = '';
   phoneNumber = '';
 
+  // change password
+  readonly changingPw = signal(false);
+  readonly pwMsg = signal<string | null>(null);
+  readonly pwErr = signal(false);
+  currentPassword = '';
+  newPassword = '';
+  confirmPassword = '';
+
   // email verification
   readonly verifying = signal(false);
   readonly codeSent = signal(false);
   readonly verifyMsg = signal<string | null>(null);
   readonly verifyErr = signal(false);
   verifyCode = '';
+
+  changePassword(): void {
+    this.pwMsg.set(null);
+    this.pwErr.set(false);
+
+    if (this.newPassword.length < 6) {
+      this.pwErr.set(true);
+      this.pwMsg.set('New password must be at least 6 characters.');
+      return;
+    }
+    if (this.newPassword !== this.confirmPassword) {
+      this.pwErr.set(true);
+      this.pwMsg.set('The two new passwords do not match.');
+      return;
+    }
+
+    this.changingPw.set(true);
+    this.auth.changePassword(this.currentPassword, this.newPassword).subscribe({
+      next: () => {
+        this.changingPw.set(false);
+        this.currentPassword = this.newPassword = this.confirmPassword = '';
+        this.pwMsg.set('Password updated.');
+      },
+      error: (e) => {
+        this.changingPw.set(false);
+        this.pwErr.set(true);
+        this.pwMsg.set(e?.error?.message ?? 'Could not update your password.');
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.account.getProfile().subscribe({
