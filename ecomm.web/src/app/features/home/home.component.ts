@@ -2,8 +2,11 @@ import { isPlatformBrowser } from '@angular/common';
 import { Component, ElementRef, OnDestroy, OnInit, PLATFORM_ID, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SITE_URL } from '../../core/api.config';
+import { GalleryImage } from '../../core/models/gallery.model';
 import { SeoService } from '../../core/services/seo.service';
+import { GalleryStripComponent } from '../../shared/gallery-strip/gallery-strip.component';
 import { QuickOrderTableComponent } from '../order/quick-order-table.component';
+import { GalleryData } from './gallery.resolver';
 import { HomeData } from './home.resolver';
 
 interface HeroSlide { image: string; title: string; subtitle: string; cta: string; link: string; }
@@ -17,13 +20,15 @@ interface HeroSlide { image: string; title: string; subtitle: string; cta: strin
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, QuickOrderTableComponent],
+  imports: [RouterLink, QuickOrderTableComponent, GalleryStripComponent],
   templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+  readonly galleryImages: GalleryImage[] = (this.route.snapshot.data['gallery'] as GalleryData | undefined)?.images ?? [];
 
   // Fallback banners — shown only if the admin has configured none.
   private readonly defaultSlides: HeroSlide[] = [

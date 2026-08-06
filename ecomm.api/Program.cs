@@ -75,6 +75,7 @@ builder.Services.AddScoped<ecomm.api.Features.Theme.IThemeService, ecomm.api.Fea
 // CMS
 builder.Services.AddScoped<ecomm.api.Features.Cms.ICmsService, ecomm.api.Features.Cms.CmsService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.IBannerService, ecomm.api.Features.Cms.BannerService>();
+builder.Services.AddScoped<ecomm.api.Features.Cms.IGalleryService, ecomm.api.Features.Cms.GalleryService>();
 builder.Services.Configure<ecomm.api.Features.Media.MediaOptions>(builder.Configuration.GetSection(ecomm.api.Features.Media.MediaOptions.SectionName));
 builder.Services.AddSingleton<ecomm.api.Features.Media.IMediaStorage, ecomm.api.Features.Media.LocalDiskStorage>();
 builder.Services.AddScoped<ecomm.api.Features.Media.IMediaService, ecomm.api.Features.Media.MediaService>();

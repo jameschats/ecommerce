@@ -1,12 +1,13 @@
 import { Routes } from '@angular/router';
 import { adminGuard, authGuard } from './core/guards/auth.guard';
 import { pageBannerResolver } from './core/resolvers/page-banner.resolver';
+import { galleryResolver } from './features/home/gallery.resolver';
 import { homeResolver } from './features/home/home.resolver';
 
 export const routes: Routes = [
   {
     path: '',
-    resolve: { home: homeResolver },
+    resolve: { home: homeResolver, gallery: galleryResolver },
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
   },
   {
@@ -109,6 +110,7 @@ export const routes: Routes = [
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
       { path: 'home-page', loadComponent: () => import('./features/admin/cms/admin-cms.component').then((m) => m.AdminCmsComponent) },
       { path: 'banners', loadComponent: () => import('./features/admin/cms/admin-banners.component').then((m) => m.AdminBannersComponent) },
+      { path: 'gallery', loadComponent: () => import('./features/admin/cms/admin-gallery.component').then((m) => m.AdminGalleryComponent) },
       { path: 'import', loadComponent: () => import('./features/admin/catalog/admin-import.component').then((m) => m.AdminImportComponent) },
       { path: 'auth-providers', loadComponent: () => import('./features/admin/auth-providers/auth-providers.component').then((m) => m.AuthProvidersComponent) },
     ],
