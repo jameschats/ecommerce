@@ -37,7 +37,24 @@
           </select>
         </div>
         <div><label class="lbl">Price (₹)</label><input type="number" [(ngModel)]="form.price" class="input" /></div>
-        <div><label class="lbl">Compare-at price (₹)</label><input type="number" [(ngModel)]="form.compareAtPrice" class="input" /></div>
+        <div><label class="lbl">Compare-at price / MRP (₹)</label><input type="number" [(ngModel)]="form.compareAtPrice" (ngModelChange)="onMrpChange()" class="input" /></div>
+        <!--
+          Discount is derived from MRP and price, not stored. It is offered as an input
+          because it is how the shop thinks — "give it 20% off" — and because typing 0 is
+          the only obvious way back to full price. Editing it rewrites the price; editing
+          the price rewrites what is shown here.
+        -->
+        <div>
+          <label class="lbl">Discount (%)</label>
+          <input type="number" min="0" max="100" step="1" [ngModel]="discountPct()"
+                 (ngModelChange)="onDiscountChange($event)" class="input"
+                 [disabled]="!form.compareAtPrice" placeholder="0" />
+          @if (!form.compareAtPrice) {
+            <p class="mt-1 text-xs text-slate-500">Set an MRP first — a discount is a percentage off it.</p>
+          } @else {
+            <p class="mt-1 text-xs text-slate-500">0 = full price (₹{{ form.compareAtPrice }}).</p>
+          }
+        </div>
         <div>
           <label class="lbl">Cost price (₹)</label>
           <input type="number" [(ngModel)]="form.costPrice" class="input" placeholder="What you pay per unit" />

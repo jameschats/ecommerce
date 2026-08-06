@@ -188,7 +188,9 @@
                     }
                   </td>
                   <td class="px-3 py-2 text-right text-slate-400">
-                    @if (item.compareAtPrice) {
+                    <!-- Only when there is a discount to show. An MRP struck through at the
+                         same figure as the price reads as a broken row, not as full price. -->
+                    @if (item.compareAtPrice && item.discountPercent > 0) {
                       <span class="line-through">{{ item.compareAtPrice | number: '1.0-0' }}</span>
                     } @else { — }
                   </td>
@@ -269,7 +271,7 @@
                       Design No: <span class="text-lg font-bold text-primary">{{ item.sku }}</span>
                     </p>
                     <div class="mt-1.5 flex items-center gap-2">
-                      @if (item.compareAtPrice) {
+                      @if (item.compareAtPrice && item.discountPercent > 0) {
                         <span class="text-slate-400 line-through text-xs">{{ item.compareAtPrice | number: '1.0-0' }}</span>
                       }
                       <span class="font-bold text-slate-900">₹{{ item.price | number: '1.0-0' }}</span>

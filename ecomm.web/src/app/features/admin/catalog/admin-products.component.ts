@@ -75,19 +75,24 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
               <label class="block">
                 <span class="text-xs font-semibold text-slate-600 block mb-1">Field</span>
                 <select [(ngModel)]="priceField" class="h-9 rounded-lg border border-slate-300 text-sm px-2">
+                  <option value="discount">Discount %</option>
                   <option value="price">Discounted price</option>
                   <option value="mrp">MRP</option>
                   <option value="cost">Cost price</option>
                 </select>
               </label>
-              <label class="block">
-                <span class="text-xs font-semibold text-slate-600 block mb-1">How</span>
-                <select [(ngModel)]="priceMode" class="h-9 rounded-lg border border-slate-300 text-sm px-2">
-                  <option value="set">Set to</option>
-                  <option value="byPercent">Change by %</option>
-                  <option value="byAmount">Change by ₹</option>
-                </select>
-              </label>
+              <!-- Discount is always "set to": it is measured against the MRP, so changing it
+                   by a percentage would compound and never come back to a round number. -->
+              @if (priceField !== 'discount') {
+                <label class="block">
+                  <span class="text-xs font-semibold text-slate-600 block mb-1">How</span>
+                  <select [(ngModel)]="priceMode" class="h-9 rounded-lg border border-slate-300 text-sm px-2">
+                    <option value="set">Set to</option>
+                    <option value="byPercent">Change by %</option>
+                    <option value="byAmount">Change by ₹</option>
+                  </select>
+                </label>
+              }
               <label class="block">
                 <span class="text-xs font-semibold text-slate-600 block mb-1">Value</span>
                 <input type="number" step="0.01" [(ngModel)]="priceAmount"
@@ -98,9 +103,16 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
               </label>
               <button type="button" (click)="bulkPrice()" class="btn-primary inline-flex items-center h-9">Apply to {{ selectedCount() }}</button>
             </div>
-            <p class="text-xs text-slate-500 mt-2">
-              Use a negative value to reduce — e.g. <strong>Change by %</strong> of <strong>-10</strong> takes 10% off.
-            </p>
+            @if (priceField === 'discount') {
+              <p class="text-xs text-slate-500 mt-2">
+                Percentage off the MRP — <strong>20</strong> prices each item at 80% of its MRP, and
+                <strong>0</strong> puts it back to full price. Products with no MRP are skipped.
+              </p>
+            } @else {
+              <p class="text-xs text-slate-500 mt-2">
+                Use a negative value to reduce — e.g. <strong>Change by %</strong> of <strong>-10</strong> takes 10% off.
+              </p>
+            }
           </div>
         }
       }
@@ -189,7 +201,7 @@ export class AdminProductsComponent implements OnInit {
   readonly categories = signal<{ categoryId: number; name: string }[]>([]);
 
   readonly priceOpen = signal(false);
-  priceField: 'price' | 'mrp' | 'cost' = 'price';
+  priceField: 'discount' | 'price' | 'mrp' | 'cost' = 'discount';
   priceMode: 'set' | 'byPercent' | 'byAmount' = 'byPercent';
   priceAmount: number | null = null;
   priceRound = true;
@@ -255,6 +267,18 @@ export class AdminProductsComponent implements OnInit {
       this.error.set('Enter a value to apply.');
       return;
     }
+
+    if (this.priceField === 'discount') {
+      if (this.priceAmount < 0 || this.priceAmount > 100) {
+        this.error.set('Discount must be between 0 and 100 percent.');
+        return;
+      }
+      // Always Set: the server reads it as a percentage off the MRP, which is what makes
+      // 0 mean "back to full price" instead of "no change".
+      this.runBulk({ action: 'Discount', amount: this.priceAmount, mode: 'Set', roundToWhole: this.priceRound });
+      return;
+    }
+
     const field = this.priceField === 'price' ? 'Price' : this.priceField === 'mrp' ? 'Mrp' : 'Cost';
     this.runBulk({
       action: field,

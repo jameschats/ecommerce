@@ -58,6 +58,33 @@ export class AdminProductFormComponent implements OnInit {
     }
   }
 
+  /**
+   * Discount shown against the MRP. Derived, never stored — the storefront computes it the
+   * same way, so the number here is the number a customer sees.
+   */
+  readonly discountPct = signal<number>(0);
+
+  private recomputeDiscount(): void {
+    const mrp = this.form.compareAtPrice ?? 0;
+    const price = this.form.price ?? 0;
+    this.discountPct.set(mrp > 0 && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+  }
+
+  /** Typing a discount rewrites the price; 0 restores full price. */
+  onDiscountChange(value: number | string | null): void {
+    const mrp = this.form.compareAtPrice ?? 0;
+    if (mrp <= 0) return;
+
+    const pct = Math.min(100, Math.max(0, Number(value) || 0));
+    this.discountPct.set(pct);
+    this.form.price = Math.round(mrp * (1 - pct / 100) * 100) / 100;
+  }
+
+  /** Changing the MRP leaves the price alone but changes what the discount works out to. */
+  onMrpChange(): void {
+    this.recomputeDiscount();
+  }
+
   private blank(): SaveProductRequest {
     return {
       sku: '', designNo: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
@@ -80,6 +107,7 @@ export class AdminProductFormComponent implements OnInit {
           status: p.status, isFeatured: p.isFeatured,
           images: p.images.map((i) => ({ url: i.url, altText: i.altText, displayOrder: i.displayOrder, isPrimary: i.isPrimary })),
         };
+        this.recomputeDiscount();
         this.variants.set(p.variants);
         this.attrValues = {};
         for (const a of p.attributes) this.attrValues[a.attributeId] = a.value ?? a.valueText ?? '';

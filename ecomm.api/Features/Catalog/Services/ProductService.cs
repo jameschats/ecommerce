@@ -277,6 +277,7 @@ public sealed class ProductService : IProductService
 
         var now = DateTime.UtcNow;
         string summary;
+        var affected = products.Count;
 
         switch (req.Action?.ToLowerInvariant())
         {
@@ -362,12 +363,45 @@ public sealed class ProductService : IProductService
                 break;
             }
 
+            // Discount is expressed against the MRP, not against the current price. That is
+            // the whole point: setting 20% twice must still mean 20% off, and setting 0% must
+            // put the price back to the MRP. Scaling the *price* by a percentage — the only
+            // thing possible before — compounds and has no way home.
+            case "discount":
+            {
+                if (req.Amount is not { } pct) throw new AppException("Enter a discount percentage.");
+                if (pct is < 0m or > 100m) throw new AppException("Discount must be between 0 and 100 percent.");
+
+                var changed = 0;
+                var skipped = 0;
+                foreach (var p in products)
+                {
+                    // No MRP means nothing to discount from. Skipping and saying so beats
+                    // silently repricing the item to zero.
+                    if (p.CompareAtPrice is not { } mrp || mrp <= 0m) { skipped++; continue; }
+
+                    var next = mrp * (1m - pct / 100m);
+                    p.Price = Math.Max(0m, req.RoundToWhole
+                        ? Math.Round(next, 0, MidpointRounding.AwayFromZero)
+                        : Math.Round(next, 2, MidpointRounding.AwayFromZero));
+                    p.UpdatedAt = now;
+                    changed++;
+                }
+
+                affected = changed;
+                summary = pct == 0m
+                    ? $"{changed} product(s) back to full price."
+                    : $"{pct:0.##}% off applied to {changed} product(s).";
+                if (skipped > 0) summary += $" {skipped} skipped — no MRP to discount from.";
+                break;
+            }
+
             default:
                 throw new AppException($"Unknown bulk action '{req.Action}'.");
         }
 
         await _db.SaveChangesAsync(ct);
-        return new BulkProductActionResult(products.Count, summary);
+        return new BulkProductActionResult(affected, summary);
     }
 
     public async Task<bool> DeleteAsync(long id, CancellationToken ct = default)
