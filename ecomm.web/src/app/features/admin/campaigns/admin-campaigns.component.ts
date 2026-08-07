@@ -20,7 +20,13 @@ interface Campaign {
   createdAt: string;
 }
 
-interface AudienceCounts { contacts: number; customers: number; both: number; }
+interface AudienceCounts {
+  contacts: number; customers: number; both: number;
+  /** Every contact with an email, consented or not. */
+  allContacts: number;
+  /** How many of allContacts never ticked the box — what the warning reports. */
+  notConsented: number;
+}
 interface SendResult { attempted: number; sent: number; failed: number; remaining: number; status: string; }
 
 /**
@@ -42,7 +48,9 @@ interface SendResult { attempted: number; sent: number; failed: number; remainin
       <p class="text-sm text-slate-500 mb-5">
         Promotional emails to people who opted in.
         @if (audience(); as a) {
-          <span class="ml-1">{{ a.contacts }} contacts · {{ a.customers }} customers · {{ a.both }} combined.</span>
+          <span class="ml-1">
+            {{ a.contacts }} opted in · {{ a.customers }} customers · {{ a.both }} combined · {{ a.allContacts }} contacts in total.
+          </span>
         }
       </p>
 
@@ -68,7 +76,17 @@ interface SendResult { attempted: number; sent: number; failed: number; remainin
               <option value="Contacts">Contacts who opted in ({{ audience()?.contacts ?? 0 }})</option>
               <option value="Customers">Customers who have ordered ({{ audience()?.customers ?? 0 }})</option>
               <option value="Both">Both ({{ audience()?.both ?? 0 }})</option>
+              <option value="AllContacts">All contacts ({{ audience()?.allContacts ?? 0 }})</option>
             </select>
+            @if (e.audience === 'AllContacts' && (audience()?.notConsented ?? 0) > 0) {
+              <div class="mt-2 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900 px-3 py-2">
+                <strong>{{ audience()?.notConsented }} of these never agreed to receive emails.</strong>
+                They wrote in with a question; that is not the same as subscribing. Sending anyway
+                is your call, but complaints from people who did not ask are what get a sending
+                domain blocked — and Brevo suspends accounts over it. Spam-marked contacts are
+                excluded either way.
+              </div>
+            }
           </label>
           <div class="flex gap-2">
             <button type="button" (click)="save()" [disabled]="saving()" class="btn-primary">
@@ -194,7 +212,11 @@ export class AdminCampaignsComponent implements OnInit {
    * undone — an email that has gone cannot be recalled.
    */
   send(c: Campaign): void {
-    const size = c.totalRecipients || this.audience()?.[c.audience === 'Customers' ? 'customers' : c.audience === 'Both' ? 'both' : 'contacts'] || 0;
+    const key = c.audience === 'Customers' ? 'customers'
+      : c.audience === 'Both' ? 'both'
+      : c.audience === 'AllContacts' ? 'allContacts'
+      : 'contacts';
+    const size = c.totalRecipients || this.audience()?.[key] || 0;
     if (!confirm(`Send "${c.name}" to ${size} recipient(s)? This cannot be undone.`)) return;
 
     this.sendingId.set(c.campaignId);

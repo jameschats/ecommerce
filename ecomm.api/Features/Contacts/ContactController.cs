@@ -1,7 +1,10 @@
 using System.Security.Claims;
+using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
+using ecomm.api.Data.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Contacts;
 
@@ -75,6 +78,44 @@ public sealed class ContactsAdminController : ControllerBase
         => await _contacts.DeleteAsync(id, ct)
             ? Ok(ApiResponse<object>.Ok(new { id }, "Contact deleted."))
             : NotFound(ApiResponse<object>.Fail("Contact not found."));
+
+    [HttpPost("{id:long}/email")]
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerManage)]
+    public async Task<IActionResult> SendEmail(long id, [FromBody] SendContactEmailRequest req, CancellationToken ct)
+    {
+        await _contacts.SendEmailAsync(id, req.Subject, req.Body, ct);
+        return Ok(ApiResponse<object>.Ok(new { id }, "Email sent."));
+    }
+
+    /// <summary>
+    /// Starting points for the reply box. The templates screen itself is settings.manage —
+    /// administrator-only — but reading a body to paste into a reply is part of answering an
+    /// enquiry, so this narrow read sits with the rest of contact management.
+    /// </summary>
+    [HttpGet("email-templates")]
+    public async Task<IActionResult> EmailTemplates(
+        [FromServices] EcommerceDbContext db, CancellationToken ct)
+    {
+        var items = await db.NotificationTemplates.AsNoTracking()
+            .Where(t => t.Channel == "Email" && t.IsActive)
+            .OrderBy(t => t.Code)
+            .Select(t => new { t.Code, t.Subject, t.Body })
+            .ToListAsync(ct);
+        return Ok(ApiResponse<object>.Ok(items));
+    }
+
+    [HttpPost("import")]
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerManage)]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> Import(IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) throw new AppException("Choose a file to import.");
+
+        await using var stream = file.OpenReadStream();
+        var result = await _contacts.ImportAsync(stream, file.FileName, ct);
+        return Ok(ApiResponse<ContactImportResult>.Ok(
+            result, $"{result.Added} added, {result.Updated} updated, {result.Skipped} skipped."));
+    }
 
     /// <summary>
     /// The whole list as CSV, honouring the current filter. Served from the server rather

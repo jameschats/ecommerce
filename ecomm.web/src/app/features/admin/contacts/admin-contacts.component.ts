@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { API_BASE_URL } from '../../../core/api.config';
@@ -19,6 +19,13 @@ interface Contact {
   subscribedToEmails: boolean;
   createdAt: string;
 }
+
+interface AdminCustomer {
+  userId: number; fullName: string | null; email: string | null; phoneNumber: string | null;
+  isActive: boolean; orders: number; totalSpent: number; lastOrderAt: string | null; createdAt: string;
+}
+
+interface EmailTemplate { code: string; subject: string | null; body: string | null; }
 
 /** contactId null ⇒ adding one by hand rather than editing an enquiry that came in. */
 interface ContactForm {
@@ -40,19 +47,29 @@ interface ContactForm {
  */
 @Component({
   selector: 'app-admin-contacts',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, CurrencyPipe],
   template: `
     <div class="max-w-5xl mx-auto p-6">
       <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-slate-900">Contacts</h1>
         <div class="flex items-center gap-2">
-          <button type="button" (click)="startCreate()"
-                  class="text-sm px-3 py-1.5 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-800">Add contact</button>
-          <a [href]="exportUrl()" class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">CSV</a>
+          @if (view() === 'enquiries') {
+            <button type="button" (click)="startCreate()"
+                    class="text-sm px-3 py-1.5 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-800">Add contact</button>
+            <label class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 cursor-pointer">
+              {{ importing() ? 'Importing…' : 'Import' }}
+              <input type="file" accept=".csv,.xlsx" hidden (change)="importCsv($event)" />
+            </label>
+            <button type="button" (click)="exportCsv()" [disabled]="exporting()"
+                    class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50">
+              {{ exporting() ? 'Preparing…' : 'Export CSV' }}
+            </button>
+          }
         </div>
       </div>
       <p class="text-sm text-slate-500 mb-5">Enquiries from the contact form, and anyone you add by hand.</p>
 
+      @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
       @if (form(); as f) {
@@ -95,6 +112,68 @@ interface ContactForm {
         </div>
       }
 
+      <!-- Two different lists that people conflate: someone who wrote in, and someone who
+           bought. Tabs rather than one merged list, because the useful columns differ. -->
+      <div class="flex gap-1 p-1 mb-4 bg-slate-100 rounded-lg text-sm font-medium w-fit">
+        @for (v of views; track v.key) {
+          <button type="button" (click)="setView(v.key)" class="px-4 py-2 rounded-md transition"
+                  [class]="view() === v.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'">{{ v.label }}</button>
+        }
+      </div>
+
+      @if (view() === 'customers') {
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <label class="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" [(ngModel)]="withOrders" (ngModelChange)="loadCustomers()" class="w-4 h-4" />
+            only those who have ordered
+          </label>
+          <input [(ngModel)]="customerSearch" (keyup.enter)="loadCustomers()"
+                 placeholder="Search name, email, phone…" class="input max-w-xs ml-auto" />
+        </div>
+
+        @if (loadingCustomers()) {
+          <div class="p-10 text-center text-slate-400">Loading…</div>
+        } @else if (!customers().length) {
+          <div class="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500">No customers found.</div>
+        } @else {
+          <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-left text-slate-400 border-b border-slate-100">
+                <tr>
+                  <th class="px-4 py-2">Customer</th>
+                  <th class="px-2 py-2 text-right">Orders</th>
+                  <th class="px-2 py-2 text-right">Spent</th>
+                  <th class="px-2 py-2">Last order</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (u of customers(); track u.userId) {
+                  <tr class="border-b border-slate-50" [class.opacity-60]="!u.isActive">
+                    <td class="px-4 py-2">
+                      <div class="text-slate-800">
+                        {{ u.fullName || 'Unnamed' }}
+                        @if (!u.isActive) { <span class="ml-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1">switched off</span> }
+                      </div>
+                      <div class="text-xs text-slate-500">
+                        @if (u.email) { <a [href]="'mailto:' + u.email" class="text-primary hover:underline">{{ u.email }}</a> }
+                        @if (u.email && u.phoneNumber) { <span class="mx-1 text-slate-300">·</span> }
+                        @if (u.phoneNumber) { <a [href]="'tel:' + u.phoneNumber" class="text-primary hover:underline">{{ u.phoneNumber }}</a> }
+                      </div>
+                    </td>
+                    <td class="px-2 py-2 text-right">{{ u.orders }}</td>
+                    <td class="px-2 py-2 text-right">{{ u.totalSpent | currency:'INR':'symbol':'1.0-0' }}</td>
+                    <td class="px-2 py-2 text-slate-500">{{ u.lastOrderAt ? (u.lastOrderAt | date: 'dd MMM yyyy') : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-slate-400 mt-2">
+            Spend counts settled orders only — a pending order is not money taken.
+          </p>
+        }
+      } @else {
+
       <div class="flex flex-wrap items-center gap-2 mb-4">
         @for (s of statuses; track s.key) {
           <button type="button" (click)="setStatus(s.key)"
@@ -127,6 +206,10 @@ interface ContactForm {
                 }
                 <span class="text-xs text-slate-400 ml-auto">{{ c.createdAt | date: 'dd MMM yyyy, HH:mm' }}</span>
                 <span class="flex items-center gap-1.5 text-xs">
+                  @if (c.email) {
+                    <button type="button" (click)="startEmail(c)" class="text-blue-600 hover:underline">Email</button>
+                    <span class="text-slate-300">·</span>
+                  }
                   <button type="button" (click)="startEdit(c)" class="text-blue-600 hover:underline">Edit</button>
                   <span class="text-slate-300">·</span>
                   <button type="button" (click)="remove(c)" class="text-red-600 hover:underline">Delete</button>
@@ -159,6 +242,49 @@ interface ContactForm {
           </div>
         }
       }
+      }
+
+      <!-- Reply to one person. Separate from campaigns on purpose: answering someone who
+           wrote in is not marketing, and does not wait on a marketing opt-in. -->
+      @if (emailTo(); as t) {
+        <div class="fixed inset-0 bg-black/30 flex items-start justify-center p-6 overflow-y-auto z-50" (click)="emailTo.set(null)">
+          <div class="bg-white rounded-xl border border-slate-200 p-5 w-full max-w-lg mt-10" (click)="$event.stopPropagation()">
+            <h2 class="font-semibold text-slate-900">Email {{ t.name }}</h2>
+            <p class="text-xs text-slate-500 mb-4">{{ t.email }}</p>
+
+            @if (templates().length) {
+              <label class="text-sm block mb-3">
+                <span class="block text-slate-600 mb-1">Start from a template</span>
+                <select (change)="applyTemplate($any($event.target).value)"
+                        class="h-9 w-full rounded-lg border border-slate-300 text-sm px-2 bg-white">
+                  <option value="">— write my own —</option>
+                  @for (tpl of templates(); track tpl.code) { <option [value]="tpl.code">{{ tpl.code }}</option> }
+                </select>
+              </label>
+            }
+
+            <label class="text-sm block mb-3">
+              <span class="block text-slate-600 mb-1">Subject</span>
+              <input [(ngModel)]="emailSubject" class="input w-full" />
+            </label>
+            <label class="text-sm block">
+              <span class="block text-slate-600 mb-1">Message</span>
+              <textarea [(ngModel)]="emailBody" rows="8" class="input w-full"></textarea>
+            </label>
+            <p class="text-[11px] text-slate-400 mt-1">Basic HTML is allowed.</p>
+
+            @if (emailError()) { <p class="text-sm text-red-600 mt-2">{{ emailError() }}</p> }
+
+            <div class="flex items-center gap-2 mt-4">
+              <button type="button" (click)="sendEmail()" [disabled]="sendingEmail()"
+                      class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50">
+                {{ sendingEmail() ? 'Sending…' : 'Send' }}
+              </button>
+              <button type="button" (click)="emailTo.set(null)" class="px-4 py-2 rounded-lg border border-slate-300 text-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
 })
@@ -183,14 +309,64 @@ export class AdminContactsComponent implements OnInit {
   readonly savedId = signal<number | null>(null);
   readonly form = signal<ContactForm | null>(null);
   readonly saving = signal(false);
+  readonly exporting = signal(false);
+  readonly importing = signal(false);
   readonly error = signal<string | null>(null);
   search = '';
 
+  readonly views = [
+    { key: 'enquiries' as const, label: 'Website enquiries' },
+    { key: 'customers' as const, label: 'Customers' },
+  ];
+  readonly view = signal<'enquiries' | 'customers'>('enquiries');
+
+  readonly customers = signal<AdminCustomer[]>([]);
+  readonly loadingCustomers = signal(false);
+  customerSearch = '';
+  withOrders = false;
+
+  readonly message = signal<string | null>(null);
+  readonly emailTo = signal<Contact | null>(null);
+  readonly templates = signal<EmailTemplate[]>([]);
+  readonly sendingEmail = signal(false);
+  readonly emailError = signal<string | null>(null);
+  emailSubject = '';
+  emailBody = '';
+
   readonly pages = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i + 1));
 
-  /** Export follows the filter on screen, so what downloads is what you were looking at. */
-  readonly exportUrl = computed(() =>
-    `${this.base}/export?status=${encodeURIComponent(this.status())}&search=${encodeURIComponent(this.search)}`);
+  /**
+   * Fetched through HttpClient rather than followed as a link.
+   *
+   * This used to be an `<a href>` straight at the API, which never worked: the bearer token is
+   * attached by an HTTP interceptor, and a browser navigation does not pass through it. The
+   * endpoint answered 401 every time. Every other export in the admin already does it this way.
+   *
+   * The filter on screen is carried through, so what downloads is what you were looking at.
+   */
+  exportCsv(): void {
+    this.exporting.set(true);
+    this.error.set(null);
+
+    const url = `${this.base}/export?status=${encodeURIComponent(this.status())}`
+      + `&search=${encodeURIComponent(this.search)}`;
+
+    this.http.get(url, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this.exporting.set(false);
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(href);
+      },
+      error: () => {
+        this.exporting.set(false);
+        this.error.set('Could not download the CSV.');
+      },
+    });
+  }
 
   ngOnInit(): void { this.load(); }
 
@@ -272,6 +448,103 @@ export class AdminContactsComponent implements OnInit {
       next: () => { this.saving.set(false); this.form.set(null); this.load(); },
       error: (e) => { this.saving.set(false); this.error.set(e?.error?.message ?? 'Could not save.'); },
     });
+  }
+
+  private flash(msg: string): void {
+    this.message.set(msg);
+    setTimeout(() => this.message.set(null), 3000);
+  }
+
+  // --- Customers tab ---
+
+  setView(v: 'enquiries' | 'customers'): void {
+    this.view.set(v);
+    this.error.set(null);
+    if (v === 'customers' && !this.customers().length) this.loadCustomers();
+  }
+
+  loadCustomers(): void {
+    this.loadingCustomers.set(true);
+    const url = `${API_BASE_URL}/admin/customers?withOrders=${this.withOrders}`
+      + `&search=${encodeURIComponent(this.customerSearch)}&page=1&pageSize=100`;
+    this.http.get<ApiResponse<PagedResult<AdminCustomer>>>(url).subscribe({
+      next: (r) => { this.customers.set(r.data?.items ?? []); this.loadingCustomers.set(false); },
+      error: () => { this.loadingCustomers.set(false); this.error.set('Could not load customers.'); },
+    });
+  }
+
+  // --- Reply by email ---
+
+  startEmail(c: Contact): void {
+    this.emailError.set(null);
+    this.emailSubject = c.subject ? `Re: ${c.subject}` : 'About your enquiry';
+    this.emailBody = '';
+    this.emailTo.set(c);
+    if (!this.templates().length) {
+      this.http.get<ApiResponse<EmailTemplate[]>>(`${this.base}/email-templates`)
+        .subscribe({ next: (r) => this.templates.set(r.data ?? []), error: () => {} });
+    }
+  }
+
+  applyTemplate(code: string): void {
+    const t = this.templates().find((x) => x.code === code);
+    if (!t) return;
+    // Only fills what the template actually carries, so picking one never wipes a subject
+    // that was already right.
+    if (t.subject) this.emailSubject = t.subject;
+    if (t.body) this.emailBody = t.body;
+  }
+
+  sendEmail(): void {
+    const c = this.emailTo();
+    if (!c) return;
+    if (!this.emailSubject.trim()) { this.emailError.set('Give the email a subject.'); return; }
+    if (!this.emailBody.trim()) { this.emailError.set('The message is empty.'); return; }
+
+    this.sendingEmail.set(true);
+    this.emailError.set(null);
+    this.http.post<ApiResponse<unknown>>(`${this.base}/${c.contactId}/email`,
+      { subject: this.emailSubject, body: this.emailBody }).subscribe({
+        next: (r) => {
+          this.sendingEmail.set(false);
+          this.emailTo.set(null);
+          this.flash(r.message ?? 'Email sent.');
+          this.load();   // sending moves a New enquiry to Open
+        },
+        error: (e) => {
+          this.sendingEmail.set(false);
+          this.emailError.set(e?.error?.message ?? 'Could not send the email.');
+        },
+      });
+  }
+
+  // --- Import ---
+
+  importCsv(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.importing.set(true);
+    this.error.set(null);
+
+    const body = new FormData();
+    body.append('file', file);
+    this.http.post<ApiResponse<{ added: number; updated: number; skipped: number; errors: string[] }>>(
+      `${this.base}/import`, body).subscribe({
+        next: (r) => {
+          this.importing.set(false);
+          const d = r.data;
+          this.flash(r.message ?? 'Imported.');
+          if (d?.errors?.length) this.error.set(`Some rows were skipped: ${d.errors.slice(0, 5).join(' ')}`);
+          this.load();
+        },
+        error: (e) => {
+          this.importing.set(false);
+          this.error.set(e?.error?.message ?? 'Could not import that file.');
+        },
+      });
+    input.value = '';   // so re-picking the same file fires change again
   }
 
   remove(c: Contact): void {

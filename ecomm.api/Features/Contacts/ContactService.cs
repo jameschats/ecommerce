@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Catalog.Services;   // SheetReader — the CSV/XLSX parser the product import uses
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,6 +34,11 @@ public sealed record CreateContactRequest(
     string Name, string? Email, string? Phone, string? Subject, string? Message,
     bool SubscribeToEmails = false);
 
+public sealed record SendContactEmailRequest(string Subject, string Body);
+
+public sealed record ContactImportResult(
+    int Total, int Added, int Updated, int Skipped, List<string> Errors);
+
 public sealed record ContactQuery(string? Status = null, string? Search = null, int Page = 1, int PageSize = 25);
 
 public interface IContactService
@@ -42,6 +48,8 @@ public interface IContactService
     Task<ContactDto?> UpdateAsync(long id, UpdateContactRequest req, CancellationToken ct = default);
     Task<ContactDto> CreateAsync(CreateContactRequest req, CancellationToken ct = default);
     Task<bool> DeleteAsync(long id, CancellationToken ct = default);
+    Task SendEmailAsync(long id, string subject, string body, CancellationToken ct = default);
+    Task<ContactImportResult> ImportAsync(Stream file, string fileName, CancellationToken ct = default);
     Task<int> NewCountAsync(CancellationToken ct = default);
 }
 
@@ -65,11 +73,16 @@ public sealed class ContactService : IContactService
 
     private readonly EcommerceDbContext _db;
     private readonly Notifications.INotificationFeedService _feed;
+    private readonly Notifications.IEmailSender _email;
 
-    public ContactService(EcommerceDbContext db, Notifications.INotificationFeedService feed)
+    public ContactService(
+        EcommerceDbContext db,
+        Notifications.INotificationFeedService feed,
+        Notifications.IEmailSender email)
     {
         _db = db;
         _feed = feed;
+        _email = email;
     }
 
     public async Task<long> SubmitAsync(SubmitContactRequest req, long? userId, CancellationToken ct = default)
@@ -236,6 +249,112 @@ public sealed class ContactService : IContactService
         _db.Contacts.Remove(c);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    /// <summary>
+    /// Reply to one enquiry. A direct answer to someone who wrote in, so it is not gated on the
+    /// marketing opt-in — that consent governs campaigns, not answering the person's question.
+    /// </summary>
+    public async Task SendEmailAsync(long id, string subject, string body, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(subject)) throw new AppException("Give the email a subject.");
+        if (string.IsNullOrWhiteSpace(body)) throw new AppException("The message is empty.");
+
+        var c = await _db.Contacts.FirstOrDefaultAsync(x => x.ContactId == id && x.TenantId == Tenant, ct)
+            ?? throw new AppException("Contact not found.", StatusCodes.Status404NotFound);
+        if (string.IsNullOrWhiteSpace(c.Email))
+            throw new AppException("This contact has no email address.");
+
+        await _email.SendAsync(c.Email!, subject.Trim(), body, ct);
+
+        // An answered enquiry is no longer new. Left at Closed only if it already was — moving
+        // it backwards because someone sent a follow-up would misreport the state of the inbox.
+        if (c.Status == "New") c.Status = "Open";
+        c.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Import a CSV or spreadsheet of contacts, matching on email.
+    ///
+    /// Matching means a corrected list can be re-imported to fix names and numbers instead of
+    /// doubling the inbox. Rows without an email have nothing to match on, so they are always
+    /// added — a name and phone number is still a contact worth keeping.
+    ///
+    /// Consent is never granted by import: SubscribedToEmails stays off unless the file says
+    /// otherwise in a column that plainly means it. A spreadsheet is not evidence that somebody
+    /// agreed to be marketed to.
+    /// </summary>
+    public async Task<ContactImportResult> ImportAsync(Stream file, string fileName, CancellationToken ct = default)
+    {
+        var sheet = SheetReader.Read(file, fileName);
+        var errors = new List<string>();
+        int added = 0, updated = 0, skipped = 0;
+
+        // Matched in memory: an import is a few hundred rows for one shop, and this is one
+        // query rather than one per row.
+        var existing = await _db.Contacts
+            .Where(c => c.TenantId == Tenant && c.Email != null && c.Email != "")
+            .ToDictionaryAsync(c => c.Email!.ToUpperInvariant(), c => c, ct);
+
+        var now = DateTime.UtcNow;
+        var rowNo = 1;
+
+        foreach (var row in sheet.Rows)
+        {
+            rowNo++;
+            var name = row.Get("Name").Trim();
+            var email = Blank(row.Get("Email"));
+            var phone = Blank(row.Get("Phone"));
+
+            if (name.Length == 0 && email is null && phone is null) { skipped++; continue; }
+            if (name.Length == 0)
+            {
+                errors.Add($"Row {rowNo}: no name.");
+                skipped++;
+                continue;
+            }
+
+            var subject = Blank(row.Get("Subject"));
+            var message = Blank(row.Get("Message"));
+            var sub = row.Get("Subscribed").Trim().ToLowerInvariant();
+            var subscribed = sub == "yes" || sub == "true" || sub == "1" || sub == "y";
+
+            if (email is not null && existing.TryGetValue(email.ToUpperInvariant(), out var hit))
+            {
+                hit.Name = name;
+                if (phone is not null) hit.Phone = phone;
+                if (subject is not null) hit.Subject = subject;
+                if (message is not null) hit.Message = message;
+                // Opt-in can be granted by an import but never revoked by one: a file that omits
+                // the column must not silently unsubscribe people who had agreed.
+                if (subscribed) hit.SubscribedToEmails = true;
+                hit.UpdatedAt = now;
+                updated++;
+            }
+            else
+            {
+                var c = new Contact
+                {
+                    TenantId = Tenant,
+                    Name = name,
+                    Email = email,
+                    Phone = phone,
+                    Subject = subject,
+                    Message = message,
+                    Source = "Import",
+                    Status = "New",
+                    SubscribedToEmails = subscribed,
+                    CreatedAt = now,
+                };
+                _db.Contacts.Add(c);
+                if (email is not null) existing[email.ToUpperInvariant()] = c;   // catches duplicates within the file
+                added++;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return new ContactImportResult(sheet.Rows.Count, added, updated, skipped, errors);
     }
 
     private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();

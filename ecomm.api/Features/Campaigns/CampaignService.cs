@@ -13,7 +13,11 @@ public sealed record CampaignDto(
     DateTime? StartedAt, DateTime? CompletedAt, DateTime CreatedAt);
 
 public sealed record SaveCampaignRequest(string Name, string Subject, string Body, string Audience);
-public sealed record AudienceCountDto(int Contacts, int Customers, int Both);
+/// <param name="Contacts">Opted-in enquirers.</param>
+/// <param name="AllContacts">Every contact with an email, consented or not.</param>
+/// <param name="NotConsented">How many of AllContacts never agreed — what the warning shows.</param>
+public sealed record AudienceCountDto(
+    int Contacts, int Customers, int Both, int AllContacts, int NotConsented);
 public sealed record SendResultDto(int Attempted, int Sent, int Failed, int Remaining, string Status);
 
 public interface ICampaignService
@@ -98,10 +102,17 @@ public sealed class CampaignService : ICampaignService
         // that fetching the addresses costs nothing and reads far more plainly.
         var contacts = await ContactAudience().Select(x => x.Email).ToListAsync(ct);
         var customers = await CustomerAudience().Select(x => x.Email).ToListAsync(ct);
+        var all = await AllContactAudience().Select(x => x.Email).ToListAsync(ct);
 
         var c = Unique(contacts);
         var u = Unique(customers);
-        return new AudienceCountDto(c.Count, u.Count, Unique(contacts.Concat(customers)).Count);
+        var a = Unique(all);
+
+        // NotConsented is what the screen warns with: how many people the "all contacts"
+        // audience reaches who never agreed to be emailed.
+        return new AudienceCountDto(
+            c.Count, u.Count, Unique(contacts.Concat(customers)).Count,
+            a.Count, Math.Max(0, a.Count - c.Count));
     }
 
     /// <summary>
@@ -126,6 +137,20 @@ public sealed class CampaignService : ICampaignService
     private IQueryable<AudienceMember> ContactAudience() =>
         _db.Contacts
             .Where(c => c.TenantId == Tenant && c.SubscribedToEmails
+                        && c.Email != null && c.Email != "" && c.Status != "Spam")
+            .Select(c => new AudienceMember(c.Email!, c.Name));
+
+    /// <summary>
+    /// Every contact with an email, consented or not.
+    ///
+    /// Deliberately a separate audience that has to be chosen, and the screen says how many of
+    /// them never agreed. Someone who asked a question is not thereby a subscriber, and a
+    /// complaint rate from mailing people who did not ask costs the sending domain its
+    /// reputation — Brevo suspends accounts over it. Spam-marked rows stay excluded either way.
+    /// </summary>
+    private IQueryable<AudienceMember> AllContactAudience() =>
+        _db.Contacts
+            .Where(c => c.TenantId == Tenant
                         && c.Email != null && c.Email != "" && c.Status != "Spam")
             .Select(c => new AudienceMember(c.Email!, c.Name));
 
@@ -155,6 +180,7 @@ public sealed class CampaignService : ICampaignService
             var audience = c.Audience switch
             {
                 "Customers" => await CustomerAudience().ToListAsync(ct),
+                "AllContacts" => await AllContactAudience().ToListAsync(ct),
                 "Both" => (await ContactAudience().ToListAsync(ct))
                     .Concat(await CustomerAudience().ToListAsync(ct)).ToList(),
                 _ => await ContactAudience().ToListAsync(ct),
@@ -256,7 +282,7 @@ public sealed class CampaignService : ICampaignService
     }
 
     private static string NormalizeAudience(string? a) =>
-        a is "Customers" or "Both" ? a : "Contacts";
+        a is "Customers" or "Both" or "AllContacts" ? a : "Contacts";
 
     private static CampaignDto Map(Campaign c) => new(
         c.CampaignId, c.Name, c.Subject, c.Body, c.Audience, c.Status,
