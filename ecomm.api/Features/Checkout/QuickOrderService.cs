@@ -88,6 +88,7 @@ public sealed class QuickOrderService : IQuickOrderService
                 {
                     p.ProductId,
                     p.Sku,
+                    p.DesignNo,
                     p.Name,
                     p.Price,
                     p.CompareAtPrice,
@@ -111,7 +112,7 @@ public sealed class QuickOrderService : IQuickOrderService
                 lines.Add(new QuickOrderQuoteLineDto(
                     p.ProductId, p.Sku, p.Name, qty,
                     p.Price, p.CompareAtPrice,
-                    Round(p.Price * qty), p.InStock));
+                    Round(p.Price * qty), p.InStock, p.DesignNo));
 
                 if (!p.InStock) warnings.Add($"{p.Name} is currently out of stock.");
             }

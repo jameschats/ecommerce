@@ -11,7 +11,9 @@ public sealed record QuickOrderQuoteRequest(
 /// <summary>A priced line, with the server's numbers rather than the browser's.</summary>
 public sealed record QuickOrderQuoteLineDto(
     long ProductId, string Sku, string Name, int Quantity,
-    decimal UnitPrice, decimal? CompareAtPrice, decimal LineTotal, bool InStock);
+    decimal UnitPrice, decimal? CompareAtPrice, decimal LineTotal, bool InStock,
+    /// <summary>What the trade orders by. Distinct from Sku, which is internal.</summary>
+    string? DesignNo = null);
 
 /// <summary>
 /// The authoritative order summary. Mirrors the reference layout: Net Total, Discount

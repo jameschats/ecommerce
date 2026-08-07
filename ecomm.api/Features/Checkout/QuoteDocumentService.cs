@@ -116,7 +116,11 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                                 var c = table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4);
                                 (right ? c.AlignRight() : c).Text(t);
                             }
-                            Cell(l.Sku);
+                            // The design number, not the SKU. They are often the same string,
+                            // which is what let the SKU sit under this heading unnoticed — but
+                            // the SKU is internal and the design number is what a dealer orders
+                            // by, so the two drift apart and the quote stops matching the invoice.
+                            Cell(l.DesignNo ?? "");
                             Cell(l.Name);
                             Cell(l.Quantity.ToString(), true);
                             Cell(l.CompareAtPrice is { } m ? Money(m) : "—", true);
@@ -138,14 +142,17 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                             });
                         }
 
-                        Line("Net Total", Money(quote.NetTotal));
-                        if (quote.DiscountTotal > 0) Line("Discount", $"− {Money(quote.DiscountTotal)}");
-                        Line("Sub Total", Money(quote.SubTotal));
+                        // Currency on the totals, bare figures on the lines above — the same rule
+                        // the invoice follows, so a dealer holding both documents is not left
+                        // wondering why one states a currency and the other does not.
+                        Line("Net Total", Total(quote.NetTotal));
+                        if (quote.DiscountTotal > 0) Line("Discount", $"− {Total(quote.DiscountTotal)}");
+                        Line("Sub Total", Total(quote.SubTotal));
                         if (quote.PackingCharges > 0)
-                            Line($"Packing ({quote.PackingChargePct:0.##}%)", Money(quote.PackingCharges));
-                        if (quote.RoundOff != 0) Line("Round off", Money(quote.RoundOff));
+                            Line($"Packing ({quote.PackingChargePct:0.##}%)", Total(quote.PackingCharges));
+                        if (quote.RoundOff != 0) Line("Round off", Total(quote.RoundOff));
                         c.Item().PaddingTop(4).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
-                        Line("Total", Money(quote.OverallAmount), bold: true);
+                        Line("Total", Total(quote.OverallAmount), bold: true);
                     });
 
                     // Says plainly what a quote is. Without it a printed price list is easily
@@ -157,7 +164,9 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                             ? "This is a quotation, not an invoice. Prices are subject to change."
                             : $"This is a quotation, not an invoice. Prices valid up to {validUpto}.");
                         if (quote.MinOrderAmount > 0)
-                            c.Item().Text($"Minimum order for {req.State}: {Money(quote.MinOrderAmount)}.");
+                            // A figure in a sentence needs its currency; only the aligned column
+                            // of line amounts can safely go without one.
+                            c.Item().Text($"Minimum order for {req.State}: {Total(quote.MinOrderAmount)}.");
                         if (!string.IsNullOrWhiteSpace(announcement))
                             c.Item().PaddingTop(2).Text(announcement);
                     });
@@ -176,7 +185,11 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
         return new QuotePdf(doc.GeneratePdf(), $"quotation-{date:yyyyMMdd-HHmmss}.pdf");
     }
 
+    /// <summary>Line figures — bare, matching the invoice's item rows.</summary>
     private static string Money(decimal v) => v.ToString("N2");
+
+    /// <summary>Totals — where the currency is stated, matching the invoice.</summary>
+    private static string Total(decimal v) => "Rs. " + v.ToString("N2");
 
     private Task<string?> SettingAsync(string key, CancellationToken ct) =>
         _db.Settings.Where(s => s.TenantId == Tenant && s.SettingKey == key)
