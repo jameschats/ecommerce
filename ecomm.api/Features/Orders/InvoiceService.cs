@@ -257,8 +257,21 @@ public sealed class InvoiceService : IInvoiceService
                                 if (bold) right.Bold();
                             });
                         }
+                        // DiscountAmount is the saving against MRP, and it is *already* inside
+                        // Subtotal — the line prices are what was charged. Printing "Subtotal"
+                        // and then subtracting the discount from it took it off twice on the
+                        // page: an invoice reading 7,200 − 2,290 = 7,200, which a customer can
+                        // only read as an error. The build-up runs the other way, as the
+                        // quotation already does it: gross, less the saving, giving the subtotal.
+                        //
+                        // Nothing new is stored. Net Total is derived at render, so reprinting an
+                        // old invoice corrects it too.
+                        if (order.DiscountAmount > 0)
+                        {
+                            Line("Net Total", Money(inv.Subtotal + order.DiscountAmount));
+                            Line("Discount", "-" + Money(order.DiscountAmount));
+                        }
                         Line("Subtotal", Money(inv.Subtotal));
-                        if (order.DiscountAmount > 0) Line("Discount", "-" + Money(order.DiscountAmount));
                         if (taxAddedOnTop && !billOfSupply)   // Exclusive — GST added on top
                         {
                             if (inv.IgstAmount > 0) Line("IGST", Money(inv.IgstAmount));
