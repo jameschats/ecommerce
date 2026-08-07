@@ -19,7 +19,19 @@ public sealed record ContactDto(
     string Source, string? SourcePage, string Status, string? AdminNotes,
     bool SubscribedToEmails, DateTime CreatedAt);
 
-public sealed record UpdateContactRequest(string? Status, string? AdminNotes, bool? SubscribedToEmails);
+/// <summary>
+/// Every field is optional so the inbox can keep patching just status or notes, while the
+/// edit form sends the whole record. A null means "leave alone", not "clear".
+/// </summary>
+public sealed record UpdateContactRequest(
+    string? Status, string? AdminNotes, bool? SubscribedToEmails,
+    string? Name = null, string? Email = null, string? Phone = null,
+    string? Subject = null, string? Message = null);
+
+/// <summary>An enquiry taken by hand — over the phone, at the counter, or from a card.</summary>
+public sealed record CreateContactRequest(
+    string Name, string? Email, string? Phone, string? Subject, string? Message,
+    bool SubscribeToEmails = false);
 
 public sealed record ContactQuery(string? Status = null, string? Search = null, int Page = 1, int PageSize = 25);
 
@@ -28,6 +40,8 @@ public interface IContactService
     Task<long> SubmitAsync(SubmitContactRequest req, long? userId, CancellationToken ct = default);
     Task<PagedResult<ContactDto>> ListAsync(ContactQuery query, CancellationToken ct = default);
     Task<ContactDto?> UpdateAsync(long id, UpdateContactRequest req, CancellationToken ct = default);
+    Task<ContactDto> CreateAsync(CreateContactRequest req, CancellationToken ct = default);
+    Task<bool> DeleteAsync(long id, CancellationToken ct = default);
     Task<int> NewCountAsync(CancellationToken ct = default);
 }
 
@@ -161,12 +175,74 @@ public sealed class ContactService : IContactService
 
         if (req.AdminNotes is not null) c.AdminNotes = req.AdminNotes.Trim();
         if (req.SubscribedToEmails is { } sub) c.SubscribedToEmails = sub;
+
+        // Details are only touched when sent, so the inbox's status-and-notes patch cannot
+        // blank out a name and number somebody wrote down.
+        if (req.Name is not null)
+        {
+            if (string.IsNullOrWhiteSpace(req.Name)) throw new AppException("Name is required.");
+            c.Name = req.Name.Trim();
+        }
+        if (req.Email is not null) c.Email = Blank(req.Email);
+        if (req.Phone is not null) c.Phone = Blank(req.Phone);
+        if (req.Subject is not null) c.Subject = Blank(req.Subject);
+        if (req.Message is not null) c.Message = Blank(req.Message);
+
         c.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        return new ContactDto(c.ContactId, c.Name, c.Email, c.Phone, c.Subject, c.Message,
-            c.Source, c.SourcePage, c.Status, c.AdminNotes, c.SubscribedToEmails, c.CreatedAt);
+        return Dto(c);
     }
+
+    /// <summary>
+    /// An enquiry added by hand. Source is "Admin" rather than "ContactForm" so the inbox
+    /// still says where each row came from, and the honeypot and repeat-window checks that
+    /// guard the public form are skipped — they exist to stop bots, and this is a person
+    /// typing in the back office.
+    /// </summary>
+    public async Task<ContactDto> CreateAsync(CreateContactRequest req, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(req.Name)) throw new AppException("Name is required.");
+        if (string.IsNullOrWhiteSpace(req.Email) && string.IsNullOrWhiteSpace(req.Phone))
+            throw new AppException("Give an email or a phone number — otherwise there is no way to reply.");
+
+        var c = new Contact
+        {
+            TenantId = Tenant,
+            Name = req.Name.Trim(),
+            Email = Blank(req.Email),
+            Phone = Blank(req.Phone),
+            Subject = Blank(req.Subject),
+            Message = Blank(req.Message),
+            Source = "Admin",
+            Status = "New",
+            SubscribedToEmails = req.SubscribeToEmails,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _db.Contacts.Add(c);
+        await _db.SaveChangesAsync(ct);
+        return Dto(c);
+    }
+
+    /// <summary>
+    /// Removed outright. An enquiry is a message, not a financial record, and campaigns match
+    /// their recipients by email address rather than by contact id — so nothing is orphaned.
+    /// </summary>
+    public async Task<bool> DeleteAsync(long id, CancellationToken ct = default)
+    {
+        var c = await _db.Contacts.FirstOrDefaultAsync(x => x.ContactId == id && x.TenantId == Tenant, ct);
+        if (c is null) return false;
+
+        _db.Contacts.Remove(c);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static ContactDto Dto(Contact c) =>
+        new(c.ContactId, c.Name, c.Email, c.Phone, c.Subject, c.Message,
+            c.Source, c.SourcePage, c.Status, c.AdminNotes, c.SubscribedToEmails, c.CreatedAt);
 
     public Task<int> NewCountAsync(CancellationToken ct = default) =>
         _db.Contacts.CountAsync(c => c.TenantId == Tenant && c.Status == "New", ct);

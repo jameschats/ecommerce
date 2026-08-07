@@ -20,6 +20,17 @@ interface Contact {
   createdAt: string;
 }
 
+/** contactId null ⇒ adding one by hand rather than editing an enquiry that came in. */
+interface ContactForm {
+  contactId: number | null;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  subscribeToEmails: boolean;
+}
+
 /**
  * The enquiry inbox. Until now the contact form threw submissions away, so this is the
  * first place they have ever been readable.
@@ -34,9 +45,55 @@ interface Contact {
     <div class="max-w-5xl mx-auto p-6">
       <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-slate-900">Contacts</h1>
-        <a [href]="exportUrl()" class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">CSV</a>
+        <div class="flex items-center gap-2">
+          <button type="button" (click)="startCreate()"
+                  class="text-sm px-3 py-1.5 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-800">Add contact</button>
+          <a [href]="exportUrl()" class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">CSV</a>
+        </div>
       </div>
-      <p class="text-sm text-slate-500 mb-5">Enquiries from the contact form.</p>
+      <p class="text-sm text-slate-500 mb-5">Enquiries from the contact form, and anyone you add by hand.</p>
+
+      @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
+
+      @if (form(); as f) {
+        <div class="mb-4 bg-white border border-slate-200 rounded-xl p-4">
+          <h2 class="font-semibold text-slate-900 mb-3">{{ f.contactId ? 'Edit contact' : 'New contact' }}</h2>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="text-sm">
+              <span class="block text-slate-600 mb-1">Name <span class="text-red-500">*</span></span>
+              <input [(ngModel)]="f.name" class="input w-full" placeholder="Who got in touch" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-600 mb-1">Subject</span>
+              <input [(ngModel)]="f.subject" class="input w-full" placeholder="What it is about" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-600 mb-1">Email</span>
+              <input [(ngModel)]="f.email" type="email" class="input w-full" placeholder="name@example.com" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-600 mb-1">Phone</span>
+              <input [(ngModel)]="f.phone" class="input w-full" placeholder="10-digit mobile" />
+            </label>
+          </div>
+          <label class="text-sm block mt-3">
+            <span class="block text-slate-600 mb-1">Message</span>
+            <textarea [(ngModel)]="f.message" rows="3" class="input w-full" placeholder="What they said"></textarea>
+          </label>
+          <label class="flex items-center gap-2 text-sm text-slate-600 mt-3">
+            <input type="checkbox" [(ngModel)]="f.subscribeToEmails" class="w-4 h-4" />
+            They agreed to receive emails
+          </label>
+          <p class="text-xs text-slate-400 mt-1">Only tick this if they actually said yes — campaigns send to opted-in contacts only.</p>
+          <div class="flex items-center gap-2 mt-4">
+            <button type="button" (click)="save()" [disabled]="saving()"
+                    class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50">
+              {{ saving() ? 'Saving…' : 'Save' }}
+            </button>
+            <button type="button" (click)="form.set(null)" class="px-4 py-2 rounded-lg border border-slate-300 text-sm">Cancel</button>
+          </div>
+        </div>
+      }
 
       <div class="flex flex-wrap items-center gap-2 mb-4">
         @for (s of statuses; track s.key) {
@@ -69,6 +126,11 @@ interface Contact {
                   <span class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5">opted in</span>
                 }
                 <span class="text-xs text-slate-400 ml-auto">{{ c.createdAt | date: 'dd MMM yyyy, HH:mm' }}</span>
+                <span class="flex items-center gap-1.5 text-xs">
+                  <button type="button" (click)="startEdit(c)" class="text-blue-600 hover:underline">Edit</button>
+                  <span class="text-slate-300">·</span>
+                  <button type="button" (click)="remove(c)" class="text-red-600 hover:underline">Delete</button>
+                </span>
               </div>
 
               @if (c.subject) { <p class="text-sm font-medium text-slate-700 mt-2">{{ c.subject }}</p> }
@@ -119,6 +181,9 @@ export class AdminContactsComponent implements OnInit {
   readonly page = signal(1);
   readonly totalPages = signal(1);
   readonly savedId = signal<number | null>(null);
+  readonly form = signal<ContactForm | null>(null);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
   search = '';
 
   readonly pages = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i + 1));
@@ -148,12 +213,14 @@ export class AdminContactsComponent implements OnInit {
 
   setRowStatus(c: Contact, status: string): void {
     c.status = status;
-    this.save(c);
+    this.patchRow(c);
   }
 
-  saveNotes(c: Contact): void { this.save(c); }
+  saveNotes(c: Contact): void { this.patchRow(c); }
 
-  private save(c: Contact): void {
+  /** The inline status/notes patch. Sends only those fields, so it cannot blank the details. */
+  private patchRow(c: Contact): void {
+    this.error.set(null);
     this.http.put<ApiResponse<Contact>>(`${this.base}/${c.contactId}`, {
       status: c.status,
       adminNotes: c.adminNotes,
@@ -165,7 +232,55 @@ export class AdminContactsComponent implements OnInit {
         // Re-filtering on a status change would make the row vanish under the cursor,
         // which reads as data loss rather than as a filter doing its job.
       },
-      error: () => {},
+      error: (e) => this.error.set(e?.error?.message ?? 'Could not save that change.'),
+    });
+  }
+
+  // --- Add / edit / delete ---
+
+  startCreate(): void {
+    this.error.set(null);
+    this.form.set({ contactId: null, name: '', email: '', phone: '', subject: '', message: '', subscribeToEmails: false });
+  }
+
+  startEdit(c: Contact): void {
+    this.error.set(null);
+    this.form.set({
+      contactId: c.contactId, name: c.name, email: c.email ?? '', phone: c.phone ?? '',
+      subject: c.subject ?? '', message: c.message ?? '', subscribeToEmails: c.subscribedToEmails,
+    });
+  }
+
+  save(): void {
+    const f = this.form();
+    if (!f) return;
+    if (!f.name.trim()) { this.error.set('Name is required.'); return; }
+
+    this.saving.set(true);
+    this.error.set(null);
+
+    const body = {
+      name: f.name, email: f.email, phone: f.phone, subject: f.subject, message: f.message,
+      // On create the API names it subscribeToEmails; on update it is subscribedToEmails.
+      subscribeToEmails: f.subscribeToEmails, subscribedToEmails: f.subscribeToEmails,
+    };
+    const req = f.contactId
+      ? this.http.put<ApiResponse<Contact>>(`${this.base}/${f.contactId}`, body)
+      : this.http.post<ApiResponse<Contact>>(this.base, body);
+
+    req.subscribe({
+      next: () => { this.saving.set(false); this.form.set(null); this.load(); },
+      error: (e) => { this.saving.set(false); this.error.set(e?.error?.message ?? 'Could not save.'); },
+    });
+  }
+
+  remove(c: Contact): void {
+    if (!confirm(`Delete the enquiry from ${c.name}? This cannot be undone.`)) return;
+
+    this.error.set(null);
+    this.http.delete<ApiResponse<unknown>>(`${this.base}/${c.contactId}`).subscribe({
+      next: () => this.load(),
+      error: (e) => this.error.set(e?.error?.message ?? 'Could not delete that contact.'),
     });
   }
 }

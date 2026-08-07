@@ -40,12 +40,13 @@ public sealed class InvoiceService : IInvoiceService
         var billing = order.BillingAddressId ?? order.ShippingAddressId;
         var addr = billing is null ? null : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == billing, ct);
 
-        // Only worth printing separately when it genuinely differs — the usual case is one
-        // address for both, and repeating it under two headings just adds noise.
-        var shipId = order.ShippingAddressId;
-        var shipAddr = shipId is null || shipId == billing
-            ? null
-            : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == shipId, ct);
+        // Always snapshotted, even when it matches the billing address. A blank Ship To on a
+        // dispatch document is ambiguous — it reads equally as "same address" and "we never
+        // captured one", and the person packing the box cannot tell which.
+        var shipId = order.ShippingAddressId ?? billing;
+        var shipAddr = shipId is null
+            ? addr
+            : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == shipId, ct) ?? addr;
 
         var interState = await _tax.IsInterStateAsync(addr?.State, ct);
 
@@ -90,6 +91,7 @@ public sealed class InvoiceService : IInvoiceService
                 InvoiceId = invoice.InvoiceId,
                 ProductId = oi.ProductId,
                 ProductName = oi.ProductName,
+                DesignNo = oi.DesignNo,
                 HsnCode = oi.HsnCode,
                 Quantity = oi.Quantity,
                 UnitPrice = oi.UnitPrice,
@@ -173,14 +175,21 @@ public sealed class InvoiceService : IInvoiceService
                                 if (!string.IsNullOrEmpty(inv.BuyerGstin)) c.Item().PaddingTop(2).Text($"GSTIN: {inv.BuyerGstin}").Bold();
                             });
 
-                            if (!string.IsNullOrEmpty(inv.ShippingAddress))
+                            // Falls back to the billing block for invoices issued before Ship To
+                            // was always snapshotted, so reprints of those are not left blank.
+                            row.RelativeItem().Column(c =>
                             {
-                                row.RelativeItem().Column(c =>
+                                c.Item().Text("Ship To").Bold();
+                                if (!string.IsNullOrEmpty(inv.ShippingAddress))
                                 {
-                                    c.Item().Text("Ship To").Bold();
                                     c.Item().Text(inv.ShippingAddress);
-                                });
-                            }
+                                }
+                                else
+                                {
+                                    if (!string.IsNullOrEmpty(inv.BillingName)) c.Item().Text(inv.BillingName);
+                                    if (!string.IsNullOrEmpty(inv.BillingAddress)) c.Item().Text(inv.BillingAddress);
+                                }
+                            });
                         });
                     }
 
@@ -188,6 +197,7 @@ public sealed class InvoiceService : IInvoiceService
                     {
                         table.ColumnsDefinition(c =>
                         {
+                            c.ConstantColumn(26);   // S.No
                             c.RelativeColumn(4);
                             c.RelativeColumn(1.3f);
                             c.RelativeColumn(0.8f);
@@ -205,19 +215,29 @@ public sealed class InvoiceService : IInvoiceService
                                 var cell = h.Cell().Background(Colors.Grey.Lighten3).Padding(4);
                                 (right ? cell.AlignRight() : cell.AlignLeft()).Text(t).Bold().FontSize(8);
                             }
-                            Hd("Item"); Hd("HSN"); Hd("Qty"); Hd("Rate", true);
+                            // Design No. rather than HSN: this trade sells by design number, it is
+                            // what the customer orders by, and a Bill of Supply charges no GST for
+                            // an HSN code to classify.
+                            Hd("#"); Hd("Item"); Hd("Design No"); Hd("Qty"); Hd("Rate", true);
                             if (!billOfSupply) Hd("GST%", true);
                             Hd("Amount", true);
                         });
+                        var lineNo = 0;
                         foreach (var it in items)
                         {
+                            lineNo++;
+                            // Amounts on the lines are bare numbers; the currency is stated once
+                            // on the totals below rather than repeated on every row.
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(lineNo.ToString());
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.ProductName);
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.HsnCode ?? "-");
+                            // Blank, not "-", where no design number was captured: a dash reads as
+                            // a value. Lines predating the snapshot genuinely have nothing to show.
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.DesignNo ?? "");
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.Quantity.ToString());
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(Money(it.UnitPrice));
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(Amount(it.UnitPrice));
                             if (!billOfSupply)
                                 table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text($"{it.TaxRate:0.##}%");
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(Money(it.LineTotal));
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(Amount(it.LineTotal));
                         }
                     });
 
@@ -264,7 +284,11 @@ public sealed class InvoiceService : IInvoiceService
         return doc.GeneratePdf();
     }
 
+    /// <summary>Totals — the currency is stated here, where it is read once.</summary>
     private static string Money(decimal v) => "Rs. " + v.ToString("N2");
+
+    /// <summary>Line amounts — bare, so the column of figures reads as a column of figures.</summary>
+    private static string Amount(decimal v) => v.ToString("N2");
 
     private static string FormatAddress(CustomerAddress a)
     {

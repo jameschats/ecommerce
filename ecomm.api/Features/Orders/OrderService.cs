@@ -215,6 +215,7 @@ public sealed class OrderService : IOrderService
                     Sku = l.Sku,
                     ProductName = l.Name,
                     HsnCode = l.Hsn,
+                    DesignNo = l.DesignNo,
                     Quantity = l.Quantity,
                     UnitPrice = l.UnitPrice,
                     UnitCost = l.Cost,
@@ -604,7 +605,7 @@ public sealed class OrderService : IOrderService
                           select new
                           {
                               ci.ProductId, ci.ProductVariantId, ci.Quantity,
-                              p.Name, p.Slug, p.Sku, p.HsnCode, p.Price, p.CostPrice,
+                              p.Name, p.Slug, p.Sku, p.HsnCode, p.DesignNo, p.Price, p.CostPrice,
                               VariantName = ci.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.Name).FirstOrDefault(),
                               VariantSku = ci.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.Sku).FirstOrDefault(),
                               PriceAdj = ci.ProductVariantId == null ? 0m : _db.ProductVariants.Where(v => v.ProductVariantId == ci.ProductVariantId).Select(v => v.PriceAdjustment).FirstOrDefault(),
@@ -620,6 +621,7 @@ public sealed class OrderService : IOrderService
             Slug = r.Slug,
             Sku = r.VariantSku ?? r.Sku,
             Hsn = r.HsnCode,
+            DesignNo = r.DesignNo,
             UnitPrice = r.Price + r.PriceAdj,
             Cost = r.CostPrice,
             VariantLabel = r.VariantName,
@@ -636,6 +638,7 @@ public sealed class OrderService : IOrderService
         public string Slug { get; init; } = string.Empty;
         public string? Sku { get; init; }
         public string? Hsn { get; init; }
+        public string? DesignNo { get; init; }
         public decimal UnitPrice { get; init; }
         public decimal? Cost { get; init; }
         public string? VariantLabel { get; init; }

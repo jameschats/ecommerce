@@ -6,6 +6,7 @@ public class InvoiceItem
     public long InvoiceId { get; set; }
     public long? ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public string? DesignNo { get; set; }   // trade design number, snapshotted at sale time
     public string? HsnCode { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }

@@ -52,7 +52,10 @@ public sealed class ContactsAdminController : ControllerBase
     public async Task<IActionResult> NewCount(CancellationToken ct)
         => Ok(ApiResponse<object>.Ok(new { count = await _contacts.NewCountAsync(ct) }));
 
+    // Reading the inbox is customer.view; changing it is customer.manage. An accountant can
+    // look up who wrote in without being able to rewrite or delete the record.
     [HttpPut("{id:long}")]
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerManage)]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateContactRequest req, CancellationToken ct)
     {
         var updated = await _contacts.UpdateAsync(id, req, ct);
@@ -60,6 +63,18 @@ public sealed class ContactsAdminController : ControllerBase
             ? NotFound(ApiResponse<object>.Fail("Contact not found."))
             : Ok(ApiResponse<ContactDto>.Ok(updated, "Saved."));
     }
+
+    [HttpPost]
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerManage)]
+    public async Task<IActionResult> Create([FromBody] CreateContactRequest req, CancellationToken ct)
+        => Ok(ApiResponse<ContactDto>.Ok(await _contacts.CreateAsync(req, ct), "Contact added."));
+
+    [HttpDelete("{id:long}")]
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.CustomerManage)]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
+        => await _contacts.DeleteAsync(id, ct)
+            ? Ok(ApiResponse<object>.Ok(new { id }, "Contact deleted."))
+            : NotFound(ApiResponse<object>.Fail("Contact not found."));
 
     /// <summary>
     /// The whole list as CSV, honouring the current filter. Served from the server rather
@@ -69,7 +84,18 @@ public sealed class ContactsAdminController : ControllerBase
     public async Task<IActionResult> Export(
         [FromQuery] string? status, [FromQuery] string? search, CancellationToken ct)
     {
-        var all = await _contacts.ListAsync(new ContactQuery(status, search, 1, 100), ct);
+        // Paged through rather than asked for in one go: ListAsync clamps PageSize to 100, so
+        // the single call this used to make silently produced an export of at most 100 rows —
+        // exactly the truncation the comment above claims it avoids.
+        const int PageSize = 100;
+        var items = new List<ContactDto>();
+        for (var page = 1; ; page++)
+        {
+            var batch = await _contacts.ListAsync(new ContactQuery(status, search, page, PageSize), ct);
+            items.AddRange(batch.Items);
+            if (items.Count >= batch.TotalCount || batch.Items.Count == 0) break;
+        }
+        var all = new PagedResult<ContactDto> { Items = items, Page = 1, PageSize = items.Count, TotalCount = items.Count };
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("Received,Name,Email,Phone,Subject,Message,Status,Subscribed,Source");
