@@ -48,33 +48,28 @@ public class AdminOrdersController : ControllerBase
     public async Task<IActionResult> Cancel(long id, CancelOrderRequest request, CancellationToken ct)
         => Ok(ApiResponse<OrderDto>.Ok(await _orders.CancelOrderAsync(CurrentUserId ?? 0, id, request, true, ct), "Order cancelled."));
 
+    // CreateShipmentAsync and MarkDeliveredAsync already notify the customer from a template.
+    // These actions used to *also* call OrderMailer for the same event, so every dispatch and
+    // every delivery sent two near-identical emails moments apart. The template path is the one
+    // kept: those messages can be edited and switched off from admin, the hardcoded ones cannot.
     [Authorize(Policy = ecomm.api.Common.Security.Perm.OrderManage)]
     [HttpPost("{id:long}/shipment")]
-    public async Task<IActionResult> CreateShipment(
-        long id,
-        CreateShipmentRequest request,
-        [FromServices] Notifications.IOrderMailer mailer,
-        CancellationToken ct)
+    public async Task<IActionResult> CreateShipment(long id, CreateShipmentRequest request, CancellationToken ct)
     {
         var dto = await _orders.CreateShipmentAsync(id, request, CurrentUserId, ct);
-        if (dto is null) return NotFound(ApiResponse<object>.Fail("Order not found."));
-
-        await mailer.SendDispatchedAsync(id, request.Courier, request.TrackingNumber, ct);
-        return Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
+        return dto is null
+            ? NotFound(ApiResponse<object>.Fail("Order not found."))
+            : Ok(ApiResponse<OrderDto>.Ok(dto, "Shipment created — customer notified."));
     }
 
     [Authorize(Policy = ecomm.api.Common.Security.Perm.OrderManage)]
     [HttpPost("{id:long}/deliver")]
-    public async Task<IActionResult> MarkDelivered(
-        long id,
-        [FromServices] Notifications.IOrderMailer mailer,
-        CancellationToken ct)
+    public async Task<IActionResult> MarkDelivered(long id, CancellationToken ct)
     {
         var dto = await _orders.MarkDeliveredAsync(id, CurrentUserId, ct);
-        if (dto is null) return NotFound(ApiResponse<object>.Fail("Order not found."));
-
-        await mailer.SendDeliveredAsync(id, ct);
-        return Ok(ApiResponse<OrderDto>.Ok(dto, "Marked delivered — customer notified."));
+        return dto is null
+            ? NotFound(ApiResponse<object>.Fail("Order not found."))
+            : Ok(ApiResponse<OrderDto>.Ok(dto, "Marked delivered — customer notified."));
     }
 
     /// <summary>

@@ -40,12 +40,16 @@ public sealed class OrderService : IOrderService
     private readonly ICouponService _coupons;
     private readonly ILogger<OrderService> _log;
 
+    private readonly INotificationPolicy _policy;
+
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
-        INotificationService notify, INotificationFeedService feed, ICouponService coupons, ILogger<OrderService> log)
+        INotificationService notify, INotificationFeedService feed, ICouponService coupons,
+        INotificationPolicy policy, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
-        _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons; _log = log;
+        _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons;
+        _policy = policy; _log = log;
     }
 
     /// <summary>Fire order lifecycle notifications (email always; SMS when smsCode given).
@@ -72,14 +76,24 @@ public sealed class OrderService : IOrderService
             };
             if (extra is not null) foreach (var kv in extra) tokens[kv.Key] = kv.Value;
 
-            if (!string.IsNullOrWhiteSpace(user.Email)) await _notify.SendEmailAsync(emailCode, user.Email!, tokens, ct);
-            if (smsCode is not null && !string.IsNullOrWhiteSpace(user.PhoneNumber)) await _notify.SendSmsAsync(smsCode, user.PhoneNumber!, tokens, ct);
+            // The address the buyer actually typed on the order comes first, exactly as
+            // OrderMailer resolves it. A quick order can be placed against an account whose
+            // own email is blank or belongs to an earlier profile, and reading only the
+            // account would send this somewhere they never asked us to write to — or nowhere.
+            var toEmail = OrderNotes.Field(order.Notes, "Email") ?? user.Email;
+            var toPhone = OrderNotes.Field(order.Notes, "Mobile") ?? user.PhoneNumber;
+
+            if (!string.IsNullOrWhiteSpace(toEmail) && await _policy.IsEnabledAsync(emailCode, "Email", ct))
+                await _notify.SendEmailAsync(emailCode, toEmail!, tokens, ct);
+            if (smsCode is not null && !string.IsNullOrWhiteSpace(toPhone) && await _policy.IsEnabledAsync(smsCode, "SMS", ct))
+                await _notify.SendSmsAsync(smsCode, toPhone!, tokens, ct);
 
             // In-app bell: notify the customer, and (on confirmation) the admins of a new order.
             var feedTitle = emailCode switch
             {
                 "OrderConfirmation" => "Order confirmed",
                 "OrderShipped" => "Order shipped",
+                "OrderDelivered" => "Order delivered",
                 "OrderCancelled" => "Order cancelled",
                 _ => $"Order {order.Status}",
             };
@@ -570,7 +584,9 @@ public sealed class OrderService : IOrderService
         });
         await _db.SaveChangesAsync(ct);
         await CollectCodOnDeliveryAsync(orderId, ct);
-        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
+        // Its own template rather than the generic status update: "delivered" is the end of the
+        // story and deserves saying properly (054).
+        await NotifyOrderAsync(orderId, "OrderDelivered", "OrderDelivered", null, ct);
         return await GetAsync(orderId, null, true, ct);
     }
 

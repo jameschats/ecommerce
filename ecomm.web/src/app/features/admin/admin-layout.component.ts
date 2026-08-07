@@ -139,6 +139,7 @@ export class AdminLayoutComponent {
         { path: '/admin/store-settings', label: 'Store settings', perm: 'settings.manage' },
         { path: '/admin/shop-settings', label: 'Shop & payment settings', perm: 'settings.manage' },
         { path: '/admin/templates', label: 'Message templates', perm: 'settings.manage' },
+        { path: '/admin/notification-settings', label: 'What we send', perm: 'settings.manage' },
         { path: '/admin/auth-providers', label: 'Sign-in methods', perm: 'settings.manage' },
         { path: '/admin/users', label: 'Users & roles', perm: 'user.manage' },
         { path: '/admin/notifications', label: 'Notifications', perm: 'settings.manage' },

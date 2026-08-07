@@ -33,15 +33,19 @@ public sealed class OrderMailer : IOrderMailer
     private readonly INotificationFeedService _feed;
     private readonly ILogger<OrderMailer> _logger;
 
+    private readonly INotificationPolicy _policy;
+
     public OrderMailer(
         EcommerceDbContext db,
         IEmailSender email,
         INotificationFeedService feed,
+        INotificationPolicy policy,
         ILogger<OrderMailer> logger)
     {
         _db = db;
         _email = email;
         _feed = feed;
+        _policy = policy;
         _logger = logger;
     }
 
@@ -69,13 +73,15 @@ public sealed class OrderMailer : IOrderMailer
   Once you have paid, enter your UPI or bank reference on that page so we can match your payment.
 </p>");
 
-            if (!string.IsNullOrWhiteSpace(customerEmail))
+            if (!string.IsNullOrWhiteSpace(customerEmail)
+                && await _policy.IsEnabledAsync("OrderPlaced", "Email", ct))
                 await _email.SendAsync(customerEmail!, $"Order {order.OrderNumber} received — payment pending", body, ct);
 
             // Admin alert. Separate try/catch: the shop missing an alert must not stop the
             // customer's own confirmation from going out.
             var adminTo = await SettingAsync("Email.AdminNotifyTo", ct);
-            if (!string.IsNullOrWhiteSpace(adminTo))
+            if (!string.IsNullOrWhiteSpace(adminTo)
+                && await _policy.IsEnabledAsync("OrderPlacedAdmin", "Email", ct))
             {
                 var adminBody = Wrap($@"
 <h2 style=""margin:0 0 4px"">New order {order.OrderNumber}</h2>
@@ -118,6 +124,7 @@ public sealed class OrderMailer : IOrderMailer
 
             var to = await RecipientAsync(order, ct);
             if (string.IsNullOrWhiteSpace(to)) return;
+            if (!await _policy.IsEnabledAsync("PaymentConfirmed", "Email", ct)) return;
 
             var items = await _db.OrderItems.Where(i => i.OrderId == orderId).ToListAsync(ct);
 
@@ -263,23 +270,9 @@ public sealed class OrderMailer : IOrderMailer
     /// the account, because a dealer may order for someone else. Prefer it over the
     /// account address, which for a mobile-OTP login may not exist at all.
     /// </summary>
-    private static string? FieldFromNotes(string? notes, string field)
-    {
-        if (string.IsNullOrWhiteSpace(notes)) return null;
-        var prefix = field + ":";
-        foreach (var line in notes.Split('\n'))
-        {
-            if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
-            var value = line[prefix.Length..].Trim();
-            if (value.Length == 0) return null;
-            // An email field that is not an email is worse than none — it would send a
-            // customer's order details to whatever they mistyped.
-            return field.Equals("Email", StringComparison.OrdinalIgnoreCase) && !value.Contains('@')
-                ? null
-                : value;
-        }
-        return null;
-    }
+    /// <summary>Delegates to the shared reader so OrderService resolves recipients identically.</summary>
+    private static string? FieldFromNotes(string? notes, string field) =>
+        Orders.OrderNotes.Field(notes, field);
 
     private static string ItemsTable(List<OrderItem> items, Order order)
     {

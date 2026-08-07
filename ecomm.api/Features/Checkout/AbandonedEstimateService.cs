@@ -36,10 +36,14 @@ public sealed class AbandonedEstimateService : IAbandonedEstimateService
     private readonly EcommerceDbContext _db;
     private readonly Notifications.IEmailSender _email;
 
-    public AbandonedEstimateService(EcommerceDbContext db, Notifications.IEmailSender email)
+    private readonly Notifications.INotificationPolicy _policy;
+
+    public AbandonedEstimateService(
+        EcommerceDbContext db, Notifications.IEmailSender email, Notifications.INotificationPolicy policy)
     {
         _db = db;
         _email = email;
+        _policy = policy;
     }
 
     public async Task SaveAsync(long userId, SaveEstimateRequest req, CancellationToken ct = default)
@@ -173,6 +177,8 @@ public sealed class AbandonedEstimateService : IAbandonedEstimateService
             <p>Your quantities are still saved — open the price list and pick up where you left off.</p>
             <p>— {store}</p>
             """;
+
+        if (!await _policy.IsEnabledAsync("AbandonedEstimate", "Email", ct)) return false;
 
         await _email.SendAsync(email!, $"Your estimate is still waiting — {store}", body, ct);
 

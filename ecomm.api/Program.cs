@@ -89,6 +89,7 @@ builder.Services.AddScoped<ecomm.api.Features.Notifications.ConfiguredEmailSende
 builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender>(
     sp => sp.GetRequiredService<ecomm.api.Features.Notifications.ConfiguredEmailSender>());
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationPolicy, ecomm.api.Features.Notifications.NotificationPolicy>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationFeedService, ecomm.api.Features.Notifications.NotificationFeedService>();
 builder.Services.AddScoped<ecomm.api.Features.Reviews.IReviewService, ecomm.api.Features.Reviews.ReviewService>();

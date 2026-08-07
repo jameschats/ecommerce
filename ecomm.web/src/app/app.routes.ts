@@ -109,6 +109,7 @@ export const routes: Routes = [
       { path: 'abandoned', loadComponent: () => import('./features/admin/abandoned/admin-abandoned.component').then((m) => m.AdminAbandonedComponent) },
       { path: 'campaigns', loadComponent: () => import('./features/admin/campaigns/admin-campaigns.component').then((m) => m.AdminCampaignsComponent) },
       { path: 'templates', loadComponent: () => import('./features/admin/notifications/admin-templates.component').then((m) => m.AdminTemplatesComponent) },
+      { path: 'notification-settings', loadComponent: () => import('./features/admin/notifications/admin-notification-settings.component').then((m) => m.AdminNotificationSettingsComponent) },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications-page.component').then((m) => m.NotificationsPageComponent) },
       { path: 'store-settings', loadComponent: () => import('./features/admin/settings/admin-store-settings.component').then((m) => m.AdminStoreSettingsComponent) },
       { path: 'shop-settings', loadComponent: () => import('./features/admin/settings/admin-shop-settings.component').then((m) => m.AdminShopSettingsComponent) },
