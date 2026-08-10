@@ -128,6 +128,7 @@ export class AdminLayoutComponent {
       key: 'store', label: 'Online store', dot: '#1e40af',
       links: [
         { path: '/admin/home-page', label: 'Home page', perm: 'cms.manage' },
+        { path: '/admin/pages', label: 'Pages', perm: 'cms.manage' },
         { path: '/admin/banners', label: 'Banners', perm: 'cms.manage' },
         { path: '/admin/gallery', label: 'Gallery', perm: 'cms.manage' },
         { path: '/admin/theme', label: 'Theme', perm: 'theme.manage' },

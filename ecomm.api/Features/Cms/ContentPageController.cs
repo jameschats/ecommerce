@@ -16,8 +16,10 @@ public sealed class ContentPageController : ControllerBase
     private readonly IContentPageService _pages;
     public ContentPageController(IContentPageService pages) => _pages = pages;
 
+    // Tagged so an edit in admin can evict it. Without that, saving a page would appear to do
+    // nothing for up to a minute — which reads as a broken screen, not a cache.
     [HttpGet("{slug}")]
-    [OutputCache(PolicyName = "public")]
+    [OutputCache(PolicyName = "public", Tags = ["content-pages"])]
     public async Task<IActionResult> Get(string slug, CancellationToken ct)
     {
         var page = await _pages.GetPublishedAsync(slug, ct);
@@ -33,7 +35,13 @@ public sealed class ContentPageController : ControllerBase
 public sealed class ContentPagesAdminController : ControllerBase
 {
     private readonly IContentPageService _pages;
-    public ContentPagesAdminController(IContentPageService pages) => _pages = pages;
+    private readonly IOutputCacheStore _cache;
+
+    public ContentPagesAdminController(IContentPageService pages, IOutputCacheStore cache)
+    {
+        _pages = pages;
+        _cache = cache;
+    }
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
@@ -41,30 +49,36 @@ public sealed class ContentPagesAdminController : ControllerBase
 
     [HttpGet("{slug}")]
     public async Task<IActionResult> Get(string slug, CancellationToken ct)
-        => Found(await _pages.GetForAdminAsync(slug, ct));
+        => await FoundAsync(await _pages.GetForAdminAsync(slug, ct), null, ct);
 
     [HttpPut("{slug}")]
     public async Task<IActionResult> Save(string slug, [FromBody] SavePageRequest req, CancellationToken ct)
-        => Found(await _pages.SavePageAsync(slug, req, ct), "Saved.");
+        => await FoundAsync(await _pages.SavePageAsync(slug, req, ct), "Saved.", ct);
 
     [HttpPost("{slug}/sections")]
     public async Task<IActionResult> AddSection(string slug, [FromBody] SaveSectionRequest req, CancellationToken ct)
-        => Found(await _pages.AddSectionAsync(slug, req, ct), "Section added.");
+        => await FoundAsync(await _pages.AddSectionAsync(slug, req, ct), "Section added.", ct);
 
     [HttpPut("sections/{sectionId:long}")]
     public async Task<IActionResult> UpdateSection(long sectionId, [FromBody] SaveSectionRequest req, CancellationToken ct)
-        => Found(await _pages.UpdateSectionAsync(sectionId, req, ct), "Saved.");
+        => await FoundAsync(await _pages.UpdateSectionAsync(sectionId, req, ct), "Saved.", ct);
 
     [HttpDelete("sections/{sectionId:long}")]
     public async Task<IActionResult> DeleteSection(long sectionId, CancellationToken ct)
-        => Found(await _pages.DeleteSectionAsync(sectionId, ct), "Section deleted.");
+        => await FoundAsync(await _pages.DeleteSectionAsync(sectionId, ct), "Section deleted.", ct);
 
     [HttpPut("{slug}/order")]
     public async Task<IActionResult> Reorder(string slug, [FromBody] ReorderSectionsRequest req, CancellationToken ct)
-        => Found(await _pages.ReorderAsync(slug, req.SectionIds, ct), "Order saved.");
+        => await FoundAsync(await _pages.ReorderAsync(slug, req.SectionIds, ct), "Order saved.", ct);
 
-    private IActionResult Found(ContentPageDto? page, string? message = null)
-        => page is null
-            ? NotFound(ApiResponse<object>.Fail("Page not found."))
-            : Ok(ApiResponse<ContentPageDto>.Ok(page, message));
+    /// <summary>
+    /// Returns the page and, when something was written, drops the cached public copy so the
+    /// change is live at once rather than after the 60-second window.
+    /// </summary>
+    private async Task<IActionResult> FoundAsync(ContentPageDto? page, string? message, CancellationToken ct)
+    {
+        if (page is null) return NotFound(ApiResponse<object>.Fail("Page not found."));
+        if (message is not null) await _cache.EvictByTagAsync("content-pages", ct);
+        return Ok(ApiResponse<ContentPageDto>.Ok(page, message));
+    }
 }
