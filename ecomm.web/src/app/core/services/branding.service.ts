@@ -16,12 +16,19 @@ export interface SiteBranding {
   footerLogoUrl: string;
   announcementText: string;
   priceValidUpto: string;
+  /** One source for the contact page, the footer and the storefront's structured data. */
+  contactAddress: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactHours: string;
+  contactCity: string;
 }
 
 const EMPTY: SiteBranding = {
   browserTitle: '', faviconUrl: '', siteName: '', siteNameAccent: '', siteNameSize: '',
   logoUrl: '', footerLogoUrl: '',
   announcementText: '', priceValidUpto: '',
+  contactAddress: '', contactPhone: '', contactEmail: '', contactHours: '', contactCity: '',
 };
 
 /**
@@ -77,6 +84,13 @@ export class BrandingService {
    */
   readonly announcement = signal('');
 
+  /**
+   * How to reach the shop. One source for the contact page, the footer and the storefront's
+   * structured data — the site used to say Chennai on the contact page while its structured
+   * data said Madurai, and an AI asked where the shop is could have believed either.
+   */
+  readonly contact = signal({ address: '', phone: '', email: '', hours: '', city: '' });
+
   private branding$?: Observable<SiteBranding>;
 
   load(): Observable<SiteBranding> {
@@ -107,6 +121,14 @@ export class BrandingService {
     const parts = [b.announcementText?.trim(), b.priceValidUpto?.trim() ? `Prices valid up to ${b.priceValidUpto.trim()}` : '']
       .filter((p) => p);
     this.announcement.set(parts.join(' · '));
+
+    this.contact.set({
+      address: b.contactAddress?.trim() ?? '',
+      phone: b.contactPhone?.trim() ?? '',
+      email: b.contactEmail?.trim() ?? '',
+      hours: b.contactHours?.trim() ?? '',
+      city: b.contactCity?.trim() ?? '',
+    });
 
     if (b.browserTitle?.trim()) {
       this.browserTitle.set(b.browserTitle.trim());

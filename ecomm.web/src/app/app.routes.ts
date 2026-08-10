@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard, authGuard } from './core/guards/auth.guard';
+import { contentPageResolver } from './core/resolvers/content-page.resolver';
 import { pageBannerResolver } from './core/resolvers/page-banner.resolver';
 import { galleryResolver } from './features/home/gallery.resolver';
 import { homeResolver } from './features/home/home.resolver';
@@ -68,11 +69,24 @@ export const routes: Routes = [
   },
   {
     path: 'about',
-    resolve: { pageBanners: pageBannerResolver('about') },
+    resolve: { pageBanners: pageBannerResolver('about'), page: contentPageResolver('about') },
     loadComponent: () => import('./features/pages/about/about.component').then((m) => m.AboutComponent),
   },
-  { path: 'contact', loadComponent: () => import('./features/pages/contact/contact.component').then((m) => m.ContactComponent) },
-  { path: 'faq', loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent) },
+  {
+    path: 'contact',
+    resolve: { page: contentPageResolver('contact') },
+    loadComponent: () => import('./features/pages/contact/contact.component').then((m) => m.ContactComponent),
+  },
+  {
+    path: 'faq',
+    resolve: { page: contentPageResolver('faq') },
+    loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent),
+  },
+  {
+    path: 'buying-guide',
+    resolve: { page: contentPageResolver('buying-guide') },
+    loadComponent: () => import('./features/pages/buying-guide/buying-guide.component').then((m) => m.BuyingGuideComponent),
+  },
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then((m) => m.LoginComponent),

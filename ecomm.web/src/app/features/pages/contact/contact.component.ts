@@ -1,8 +1,11 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { API_BASE_URL, SITE_URL } from '../../../core/api.config';
 import { ApiResponse } from '../../../core/models/api-response.model';
+import { ContentPage } from '../../../core/models/content-page.model';
+import { BrandingService } from '../../../core/services/branding.service';
 import { SeoService } from '../../../core/services/seo.service';
 
 @Component({
@@ -11,14 +14,18 @@ import { SeoService } from '../../../core/services/seo.service';
   template: `
     <section class="page-container py-12">
       <div class="max-w-2xl mb-10">
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Contact us</h1>
-        <p class="mt-3 text-slate-600">Questions about an order, customization, or a bulk enquiry? We'd love to help.</p>
+        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">{{ page?.title || 'Contact us' }}</h1>
+        @if (intro) {
+          <div class="mt-3 text-slate-600" [innerHTML]="intro"></div>
+        } @else {
+          <p class="mt-3 text-slate-600">Questions about an order, customization, or a bulk enquiry? We are happy to help.</p>
+        }
       </div>
 
       <div class="grid lg:grid-cols-3 gap-8">
         <!-- Details -->
         <div class="space-y-5">
-          @for (c of details; track c.label) {
+          @for (c of details(); track c.label) {
             <div class="flex items-start gap-3">
               <span class="text-xl">{{ c.icon }}</span>
               <div>
@@ -84,17 +91,34 @@ export class ContactComponent implements OnInit {
 
   form = { name: '', email: '', phone: '', subject: '', message: '', website: '', subscribe: false };
 
-  readonly details = [
-    { icon: '📍', label: 'Address', value: 'CalendarShop\nChennai, Tamil Nadu, India' },
-    { icon: '📞', label: 'Phone', value: '+91 62922 23322' },
-    { icon: '✉️', label: 'Email', value: 'support@calendarshop.example' },
-    { icon: '🕒', label: 'Hours', value: 'Mon–Sat, 9:30 AM – 6:30 PM' },
-  ];
+  private readonly route = inject(ActivatedRoute);
+  private readonly branding = inject(BrandingService);
+
+  readonly page = this.route.snapshot.data['page'] as ContentPage | null;
+
+  /** The editable blurb above the form (055). */
+  readonly intro = (this.page?.sections ?? []).find((s) => s.sectionType === 'Prose')?.content ?? null;
+
+  /**
+   * From settings, not hardcoded. Only what has been filled in is shown — a contact block
+   * listing "Email" with nothing beside it is worse than no line at all, and these were live
+   * placeholders (support@calendarshop.example) until now.
+   */
+  readonly details = computed(() => {
+    const c = this.branding.contact();
+    return [
+      { icon: '📍', label: 'Address', value: c.address },
+      { icon: '📞', label: 'Phone', value: c.phone },
+      { icon: '✉️', label: 'Email', value: c.email },
+      { icon: '🕒', label: 'Hours', value: c.hours },
+    ].filter((d) => d.value?.trim());
+  });
 
   ngOnInit(): void {
     this.seo.setMeta({
-      title: 'Contact us — CalendarShop',
-      description: 'Get in touch with CalendarShop for orders, customization help, or bulk and corporate calendar enquiries.',
+      title: this.page?.metaTitle || 'Contact us',
+      description: this.page?.metaDescription
+        ?? 'Get in touch about orders, customization help, or bulk and corporate calendar enquiries.',
       url: `${SITE_URL}/contact`,
     });
   }
