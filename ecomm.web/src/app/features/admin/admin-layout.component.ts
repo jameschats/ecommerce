@@ -1,7 +1,8 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Component, ElementRef, PLATFORM_ID, computed, inject, signal, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter } from 'rxjs';
+import { debounceTime, filter, fromEvent } from 'rxjs';
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -29,7 +30,12 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
       <aside class="w-60 shrink-0 bg-white border-r border-slate-200 flex flex-col">
         <div class="h-14 shrink-0 flex items-center px-4 border-b border-slate-200 font-bold text-slate-800">Admin</div>
 
-        <nav class="flex-1 overflow-y-auto p-3 text-sm">
+        <!--
+          overflow-y-auto stays as the last resort for a very short window. In normal use
+          nothing should reach it: opening a group closes the one opened longest ago when the
+          list would otherwise not fit — see scheduleFit().
+        -->
+        <nav #nav class="flex-1 overflow-y-auto p-3 text-sm">
           @if (canSeeAnalytics()) {
           <!-- Analytics sits above the groups: it is where you land and what you check
                first, so burying it one click deep would be a step backwards. -->
@@ -95,6 +101,13 @@ export class AdminLayoutComponent {
   readonly umamiUrl = UMAMI_DASHBOARD_URL;
 
   private readonly main = viewChild<ElementRef<HTMLElement>>('main');
+  private readonly nav = viewChild<ElementRef<HTMLElement>>('nav');
+
+  /**
+   * Group keys in the order they were opened, oldest first. Seeded in the constructor from the
+   * restored state — declared before `overrides`, so it cannot read it here.
+   */
+  private openOrder: string[] = [];
 
   /**
    * Twenty-one links in one flat list meant reading the lot to find anything. Grouped by
@@ -175,6 +188,10 @@ export class AdminLayoutComponent {
   private readonly url = signal(this.router.url);
 
   constructor() {
+    // Without this the first trim after a reload finds no candidate to close, and the
+    // scrollbar this exists to avoid comes straight back.
+    this.openOrder = [...this.overrides()].filter(([, open]) => open).map(([key]) => key);
+
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => {
@@ -184,7 +201,19 @@ export class AdminLayoutComponent {
         // longer scrolls — this pane does. Without this, opening a product from halfway down
         // a long list would land you halfway down the form.
         this.main()?.nativeElement.scrollTo({ top: 0 });
+
+        // Navigating auto-opens the group holding the current screen, which can be the one
+        // group too many. Protect it and trim the rest. Also covers first load, where the
+        // groups restored from localStorage may not fit this window.
+        this.scheduleFit(this.activeGroup() ?? '');
       });
+
+    // A shortened window is the same problem arriving from the other direction.
+    if (this.isBrowser) {
+      fromEvent(window, 'resize')
+        .pipe(debounceTime(150), takeUntilDestroyed())
+        .subscribe(() => this.scheduleFit(this.activeGroup() ?? ''));
+    }
   }
 
   /**
@@ -217,7 +246,46 @@ export class AdminLayoutComponent {
   toggle(key: string): void {
     const next = !this.isOpen(key);
     this.overrides.update((m) => new Map(m).set(key, next));
+
+    // Most recently opened last, so the one closed to make room is the one least recently
+    // asked for rather than whichever happens to sit at the top of the list.
+    this.openOrder = this.openOrder.filter((k) => k !== key);
+    if (next) this.openOrder.push(key);
+
     this.persist();
+    if (next) this.scheduleFit(key);
+  }
+
+  /**
+   * Keeps the group list inside the sidebar's height by closing groups rather than growing a
+   * scrollbar. Opening a third group closes the first, so the menu stays a menu.
+   *
+   * One group per frame: changing a signal does not update the DOM synchronously, so measuring
+   * in a loop would read the same height every time and close everything.
+   */
+  private scheduleFit(justOpened: string, guard = 8): void {
+    if (!this.isBrowser) return;
+
+    requestAnimationFrame(() => {
+      if (guard <= 0) return;
+
+      const el = this.nav()?.nativeElement;
+      // Not rendered yet — on first load this runs before the view exists. Try again rather
+      // than give up, or a restored set of open groups would never be trimmed.
+      if (!el) { this.scheduleFit(justOpened, guard - 1); return; }
+
+      // A pixel of slack: sub-pixel rounding can report a 1px overflow that nobody can see.
+      if (el.scrollHeight <= el.clientHeight + 1) return;
+
+      const victim = this.openOrder.find((k) => k !== justOpened && this.isOpen(k));
+      if (!victim) return;   // nothing left to close; the scrollbar is the honest fallback
+
+      this.overrides.update((m) => new Map(m).set(victim, false));
+      this.openOrder = this.openOrder.filter((k) => k !== victim);
+      this.persist();
+
+      this.scheduleFit(justOpened, guard - 1);
+    });
   }
 
   private restore(): Map<string, boolean> {
