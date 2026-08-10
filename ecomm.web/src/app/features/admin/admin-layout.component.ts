@@ -6,8 +6,44 @@ import { debounceTime, filter, fromEvent } from 'rxjs';
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
 import { AuthService } from '../../core/services/auth.service';
 
-interface NavLink { path: string; label: string; perm: string; }
+interface NavLink { path: string; label: string; perm: string; icon: string; }
 interface NavGroup { key: string; label: string; dot: string; links: NavLink[]; }
+
+/**
+ * Outline icon paths, in the same family as the Analytics mark already in the header —
+ * 24×24, stroked, no fill, so they inherit colour and line weight from the element.
+ *
+ * Each entry is a single `d` string; several subpaths in one path element rather than several
+ * elements, which keeps the template to one <path> per link.
+ */
+const ICONS: Record<string, string> = {
+  orders: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13h6 M9 17h6',
+  card: 'M2 5h20v14H2z M2 10h20',
+  box: 'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z M3.3 7 12 12l8.7-5 M12 22V12',
+  tag: 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z M7 7h.01',
+  bookmark: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
+  sliders: 'M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M2 14h4 M10 8h4 M18 16h4',
+  clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M9 2h6v4H9z M9 12h6 M9 16h4',
+  truck: 'M14 18V6a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h2 M14 9h4l4 4v4a1 1 0 0 1-1 1h-2 M7.5 18a2.5 2.5 0 1 0 5 0 2.5 2.5 0 1 0-5 0 M16.5 18a2.5 2.5 0 1 0 5 0 2.5 2.5 0 1 0-5 0',
+  transfer: 'm3 16 4 4 4-4 M7 20V4 M21 8l-4-4-4 4 M17 4v16',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 4 4 0 1 0 0-8 M22 21v-2a4 4 0 0 0-3-3.9 M16 3.1a4 4 0 0 1 0 7.8',
+  star: 'm12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3 1.2-6.9-5-4.9 6.9-1z',
+  ticket: 'M9 15l6-6 M9.5 9.5h.01 M14.5 14.5h.01 M21 5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3a2 2 0 0 1 0 8v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-8z',
+  megaphone: 'm3 11 18-5v12L3 14z M11.6 16.8a3 3 0 1 1-5.8-1.6',
+  cart: 'M8 21a1 1 0 1 0 2 0 1 1 0 1 0-2 0 M18 21a1 1 0 1 0 2 0 1 1 0 1 0-2 0 M2 3h2l2.7 12.4A2 2 0 0 0 8.6 17h9.1a2 2 0 0 0 2-1.6L21 8H5.1',
+  home: 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
+  page: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z M15 2v5h5 M9 13h6 M9 17h4',
+  image: 'M3 3h18v18H3z M8.5 8.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0 m21 15-5-5L5 21',
+  grid: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+  palette: 'M12 3a9 9 0 1 0 0 18 1.5 1.5 0 0 0 1.1-2.6 1.5 1.5 0 0 1 1-2.4H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8z M7.5 10.5h.01 M10.5 7.5h.01 M13.5 7.5h.01 M16.5 10.5h.01',
+  store: 'm2 7 2-4h16l2 4 M2 7h20v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z M6 21v-6h6v6',
+  mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z m22 6-10 7L2 6',
+  send: 'm22 2-7 20-4-9-9-4z M22 2 11 13',
+  login: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 M10 17l5-5-5-5 M15 12H3',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4',
+  bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.9 1.9 0 0 0 3.4 0',
+  cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.8 1.2V21a2 2 0 0 1-4 0v-.1A1.7 1.7 0 0 0 7.2 19.7l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 14H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.3 7.2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 3.1V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.8 1.2l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.8H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+};
 
 const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
 
@@ -69,7 +105,20 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
                 <div class="mt-0.5 space-y-0.5">
                   @for (l of g.links; track l.path) {
                     <a [routerLink]="l.path" routerLinkActive="bg-blue-50 text-blue-700 font-medium"
-                       class="block pl-[26px] pr-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50">{{ l.label }}</a>
+                       class="flex items-center gap-2.5 pl-3 pr-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50">
+                      <!--
+                        Tinted with the group's own colour and held back to 70% so the icons
+                        read as a quiet aid to scanning rather than competing with the labels.
+                        currentColor is not used deliberately: it would turn the active link's
+                        icon blue and lose the section's identity exactly where you are.
+                      -->
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="1.75"
+                           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                           class="shrink-0 opacity-70" [style.stroke]="g.dot">
+                        <path [attr.d]="icon(l.icon)" />
+                      </svg>
+                      <span class="min-w-0 truncate">{{ l.label }}</span>
+                    </a>
                   }
                 </div>
               }
@@ -118,60 +167,60 @@ export class AdminLayoutComponent {
     {
       key: 'orders', label: 'Orders', dot: '#3b82f6',
       links: [
-        { path: '/admin/orders', label: 'Orders', perm: 'order.view' },
-        { path: '/admin/payments', label: 'Payments to verify', perm: 'payment.verify' },
+        { path: '/admin/orders', label: 'Orders', perm: 'order.view', icon: 'orders' },
+        { path: '/admin/payments', label: 'Payments to verify', perm: 'payment.verify', icon: 'card' },
       ],
     },
     {
       key: 'products', label: 'Products', dot: '#6366f1',
       links: [
-        { path: '/admin/products', label: 'Products', perm: 'catalog.manage' },
-        { path: '/admin/categories', label: 'Categories', perm: 'catalog.manage' },
-        { path: '/admin/brands', label: 'Brands', perm: 'catalog.manage' },
-        { path: '/admin/attributes', label: 'Attributes', perm: 'catalog.manage' },
-        { path: '/admin/inventory', label: 'Inventory', perm: 'inventory.manage' },
-        { path: '/admin/suppliers', label: 'Suppliers', perm: 'catalog.manage' },
-        { path: '/admin/import', label: 'Import / Export', perm: 'import.manage' },
+        { path: '/admin/products', label: 'Products', perm: 'catalog.manage', icon: 'box' },
+        { path: '/admin/categories', label: 'Categories', perm: 'catalog.manage', icon: 'tag' },
+        { path: '/admin/brands', label: 'Brands', perm: 'catalog.manage', icon: 'bookmark' },
+        { path: '/admin/attributes', label: 'Attributes', perm: 'catalog.manage', icon: 'sliders' },
+        { path: '/admin/inventory', label: 'Inventory', perm: 'inventory.manage', icon: 'clipboard' },
+        { path: '/admin/suppliers', label: 'Suppliers', perm: 'catalog.manage', icon: 'truck' },
+        { path: '/admin/import', label: 'Import / Export', perm: 'import.manage', icon: 'transfer' },
       ],
     },
     {
       key: 'customers', label: 'Customers', dot: '#8b5cf6',
       links: [
-        { path: '/admin/contacts', label: 'Contacts', perm: 'customer.view' },
-        { path: '/admin/reviews', label: 'Reviews', perm: 'review.moderate' },
+        { path: '/admin/contacts', label: 'Contacts', perm: 'customer.view', icon: 'users' },
+        { path: '/admin/reviews', label: 'Reviews', perm: 'review.moderate', icon: 'star' },
       ],
     },
     {
       key: 'discounts', label: 'Discounts', dot: '#14b8a6',
-      links: [{ path: '/admin/coupons', label: 'Coupons', perm: 'coupon.manage' }],
+      links: [{ path: '/admin/coupons', label: 'Coupons', perm: 'coupon.manage', icon: 'ticket' }],
     },
     {
       key: 'marketing', label: 'Marketing', dot: '#10b981',
       links: [
-        { path: '/admin/campaigns', label: 'Campaigns', perm: 'customer.manage' },
-        { path: '/admin/abandoned', label: 'Abandoned estimates', perm: 'customer.view' },
+        { path: '/admin/campaigns', label: 'Campaigns', perm: 'customer.manage', icon: 'megaphone' },
+        { path: '/admin/abandoned', label: 'Abandoned estimates', perm: 'customer.view', icon: 'cart' },
       ],
     },
     {
       key: 'store', label: 'Online store', dot: '#1e40af',
       links: [
-        { path: '/admin/home-page', label: 'Home page', perm: 'cms.manage' },
-        { path: '/admin/pages', label: 'Pages', perm: 'cms.manage' },
-        { path: '/admin/banners', label: 'Banners', perm: 'cms.manage' },
-        { path: '/admin/gallery', label: 'Gallery', perm: 'cms.manage' },
-        { path: '/admin/theme', label: 'Theme', perm: 'theme.manage' },
+        { path: '/admin/home-page', label: 'Home page', perm: 'cms.manage', icon: 'home' },
+        { path: '/admin/pages', label: 'Pages', perm: 'cms.manage', icon: 'page' },
+        { path: '/admin/banners', label: 'Banners', perm: 'cms.manage', icon: 'image' },
+        { path: '/admin/gallery', label: 'Gallery', perm: 'cms.manage', icon: 'grid' },
+        { path: '/admin/theme', label: 'Theme', perm: 'theme.manage', icon: 'palette' },
       ],
     },
     {
       key: 'settings', label: 'Settings', dot: '#64748b',
       links: [
-        { path: '/admin/store-settings', label: 'Store settings', perm: 'settings.manage' },
-        { path: '/admin/shop-settings', label: 'Shop & payment settings', perm: 'settings.manage' },
-        { path: '/admin/templates', label: 'Message templates', perm: 'settings.manage' },
-        { path: '/admin/notification-settings', label: 'What we send', perm: 'settings.manage' },
-        { path: '/admin/auth-providers', label: 'Sign-in methods', perm: 'settings.manage' },
-        { path: '/admin/users', label: 'Users & roles', perm: 'user.manage' },
-        { path: '/admin/notifications', label: 'Notifications', perm: 'settings.manage' },
+        { path: '/admin/store-settings', label: 'Store settings', perm: 'settings.manage', icon: 'store' },
+        { path: '/admin/shop-settings', label: 'Shop & payment settings', perm: 'settings.manage', icon: 'cog' },
+        { path: '/admin/templates', label: 'Message templates', perm: 'settings.manage', icon: 'mail' },
+        { path: '/admin/notification-settings', label: 'What we send', perm: 'settings.manage', icon: 'send' },
+        { path: '/admin/auth-providers', label: 'Sign-in methods', perm: 'settings.manage', icon: 'login' },
+        { path: '/admin/users', label: 'Users & roles', perm: 'user.manage', icon: 'shield' },
+        { path: '/admin/notifications', label: 'Notifications', perm: 'settings.manage', icon: 'bell' },
       ],
     },
   ];
@@ -237,6 +286,11 @@ export class AdminLayoutComponent {
 
   private readonly activeGroup = computed(() =>
     this.visibleGroups().find((g) => g.links.some((l) => this.url().startsWith(l.path)))?.key ?? null);
+
+  /** Path data for a link's icon; empty for an unknown key so the row still renders. */
+  icon(key: string): string {
+    return ICONS[key] ?? '';
+  }
 
   isOpen(key: string): boolean {
     const set = this.overrides().get(key);
