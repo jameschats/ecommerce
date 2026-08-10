@@ -16,28 +16,35 @@ import { SeoService } from '../../../core/services/seo.service';
       <div class="max-w-2xl mb-10">
         <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">{{ page?.title || 'Contact us' }}</h1>
         @if (intro) {
-          <div class="mt-3 text-slate-600" [innerHTML]="intro"></div>
+          <div class="mt-3 text-slate-600 intro-copy" [innerHTML]="intro"></div>
         } @else {
           <p class="mt-3 text-slate-600">Questions about an order, customization, or a bulk enquiry? We are happy to help.</p>
         }
       </div>
 
-      <div class="grid lg:grid-cols-3 gap-8">
-        <!-- Details -->
-        <div class="space-y-5">
-          @for (c of details(); track c.label) {
-            <div class="flex items-start gap-3">
-              <span class="text-xl">{{ c.icon }}</span>
-              <div>
-                <div class="text-sm font-semibold text-slate-800">{{ c.label }}</div>
-                <div class="text-sm text-slate-500 whitespace-pre-line">{{ c.value }}</div>
+      <!--
+        Only a three-column split when there is a details column to fill. With the contact
+        details unset the first column was empty, so the form sat in the right two-thirds
+        with a third of the page blank beside it looking like a layout fault.
+      -->
+      <div class="grid gap-8" [class]="details().length ? 'lg:grid-cols-3' : 'max-w-2xl'">
+        @if (details().length) {
+          <div class="space-y-5">
+            @for (c of details(); track c.label) {
+              <div class="flex items-start gap-3">
+                <span class="text-xl">{{ c.icon }}</span>
+                <div>
+                  <div class="text-sm font-semibold text-slate-800">{{ c.label }}</div>
+                  <div class="text-sm text-slate-500 whitespace-pre-line">{{ c.value }}</div>
+                </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
 
         <!-- Form -->
-        <div class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6">
+        <div class="bg-white border border-slate-200 rounded-2xl p-6"
+             [class.lg:col-span-2]="details().length">
           @if (sent()) {
             <div class="text-center py-10">
               <div class="text-4xl">✅</div>
@@ -79,6 +86,18 @@ import { SeoService } from '../../../core/services/seo.service';
       </div>
     </section>
   `,
+  styles: [`
+    /* The editor emits bare tags and Tailwind's reset strips their margins, so paragraphs
+       and lists would otherwise run together as one block of text. */
+    .intro-copy :is(p, ul, ol) { margin-block: 0.6rem; }
+    .intro-copy :is(ul, ol) { padding-inline-start: 1.4rem; }
+    .intro-copy ul { list-style: disc; }
+    .intro-copy ol { list-style: decimal; }
+    .intro-copy li { margin-block: 0.25rem; }
+    .intro-copy :is(h3, h4) { font-weight: 600; margin-block: 0.8rem 0.3rem; color: rgb(30 41 59); }
+    .intro-copy a { color: var(--color-primary, #2563eb); text-decoration: underline; }
+    .intro-copy strong { font-weight: 600; color: rgb(30 41 59); }
+  `],
 })
 export class ContactComponent implements OnInit {
   private readonly seo = inject(SeoService);
