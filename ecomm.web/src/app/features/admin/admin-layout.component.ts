@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, PLATFORM_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { UMAMI_DASHBOARD_URL } from '../../core/api.config';
@@ -14,9 +14,20 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
   selector: 'app-admin-layout',
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div class="min-h-screen flex bg-slate-50">
-      <aside class="w-60 bg-white border-r border-slate-200 flex flex-col">
-        <div class="h-14 flex items-center px-4 border-b border-slate-200 font-bold text-slate-800">Admin</div>
+    <!--
+      Exactly one viewport tall, with the two columns scrolling inside it.
+
+      This was min-h-screen, which grows past the viewport on a long page: the sidebar grew
+      with it, so its overflow-y-auto never had anything to do, the whole window scrolled as
+      one, and View store / Sign out sat at the bottom of a very tall column rather than at
+      the bottom of the screen. Capping the shell at the viewport gives the nav a real
+      overflow and pins the footer where it belongs.
+
+      dvh rather than vh so mobile browsers measure it without their address bar.
+    -->
+    <div class="h-dvh flex bg-slate-50 overflow-hidden">
+      <aside class="w-60 shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        <div class="h-14 shrink-0 flex items-center px-4 border-b border-slate-200 font-bold text-slate-800">Admin</div>
 
         <nav class="flex-1 overflow-y-auto p-3 text-sm">
           @if (canSeeAnalytics()) {
@@ -60,7 +71,8 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
           }
         </nav>
 
-        <div class="p-3 border-t border-slate-200 text-sm">
+        <!-- shrink-0 so a long nav cannot squeeze the way out of the admin off the screen. -->
+        <div class="shrink-0 p-3 border-t border-slate-200 text-sm bg-white">
           @if (umamiUrl) {
             <a [href]="umamiUrl" target="_blank" rel="noopener" class="block px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-50">Web traffic ↗</a>
           }
@@ -68,7 +80,8 @@ const OPEN_GROUPS_KEY = 'dcs.admin.nav.open';
           <button type="button" (click)="logout()" class="block w-full text-left px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-50">Sign out</button>
         </div>
       </aside>
-      <main class="flex-1 overflow-auto">
+      <!-- The page scrolls here, not the window, so the sidebar stays put beside it. -->
+      <main #main class="flex-1 min-w-0 overflow-y-auto">
         <router-outlet />
       </main>
     </div>
@@ -80,6 +93,8 @@ export class AdminLayoutComponent {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly umamiUrl = UMAMI_DASHBOARD_URL;
+
+  private readonly main = viewChild<ElementRef<HTMLElement>>('main');
 
   /**
    * Twenty-one links in one flat list meant reading the lot to find anything. Grouped by
@@ -162,7 +177,14 @@ export class AdminLayoutComponent {
   constructor() {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.url.set(e.urlAfterRedirects));
+      .subscribe((e) => {
+        this.url.set(e.urlAfterRedirects);
+
+        // The router's scrollPositionRestoration:'top' scrolls the window, and the window no
+        // longer scrolls — this pane does. Without this, opening a product from halfway down
+        // a long list would land you halfway down the form.
+        this.main()?.nativeElement.scrollTo({ top: 0 });
+      });
   }
 
   /**
