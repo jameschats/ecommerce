@@ -40,6 +40,11 @@ interface ShopSettings {
   siteNameSize: string;
   logoUrl: string;
   footerLogoUrl: string;
+  contactAddress: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactHours: string;
+  contactCity: string;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -245,6 +250,42 @@ interface ShopSettings {
                 The footer is dark, so a light or white version of the mark usually reads
                 best. Leave blank to reuse the header logo.
               </span>
+            </div>
+
+            <!--
+              One place for how to reach the shop. The contact page, the footer and the
+              structured data crawlers read all take these — the site used to say Chennai on
+              the contact page while its structured data said Madurai.
+            -->
+            <div class="sm:col-span-2 border-t border-slate-200 pt-4 mt-2">
+              <h3 class="font-semibold text-slate-800 mb-1">Contact details</h3>
+              <p class="text-xs text-slate-500 mb-3">
+                Shown on the contact page and read by search engines and AI assistants.
+                Anything left blank is simply not shown.
+              </p>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block sm:col-span-2">
+                  <span class="form-label">Address</span>
+                  <textarea class="form-input" rows="2" [(ngModel)]="m.contactAddress"
+                            placeholder="Shop name&#10;Street, Area"></textarea>
+                </label>
+                <label class="block">
+                  <span class="form-label">City</span>
+                  <input class="form-input" [(ngModel)]="m.contactCity" placeholder="e.g. Madurai" />
+                </label>
+                <label class="block">
+                  <span class="form-label">Phone</span>
+                  <input class="form-input" [(ngModel)]="m.contactPhone" placeholder="e.g. +91 98765 43210" />
+                </label>
+                <label class="block">
+                  <span class="form-label">Email</span>
+                  <input class="form-input" type="email" [(ngModel)]="m.contactEmail" placeholder="e.g. orders@yourshop.com" />
+                </label>
+                <label class="block">
+                  <span class="form-label">Opening hours</span>
+                  <input class="form-input" [(ngModel)]="m.contactHours" placeholder="e.g. Mon–Sat, 9:30 AM – 6:30 PM" />
+                </label>
+              </div>
             </div>
 
             <label class="block">

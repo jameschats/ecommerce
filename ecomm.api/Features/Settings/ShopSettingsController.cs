@@ -21,6 +21,9 @@ public sealed record ShopSettingsDto(
     // Site identity — browser tab plus the storefront name and header logo
     string BrowserTitle, string FaviconUrl, string SiteName, string SiteNameAccent, string SiteNameSize,
     string LogoUrl, string FooterLogoUrl,
+    // How to reach the shop — one source for the contact page, the footer and the
+    // storefront's structured data (055).
+    string ContactAddress, string ContactPhone, string ContactEmail, string ContactHours, string ContactCity,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
 
@@ -38,6 +41,7 @@ public sealed record SaveShopSettingsRequest(
     string? FromAddress, string? FromName, string? AdminNotifyTo,
     string? BrowserTitle, string? FaviconUrl, string? SiteName, string? SiteNameAccent, string? SiteNameSize,
     string? LogoUrl, string? FooterLogoUrl,
+    string? ContactAddress, string? ContactPhone, string? ContactEmail, string? ContactHours, string? ContactCity,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
 
 public sealed record SendTestEmailRequest(string To);
@@ -97,6 +101,11 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Site.NameSize"),
             Str(s, "Site.LogoUrl"),
             Str(s, "Site.FooterLogoUrl"),
+            Str(s, "Store.AddressLine"),
+            Str(s, "Store.Phone"),
+            Str(s, "Store.Email"),
+            Str(s, "Store.Hours"),
+            Str(s, "Store.City"),
             states)));
     }
 
@@ -141,6 +150,11 @@ public sealed class ShopSettingsController : ControllerBase
         await SetAsync("Site.NameSize", req.SiteNameSize?.Trim() ?? "", ct);
         await SetAsync("Site.LogoUrl", req.LogoUrl?.Trim() ?? "", ct);
         await SetAsync("Site.FooterLogoUrl", req.FooterLogoUrl?.Trim() ?? "", ct);
+        await SetAsync("Store.AddressLine", req.ContactAddress?.Trim() ?? "", ct);
+        await SetAsync("Store.Phone", req.ContactPhone?.Trim() ?? "", ct);
+        await SetAsync("Store.Email", req.ContactEmail?.Trim() ?? "", ct);
+        await SetAsync("Store.Hours", req.ContactHours?.Trim() ?? "", ct);
+        await SetAsync("Store.City", req.ContactCity?.Trim() ?? "", ct);
 
         // Per-state overrides are replaced wholesale — the admin screen always sends the
         // complete list, so a row removed there must disappear here.
