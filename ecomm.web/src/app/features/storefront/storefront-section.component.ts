@@ -22,17 +22,36 @@ import { ThemeService } from '../../core/services/theme.service';
       @case ('Hero') {
         @switch (s().style) {
           @case ('banner') {
-            @if (blocks()[0]; as b) {
-              <section class="relative min-h-[360px] sm:min-h-[440px] flex items-center bg-slate-900" data-field="image"
-                       [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
-                <div class="absolute inset-0" style="background:linear-gradient(90deg, rgba(0,0,0,0.72), rgba(0,0,0,0.15))"></div>
-                <div class="relative page-container text-white" [attr.data-block-index]="0">
-                  <div class="max-w-xl">
-                    @if (b.heading) { <h2 class="text-4xl sm:text-5xl font-extrabold leading-tight" data-field="heading">{{ b.heading }}</h2> }
-                    @if (b.subheading) { <p class="mt-3 text-white/85 text-lg" data-field="subheading">{{ b.subheading }}</p> }
-                    @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium" data-field="buttonText">{{ b.buttonText }}</a> }
+            <!-- Full-bleed slideshow: every Slide block stacked in the same box, cross-fading via
+                 opacity so min-height never jumps between slides. Auto-advances on the section's own
+                 autoplay/intervalSec settings (shared with the carousel style — see
+                 startHeroAutoplayIfNeeded) unless a merchant has only added the one slide, in which
+                 case this renders exactly as the old single-image banner always did. -->
+            @if (blocks().length) {
+              <section class="relative min-h-[360px] sm:min-h-[440px] bg-slate-900 overflow-hidden">
+                @for (b of blocks(); track $index) {
+                  <div class="absolute inset-0 flex items-center transition-opacity duration-700 ease-in-out"
+                       [class.opacity-100]="heroActiveSlide() === $index" [class.opacity-0]="heroActiveSlide() !== $index"
+                       [class.pointer-events-none]="heroActiveSlide() !== $index" [attr.aria-hidden]="heroActiveSlide() !== $index"
+                       data-field="image" [style.background-image]="b.image ? 'url(' + b.image + ')' : null" style="background-size:cover;background-position:center">
+                    <div class="absolute inset-0" style="background:linear-gradient(90deg, rgba(0,0,0,0.72), rgba(0,0,0,0.15))"></div>
+                    <div class="relative page-container text-white" [attr.data-block-index]="$index">
+                      <div class="max-w-xl">
+                        @if (b.heading) { <h2 class="text-4xl sm:text-5xl font-extrabold leading-tight" data-field="heading">{{ b.heading }}</h2> }
+                        @if (b.subheading) { <p class="mt-3 text-white/85 text-lg" data-field="subheading">{{ b.subheading }}</p> }
+                        @if (b.buttonText) { <a [href]="b.buttonLink || '#'" class="inline-block mt-6 px-6 py-3 rounded-lg bg-primary text-white font-medium" data-field="buttonText">{{ b.buttonText }}</a> }
+                      </div>
+                    </div>
                   </div>
-                </div>
+                }
+                @if (blocks().length > 1) {
+                  <div class="absolute bottom-5 inset-x-0 flex justify-center gap-1.5 z-10">
+                    @for (b of blocks(); track $index) {
+                      <button type="button" (click)="heroActiveSlide.set($index)" class="h-2 rounded-full transition-all"
+                              [class]="heroActiveSlide() === $index ? 'bg-white w-5' : 'bg-white/50 w-2'" [attr.aria-label]="'Go to slide ' + ($index + 1)"></button>
+                    }
+                  </div>
+                }
               </section>
             }
           }
@@ -492,8 +511,48 @@ import { ThemeService } from '../../core/services/theme.service';
           </div>
         </section>
       }
+      @case ('FeaturedProducts') {
+        <!-- Was falling through to @default below, which uses a narrower max-w-6xl (1152px) container
+             than every other section's shared page-container (1480px) — visibly narrower than its
+             neighbours on the same page. Same markup, correct width. -->
+        <section class="page-container py-10">
+          @if (s().heading || section().title) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading || section().title }}</h2> }
+          @if (!products().length) {
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              @for (i of ph; track i) {
+                <div class="overflow-hidden sf-card">
+                  <div class="aspect-square bg-slate-100"></div>
+                  <div class="p-3 space-y-2"><div class="h-3 w-3/4 bg-slate-100 rounded"></div><div class="h-3 w-1/3 bg-slate-100 rounded"></div></div>
+                </div>
+              }
+            </div>
+          } @else if (s().layout === 'carousel') {
+            <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2">
+              @for (p of products(); track p.productId) {
+                <a [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
+                  <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
+                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
+                  </div>
+                  <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
+                </a>
+              }
+            </div>
+          } @else {
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              @for (p of products(); track p.productId) {
+                <a [routerLink]="['/product', p.slug]" class="block overflow-hidden sf-card">
+                  <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
+                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
+                  </div>
+                  <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
+                </a>
+              }
+            </div>
+          }
+        </section>
+      }
       @default {
-        <!-- FeaturedProducts / ProductGrid / any product rail -->
+        <!-- ProductGrid / any other unhandled product-rail-shaped type -->
         <section class="max-w-6xl mx-auto px-4 py-10">
           @if (s().heading || section().title) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading || section().title }}</h2> }
           @if (!products().length) {
@@ -636,7 +695,8 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   readonly remaining = signal<{ days: number; hours: number; mins: number; secs: number } | null>(null);
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** Hero 'carousel' style: which slide is currently in view, driving the active dot. */
+  /** Hero 'carousel'/'banner' styles: which slide is currently in view — drives the active dot for
+   *  carousel (via scroll position) and the visible cross-faded slide for banner (set directly). */
   @ViewChild('heroCarousel') heroCarousel?: ElementRef<HTMLElement>;
   readonly heroActiveSlide = signal(0);
   scrollHeroCarousel(dir: 1 | -1): void {
@@ -654,6 +714,27 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     const card = el.querySelector<HTMLElement>('[data-hero-card]');
     if (!card) return;
     this.heroActiveSlide.set(Math.round(el.scrollLeft / (card.offsetWidth + 12)));
+  }
+
+  /** Hero's autoplay/intervalSec settings existed in the schema since Hero shipped but were never
+   *  actually read anywhere — the carousel style needed manual arrow/dot clicks or a swipe to see any
+   *  slide but the first, and "banner" only ever supported one slide at all (fixed separately, see the
+   *  'banner' @case). Applies to both styles now; a single-slide hero is a no-op either way. */
+  private heroAutoplayTimer: ReturnType<typeof setInterval> | null = null;
+  private startHeroAutoplayIfNeeded(): void {
+    if (!this.isBrowser) return;
+    const settings = this.s();
+    const style = settings['style'];
+    if (style !== 'banner' && style !== 'carousel') return;
+    if (settings['autoplay'] === false) return;
+    const count = this.blocks().length;
+    if (count <= 1) return;
+    const seconds = Math.max(2, Number(settings['intervalSec']) || 5);
+    this.heroAutoplayTimer = setInterval(() => {
+      const next = (this.heroActiveSlide() + 1) % count;
+      if (style === 'carousel') this.scrollHeroCarouselTo(next);
+      else this.heroActiveSlide.set(next);
+    }, seconds * 1000);
   }
 
   /** T15/E1: click-to-select-in-canvas + hover affordances. Only active inside the theme editor's
@@ -776,6 +857,8 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     } else if (type === 'CountdownBar') {
       this.tickCountdown();
       if (this.isBrowser) this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
+    } else if (type === 'Hero') {
+      this.startHeroAutoplayIfNeeded();
     }
 
     // Capture phase, not bubble: routerLink/href navigation must be intercepted before it fires,
@@ -801,6 +884,7 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.countdownTimer) clearInterval(this.countdownTimer);
+    if (this.heroAutoplayTimer) clearInterval(this.heroAutoplayTimer);
     if (typeof window === 'undefined') return;
     this.elementRef.nativeElement.removeEventListener('mousedown', this.onEditorMouseDown, { capture: true });
     this.elementRef.nativeElement.removeEventListener('click', this.onEditorClick, { capture: true });
