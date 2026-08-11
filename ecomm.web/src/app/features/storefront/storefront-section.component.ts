@@ -527,14 +527,24 @@ import { ThemeService } from '../../core/services/theme.service';
               }
             </div>
           } @else if (s().layout === 'carousel') {
-            <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2">
-              @for (p of products(); track p.productId) {
-                <a [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
-                  <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                  </div>
-                  <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
-                </a>
+            <!-- Was scroll-only — no arrow buttons at all, unlike the Hero carousel (which has both
+                 arrows and dots). Fine on touch/trackpad, but gave a mouse-only desktop visitor zero
+                 visible way to see more than what's in view. Same scroll-by-card-width mechanism as
+                 scrollHeroCarousel, just targeting this carousel's own #prodCarousel instead. -->
+            <div class="relative">
+              <div #prodCarousel class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2 scroll-smooth">
+                @for (p of products(); track p.productId) {
+                  <a data-prod-card [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
+                    <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
+                      @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
+                    </div>
+                    <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
+                  </a>
+                }
+              </div>
+              @if (products().length > 4) {
+                <button type="button" (click)="scrollProductCarousel(-1)" class="hidden sm:grid absolute left-0 top-[38%] -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white shadow place-items-center hover:bg-slate-50 text-slate-700" aria-label="Previous">‹</button>
+                <button type="button" (click)="scrollProductCarousel(1)" class="hidden sm:grid absolute right-0 top-[38%] -translate-y-1/2 translate-x-1/2 w-9 h-9 rounded-full bg-white shadow place-items-center hover:bg-slate-50 text-slate-700" aria-label="Next">›</button>
               }
             </div>
           } @else {
@@ -566,14 +576,24 @@ import { ThemeService } from '../../core/services/theme.service';
               }
             </div>
           } @else if (s().layout === 'carousel') {
-            <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2">
-              @for (p of products(); track p.productId) {
-                <a [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
-                  <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                  </div>
-                  <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
-                </a>
+            <!-- Was scroll-only — no arrow buttons at all, unlike the Hero carousel (which has both
+                 arrows and dots). Fine on touch/trackpad, but gave a mouse-only desktop visitor zero
+                 visible way to see more than what's in view. Same scroll-by-card-width mechanism as
+                 scrollHeroCarousel, just targeting this carousel's own #prodCarousel instead. -->
+            <div class="relative">
+              <div #prodCarousel class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2 scroll-smooth">
+                @for (p of products(); track p.productId) {
+                  <a data-prod-card [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
+                    <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
+                      @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
+                    </div>
+                    <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
+                  </a>
+                }
+              </div>
+              @if (products().length > 4) {
+                <button type="button" (click)="scrollProductCarousel(-1)" class="hidden sm:grid absolute left-0 top-[38%] -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white shadow place-items-center hover:bg-slate-50 text-slate-700" aria-label="Previous">‹</button>
+                <button type="button" (click)="scrollProductCarousel(1)" class="hidden sm:grid absolute right-0 top-[38%] -translate-y-1/2 translate-x-1/2 w-9 h-9 rounded-full bg-white shadow place-items-center hover:bg-slate-50 text-slate-700" aria-label="Next">›</button>
               }
             </div>
           } @else {
@@ -714,6 +734,17 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
     const card = el.querySelector<HTMLElement>('[data-hero-card]');
     if (!card) return;
     this.heroActiveSlide.set(Math.round(el.scrollLeft / (card.offsetWidth + 12)));
+  }
+
+  /** FeaturedProducts 'carousel' layout's own prev/next — same shape as scrollHeroCarousel above,
+   *  targeting #prodCarousel instead (shared by the FeaturedProducts @case and the legacy @default
+   *  branch — mutually exclusive per instance, same trick as heroCarousel). */
+  @ViewChild('prodCarousel') prodCarousel?: ElementRef<HTMLElement>;
+  scrollProductCarousel(dir: 1 | -1): void {
+    const el = this.prodCarousel?.nativeElement;
+    const card = el?.querySelector<HTMLElement>('[data-prod-card]');
+    if (!el || !card) return;
+    el.scrollBy({ left: dir * (card.offsetWidth + 16), behavior: 'smooth' });
   }
 
   /** Hero's autoplay/intervalSec settings existed in the schema since Hero shipped but were never
