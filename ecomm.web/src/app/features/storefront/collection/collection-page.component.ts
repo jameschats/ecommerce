@@ -15,7 +15,11 @@ import {
 import { SearchBarComponent } from '../search/search-sections.component';
 
 /** Default `collection` layout when the theme defines no collection template. Matches today's page. */
-const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionCategories', 'CollectionGrid'];
+// CollectionCategories (a "Shop by category" tile grid) used to be a default here too, but it's now
+// redundant with the faceted-search sidebar's own Category filter on this same page — showing the
+// same categories two ways (a tile wall AND a filter) on the "all products" listing isn't standard;
+// tile grids belong on the homepage. Still available as an opt-in section for a theme that wants it.
+const DEFAULT_COLLECTION_SECTIONS = ['CollectionHeader', 'CollectionGrid'];
 
 interface EmptyStateCfg { heading?: string; body?: string; buttonText?: string; buttonLink?: string; }
 

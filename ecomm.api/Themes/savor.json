@@ -103,7 +103,6 @@
       "templateKey": "collection",
       "sections": [
         { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
-        { "type": "CollectionCategories", "title": "Collection categories", "settings": {}, "blocks": [] },
         { "type": "CollectionGrid", "title": "Collection grid", "settings": {}, "blocks": [] }
       ]
     },

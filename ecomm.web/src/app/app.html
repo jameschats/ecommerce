@@ -204,7 +204,9 @@
             <h3 class="text-white font-semibold text-sm mb-3">Shop</h3>
             <ul class="space-y-2 text-sm">
               <li><a routerLink="/products" class="text-slate-400 hover:text-white">All products</a></li>
-              @for (c of categories(); track c.categoryId) {
+              <!-- Top-level only, capped — a footer is a handful of quick links, not a dump of the
+                   whole category tree (subcategories included, no limit) like this used to be. -->
+              @for (c of topLevelCategories().slice(0, 8); track c.categoryId) {
                 <li><a [routerLink]="['/category', c.slug]" class="text-slate-400 hover:text-white">{{ c.name }}</a></li>
               }
             </ul>
