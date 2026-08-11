@@ -103,6 +103,28 @@ public class AiCatalogTests
     }
 
     [Fact]
+    public async Task Seeding_does_not_throw_when_pre_existing_categories_already_have_duplicate_names()
+    {
+        // Reproduces a live crash: stores that hit the old (pre-dedup) bug already have same-name
+        // categories from before this fix shipped. GroupBy+First must be used instead of ToDictionary,
+        // or a second same-name category throws "An item with the same key has already been added."
+        using var db = TestDb.New(tenantId: 1);
+        SeedPlan(db);
+        var now = DateTime.UtcNow;
+        db.Categories.AddRange(
+            new Category { Name = "Apparel", Slug = "apparel", DisplayOrder = 0, IsActive = true, CreatedAt = now },
+            new Category { Name = "Apparel", Slug = "apparel-2", DisplayOrder = 1, IsActive = true, CreatedAt = now });
+        await db.SaveChangesAsync();
+        var svc = New(db);
+
+        var result = await svc.SeedAsync(await svc.GenerateAsync(new GenerateCatalogRequest("fashion", null, 6, 6)));
+
+        Assert.Equal(3, result.Products);
+        Assert.Equal(2, await db.Categories.CountAsync(c => c.Name == "Apparel"));   // still 2 — no third created
+        Assert.Equal(5, await db.Categories.CountAsync());                          // 2 Apparel (pre-existing) + Men + Women + Accessories
+    }
+
+    [Fact]
     public async Task Clear_removes_only_ai_products_and_their_children()
     {
         using var db = TestDb.New(tenantId: 1);

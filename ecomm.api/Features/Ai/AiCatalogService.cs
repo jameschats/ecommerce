@@ -100,8 +100,11 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
         // naming something "Wireless Earbuds" again is plausibly a genuinely different item the merchant
         // explicitly asked for by clicking Generate, not a duplicate to silently drop; a category is
         // pure taxonomy, where two "Electronics" is never actually wanted.
+        // GroupBy+First (not ToDictionary) because pre-existing data can already contain same-name
+        // duplicates from before this reuse logic shipped — picking the oldest one is deterministic.
         var byName = existingCats.Where(c => c.ParentCategoryId == null)
-            .ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderBy(c => c.CategoryId).First(), StringComparer.OrdinalIgnoreCase);
         var order = byName.Count == 0 ? 0 : byName.Values.Max(c => c.DisplayOrder) + 1;
         var tops = new List<(GenCategory Gen, Category Cat)>();
         foreach (var top in catalog.Categories)
@@ -129,7 +132,8 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
             if (gen.Subcategories is { Count: > 0 } subs)
             {
                 var byNameUnderParent = existingCats.Where(c => c.ParentCategoryId == cat.CategoryId)
-                    .ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
+                    .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.OrderBy(c => c.CategoryId).First(), StringComparer.OrdinalIgnoreCase);
                 var subOrder = byNameUnderParent.Count == 0 ? 0 : byNameUnderParent.Values.Max(c => c.DisplayOrder) + 1;
                 var first = true;
                 foreach (var sub in subs)
