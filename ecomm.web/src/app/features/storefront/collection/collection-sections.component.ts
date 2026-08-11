@@ -90,12 +90,12 @@ export class CollectionHeaderComponent {
   selector: 'app-collection-categories',
   imports: [RouterLink, ResponsiveImgDirective],
   template: `
-    @if (!store.activeCategory() && store.categories().length) {
+    @if (!store.activeCategory() && topLevel().length) {
       <div class="mb-8">
         @if (settings().heading) { <h2 class="text-lg font-semibold text-slate-800 mb-3">{{ settings().heading }}</h2> }
         @if (settings().style === 'icons') {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" [style.--cols]="columns()">
-            @for (c of store.categories(); track c.categoryId) {
+            @for (c of topLevel(); track c.categoryId) {
               <a [routerLink]="['/category', c.slug]" class="block p-4 text-center rounded-xl border border-slate-200 hover:border-primary transition">
                 @if (c.imageUrl) { <img [src]="c.imageUrl" [appImgSrc]="c.imageUrl" appImgSizes="40px" [alt]="c.name" class="w-10 h-10 mx-auto object-contain mb-2" loading="lazy" /> }
                 <div class="text-sm font-medium text-slate-700">{{ c.name }}</div>
@@ -104,7 +104,7 @@ export class CollectionHeaderComponent {
           </div>
         } @else {
           <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] md:grid-cols-[repeat(var(--cols),minmax(0,1fr))] gap-4" [style.--cols]="columns()">
-            @for (c of store.categories(); track c.categoryId) {
+            @for (c of topLevel(); track c.categoryId) {
               <a [routerLink]="['/category', c.slug]" class="group text-center">
                 <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
                   @if (c.imageUrl) {
@@ -129,6 +129,9 @@ export class CollectionCategoriesComponent {
   settingsJson = input<string | null>(null);
   readonly settings = computed(() => parseSettings(this.settingsJson()));
   readonly columns = computed(() => Math.max(2, Number(this.settings().columns) || 6));
+  /** Only shown on "All products" (no active category) — top-level only, so a subcategory never
+   *  appears as if it were its own top-level tile alongside its parent. */
+  readonly topLevel = computed(() => this.store.categories().filter((c) => !c.parentCategoryId));
 }
 
 /** The faceted filter rail — categories + every filter (brand/colour/size/attributes/price/rating/
@@ -149,7 +152,7 @@ export class CollectionCategoriesComponent {
             <a routerLink="/products" (click)="navigated.emit()"
                [class]="!store.activeCategory() ? 'text-primary font-medium' : 'text-slate-600 hover:text-primary'">All products</a>
           </li>
-          @for (c of store.categories(); track c.categoryId) {
+          @for (c of sidebarCategories(); track c.categoryId) {
             <li>
               <a [routerLink]="['/category', c.slug]" (click)="navigated.emit()"
                  [class]="store.activeCategory()?.categoryId === c.categoryId ? 'text-primary font-medium' : 'text-slate-600 hover:text-primary'">
@@ -326,6 +329,20 @@ export class CollectionFacetsComponent {
   showFilters = input(true);
   /** Fired after a category link is followed — lets the mobile drawer close. */
   readonly navigated = output<void>();
+
+  /** Scoped, not the full flat site tree — showing every category (top-level and nested, alphabetised
+   *  together) made a subcategory look identical to an unrelated top-level one, and dumped categories
+   *  with zero relevance to the current view into the list. No active category → top-level only.
+   *  Active category → its children (to narrow further); if it has none, its siblings instead (lateral
+   *  browsing), since the current category itself is already shown in the page title/breadcrumb. */
+  readonly sidebarCategories = computed(() => {
+    const cats = this.store.categories();
+    const active = this.store.activeCategory();
+    if (!active) return cats.filter((c) => !c.parentCategoryId);
+    const children = cats.filter((c) => c.parentCategoryId === active.categoryId);
+    if (children.length) return children;
+    return cats.filter((c) => c.parentCategoryId === active.parentCategoryId && c.categoryId !== active.categoryId);
+  });
 
   /** "n★ & up" rows, high to low; RatingCounts is 0-indexed so n maps to ratingCounts[n-1]. */
   readonly ratingRows = [4, 3, 2, 1];
