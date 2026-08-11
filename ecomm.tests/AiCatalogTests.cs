@@ -83,6 +83,26 @@ public class AiCatalogTests
     }
 
     [Fact]
+    public async Task Reseeding_reuses_existing_categories_by_name_but_still_creates_fresh_products()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedPlan(db);
+        var svc = New(db);
+        await svc.SeedAsync(await svc.GenerateAsync(new GenerateCatalogRequest("fashion", null, 6, 6)));
+
+        var result2 = await svc.SeedAsync(await svc.GenerateAsync(new GenerateCatalogRequest("fashion", null, 6, 6)));
+
+        Assert.Equal(3, result2.Products);
+        Assert.Equal(4, await db.Categories.CountAsync());   // still 2 top + 2 sub — no duplicate "Apparel" etc.
+        Assert.Equal(6, await db.Products.CountAsync());     // products are not deduped: 3 + 3
+
+        var apparelCats = await db.Categories.Where(c => c.Name == "Apparel").ToListAsync();
+        Assert.Single(apparelCats);                           // reused, not duplicated
+        var men = await db.Categories.SingleAsync(c => c.Name == "Men");
+        Assert.Equal(2, await db.Products.CountAsync(p => p.CategoryId == men.CategoryId));   // both runs' Blue Tee landed here
+    }
+
+    [Fact]
     public async Task Clear_removes_only_ai_products_and_their_children()
     {
         using var db = TestDb.New(tenantId: 1);
