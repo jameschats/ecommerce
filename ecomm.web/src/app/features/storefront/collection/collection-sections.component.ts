@@ -52,7 +52,9 @@ export class CollectionBreadcrumbsComponent {
   selector: 'app-collection-header',
   imports: [],
   template: `
-    <div class="mb-6 relative overflow-hidden rounded-2xl"
+    <div class="mb-6 relative"
+         [class.overflow-hidden]="settings().bannerImage"
+         [class.rounded-2xl]="settings().bannerImage"
          [class.p-8]="settings().bannerImage"
          [style.background-image]="settings().bannerImage ? 'url(' + settings().bannerImage + ')' : null"
          style="background-size: cover; background-position: center;">
@@ -152,8 +154,14 @@ export class CollectionCategoriesComponent {
             <a routerLink="/products" (click)="navigated.emit()"
                [class]="!store.activeCategory() ? 'text-primary font-medium' : 'text-slate-600 hover:text-primary'">All products</a>
           </li>
+          @if (store.activeCategory(); as active) {
+            <!-- "You are here" — the sidebar swaps to this category's children/siblings below, so
+                 without this label there's nothing in the sidebar itself saying which category that is
+                 (only the page H1/breadcrumb do). Not a link — already the current page. -->
+            <li><span class="text-slate-800 font-medium">{{ active.name }}</span></li>
+          }
           @for (c of sidebarCategories(); track c.categoryId) {
-            <li>
+            <li class="pl-3">
               <a [routerLink]="['/category', c.slug]" (click)="navigated.emit()"
                  [class]="store.activeCategory()?.categoryId === c.categoryId ? 'text-primary font-medium' : 'text-slate-600 hover:text-primary'">
                 {{ c.name }}

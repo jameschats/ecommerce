@@ -49,6 +49,11 @@
     @if (showCategoryBar() && (hasCuratedMenu() || categories().length)) {
       <nav class="border-t border-slate-100">
         <div class="page-container flex items-center gap-7 overflow-x-auto md:overflow-x-visible py-2" [class.justify-center]="headerLayout() === 'centered'">
+          <!-- Clipped (not scrolled/wrapped) past whatever width it's given on desktop — mobile keeps
+               its existing horizontal scroll via the outer row above. min-w-0 is load-bearing: without
+               it a flex item won't shrink below its content's intrinsic width, so overflow-hidden would
+               never actually get a chance to clip anything. -->
+          <div class="flex items-center gap-7 md:overflow-hidden md:flex-1 md:min-w-0">
           @if (hasCuratedMenu()) {
             <!-- Merchant-curated nav (Phase 1): exactly what was authored under /admin/navigation, in
                  that order — replaces the auto-dumped-every-category row below, which breaks down once a
@@ -160,6 +165,30 @@
             </div>
           }
           }
+          </div>
+
+          @if (effectiveNavItems().length > 6) {
+            <!-- Always the complete list (same data as the mobile drawer), regardless of exactly how
+                 many items the clip above left visible — a safety net, not a precise "only what
+                 overflowed" menu, so nothing a merchant curated ever becomes unreachable on a narrow
+                 desktop window. -->
+            <div class="hidden md:block relative shrink-0" (mouseenter)="moreMenuOpen.set(true)" (mouseleave)="moreMenuOpen.set(false)">
+              <button type="button" class="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-primary whitespace-nowrap">
+                More <span class="text-[10px]">▾</span>
+              </button>
+              @if (moreMenuOpen()) {
+                <div class="absolute right-0 top-full pt-2 z-40">
+                  <div class="bg-white rounded-xl shadow-lg border border-slate-100 p-4 w-max max-w-[90vw] min-w-[160px]">
+                    <ul class="space-y-1.5">
+                      @for (item of effectiveNavItems(); track item.label + item.url) {
+                        <li><a [routerLink]="item.url" class="block text-sm text-slate-700 hover:text-primary">{{ item.label }}</a></li>
+                      }
+                    </ul>
+                  </div>
+                </div>
+              }
+            </div>
+          }
         </div>
       </nav>
     }
@@ -268,7 +297,7 @@
           placeholder="Search for products, brands and more"
           class="w-full rounded-md bg-slate-100 border border-transparent focus:bg-white focus:border-primary pl-10 pr-3 py-2 text-sm focus:outline-none transition" />
 
-        @if (showSuggest() && suggestions().length) {
+        @if (showSuggest() && (suggestions().length || priceSuggestions().length)) {
           <button type="button" class="fixed inset-0 z-10 cursor-default" (click)="showSuggest.set(false)" aria-label="Close suggestions"></button>
           <ul class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 max-h-72 overflow-auto">
             @for (s of suggestions(); track s) {
@@ -276,6 +305,14 @@
                 <button type="button" (click)="pickSuggestion(s)" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
                   {{ s }}
+                </button>
+              </li>
+            }
+            @for (p of priceSuggestions(); track p.maxPrice) {
+              <li>
+                <button type="button" (click)="pickPriceSuggestion(p.term, p.maxPrice)" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400"><path d="M5 3h14v6l-8 8-6-6V3z"/><circle cx="9" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+                  @if (p.term) {{{ p.term }} under ₹{{ p.maxPrice | number }}} @else {Under ₹{{ p.maxPrice | number }}}
                 </button>
               </li>
             }

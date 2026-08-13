@@ -1,9 +1,9 @@
 import { Component, ElementRef, OnInit, PLATFORM_ID, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
+import { DecimalPipe, isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { STORE_UNLOCK_KEY, isGateExempt } from './core/services/store-gate';
-import { Subject, debounceTime, distinctUntilChanged, filter, of, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap } from 'rxjs';
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
@@ -17,10 +17,35 @@ import { QuickViewComponent } from './shared/quick-view/quick-view.component';
 import { CompareBarComponent } from './shared/compare-bar/compare-bar.component';
 import { MobileNavDrawerComponent } from './shared/mobile-nav-drawer/mobile-nav-drawer.component';
 
+/** Round price ceilings a shopper would actually recognise, generic across any store vertical (a
+ *  boutique's ₹500–3,000 shirts and an electronics store's ₹15,000–80,000 phones both get sensible,
+ *  differently-scaled options from the same list). Picks up to 2 spread across the given [min, max]
+ *  range — not clustered together — rather than every step that happens to fall inside it. */
+const PRICE_STEPS = [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000];
+function priceBreakpoints(min: number, max: number): number[] {
+  if (!(max > min) || max <= 0) return [];
+  const candidates = PRICE_STEPS.filter((p) => p > min && p < max);
+  if (!candidates.length) return [];
+  const picks = [candidates[Math.floor(candidates.length / 3)], candidates[Math.floor((candidates.length * 2) / 3)]];
+  return Array.from(new Set(picks));
+}
+
+/** Parses a trailing "under/below/less than ₹N" phrase off free-typed search text (any currency
+ *  prefix, comma-formatted numbers) so typing "mobiles under 20000" and hitting enter works even
+ *  without picking a suggestion chip. Generic — no vertical/category-specific parsing. */
+const PRICE_CEILING_RE = /\s*(?:under|below|less than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+)\s*$/i;
+function parsePriceCeiling(text: string): { term: string; maxPrice: number } | null {
+  const m = PRICE_CEILING_RE.exec(text);
+  if (!m) return null;
+  const maxPrice = Number(m[1].replace(/,/g, ''));
+  if (!Number.isFinite(maxPrice) || maxPrice <= 0) return null;
+  return { term: text.slice(0, m.index).trim(), maxPrice };
+}
+
 @Component({
   selector: 'app-root',
   imports: [
-    RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, NotificationBellComponent, AnnouncementBarComponent,
+    RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, DecimalPipe, NotificationBellComponent, AnnouncementBarComponent,
     QuickViewComponent, CompareBarComponent, MobileNavDrawerComponent,
   ],
   templateUrl: './app.html',
@@ -86,6 +111,11 @@ export class App implements OnInit {
    *  fallback logic as the desktop bar, collapsed into one MenuItem[] shape so the drawer component
    *  doesn't need to know which source it came from. */
   readonly mobileNavOpen = signal(false);
+  /** Desktop-only overflow safety net (T: nav overflow) — the category row is clipped via CSS past
+   *  whatever width it's given (no per-item JS measurement), and this "More" flyout always lists the
+   *  complete set via effectiveNavItems() regardless of exactly how many items the clip left visible,
+   *  so nothing curated/added by a merchant ever becomes truly inaccessible on a narrow desktop window. */
+  readonly moreMenuOpen = signal(false);
   readonly effectiveNavItems = computed<MenuItem[]>(() => {
     if (this.hasCuratedMenu()) return this.mainMenuItems();
     return this.topLevelCategories().map((c) => ({
@@ -118,6 +148,8 @@ export class App implements OnInit {
     this.footerCfg()['copyright'] || `© ${this.year} ${this.storeName() || 'Store'}. All rights reserved.`);
 
   readonly suggestions = signal<string[]>([]);
+  /** Generic "{term} under ₹N" quick filters — see priceBreakpoints() above. */
+  readonly priceSuggestions = signal<{ term: string; maxPrice: number }[]>([]);
   readonly showSuggest = signal(false);
   private readonly searchInput$ = new Subject<string>();
 
@@ -173,11 +205,19 @@ export class App implements OnInit {
       .pipe(
         debounceTime(180),
         distinctUntilChanged(),
-        switchMap((q) => (q.trim().length >= 2 ? this.catalog.suggest(q.trim()) : of([] as string[]))),
+        switchMap((q) => {
+          const term = q.trim();
+          if (term.length < 2) return of({ term, names: [] as string[], priceMin: 0, priceMax: 0 });
+          return forkJoin({
+            names: this.catalog.suggest(term),
+            facets: this.catalog.getFacets({ search: term, page: 1, pageSize: 1 }),
+          }).pipe(map(({ names, facets }) => ({ term, names, priceMin: facets.priceMin, priceMax: facets.priceMax })));
+        }),
       )
-      .subscribe((s) => {
-        this.suggestions.set(s);
-        this.showSuggest.set(s.length > 0);
+      .subscribe(({ term, names, priceMin, priceMax }) => {
+        this.suggestions.set(names);
+        this.priceSuggestions.set(priceBreakpoints(priceMin, priceMax).map((maxPrice) => ({ term, maxPrice })));
+        this.showSuggest.set(names.length > 0 || this.priceSuggestions().length > 0);
       });
   }
 
@@ -215,9 +255,19 @@ export class App implements OnInit {
     this.search();
   }
 
+  pickPriceSuggestion(term: string, maxPrice: number): void {
+    this.showSuggest.set(false);
+    this.router.navigate(['/products'], { queryParams: term ? { search: term, maxPrice } : { maxPrice } });
+  }
+
   search(): void {
     this.showSuggest.set(false);
     const q = this.searchText.trim();
+    const ceiling = q ? parsePriceCeiling(q) : null;
+    if (ceiling) {
+      this.router.navigate(['/products'], { queryParams: ceiling.term ? { search: ceiling.term, maxPrice: ceiling.maxPrice } : { maxPrice: ceiling.maxPrice } });
+      return;
+    }
     this.router.navigate(['/products'], { queryParams: q ? { search: q } : {} });
   }
 
