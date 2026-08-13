@@ -5,10 +5,9 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
 import { Brand, BundleComponent, Category, Facets, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
 
-export interface PublicCollectionProduct { productId: number; name: string; slug: string; price: number; primaryImageUrl: string | null; }
 export interface PublicCollection {
   collectionId: number; name: string; slug: string; description: string | null; imageUrl: string | null;
-  metaTitle: string | null; metaDescription: string | null; products: PublicCollectionProduct[];
+  metaTitle: string | null; metaDescription: string | null; products: ProductListItem[];
 }
 export interface PublicCollectionSummary { collectionId: number; name: string; slug: string; imageUrl: string | null; productCount: number; }
 export interface MenuItem { label: string; url: string; children?: MenuItem[] | null; megaMenu?: MegaMenu | null; }

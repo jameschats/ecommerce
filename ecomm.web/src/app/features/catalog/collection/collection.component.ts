@@ -1,14 +1,14 @@
-import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { CatalogService, PublicCollection } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { SITE_URL } from '../../../core/api.config';
+import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 
 @Component({
   selector: 'app-collection',
-  imports: [RouterLink, DecimalPipe],
+  imports: [ProductCardComponent],
   template: `
     <div class="page-container py-8">
       @if (loading()) { <p class="text-slate-400">Loading…</p> }
@@ -19,12 +19,7 @@ import { SITE_URL } from '../../../core/api.config';
         @if (c.products.length) {
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             @for (p of c.products; track p.productId) {
-              <a [routerLink]="['/product', p.slug]" class="block bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition">
-                <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                  @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                </div>
-                <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price | number:'1.0-2' }}</div></div>
-              </a>
+              <app-product-card [product]="p" />
             }
           </div>
         } @else { <p class="text-slate-400">No products in this collection yet.</p> }

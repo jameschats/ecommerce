@@ -26,7 +26,7 @@ public sealed record SaveCollectionRequest(
 
 public sealed record PublicCollectionDto(
     long CollectionId, string Name, string Slug, string? Description, string? ImageUrl,
-    string? MetaTitle, string? MetaDescription, IReadOnlyList<CollectionProductDto> Products);
+    string? MetaTitle, string? MetaDescription, IReadOnlyList<ProductListItemDto> Products);
 
 /// <summary>Lightweight — for the "all collections" index page. No embedded product list (that would be
 /// wasteful for a page listing every collection); just enough to render a tile grid.</summary>
@@ -114,10 +114,16 @@ public sealed class CollectionService(EcommerceDbContext db) : ICollectionServic
     public async Task<IReadOnlyList<ProductListItemDto>> MembersForStorefrontAsync(long id, int limit, CancellationToken ct = default)
     {
         var c = await db.Collections.FirstOrDefaultAsync(x => x.CollectionId == id, ct) ?? throw NotFound();
-        return await MembersQuery(c, activeOnly: true)
-            .OrderByDescending(p => p.IsFeatured).ThenBy(p => p.ProductId)
-            .Take(limit)
-            .Select(p => new ProductListItemDto(
+        return await ProjectRichAsync(
+            MembersQuery(c, activeOnly: true).OrderByDescending(p => p.IsFeatured).ThenBy(p => p.ProductId).Take(limit), ct);
+    }
+
+    /// <summary>Same rich shape as ListItemProjection in ProductService (swatches, stock, rating, ...) -
+    /// shared by the storefront-section product source above and the public collection PAGE below, so
+    /// a shopper browsing /collection/:slug sees the same strikethrough price/badges/swatches every
+    /// other product grid on the site already shows, not a bare image+name+price tile.</summary>
+    private Task<List<ProductListItemDto>> ProjectRichAsync(IQueryable<Product> q, CancellationToken ct) =>
+        q.Select(p => new ProductListItemDto(
                 p.ProductId, p.Sku, p.Name, p.Slug, p.Price, p.CompareAtPrice, p.Status, p.IsFeatured,
                 p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
                 p.Category!.Name,
@@ -131,7 +137,6 @@ public sealed class CollectionService(EcommerceDbContext db) : ICollectionServic
                 db.Reviews.Where(r => r.ProductId == p.ProductId && r.IsApproved).Average(r => (double?)r.Rating) ?? 0,
                 db.Reviews.Count(r => r.ProductId == p.ProductId && r.IsApproved)))
             .ToListAsync(ct);
-    }
 
     public async Task SetManualMembersAsync(long id, IReadOnlyList<long> productIds, CancellationToken ct = default)
     {
@@ -148,7 +153,8 @@ public sealed class CollectionService(EcommerceDbContext db) : ICollectionServic
     {
         var c = await db.Collections.FirstOrDefaultAsync(x => x.Slug == slug && x.IsActive, ct);
         if (c is null) return null;
-        var products = await ProjectAsync(MembersQuery(c, activeOnly: true), ct);
+        var products = await ProjectRichAsync(
+            MembersQuery(c, activeOnly: true).OrderByDescending(p => p.IsFeatured).ThenBy(p => p.ProductId), ct);
         return new PublicCollectionDto(c.CollectionId, c.Name, c.Slug, c.Description, c.ImageUrl, c.MetaTitle, c.MetaDescription, products);
     }
 
