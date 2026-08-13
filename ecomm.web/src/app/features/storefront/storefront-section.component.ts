@@ -7,6 +7,7 @@ import { RecentlyViewedService } from '../../core/services/recently-viewed.servi
 import { BuilderSection } from '../../core/services/cms.service';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
 import { ThemeService } from '../../core/services/theme.service';
+import { ProductCardComponent } from '../../shared/product-card/product-card.component';
 
 /**
  * Renders one storefront section from its type + settings/blocks JSON.
@@ -16,7 +17,7 @@ import { ThemeService } from '../../core/services/theme.service';
  */
 @Component({
   selector: 'app-storefront-section',
-  imports: [RouterLink],
+  imports: [RouterLink, ProductCardComponent],
   template: `
     @switch (section().sectionType) {
       @case ('Hero') {
@@ -534,12 +535,7 @@ import { ThemeService } from '../../core/services/theme.service';
             <div class="relative">
               <div #prodCarousel class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2 scroll-smooth">
                 @for (p of products(); track p.productId) {
-                  <a data-prod-card [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
-                    <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                      @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                    </div>
-                    <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
-                  </a>
+                  <app-product-card [product]="p" [carouselItem]="true" />
                 }
               </div>
               @if (products().length > 4) {
@@ -550,12 +546,7 @@ import { ThemeService } from '../../core/services/theme.service';
           } @else {
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               @for (p of products(); track p.productId) {
-                <a [routerLink]="['/product', p.slug]" class="block overflow-hidden sf-card">
-                  <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                  </div>
-                  <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
-                </a>
+                <app-product-card [product]="p" />
               }
             </div>
           }
@@ -583,12 +574,7 @@ import { ThemeService } from '../../core/services/theme.service';
             <div class="relative">
               <div #prodCarousel class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2 scroll-smooth">
                 @for (p of products(); track p.productId) {
-                  <a data-prod-card [routerLink]="['/product', p.slug]" class="snap-start shrink-0 w-44 sm:w-52 block overflow-hidden sf-card">
-                    <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                      @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                    </div>
-                    <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
-                  </a>
+                  <app-product-card [product]="p" [carouselItem]="true" />
                 }
               </div>
               @if (products().length > 4) {
@@ -599,12 +585,7 @@ import { ThemeService } from '../../core/services/theme.service';
           } @else {
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               @for (p of products(); track p.productId) {
-                <a [routerLink]="['/product', p.slug]" class="block overflow-hidden sf-card">
-                  <div class="aspect-square bg-slate-50 grid place-items-center overflow-hidden">
-                    @if (p.primaryImageUrl) { <img [src]="p.primaryImageUrl" [alt]="p.name" class="w-full h-full object-cover" /> } @else { <span class="text-slate-300 text-xs">No image</span> }
-                  </div>
-                  <div class="p-3"><div class="text-sm font-medium text-slate-800 line-clamp-2">{{ p.name }}</div><div class="text-slate-900 font-bold mt-1">₹{{ p.price }}</div></div>
-                </a>
+                <app-product-card [product]="p" />
               }
             </div>
           }

@@ -15,8 +15,9 @@ const MAX_SWATCHES_SHOWN = 5;
   selector: 'app-product-card',
   imports: [RouterLink, CurrencyPipe, DecimalPipe, WishlistButtonComponent, CompareButtonComponent, ResponsiveImgDirective],
   template: `
-    <a [routerLink]="['/product', product().slug]"
-       class="group block overflow-hidden sf-card">
+    <a [routerLink]="['/product', product().slug]" data-prod-card
+       class="group block overflow-hidden sf-card"
+       [class.shrink-0]="carouselItem()" [class.w-44]="carouselItem()" [class.sm:w-52]="carouselItem()" [class.snap-start]="carouselItem()">
       <div class="relative bg-slate-50 overflow-hidden" [class]="aspectRatio() === 'portrait' ? 'aspect-[3/4]' : 'aspect-square'">
         @if (product().primaryImageUrl) {
           <img [src]="product().primaryImageUrl" [appImgSrc]="product().primaryImageUrl" appImgSizes="(min-width: 768px) 25vw, 50vw" [alt]="product().name"
@@ -89,6 +90,10 @@ const MAX_SWATCHES_SHOWN = 5;
 export class ProductCardComponent {
   product = input.required<ProductListItem>();
   aspectRatio = input<'square' | 'portrait'>('square');
+  /** Fixed-width snap card for a horizontal scroller (home page product carousels) instead of a
+   *  grid cell — same `data-prod-card` attribute either way, so the carousel's arrow-scroll math
+   *  (offsetWidth-based, see storefront-section.component.ts) finds it regardless of context. */
+  carouselItem = input(false);
   readonly quickView = inject(QuickViewService);
 
   private readonly swatchSvc = inject(ColorSwatchService);
