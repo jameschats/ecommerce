@@ -31,6 +31,9 @@ const MAX_SWATCHES_SHOWN = 5;
                class="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition" loading="lazy" />
         }
         <div class="absolute top-2 left-2 flex flex-col gap-1 items-start">
+          @if (product().isFeatured) {
+            <span class="bg-amber-500 text-white text-[11px] font-semibold px-1.5 py-0.5 rounded">Bestseller</span>
+          }
           @if (discount() > 0 && product().inStock) {
             <span class="bg-green-600 text-white text-[11px] font-semibold px-1.5 py-0.5 rounded">{{ discount() }}% off</span>
           }
