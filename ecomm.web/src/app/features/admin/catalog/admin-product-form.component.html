@@ -30,7 +30,15 @@
           </select>
         </div>
         <div><label class="lbl">Price (₹)</label><input type="number" [(ngModel)]="form.price" class="input" /></div>
-        <div><label class="lbl">Compare-at price (₹)</label><input type="number" [(ngModel)]="form.compareAtPrice" class="input" /></div>
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="lbl">Compare-at price (₹)</label>
+            @if (form.compareAtPrice != null) {
+              <button type="button" (click)="form.compareAtPrice = null" class="text-xs text-red-500 hover:underline mb-1">Clear discount</button>
+            }
+          </div>
+          <input type="number" [(ngModel)]="form.compareAtPrice" class="input" placeholder="Original price, if on sale" />
+        </div>
         <div>
           <label class="lbl">Cost price (₹)</label>
           <input type="number" [(ngModel)]="form.costPrice" class="input" placeholder="What you pay per unit" />

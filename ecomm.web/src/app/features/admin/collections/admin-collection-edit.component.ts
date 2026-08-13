@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { CollectionAdminService, CollectionProduct, CollectionRule, SaveCollection } from '../../../core/services/collection-admin.service';
 import { CatalogService } from '../../../core/services/catalog.service';
-import { ProductListItem } from '../../../core/models/catalog.model';
+import { Category, ProductListItem } from '../../../core/models/catalog.model';
 
 interface Member { productId: number; name: string; price: number; }
 
@@ -68,17 +68,30 @@ interface Member { productId: number; name: string; price: number; }
               <div class="flex gap-2 mb-2">
                 <select class="input py-1 text-sm" [(ngModel)]="r.field">
                   <option value="tag">Tag</option><option value="type">Product type</option><option value="title">Title contains</option>
-                  <option value="price">Price</option><option value="category">Category id</option><option value="featured">Is featured</option>
+                  <option value="price">Price</option><option value="discount">Discount %</option>
+                  <option value="category">Category</option><option value="featured">Is featured</option>
                 </select>
-                @if (r.field === 'price') {
-                  <select class="input py-1 text-sm w-24" [(ngModel)]="r.op"><option value="gte">≥</option><option value="lte">≤</option><option value="eq">=</option></select>
+                @if (r.field === 'price' || r.field === 'discount') {
+                  <select class="input py-1 text-sm w-24" [(ngModel)]="r.op">
+                    <option value="gte">≥</option><option value="lte">≤</option>
+                    @if (r.field === 'price') { <option value="eq">=</option> }
+                  </select>
                 }
-                @if (r.field !== 'featured') { <input class="input py-1 text-sm flex-1" [(ngModel)]="r.value" placeholder="value" /> }
+                @if (r.field === 'category') {
+                  <select class="input py-1 text-sm flex-1" [(ngModel)]="r.value">
+                    <option value="">Select a category…</option>
+                    @for (c of categories(); track c.categoryId) {
+                      <option [value]="c.categoryId">{{ categoryLabel(c) }}</option>
+                    }
+                  </select>
+                } @else if (r.field !== 'featured') {
+                  <input class="input py-1 text-sm flex-1" [(ngModel)]="r.value" [placeholder]="r.field === 'discount' ? 'e.g. 20' : 'value'" />
+                }
                 <button type="button" (click)="removeRule($index)" class="text-red-500 px-2">×</button>
               </div>
             }
             <button type="button" (click)="addRule()" class="text-sm text-blue-600 hover:underline">+ Add rule</button>
-            <p class="text-xs text-slate-400 mt-2">Products matching these rules are included automatically. Tag rules need product tags (set on the product).</p>
+            <p class="text-xs text-slate-400 mt-2">Products matching these rules are included automatically. Tag rules need product tags; discount rules need a compare-at price (both set on the product).</p>
           </div>
         }
 
@@ -103,6 +116,7 @@ export class AdminCollectionEditComponent implements OnInit {
   id = 0;
   form: SaveCollection = { name: '', slug: null, description: null, imageUrl: null, collectionType: 'Manual', matchType: 'All', rules: [], metaTitle: null, metaDescription: null, isActive: true };
   readonly rules = signal<CollectionRule[]>([]);
+  readonly categories = signal<Category[]>([]);
   readonly members = signal<Member[]>([]);
   readonly productResults = signal<ProductListItem[]>([]);
   readonly saving = signal(false);
@@ -114,6 +128,16 @@ export class AdminCollectionEditComponent implements OnInit {
     this.productSearch$.pipe(debounceTime(250), distinctUntilChanged(),
       switchMap((q) => this.catalog.getProducts({ search: q.trim(), pageSize: 8 })))
       .subscribe((r) => this.productResults.set(r.items));
+    this.catalog.getCategories().subscribe((c) => this.categories.set(c));
+  }
+
+  /** Disambiguates same-named categories at different tree positions (e.g. a standalone top-level
+   *  "Mobile Phones" alongside one nested under Electronics) — a flat dropdown of bare names would
+   *  make those look like the same option. */
+  categoryLabel(c: Category): string {
+    if (!c.parentCategoryId) return c.name;
+    const parent = this.categories().find((p) => p.categoryId === c.parentCategoryId);
+    return parent ? `${parent.name} > ${c.name}` : c.name;
   }
 
   ngOnInit(): void {

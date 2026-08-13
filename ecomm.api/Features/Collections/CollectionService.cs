@@ -208,6 +208,19 @@ public sealed class CollectionService(EcommerceDbContext db) : ICollectionServic
                     "eq" => p => p.Price == price,
                     _ => _ => false,
                 };
+            case "discount":
+                // Percentage off CompareAtPrice, e.g. {field:"discount", op:"gte", value:"20"} for a
+                // "20% off or more" collection. Products with no CompareAtPrice (or one <= Price, i.e.
+                // not actually discounted) never match — there's no discount to measure.
+                if (!decimal.TryParse(v, out var pct)) return _ => false;
+                return rule.Op.ToLowerInvariant() switch
+                {
+                    "gte" => p => p.CompareAtPrice != null && p.CompareAtPrice > 0 && p.Price < p.CompareAtPrice
+                        && (p.CompareAtPrice.Value - p.Price) / p.CompareAtPrice.Value * 100 >= pct,
+                    "lte" => p => p.CompareAtPrice != null && p.CompareAtPrice > 0 && p.Price < p.CompareAtPrice
+                        && (p.CompareAtPrice.Value - p.Price) / p.CompareAtPrice.Value * 100 <= pct,
+                    _ => _ => false,
+                };
             default: return _ => false;
         }
     }
