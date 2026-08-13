@@ -1,12 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { combineLatest, switchMap } from 'rxjs';
+import { Subject, combineLatest, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
 import { PagedResult } from '../../../core/models/api-response.model';
 import { Brand, Category, Facets, ProductListItem, ProductQuery } from '../../../core/models/catalog.model';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { parsePriceCeiling, priceBreakpoints } from '../../../core/utils/price-search';
 
 /** One applied filter, for the removable chip row. */
 export interface FilterChip { label: string; remove: () => void; }
@@ -39,6 +40,12 @@ export class CollectionPageStore {
   setViewMode(mode: 'grid' | 'list'): void { this.viewMode.set(mode); }
 
   searchText = '';
+  /** On-page search suggestions — same generic "{term} under ₹N" price chips as the header search
+   *  (core/utils/price-search.ts), computed from this collection's own real price spread. */
+  readonly suggestions = signal<string[]>([]);
+  readonly priceSuggestions = signal<{ term: string; maxPrice: number }[]>([]);
+  readonly showSuggest = signal(false);
+  private readonly searchInput$ = new Subject<string>();
   sort = '';
   brandId: number | '' = '';
   minPrice: number | '' = '';
@@ -64,6 +71,22 @@ export class CollectionPageStore {
   init(pageSize = 12): void {
     this.pageSize = pageSize > 0 ? pageSize : 12;
     this.catalog.getBrands().subscribe((b) => this.brands.set(b));
+
+    this.searchInput$
+      .pipe(
+        debounceTime(180),
+        distinctUntilChanged(),
+        switchMap((q) => {
+          const term = q.trim();
+          if (term.length < 2) return of({ term, names: [] as string[], priceMin: 0, priceMax: 0 });
+          return this.catalog.getSmartSuggestions(term).pipe(map((r) => ({ term, ...r })));
+        }),
+      )
+      .subscribe(({ term, names, priceMin, priceMax }) => {
+        this.suggestions.set(names);
+        this.priceSuggestions.set(priceBreakpoints(priceMin, priceMax).map((maxPrice) => ({ term, maxPrice })));
+        this.showSuggest.set(names.length > 0 || this.priceSuggestions().length > 0);
+      });
 
     combineLatest([this.route.paramMap, this.route.queryParamMap])
       .pipe(
@@ -148,6 +171,35 @@ export class CollectionPageStore {
     const title = cat ? `${cat.name} — ${brand}` : `Shop all products — ${brand}`;
     const description = cat?.description ?? `Browse ${cat?.name ?? 'our catalog'} at ${brand}. Great prices, fast delivery.`;
     this.seo.setMeta({ title, description, url: this.siteUrl + this.router.url });
+  }
+
+  onSearchInput(value: string): void {
+    this.searchInput$.next(value);
+  }
+
+  pickSuggestion(s: string): void {
+    this.searchText = s;
+    this.showSuggest.set(false);
+    this.applyFilters();
+  }
+
+  pickPriceSuggestion(term: string, maxPrice: number): void {
+    this.searchText = term;
+    this.maxPrice = maxPrice;
+    this.showSuggest.set(false);
+    this.applyFilters();
+  }
+
+  /** Enter-to-search — also handles typing the price ceiling out longhand ("shirts under 2000")
+   *  without picking a suggestion chip, same parser as the header search. */
+  submitSearch(): void {
+    this.showSuggest.set(false);
+    const ceiling = this.searchText ? parsePriceCeiling(this.searchText) : null;
+    if (ceiling) {
+      this.searchText = ceiling.term;
+      this.maxPrice = ceiling.maxPrice;
+    }
+    this.applyFilters();
   }
 
   applyFilters(extra: Record<string, string | number | null> = {}): void {

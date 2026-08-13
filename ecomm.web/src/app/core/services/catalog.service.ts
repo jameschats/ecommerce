@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, of, shareReplay } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, shareReplay } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
 import { Brand, BundleComponent, Category, Facets, ProductDetail, ProductListItem, ProductQuery } from '../models/catalog.model';
@@ -203,5 +203,15 @@ export class CatalogService {
       map((r) => r.data ?? []),
       catchError(() => of([])),
     );
+  }
+
+  /** Name suggestions + the real price spread of matching products, in one call — feeds both the
+   *  text-suggestion list and the generic "under ₹N" price chips (see core/utils/price-search.ts).
+   *  Shared by the header search and the on-page collection search. */
+  getSmartSuggestions(q: string): Observable<{ names: string[]; priceMin: number; priceMax: number }> {
+    return forkJoin({
+      names: this.suggest(q),
+      facets: this.getFacets({ search: q, page: 1, pageSize: 1 }),
+    }).pipe(map(({ names, facets }) => ({ names, priceMin: facets.priceMin, priceMax: facets.priceMax })));
   }
 }

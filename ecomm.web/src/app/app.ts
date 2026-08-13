@@ -3,7 +3,7 @@ import { DecimalPipe, isPlatformBrowser, NgTemplateOutlet } from '@angular/commo
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { STORE_UNLOCK_KEY, isGateExempt } from './core/services/store-gate';
-import { Subject, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, filter, map, of, switchMap } from 'rxjs';
 import { Category } from './core/models/catalog.model';
 import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
@@ -16,31 +16,7 @@ import { AnnouncementBarComponent } from './features/storefront/announcement-bar
 import { QuickViewComponent } from './shared/quick-view/quick-view.component';
 import { CompareBarComponent } from './shared/compare-bar/compare-bar.component';
 import { MobileNavDrawerComponent } from './shared/mobile-nav-drawer/mobile-nav-drawer.component';
-
-/** Round price ceilings a shopper would actually recognise, generic across any store vertical (a
- *  boutique's ₹500–3,000 shirts and an electronics store's ₹15,000–80,000 phones both get sensible,
- *  differently-scaled options from the same list). Picks up to 2 spread across the given [min, max]
- *  range — not clustered together — rather than every step that happens to fall inside it. */
-const PRICE_STEPS = [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000];
-function priceBreakpoints(min: number, max: number): number[] {
-  if (!(max > min) || max <= 0) return [];
-  const candidates = PRICE_STEPS.filter((p) => p > min && p < max);
-  if (!candidates.length) return [];
-  const picks = [candidates[Math.floor(candidates.length / 3)], candidates[Math.floor((candidates.length * 2) / 3)]];
-  return Array.from(new Set(picks));
-}
-
-/** Parses a trailing "under/below/less than ₹N" phrase off free-typed search text (any currency
- *  prefix, comma-formatted numbers) so typing "mobiles under 20000" and hitting enter works even
- *  without picking a suggestion chip. Generic — no vertical/category-specific parsing. */
-const PRICE_CEILING_RE = /\s*(?:under|below|less than)\s*(?:₹|rs\.?|inr)?\s*([\d,]+)\s*$/i;
-function parsePriceCeiling(text: string): { term: string; maxPrice: number } | null {
-  const m = PRICE_CEILING_RE.exec(text);
-  if (!m) return null;
-  const maxPrice = Number(m[1].replace(/,/g, ''));
-  if (!Number.isFinite(maxPrice) || maxPrice <= 0) return null;
-  return { term: text.slice(0, m.index).trim(), maxPrice };
-}
+import { parsePriceCeiling, priceBreakpoints } from './core/utils/price-search';
 
 @Component({
   selector: 'app-root',
@@ -208,10 +184,7 @@ export class App implements OnInit {
         switchMap((q) => {
           const term = q.trim();
           if (term.length < 2) return of({ term, names: [] as string[], priceMin: 0, priceMax: 0 });
-          return forkJoin({
-            names: this.catalog.suggest(term),
-            facets: this.catalog.getFacets({ search: term, page: 1, pageSize: 1 }),
-          }).pipe(map(({ names, facets }) => ({ term, names, priceMin: facets.priceMin, priceMax: facets.priceMax })));
+          return this.catalog.getSmartSuggestions(term).pipe(map((r) => ({ term, ...r })));
         }),
       )
       .subscribe(({ term, names, priceMin, priceMax }) => {

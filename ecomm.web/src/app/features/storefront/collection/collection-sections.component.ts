@@ -380,8 +380,32 @@ export class CollectionFacetsComponent {
   template: `
     <div class="flex flex-wrap items-center gap-3 mb-4">
       @if (showFilters()) {
-        <input type="search" [(ngModel)]="store.searchText" (keyup.enter)="store.applyFilters()" placeholder="Search products…"
-          class="hidden md:block flex-1 min-w-[200px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        <div class="hidden md:block relative flex-1 min-w-[200px]">
+          <input type="search" [(ngModel)]="store.searchText" (ngModelChange)="store.onSearchInput($event)" (keyup.enter)="store.submitSearch()"
+            placeholder="Search products…"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          @if (store.showSuggest() && (store.suggestions().length || store.priceSuggestions().length)) {
+            <button type="button" class="fixed inset-0 z-10 cursor-default" (click)="store.showSuggest.set(false)" aria-label="Close suggestions"></button>
+            <ul class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 max-h-72 overflow-auto">
+              @for (s of store.suggestions(); track s) {
+                <li>
+                  <button type="button" (click)="store.pickSuggestion(s)" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    {{ s }}
+                  </button>
+                </li>
+              }
+              @for (p of store.priceSuggestions(); track p.maxPrice) {
+                <li>
+                  <button type="button" (click)="store.pickPriceSuggestion(p.term, p.maxPrice)" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400"><path d="M5 3h14v6l-8 8-6-6V3z"/><circle cx="9" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+                    @if (p.term) {{{ p.term }} under ₹{{ p.maxPrice | number }}} @else {Under ₹{{ p.maxPrice | number }}}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
       }
 
       @if (showSort()) {
