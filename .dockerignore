@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/logs/
+**/dp-keys/
+**/uploads/
+**/.vs/
+**/.vscode/
+.git/
+documents/
+database/
+*.md

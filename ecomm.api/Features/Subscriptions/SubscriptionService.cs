@@ -3,6 +3,7 @@ using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace ecomm.api.Features.Subscriptions;
 
@@ -29,6 +30,11 @@ public interface ISubscriptionService
     Task CancelAsync(CancellationToken ct);
     Task<bool> RecordChargeAsync(RecordChargeCommand cmd, CancellationToken ct);   // webhook, idempotent
     Task<int> RunLifecycleSweepAsync(DateTime nowUtc, int graceDays, CancellationToken ct);   // background
+    /// <summary>Hangfire recurring-job entry point (v4 Phase 0) — computes "now" and reads config at
+    /// EXECUTION time. A Hangfire recurring-job expression only serializes its arguments once, at
+    /// registration; passing DateTime.UtcNow directly there would freeze every future run at whatever
+    /// moment the app last started, not the actual time each run fires.</summary>
+    Task<int> RunScheduledLifecycleSweepAsync(CancellationToken ct);
     Task<CheckoutSessionDto> StartCheckoutAsync(int planId, CancellationToken ct);            // pay one cycle
     Task<SubscriptionDto> ConfirmCheckoutAsync(ConfirmCheckoutCommand cmd, CancellationToken ct);
 }
@@ -36,7 +42,8 @@ public interface ISubscriptionService
 public sealed class SubscriptionService(
     EcommerceDbContext db,
     ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
-    ecomm.api.Common.Tenancy.ICurrentTenantService tenant) : ISubscriptionService
+    ecomm.api.Common.Tenancy.ICurrentTenantService tenant,
+    IConfiguration configuration) : ISubscriptionService
 {
     public const string Trial = "Trial", Active = "Active", PastDue = "PastDue", Suspended = "Suspended", Cancelled = "Cancelled";
 
@@ -186,6 +193,9 @@ public sealed class SubscriptionService(
         }
         return true;
     }
+
+    public Task<int> RunScheduledLifecycleSweepAsync(CancellationToken ct) =>
+        RunLifecycleSweepAsync(DateTime.UtcNow, configuration.GetValue("Billing:GraceDays", 3), ct);
 
     /// <summary>
     /// Platform sweep (background). Trial/Active whose period has ended → PastDue + grace;

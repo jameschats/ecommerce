@@ -2,6 +2,7 @@ using ecomm.api.Data.Entities;
 using ecomm.api.Features.Payments;
 using ecomm.api.Features.Subscriptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -19,12 +20,13 @@ public class SubscriptionLifecycleTests
         new(new StubHttpFactory(), Options.Create(new PaymentOptions()), db,
             Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests"));
 
-    private static (ecomm.api.Data.Context.EcommerceDbContext db, SubscriptionService svc) NewSvc(long tenantId = 1)
+    private static (ecomm.api.Data.Context.EcommerceDbContext db, SubscriptionService svc) NewSvc(
+        long tenantId = 1, IConfiguration? config = null)
     {
         // Service + context share the tenant instance so RecordCharge's BeginScope drives the auto-stamp.
         var tenant = new FixedTenant(tenantId);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        return (db, new SubscriptionService(db, Gateways(db), tenant));
+        return (db, new SubscriptionService(db, Gateways(db), tenant, config ?? new ConfigurationBuilder().Build()));
     }
 
     [Fact]
@@ -54,6 +56,28 @@ public class SubscriptionLifecycleTests
         sub = await db.TenantSubscriptions.IgnoreQueryFilters().SingleAsync();
         Assert.Equal(SubscriptionService.Suspended, sub.Status);
         Assert.NotNull((await db.Tenants.SingleAsync(t => t.TenantId == 1)).SuspendedAt);
+    }
+
+    [Fact]
+    public async Task Scheduled_sweep_reads_grace_days_from_config_and_uses_current_time()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Billing:GraceDays"] = "7" })
+            .Build();
+        var (db, svc) = NewSvc(config: config);
+        db.Tenants.Add(new Tenant { TenantId = 1, Name = "A", Slug = "a", IsActive = true });
+        db.TenantSubscriptions.Add(new TenantSubscription
+        {
+            TenantId = 1, PlanId = 1, Status = SubscriptionService.Active,
+            CurrentPeriodEnd = DateTime.UtcNow.AddDays(-1),   // already ended, relative to real "now"
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await svc.RunScheduledLifecycleSweepAsync(default));
+        var sub = await db.TenantSubscriptions.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(SubscriptionService.PastDue, sub.Status);
+        // Grace end should be ~7 days from now (the configured value), not the 3-day hardcoded fallback.
+        Assert.True(sub.GraceEndsAt > DateTime.UtcNow.AddDays(6.9) && sub.GraceEndsAt < DateTime.UtcNow.AddDays(7.1));
     }
 
     [Fact]

@@ -1,0 +1,41 @@
+# Local: `cp .env.docker.example .env.docker` (fill in), then `docker compose up -d --build`.
+# VPS deploy points env_file at /etc/wavcomm/api.env instead - see
+# documents/v4-stages/phase-0-portability.md for the full cutover plan. MySQL and Nginx are
+# deliberately NOT containerized here (see that doc's "Explicitly out of scope" section).
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ecomm.api/Dockerfile
+    env_file:
+      - .env.docker
+    environment:
+      # Override whatever env_file provides for these two - the container-internal mount points
+      # below, not wherever the bare-metal deploy happened to configure. DataProtection keys and
+      # uploaded media must survive container recreation - see phase-0-portability.md.
+      - DataProtection__KeysPath=/data/dp-keys
+      - Media__UploadPath=/data/uploads
+    extra_hosts:
+      # Lets the container reach bare-metal MySQL on the host. No-op on Docker Desktop (which
+      # already resolves this), required on native Linux Docker Engine (the VPS).
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - dp-keys:/data/dp-keys
+      - uploads:/data/uploads
+    ports:
+      - "127.0.0.1:5090:5090"
+    restart: unless-stopped
+
+  ssr:
+    build:
+      context: .
+      dockerfile: ecomm.web/Dockerfile
+    ports:
+      - "127.0.0.1:4010:4010"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  dp-keys:
+  uploads:

@@ -8,6 +8,9 @@ using Serilog.Core;
 using ecomm.api.Features.Auth;
 using ecomm.api.Features.Auth.Services;
 using ecomm.api.Features.Payments;
+using Hangfire;
+using Hangfire.Dashboard;
+using Hangfire.MySql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +62,22 @@ var connectionString = builder.Configuration.GetConnectionString("Default");
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
+// Hangfire (v4 Phase 0): replaces the ad-hoc BackgroundService-timer pattern for scheduled/recurring
+// work — see documents/v4-stages/phase-0-portability.md. Same connection string and driver family
+// (MySqlConnector) as the EF Core context above, so this introduces no new storage dependency. Tables
+// are prefixed so they read as clearly belonging to the library, not the app schema. Runs in-process
+// for now; split into a dedicated worker only if job volume ever justifies it.
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseStorage(new MySqlStorage(connectionString, new MySqlStorageOptions
+    {
+        TablesPrefix = "Hangfire_",
+        PrepareSchemaIfNecessary = true,
+    })));
+builder.Services.AddHangfireServer();
+
 // Auth: settings + services
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
@@ -84,7 +103,6 @@ builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.ISuperAdminService, eco
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformStaffService, ecomm.api.Features.SuperAdmin.PlatformStaffService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformAnnouncementService, ecomm.api.Features.SuperAdmin.PlatformAnnouncementService>();
 builder.Services.AddScoped<ecomm.api.Features.Support.ISupportService, ecomm.api.Features.Support.SupportService>();
-builder.Services.AddHostedService<ecomm.api.Features.Subscriptions.SubscriptionLifecycleService>();
 builder.Services.AddHostedService<AdminUserSeeder>();
 
 // Catalog
@@ -393,5 +411,19 @@ app.UseMiddleware<StaffAccessGuardMiddleware>();   // enforce staff access level
 app.MapControllers();
 app.MapHealthChecks("/api/health/ready");   // 200 Healthy / 503 if DB unreachable
 app.MapHub<ecomm.api.Features.Notifications.NotificationHub>("/hubs/notifications");
+app.MapHangfireDashboard("/admin/jobs", new DashboardOptions
+{
+    Authorization = new[] { new ecomm.api.Common.Middleware.HangfireAuthorizationFilter() },
+});
+
+// Subscription lifecycle sweep (v4 Phase 0): replaces the old BackgroundService timer. Registering the
+// recurring job on every startup keeps its cron/target in sync with this code; the job method itself
+// (RunScheduledLifecycleSweepAsync) computes "now" fresh at each actual execution, not at this
+// registration call — see the interface doc comment on why that distinction matters for Hangfire.
+var sweepIntervalHours = Math.Clamp(builder.Configuration.GetValue("Billing:SweepIntervalHours", 6), 1, 24);
+RecurringJob.AddOrUpdate<ecomm.api.Features.Subscriptions.ISubscriptionService>(
+    "subscription-lifecycle-sweep",
+    svc => svc.RunScheduledLifecycleSweepAsync(CancellationToken.None),
+    $"0 */{sweepIntervalHours} * * *");
 
 app.Run();
