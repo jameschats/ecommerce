@@ -124,7 +124,13 @@ public sealed class JwtTokenService : IJwtTokenService
         };
         try
         {
-            var principal = new JwtSecurityTokenHandler().ValidateToken(token, parameters, out _);
+            // MapInboundClaims=false: JwtSecurityTokenHandler otherwise remaps short claim names like
+            // "sub" to long ClaimTypes URIs on the resulting principal by default, which would make
+            // FindFirstValue(JwtRegisteredClaimNames.Sub) below silently miss (caught live, first pass
+            // didn't set this — every challenge token failed with a misleading "expired" message even
+            // though validation itself had actually succeeded).
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+            var principal = handler.ValidateToken(token, parameters, out _);
             if (principal.FindFirstValue(TwoFactorPurposeClaim) != TwoFactorPurposeValue) return null;
             var sub = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
             return long.TryParse(sub, out var userId) ? userId : null;
