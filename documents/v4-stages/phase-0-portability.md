@@ -72,4 +72,13 @@ git pull → docker compose build → docker compose up -d → health check (unc
 - Force a sweep run manually via the dashboard → confirm identical behavior to the old timer (same log line, same DB effect)
 - Full smoke pass on bazaar (storefront load, checkout, admin login) against the containerized stack before cutting Nginx over
 
-**Status:** code complete, locally verified. VPS cutover intentionally not yet done — that's a deliberate, staged production action (see "Cutover plan" above), not something to bundle into a code-change pass.
+**Status:** ✅ Done — cutover completed live on the VPS, 2026-08-21. Both `wavcomm-api`/`wavcomm-ssr` systemd services are disabled (not deleted — instant rollback: `docker compose down && systemctl enable --now wavcomm-api wavcomm-ssr`). Nginx needed **zero config changes** — the containers bind the exact same ports (5090/4010) it already proxied to.
+
+Two real bugs surfaced during the actual cutover that local testing hadn't caught, both fixed and committed:
+
+1. **MySQL unreachable from the container.** MySQL binds `127.0.0.1` only, and `ufw` (default-deny) blocks the Docker bridge subnet entirely — bridge networking couldn't reach it at all (`Connect Timeout`, not `Access denied` like the local test earlier). Rather than widen MySQL's listen address or open a firewall rule for a container-networking convenience, fixed with `network_mode: host` on the `api` service — no bridge translation at all, `127.0.0.1` inside the container is genuinely the host's own loopback.
+2. **Every real SSR request returned 400** — `@angular/ssr`'s own SSRF guard (`allowedHosts`) and forwarded-header trust (`trustProxyHeaders`) both default to reject-everything when unset. **Correction to the first fix attempted here:** this was already solved for the systemd deploy, via two systemd drop-in files documented in `documents/deployment.md` §10-WAV since 2026-07-29 (`wavcomm-ssr.service.d/allowedhosts.conf`/`trustproxy.conf`) — missed on first pass because `cat`-ing the base unit file doesn't show its drop-in directory. First attempt used a blanket `NG_ALLOWED_HOSTS=*`; corrected to match the systemd path's existing, more precise allowlist instead, so the two deploy paths agree rather than silently drifting apart. That existing allowlist doesn't cover per-tenant custom domains (`Tenant.CustomDomain`) either — a pre-existing gap, carried forward unchanged, not introduced here.
+
+The storefront was briefly down (roughly 90 seconds) during the first cutover attempt, before bug #2 was caught and rolled back to the systemd services immediately. Root-caused and fixed calmly without live-traffic pressure, then re-verified (including reproducing the exact failure with real subdomain `Host` + `X-Forwarded-*` headers before attempting cutover again) before the successful second attempt.
+
+`documents/deployment.md` §10-WAV still needs updating to reflect the container-based deploy sequence — not yet done.
