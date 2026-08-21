@@ -14,6 +14,8 @@ public static class AiCreditPricing
     public const string Page = "page";
     public const string SampleCatalog = "sample-catalog";
     public const string SupportDraft = "support-draft";
+    public const string ChatbotClassify = "chatbot-classify";
+    public const string ChatbotReply = "chatbot-reply";
 
     // AI Growth — marketing content (G1). Costs scale with output length; text is cheap enough
     // (~₹0.04 a call at gpt-4.1-mini rates) that these are priced for daily use, not rationing.
@@ -39,6 +41,10 @@ public static class AiCreditPricing
         // A support draft reads the thread, the linked order and the FAQ corpus, so its prompt is
         // larger than a rewrite — but it saves a merchant a real reply, so keep it cheap enough to use daily.
         [SupportDraft] = 2,
+        // Chatbot messages are frequent by nature (every customer turn), so both calls are priced
+        // at the cheapest tier — daily-use pricing, same reasoning as the Growth text features.
+        [ChatbotClassify] = 1,
+        [ChatbotReply] = 1,
         [Page] = 5,
         [SampleCatalog] = 25,
         [GrowthWhatsapp] = 2,

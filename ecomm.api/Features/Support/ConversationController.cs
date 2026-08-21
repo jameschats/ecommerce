@@ -13,7 +13,7 @@ namespace ecomm.api.Features.Support;
 /// </summary>
 [ApiController]
 [Route("api/conversations")]
-public sealed class ConversationController(IShopperConversationService convos) : ControllerBase
+public sealed class ConversationController(IShopperConversationService convos, IChatbotService chatbot) : ControllerBase
 {
     private long? ShopperId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -41,6 +41,15 @@ public sealed class ConversationController(IShopperConversationService convos) :
         await convos.ReplyAsShopperAsync(id, request.Body, ShopperId, null, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Reply sent."));
     }
+
+    /// <summary>Send a chat message to the AI assistant (v4 Phase 2). Authenticated only — the bot's
+    /// order-lookup grounding needs a real customer identity, same reason anonymous threads can't
+    /// use this yet. Falls back to a human on escalation; the widget shows <c>escalated</c> to know
+    /// when to stop expecting bot replies and just wait for a person.</summary>
+    [HttpPost("{id:long}/chat")]
+    [Authorize]
+    public async Task<IActionResult> Chat(long id, ReplyRequest request, CancellationToken ct)
+        => Ok(ApiResponse<ChatbotReplyDto>.Ok(await chatbot.HandleShopperMessageAsync(id, request.Body, ShopperId ?? 0, ct)));
 
     /// <summary>Open a thread from the emailed link — no sign-in required.</summary>
     [HttpGet("thread/{token}")]

@@ -112,6 +112,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<ColorSwatch> ColorSwatches => Set<ColorSwatch>();
     public DbSet<BundleItem> BundleItems => Set<BundleItem>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
+    public DbSet<ChatbotConversationState> ChatbotConversationStates => Set<ChatbotConversationState>();
+    public DbSet<ChatbotUnansweredQuestion> ChatbotUnansweredQuestions => Set<ChatbotUnansweredQuestion>();
 
     // --- V2: Plans & Subscriptions ---
     public DbSet<Plan> Plans => Set<Plan>();
@@ -400,6 +402,13 @@ public class EcommerceDbContext : DbContext
             e.HasIndex(x => new { x.TenantId, x.UserId, x.Channel, x.Category }).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
+        b.Entity<ChatbotConversationState>(e =>
+        {
+            e.ToTable("ChatbotConversationStates");
+            e.HasKey(x => x.ChatbotConversationStateId);
+            e.HasIndex(x => x.SupportTicketId).IsUnique();
+        });
+        b.Entity<ChatbotUnansweredQuestion>(e => { e.ToTable("ChatbotUnansweredQuestions"); e.HasKey(x => x.ChatbotUnansweredQuestionId); });
         b.Entity<Review>(e => { e.ToTable("Reviews"); e.HasKey(x => x.ReviewId); });
         b.Entity<Coupon>(e =>
         {

@@ -11,12 +11,21 @@
 
 ## Scope & checklist
 
-- [ ] Chatbot core: grounded answering over `Faq` + live catalog + live order data, extending the exact discipline already proven in `SupportDraftService`
-- [ ] Escalation logic (grounding-confidence, sentiment, explicit request, judgment-call, exchange-count triggers)
+- [x] Chatbot core: grounded answering over `Faq` + live catalog + live order data, extending the exact discipline already proven in `SupportDraftService` — done 2026-08-21
+- [x] Escalation logic (grounding-confidence, sentiment, explicit request, judgment-call, exchange-count triggers) — done 2026-08-21
 - [ ] Livechat widget (storefront) — bot-first, reusing existing `NotificationHub`/`ConversationRealtime` SignalR transport
 - [ ] Merchant controls: on/off toggle, active hours, FAQ review, "what the bot couldn't answer" log
 - [ ] WhatsApp channel for the bot, via Phase 1's `IWhatsAppProvider` session-message capability
-- [ ] Full conversation-history handoff into the existing `SupportTicket`/`ShopperMerchant`-axis model on escalation
+- [x] Full conversation-history handoff into the existing `SupportTicket`/`ShopperMerchant`-axis model on escalation — turned out to need zero extra work: a bot conversation already IS that model from message one (per the design decision below), so "handoff" is just `IsBotActive=false` + an admin notification, not a data migration
+
+### Implementation notes (chatbot core, shipped 2026-08-21)
+
+- `Features/Support/ChatbotService.cs` (`IChatbotService.HandleShopperMessageAsync`) — the whole classify → fetch → compose pipeline described in "Design decisions" below, built exactly as specified: no changes to `IAiService`, all new complexity in this one orchestration layer.
+- **Persistence reuses `IShopperConversationService.ReplyAsShopperAsync`** for the customer's own message (same realtime push, admin notification, reopen-on-reply logic already tested) — the chatbot only adds new logic for the *bot's own* replies (`AppendBotMessageAsync`), via a new `MessageAuthorType.Bot` so the UI can eventually distinguish "AI Assistant" from a human merchant reply.
+- `ChatbotConversationStates` + `ChatbotUnansweredQuestions` (migration 266) — the only genuinely new tables. State tracks `IsBotActive`/`UnresolvedExchangeCount`/`EscalationReason` per conversation; once escalated the bot goes permanently silent on that thread (verified by test) rather than re-evaluating triggers on every subsequent message.
+- Escalation triggers implemented exactly per the table below: judgment-call is a regex (`refund|return|discount|compensat|goodwill|exception|cancel my order|chargeback|dispute`) checked *before* any AI call — zero cost, zero model-confidence involved; frustration/explicit-request come from one combined classify call (`{"frustrated","wantsHuman","topic"}`) rather than two separate ones; no-grounded-data comes from the compose call's own `{"answer","grounded"}` JSON, matching `SupportDraftService`'s "say so honestly" discipline but made machine-checkable instead of text-sniffed; exchange-limit is plain counting, 3 unresolved turns.
+- **Known v1 scope limit, deliberately flagged rather than silently assumed**: requires an authenticated shopper (`HandleShopperMessageAsync` needs a real `shopperUserId`) — anonymous token-based conversations (the existing anonymous contact-form flow) aren't wired to the bot yet, since the bot's order-lookup grounding needs a real customer identity the same way `SupportDraftService`'s linked-order grounding does. Anonymous visitors would need either a different grounding strategy or to sign in first — not resolved here.
+- 12 new tests (`ChatbotServiceTests.cs`) covering: grounded FAQ answer, real order grounding (not fabricated), ungrounded → escalate + log, frustration escalates before compose ever runs, explicit request escalates, judgment-call escalates with zero AI calls (3 phrasings), already-escalated stays silent forever on that thread, 3-exchange limit, classify-failure degrades gracefully instead of breaking the chat, and cross-customer ownership is rejected. Full suite: 341/341 passing.
 
 ## Explicitly out of scope for this phase
 

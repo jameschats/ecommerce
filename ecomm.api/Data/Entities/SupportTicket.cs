@@ -16,6 +16,9 @@ public static class MessageAuthorType
     public const string Shopper = "Shopper";
     public const string Merchant = "Merchant";
     public const string Platform = "Platform";
+    /// <summary>The chatbot itself (v4 Phase 2) — distinct from Merchant so the widget/inbox can
+    /// show "AI Assistant" vs. a human reply.</summary>
+    public const string Bot = "Bot";
 }
 
 /// <summary>

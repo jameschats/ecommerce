@@ -188,6 +188,7 @@ builder.Services.AddScoped<ecomm.api.Features.Orders.IDraftOrderService, ecomm.a
 builder.Services.AddScoped<ecomm.api.Features.Orders.ITestOrderService, ecomm.api.Features.Orders.TestOrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Contact.IContactService, ecomm.api.Features.Contact.ContactService>();
 builder.Services.AddScoped<ecomm.api.Features.Support.IShopperConversationService, ecomm.api.Features.Support.ShopperConversationService>();
+builder.Services.AddScoped<ecomm.api.Features.Support.IChatbotService, ecomm.api.Features.Support.ChatbotService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderLookupService, ecomm.api.Features.Orders.OrderLookupService>();
 builder.Services.AddScoped<ecomm.api.Features.Faqs.IFaqService, ecomm.api.Features.Faqs.FaqService>();
 builder.Services.AddScoped<ecomm.api.Features.Support.ISupportDraftService, ecomm.api.Features.Support.SupportDraftService>();
