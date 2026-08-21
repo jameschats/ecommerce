@@ -15,6 +15,7 @@ import { NotificationBellComponent } from './shared/notification-bell/notificati
 import { AnnouncementBarComponent } from './features/storefront/announcement-bar.component';
 import { QuickViewComponent } from './shared/quick-view/quick-view.component';
 import { CompareBarComponent } from './shared/compare-bar/compare-bar.component';
+import { LiveChatWidgetComponent } from './shared/live-chat-widget/live-chat-widget.component';
 import { MobileNavDrawerComponent } from './shared/mobile-nav-drawer/mobile-nav-drawer.component';
 import { parsePriceCeiling, priceBreakpoints } from './core/utils/price-search';
 
@@ -22,7 +23,7 @@ import { parsePriceCeiling, priceBreakpoints } from './core/utils/price-search';
   selector: 'app-root',
   imports: [
     RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, DecimalPipe, NotificationBellComponent, AnnouncementBarComponent,
-    QuickViewComponent, CompareBarComponent, MobileNavDrawerComponent,
+    QuickViewComponent, CompareBarComponent, MobileNavDrawerComponent, LiveChatWidgetComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

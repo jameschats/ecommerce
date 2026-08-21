@@ -19,9 +19,20 @@ export interface Conversation {
 
 export interface ConversationMessage {
   id: number;
-  authorType: 'Shopper' | 'Merchant' | 'Platform';
+  authorType: 'Shopper' | 'Merchant' | 'Platform' | 'Bot';
   body: string;
   createdAt: string;
+}
+
+export interface ChatbotReply {
+  reply: string;
+  escalated: boolean;
+  escalationReason: string | null;
+}
+
+export interface StartChatResponse {
+  conversationId: number;
+  reply: ChatbotReply;
 }
 
 export interface ConversationThread {
@@ -64,6 +75,14 @@ export class ConversationService {
   }
   reply(id: number, body: string): Observable<unknown> {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/conversations/${id}/messages`, { body });
+  }
+  /** AI assistant (v4 Phase 2) — starts a brand-new livechat conversation with the first message. */
+  startChat(body: string): Observable<StartChatResponse> {
+    return this.unwrap(this.http.post<ApiResponse<StartChatResponse>>(`${this.base}/conversations/chat/start`, { body }));
+  }
+  /** AI assistant — sends a message on an existing conversation and gets the bot's reply (or an escalation signal). */
+  chat(id: number, body: string): Observable<ChatbotReply> {
+    return this.unwrap(this.http.post<ApiResponse<ChatbotReply>>(`${this.base}/conversations/${id}/chat`, { body }));
   }
   byToken(token: string): Observable<ConversationThread> {
     return this.unwrap(this.http.get<ApiResponse<ConversationThread>>(`${this.base}/conversations/thread/${token}`));

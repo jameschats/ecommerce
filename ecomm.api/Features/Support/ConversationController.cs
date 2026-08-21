@@ -42,6 +42,16 @@ public sealed class ConversationController(IShopperConversationService convos, I
         return Ok(ApiResponse<object>.Ok(new { }, "Reply sent."));
     }
 
+    /// <summary>Starts a brand-new livechat conversation with the first message. Authenticated only,
+    /// same reason as <see cref="Chat"/> below.</summary>
+    [HttpPost("chat/start")]
+    [Authorize]
+    public async Task<IActionResult> StartChat(ReplyRequest request, CancellationToken ct)
+    {
+        var (id, reply) = await chatbot.StartShopperChatAsync(request.Body, ShopperId ?? 0, ct);
+        return Ok(ApiResponse<StartChatResponse>.Ok(new StartChatResponse(id, reply)));
+    }
+
     /// <summary>Send a chat message to the AI assistant (v4 Phase 2). Authenticated only — the bot's
     /// order-lookup grounding needs a real customer identity, same reason anonymous threads can't
     /// use this yet. Falls back to a human on escalation; the widget shows <c>escalated</c> to know

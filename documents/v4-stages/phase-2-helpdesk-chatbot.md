@@ -13,7 +13,7 @@
 
 - [x] Chatbot core: grounded answering over `Faq` + live catalog + live order data, extending the exact discipline already proven in `SupportDraftService` — done 2026-08-21
 - [x] Escalation logic (grounding-confidence, sentiment, explicit request, judgment-call, exchange-count triggers) — done 2026-08-21
-- [ ] Livechat widget (storefront) — bot-first, reusing existing `NotificationHub`/`ConversationRealtime` SignalR transport
+- [x] Livechat widget (storefront) — bot-first, reusing existing `NotificationHub`/`ConversationRealtime` SignalR transport — done 2026-08-21
 - [x] Merchant controls: on/off toggle, active hours, "what the bot couldn't answer" log — done 2026-08-21 (backend; FAQ review itself already existed as the FAQ admin CRUD, untouched)
 - [ ] WhatsApp channel for the bot, via Phase 1's `IWhatsAppProvider` session-message capability
 - [x] Full conversation-history handoff into the existing `SupportTicket`/`ShopperMerchant`-axis model on escalation — turned out to need zero extra work: a bot conversation already IS that model from message one (per the design decision below), so "handoff" is just `IsBotActive=false` + an admin notification, not a data migration
@@ -33,7 +33,14 @@
 - **Active hours change only post-escalation messaging, never the escalation triggers themselves** — this is the resolved solo-seller design decision applied literally: outside the configured window the customer sees "...though it may not be until our support hours resume" instead of the standard handoff line, but judgment-call/frustration/exchange-limit/no-grounded-data all still fire exactly the same. Compares in UTC as a known v1 simplification rather than the store's own configured `Timezone` setting — flagged, not silently assumed correct for non-UTC merchants.
 - `GET/PUT /api/admin/helpdesk/settings` + `GET /api/admin/helpdesk/unanswered` (`HelpdeskAdminController`) — the content-gap feedback loop: every ungrounded question the bot hit is logged (already wired into `ChatbotService` from the core slice) and now readable by the merchant, newest first.
 - 8 new tests (2 in `ChatbotServiceTests.cs` for disabled-bot and outside-hours-messaging, 6 in `HelpdeskSettingsTests.cs` for defaults/round-trip/validation/tenant isolation). Full suite: 349/349 passing.
-- **Still no frontend for any of this** — no livechat widget, no merchant settings screen for the toggle/hours, no "what the bot couldn't answer" report UI. Backend is real and tested; nothing is user-visible yet.
+- **Merchant settings UI (toggle/hours) and the "what the bot couldn't answer" report UI are still not built** — the storefront widget below is the one exception to "backend only."
+
+### Implementation notes (livechat widget, shipped 2026-08-21)
+
+- New backend endpoint `POST /api/conversations/chat/start` + `IChatbotService.StartShopperChatAsync` — the widget's very first message can't go through the existing `IShopperConversationService.StartAsync` (it persists the first message itself, which would double it against the chatbot's own persistence) or `HandleShopperMessageAsync` alone (needs a conversation id that doesn't exist yet). Creates the ticket directly, then hands off to the exact same message-handling path as every later turn.
+- `ecomm.web/src/app/shared/live-chat-widget/live-chat-widget.component.ts` — a floating bubble mounted once at app root (`app.html`, same pattern as `app-compare-bar`/`app-quick-view`), gated on `!hideStorefrontChrome()` (hidden on admin/superadmin/welcome/signup) and `AuthService.isAuthenticated()` (signed-in shoppers only, matching the backend's v1 limit). Reuses the exact SignalR connection `NotificationService` already maintains (`joinConversation`/`leaveConversation`, the `liveMessage` signal) rather than opening a second `HubConnection`.
+- **Rendering split, deliberately**: the widget's own Shopper/Bot turns render optimistically from each HTTP response — the live SignalR feed can't be joined until the first response reveals the new conversation id, so it would miss the opening exchange entirely. The live-message effect only ever appends `Merchant`-authored pushes (a human agent replying after escalation); Shopper/Bot messages are intentionally never taken from the push, which also sidesteps needing message-id reconciliation to avoid duplicate rendering.
+- Verification so far is `dotnet test` (351/351) and `ng build` (clean). **No live browser click-through was done** — this environment has no interactive browser; a real manual test (open the bubble, send a message, confirm the AI reply, confirm an agent's reply after escalation shows up live) is still owed before calling this genuinely done, not just shipped.
 
 ## Explicitly out of scope for this phase
 

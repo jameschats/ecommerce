@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.Support;
 
 public sealed record ChatbotReplyDto(string Reply, bool Escalated, string? EscalationReason);
+public sealed record StartChatResponse(long ConversationId, ChatbotReplyDto Reply);
 
 public interface IChatbotService
 {
@@ -25,6 +26,12 @@ public interface IChatbotService
     /// bot needs "which of this customer's orders" lookups the same way SupportDraftService needs
     /// a linked order; there's no equivalent identity for an anonymous token-based thread yet).</summary>
     Task<ChatbotReplyDto> HandleShopperMessageAsync(long conversationId, string message, long shopperUserId, CancellationToken ct = default);
+
+    /// <summary>Starts a brand-new conversation for the widget's first message. Deliberately not
+    /// <c>IShopperConversationService.StartAsync</c> + <c>HandleShopperMessageAsync</c> in sequence —
+    /// that would persist the first message twice (once via StartAsync's own write, once via the
+    /// chatbot's). Creates the ticket directly, then hands off to the same message-handling path.</summary>
+    Task<(long ConversationId, ChatbotReplyDto Reply)> StartShopperChatAsync(string message, long shopperUserId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -127,6 +134,27 @@ public sealed class ChatbotService(
         state.UpdatedAt = DateTime.UtcNow;
         await AppendBotMessageAsync(convo, answer, ct);
         return new ChatbotReplyDto(answer, false, null);
+    }
+
+    public async Task<(long ConversationId, ChatbotReplyDto Reply)> StartShopperChatAsync(string message, long shopperUserId, CancellationToken ct = default)
+    {
+        var email = await db.Users.Where(u => u.UserId == shopperUserId).Select(u => u.Email).FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(email))
+            throw new AppException("We need a valid email address on your account to start a chat.", StatusCodes.Status400BadRequest);
+
+        var now = DateTime.UtcNow;
+        var convo = new SupportTicket
+        {
+            Axis = ConversationAxis.ShopperMerchant, Subject = "Live chat", Status = "Open", Priority = "Normal",
+            ShopperUserId = shopperUserId, ShopperEmail = email, LastMessageAt = now, CreatedAt = now,
+        };
+        db.SupportTickets.Add(convo);
+        await db.SaveChangesAsync(ct);
+        convo.Reference = SupportService.BuildReference(now, convo.SupportTicketId);
+        await db.SaveChangesAsync(ct);
+
+        var reply = await HandleShopperMessageAsync(convo.SupportTicketId, message, shopperUserId, ct);
+        return (convo.SupportTicketId, reply);
     }
 
     private async Task<ChatbotReplyDto> EscalateAsync(SupportTicket convo, ChatbotConversationState state, string reason, HelpdeskSettingsDto settings, CancellationToken ct)

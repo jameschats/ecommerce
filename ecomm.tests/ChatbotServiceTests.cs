@@ -255,6 +255,37 @@ public class ChatbotServiceTests
     }
 
     [Fact]
+    public async Task Starting_a_new_chat_creates_the_ticket_and_answers_the_first_message_without_double_persisting()
+    {
+        var (db, svc, ai, _, _, _, _) = Setup();
+        using var _db = db;
+        db.Faqs.Add(new Faq { TenantId = 1, Question = "Do you ship worldwide?", Answer = "Yes.", IsPublished = true, CreatedAt = DateTime.UtcNow });
+        db.Users.Add(new User { UserId = 5, TenantId = 1, Email = "priya@example.com", CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+        ai.Enqueue(NotFrustrated, Grounded);
+
+        var (conversationId, reply) = await svc.StartShopperChatAsync("Do you ship worldwide?", 5);
+
+        Assert.False(reply.Escalated);
+        Assert.Equal(ConversationAxis.ShopperMerchant, db.SupportTickets.Single(t => t.SupportTicketId == conversationId).Axis);
+        // Exactly one shopper message and one bot message — no duplicate from the create step.
+        var messages = db.SupportMessages.Where(m => m.SupportTicketId == conversationId).ToList();
+        Assert.Single(messages, m => m.AuthorType == MessageAuthorType.Shopper);
+        Assert.Single(messages, m => m.AuthorType == MessageAuthorType.Bot);
+    }
+
+    [Fact]
+    public async Task Starting_a_chat_without_an_account_email_is_rejected()
+    {
+        var (db, svc, _, _, _, _, _) = Setup();
+        using var _db = db;
+        db.Users.Add(new User { UserId = 5, TenantId = 1, Email = null, CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+
+        await Assert.ThrowsAsync<AppException>(() => svc.StartShopperChatAsync("hi", 5));
+    }
+
+    [Fact]
     public async Task A_conversation_the_caller_does_not_own_is_not_found()
     {
         var (db, svc, ai, _, _, _, _) = Setup();

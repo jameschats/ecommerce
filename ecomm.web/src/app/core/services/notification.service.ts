@@ -116,7 +116,7 @@ export class NotificationService {
 export interface LiveConversationMessage {
   conversationId: number;
   messageId: number;
-  authorType: 'Shopper' | 'Merchant' | 'Platform';
+  authorType: 'Shopper' | 'Merchant' | 'Platform' | 'Bot';
   body: string;
   createdAt: string;
 }
