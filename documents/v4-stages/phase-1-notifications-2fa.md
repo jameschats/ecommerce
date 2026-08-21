@@ -9,14 +9,24 @@ This phase has **three genuinely independent tracks** — sequence notes below, 
 
 ---
 
-## Track A — Notification Channel Router
+## Track A — Notification Channel Router ✅ Done (2026-08-21)
 
 ### Scope & checklist
-- [ ] `INotificationChannel` abstraction — one interface, one implementation per channel (Email, SMS today; WhatsApp, Push added this phase/later)
-- [ ] Existing `SmtpEmailSender`/`Msg91SmsSender`/logging providers wrapped as channel implementations — **reused, not rewritten**
-- [ ] Central router: notification type → primary channel + fallback chain, dispatches through `INotificationChannel`, retries/fallback-on-failure scheduled via Phase 0's Hangfire (not a new timer)
-- [ ] `NotificationTemplates` gains a `WhatsApp` channel value (schema already supports arbitrary channel strings — no migration needed there)
-- [ ] Delivery history (`NotificationHistory`) extended to record which channel actually delivered, including fallback attempts
+- [x] `INotificationChannel` abstraction — one interface, one implementation per channel (Email, SMS today; WhatsApp, Push added this phase/later)
+- [x] Existing `SmtpEmailSender`/`Msg91SmsSender`/logging providers wrapped as channel implementations — **reused, not rewritten**
+- [x] Central router: notification type → primary channel + fallback chain, dispatches through `INotificationChannel`, retries/fallback-on-failure scheduled via Phase 0's Hangfire (not a new timer)
+- [x] `NotificationTemplates` gains a `WhatsApp` channel value (schema already supported arbitrary channel strings — confirmed, no migration needed)
+- [x] Delivery history (`NotificationHistory`) extended to record which channel actually delivered, including fallback attempts — `AttemptGroupId`/`AttemptNumber` (migration 263), one row per attempt, same group id links a primary attempt to its fallback(s)
+
+### Implementation notes (what actually shipped)
+- `Features/Notifications/INotificationChannel.cs` — `NotificationRecipient` (Email/Phone/UserId) + `INotificationChannel`; `EmailNotificationChannel`/`SmsNotificationChannel` wrap the existing `IEmailSender`/`ISmsSender` untouched.
+- `Features/Notifications/NotificationRouter.cs` — the actual dispatcher (template lookup, `{{token}}` rendering, `NotificationHistory` writes, chain walk) moved here from `NotificationService`. Hardcoded v1 chain table lives as a `static readonly Dictionary` inside the router, per the design decision below. A channel absent from DI (WhatsApp, until Track C ships) or unable to reach the recipient is silently skipped — zero further router changes needed once WhatsApp/Push register themselves.
+- `NotificationService` is now a thin facade: `SendEmailAsync`/`SendSmsAsync` build a single-contact-point `NotificationRecipient` and call the router — **existing call sites and their behavior are unchanged** (a recipient with only `Email` set naturally can't be delivered to by the SMS channel, so the chain resolves to Email exactly as before).
+- Hangfire retry: wrapped behind a new `IBackgroundJobScheduler` (real impl calls `BackgroundJob.Schedule`) purely for testability — the static Hangfire API throws without a configured `JobStorage`, which unit tests don't set up. One scheduled retry (5 min) when every channel in the chain fails on the first attempt; the retry itself (`RetryOnceAsync`) never reschedules another, so a permanently undeliverable recipient stops after two total attempts, not forever.
+- `ecomm.tests/NotificationRouterTests.cs` — 8 new tests: primary success, fallback-on-failure with history correlation, skip-if-undeliverable, skip-if-channel-not-registered, all-fail schedules exactly one retry, retry doesn't reschedule, missing-template-for-a-channel skips ahead, and the `NotificationService` facade never cross-sends. Full suite: 310/310 passing.
+
+### Deliberately NOT done this pass — flagged, not decided
+**`OrderService.NotifyOrderAsync`'s 7 call sites still call `SendEmailAsync` and `SendSmsAsync` independently** (both fire whenever both contact points exist), not the router's genuine single-recipient multi-channel dispatch. Migrating them to call `INotificationRouter.DispatchAsync` directly with one recipient object carrying both Email+Phone would be a **real behavior change** — customers would get order updates on ONE channel (falling back only on failure) instead of both today. That's arguably the actual point of "one engine, many channels," but it changes what a live customer receives, so it wasn't done silently — needs an explicit decision before it ships.
 
 ### Design decisions
 - **Ship with the design doc's own channel-assignment table as the hardcoded v1 default** (OTP→SMS, order updates→WhatsApp, invoices→Email, etc.) rather than building a per-tenant admin-configurable routing UI now — that's real scope beyond what this phase needs to unblock Phase 2/4. Note it as a natural follow-up once real delivery data exists to justify per-tenant tuning, mirroring how `AuthProviderService` already lets admins toggle login methods — same pattern, deferred until there's a reason to need it.

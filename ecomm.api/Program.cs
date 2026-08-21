@@ -133,6 +133,13 @@ if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.SmtpEmailSender>();
 else
     builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.LoggingEmailSender>();
+// Channel router: code -> primary channel + fallback chain (v4 Phase 1 Track A). One
+// INotificationChannel per transport, wrapping the senders above — WhatsApp/Push join this list
+// once built, no other change needed here.
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.EmailNotificationChannel>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.SmsNotificationChannel>();
+builder.Services.AddSingleton<ecomm.api.Features.Notifications.IBackgroundJobScheduler, ecomm.api.Features.Notifications.HangfireBackgroundJobScheduler>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationRouter, ecomm.api.Features.Notifications.NotificationRouter>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationFeedService, ecomm.api.Features.Notifications.NotificationFeedService>();

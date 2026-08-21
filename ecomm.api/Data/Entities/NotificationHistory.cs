@@ -14,4 +14,10 @@ public class NotificationHistory : ITenantScoped
     public string? Error { get; set; }
     public DateTime? SentAt { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Groups every attempt (primary + fallback channels) belonging to one logical
+    /// notification send — null for rows written before the router shipped.</summary>
+    public string? AttemptGroupId { get; set; }
+    /// <summary>1 = primary channel, 2 = first fallback, etc. Always 1 for pre-router rows.</summary>
+    public int AttemptNumber { get; set; } = 1;
 }
