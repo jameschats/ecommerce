@@ -4,3 +4,8 @@ services:
   api:
     env_file:
       - .env.docker
+    ports:
+      - "127.0.0.1:5090:5090"
+  ssr:
+    ports:
+      - "127.0.0.1:4010:4010"

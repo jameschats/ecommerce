@@ -1,10 +1,15 @@
-# Local: `cp .env.docker.example .env.docker` (fill in), then `docker compose up -d --build` -
-# compose auto-loads a docker-compose.override.yml if present; local dev's own (gitignored) one
-# supplies `env_file: .env.docker` for this service. The VPS's own override supplies its real env
-# file + bind mounts instead - see documents/v4-stages/phase-0-portability.md for the full cutover
-# plan. Deliberately no env_file default here: env_file is a list-type compose key that MERGES
-# across override files rather than replacing, so a hardcoded default here would still try to load
-# alongside whatever an override supplies - each environment supplies its own complete env_file list.
+# Local: `cp .env.docker.example .env.docker` (fill in), then `cp docker-compose.override.yml.example
+# docker-compose.override.yml`, then `docker compose up -d --build` - compose auto-loads
+# docker-compose.override.yml if present. The VPS's own override supplies its real env file + bind
+# mounts + ports instead - see documents/v4-stages/phase-0-portability.md for the full cutover plan.
+#
+# Deliberately no env_file or ports here, on either service: both are list-type compose keys that
+# MERGE across override files rather than replacing (confirmed the hard way - an early version of
+# this file hardcoded 5090:5090 here, and the VPS override's 5091:5090 merged ALONGSIDE it instead of
+# replacing it, which would have tried to bind the same host port the live systemd service was
+# already using). Every environment supplies its own complete env_file and ports lists via its own
+# override - never assume a list-type key here is safe to also set in an override.
+#
 # MySQL and Nginx are deliberately NOT containerized here (see that doc's "Explicitly out of scope"
 # section).
 services:
@@ -25,16 +30,12 @@ services:
     volumes:
       - dp-keys:/data/dp-keys
       - uploads:/data/uploads
-    ports:
-      - "127.0.0.1:5090:5090"
     restart: unless-stopped
 
   ssr:
     build:
       context: .
       dockerfile: ecomm.web/Dockerfile
-    ports:
-      - "127.0.0.1:4010:4010"
     restart: unless-stopped
     depends_on:
       - api
