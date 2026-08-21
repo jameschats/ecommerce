@@ -135,6 +135,7 @@ export const routes: Routes = [
       { path: 'messages', loadComponent: () => import('./features/admin/messages/admin-messages.component').then((m) => m.AdminMessagesComponent) },
       { path: 'inbox', loadComponent: () => import('./features/admin/inbox/admin-inbox.component').then((m) => m.AdminInboxComponent) },
       { path: 'faq', loadComponent: () => import('./features/admin/faq/admin-faq.component').then((m) => m.AdminFaqComponent) },
+      { path: 'helpdesk', loadComponent: () => import('./features/admin/helpdesk/admin-helpdesk.component').then((m) => m.AdminHelpdeskComponent) },
       { path: 'growth', loadComponent: () => import('./features/admin/growth/admin-growth-generate.component').then((m) => m.AdminGrowthGenerateComponent) },
       { path: 'growth/library', loadComponent: () => import('./features/admin/growth/admin-growth-library.component').then((m) => m.AdminGrowthLibraryComponent) },
       { path: 'growth/campaigns', loadComponent: () => import('./features/admin/growth/admin-campaigns.component').then((m) => m.AdminCampaignsComponent) },

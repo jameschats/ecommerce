@@ -292,6 +292,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/reviews', label: 'Reviews', icon: 'star' },
       { path: '/admin/inbox', label: 'Inbox', icon: 'inbox' },
       { path: '/admin/messages', label: 'Contact form', icon: 'mail' },
+      { path: '/admin/helpdesk', label: 'AI Assistant', icon: 'chat' },
     ] },
     { title: 'Discounts', color: '#0891b2', links: [
       { path: '/admin/coupons', label: 'Discounts', icon: 'tag' },
