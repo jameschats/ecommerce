@@ -44,10 +44,12 @@ public sealed class ChatbotService(
     IProductService products,
     IConversationRealtime realtime,
     INotificationFeedService feed,
+    IHelpdeskSettingsService helpdeskSettings,
     ILogger<ChatbotService> logger) : IChatbotService
 {
     private const int MaxUnresolvedExchanges = 3;
     private const string HandoffMessage = "I'm connecting you with a team member who can help further — they'll pick up right here in this chat.";
+    private const string HandoffMessageOutsideHours = "I'm connecting you with a team member who can help further — they'll pick up right here in this chat, though it may not be until our support hours resume.";
 
     // Judgment calls escalate unconditionally, by rule rather than model confidence — refund/
     // exception decisions are the merchant's to make, never the bot's, regardless of how well it
@@ -86,24 +88,28 @@ public sealed class ChatbotService(
         if (convo.ShopperUserId != shopperUserId)
             throw new AppException("Conversation not found.", StatusCodes.Status404NotFound);
 
-        var state = await GetOrCreateStateAsync(conversationId, ct);
-
         // Persist the customer's own message via the existing, tested path — same realtime push,
         // admin notification, and reopen-on-reply status handling as a message to a human agent.
         await conversations.ReplyAsShopperAsync(conversationId, message, shopperUserId, token: null, ct);
+
+        var settings = await helpdeskSettings.GetAsync(ct);
+        if (!settings.ChatbotEnabled)
+            return new ChatbotReplyDto("", true, null);   // merchant turned the bot off entirely — every thread is human-owned from message one
+
+        var state = await GetOrCreateStateAsync(conversationId, ct);
 
         if (!state.IsBotActive)
             return new ChatbotReplyDto("", true, state.EscalationReason);   // a human already owns this thread; bot stays silent
 
         if (JudgmentCallPattern.IsMatch(message))
-            return await EscalateAsync(convo, state, "JudgmentCall", ct);
+            return await EscalateAsync(convo, state, "JudgmentCall", settings, ct);
 
         if (state.UnresolvedExchangeCount >= MaxUnresolvedExchanges)
-            return await EscalateAsync(convo, state, "ExchangeLimit", ct);
+            return await EscalateAsync(convo, state, "ExchangeLimit", settings, ct);
 
         var classification = await ClassifyAsync(message, ct);
-        if (classification.Frustrated) return await EscalateAsync(convo, state, "Frustration", ct);
-        if (classification.WantsHuman) return await EscalateAsync(convo, state, "ExplicitRequest", ct);
+        if (classification.Frustrated) return await EscalateAsync(convo, state, "Frustration", settings, ct);
+        if (classification.WantsHuman) return await EscalateAsync(convo, state, "ExplicitRequest", settings, ct);
 
         var context = await BuildContextAsync(classification.Topic, message, shopperUserId, ct);
         var (answer, grounded) = await ComposeAsync(context, ct);
@@ -114,7 +120,7 @@ public sealed class ChatbotService(
             {
                 SupportTicketId = conversationId, Question = message, CreatedAt = DateTime.UtcNow,
             });
-            return await EscalateAsync(convo, state, "NoGroundedData", ct);
+            return await EscalateAsync(convo, state, "NoGroundedData", settings, ct);
         }
 
         state.UnresolvedExchangeCount++;
@@ -123,19 +129,34 @@ public sealed class ChatbotService(
         return new ChatbotReplyDto(answer, false, null);
     }
 
-    private async Task<ChatbotReplyDto> EscalateAsync(SupportTicket convo, ChatbotConversationState state, string reason, CancellationToken ct)
+    private async Task<ChatbotReplyDto> EscalateAsync(SupportTicket convo, ChatbotConversationState state, string reason, HelpdeskSettingsDto settings, CancellationToken ct)
     {
         state.IsBotActive = false;
         state.EscalatedAt = DateTime.UtcNow;
         state.EscalationReason = reason;
         state.UpdatedAt = DateTime.UtcNow;
 
-        await AppendBotMessageAsync(convo, HandoffMessage, ct);
+        var closing = IsWithinActiveHours(settings) ? HandoffMessage : HandoffMessageOutsideHours;
+        await AppendBotMessageAsync(convo, closing, ct);
 
         await feed.NotifyAdminsAsync("Conversation", $"Chatbot escalated on {convo.Reference ?? "a conversation"}",
             reason, $"/admin/inbox/{convo.SupportTicketId}", ct);
 
-        return new ChatbotReplyDto(HandoffMessage, true, reason);
+        return new ChatbotReplyDto(closing, true, reason);
+    }
+
+    /// <summary>True if no hours are configured (always active) or the current UTC time falls
+    /// within the configured window — including an overnight window (e.g. 22:00-06:00). This
+    /// doesn't change escalation triggers, only the messaging shown once escalation happens
+    /// (per the resolved solo-seller design decision), and compares in UTC as a known v1
+    /// simplification rather than the store's own configured Timezone.</summary>
+    private static bool IsWithinActiveHours(HelpdeskSettingsDto settings)
+    {
+        if (settings.ActiveHoursStart is null || settings.ActiveHoursEnd is null) return true;
+        if (!TimeOnly.TryParse(settings.ActiveHoursStart, out var start) || !TimeOnly.TryParse(settings.ActiveHoursEnd, out var end)) return true;
+
+        var now = TimeOnly.FromDateTime(DateTime.UtcNow);
+        return start <= end ? now >= start && now <= end : now >= start || now <= end;
     }
 
     private async Task AppendBotMessageAsync(SupportTicket convo, string body, CancellationToken ct)

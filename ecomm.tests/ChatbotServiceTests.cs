@@ -39,7 +39,7 @@ public class ChatbotServiceTests
         var orders = new FakeOrderService();
         var products = new FakeProductService();
         var svc = new ChatbotService(db, conversations, new PassThroughCredits(ai), new FaqService(db),
-            orders, products, realtime, feed, NullLogger<ChatbotService>.Instance);
+            orders, products, realtime, feed, new HelpdeskSettingsService(db), NullLogger<ChatbotService>.Instance);
         return (db, svc, ai, feed, realtime, orders, products);
     }
 
@@ -217,6 +217,41 @@ public class ChatbotServiceTests
 
         Assert.False(result.Escalated);
         Assert.Equal("Yes, we ship worldwide.", result.Reply);
+    }
+
+    [Fact]
+    public async Task Disabling_the_chatbot_leaves_every_thread_to_a_human_with_zero_AI_calls()
+    {
+        var (db, svc, ai, _, _, _, _) = Setup();
+        using var _db = db;
+        db.Settings.Add(new ecomm.api.Data.Entities.Setting { TenantId = 1, SettingKey = "ChatbotEnabled", SettingValue = "false", DataType = "string", Category = "Helpdesk", CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+        var id = SeedConversation(db);
+
+        var result = await svc.HandleShopperMessageAsync(id, "hello?", 5);
+
+        Assert.True(result.Escalated);
+        Assert.Empty(ai.Prompts);
+        Assert.Empty(db.ChatbotConversationStates);   // never even created — the bot never engaged at all
+    }
+
+    [Fact]
+    public async Task Escalation_outside_configured_active_hours_uses_the_delayed_response_message()
+    {
+        var (db, svc, ai, _, _, _, _) = Setup();
+        using var _db = db;
+        // A one-minute window that can't possibly contain "now", regardless of when the test runs.
+        var almostNow = TimeOnly.FromDateTime(DateTime.UtcNow).AddMinutes(-2).ToString("HH:mm");
+        var justBefore = TimeOnly.FromDateTime(DateTime.UtcNow).AddMinutes(-1).ToString("HH:mm");
+        db.Settings.Add(new ecomm.api.Data.Entities.Setting { TenantId = 1, SettingKey = "ChatbotActiveHoursStart", SettingValue = almostNow, DataType = "string", Category = "Helpdesk", CreatedAt = DateTime.UtcNow });
+        db.Settings.Add(new ecomm.api.Data.Entities.Setting { TenantId = 1, SettingKey = "ChatbotActiveHoursEnd", SettingValue = justBefore, DataType = "string", Category = "Helpdesk", CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+        var id = SeedConversation(db);
+
+        var result = await svc.HandleShopperMessageAsync(id, "I want a refund", 5);
+
+        Assert.True(result.Escalated);
+        Assert.Contains("support hours resume", result.Reply);
     }
 
     [Fact]
