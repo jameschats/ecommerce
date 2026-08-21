@@ -20,14 +20,18 @@ namespace ecomm.api.Features.Notifications;
 /// </summary>
 public interface INotificationRouter
 {
+    /// <param name="category">"transactional" (default) is never gated by consent — order
+    /// confirmations, password resets etc. always attempt to send. "marketing" is gated: a channel
+    /// with no opted-in <c>UserNotificationPreferences</c> row for this recipient is skipped, same
+    /// as if it couldn't be reached at all.</param>
     Task<bool> DispatchAsync(string code, NotificationRecipient recipient,
-        IReadOnlyDictionary<string, string> tokens, CancellationToken ct = default);
+        IReadOnlyDictionary<string, string> tokens, string category = "transactional", CancellationToken ct = default);
 
     /// <summary>Hangfire-invoked only — the single scheduled retry after every channel in the
     /// chain failed on the first attempt. Deliberately does not itself schedule another retry, so
     /// a permanently undeliverable recipient stops after two total attempts, not forever.</summary>
     Task RetryOnceAsync(string code, NotificationRecipient recipient,
-        Dictionary<string, string> tokens, CancellationToken ct = default);
+        Dictionary<string, string> tokens, string category = "transactional", CancellationToken ct = default);
 }
 
 /// <summary>Schedules the router's single delayed retry. Wraps Hangfire's static <c>BackgroundJob</c>
@@ -35,13 +39,13 @@ public interface INotificationRouter
 /// real <c>JobStorage</c> is configured, which unit tests don't set up.</summary>
 public interface IBackgroundJobScheduler
 {
-    void ScheduleNotificationRetry(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, TimeSpan delay);
+    void ScheduleNotificationRetry(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, string category, TimeSpan delay);
 }
 
 public sealed class HangfireBackgroundJobScheduler : IBackgroundJobScheduler
 {
-    public void ScheduleNotificationRetry(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, TimeSpan delay)
-        => BackgroundJob.Schedule<INotificationRouter>(r => r.RetryOnceAsync(code, recipient, tokens, CancellationToken.None), delay);
+    public void ScheduleNotificationRetry(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, string category, TimeSpan delay)
+        => BackgroundJob.Schedule<INotificationRouter>(r => r.RetryOnceAsync(code, recipient, tokens, category, CancellationToken.None), delay);
 }
 
 public sealed class NotificationRouter : INotificationRouter
@@ -80,22 +84,23 @@ public sealed class NotificationRouter : INotificationRouter
     }
 
     public async Task<bool> DispatchAsync(string code, NotificationRecipient recipient,
-        IReadOnlyDictionary<string, string> tokens, CancellationToken ct = default)
+        IReadOnlyDictionary<string, string> tokens, string category = "transactional", CancellationToken ct = default)
     {
-        var sent = await DispatchCoreAsync(code, recipient, tokens, ct);
-        if (!sent)
+        var (sent, attempted) = await DispatchCoreAsync(code, recipient, tokens, category, ct);
+        if (!sent && attempted)
         {
             _logger.LogWarning("Notification {Code} unsent after trying its full chain — scheduling one retry in {Delay}.", code, RetryDelay);
-            _scheduler.ScheduleNotificationRetry(code, recipient, new Dictionary<string, string>(tokens), RetryDelay);
+            _scheduler.ScheduleNotificationRetry(code, recipient, new Dictionary<string, string>(tokens), category, RetryDelay);
         }
         return sent;
     }
 
-    public Task RetryOnceAsync(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, CancellationToken ct = default)
-        => DispatchCoreAsync(code, recipient, tokens, ct);
+    public async Task RetryOnceAsync(string code, NotificationRecipient recipient, Dictionary<string, string> tokens,
+        string category = "transactional", CancellationToken ct = default)
+        => await DispatchCoreAsync(code, recipient, tokens, category, ct);
 
-    private async Task<bool> DispatchCoreAsync(string code, NotificationRecipient recipient,
-        IReadOnlyDictionary<string, string> tokens, CancellationToken ct)
+    private async Task<(bool sent, bool attempted)> DispatchCoreAsync(string code, NotificationRecipient recipient,
+        IReadOnlyDictionary<string, string> tokens, string category, CancellationToken ct)
     {
         var chain = ChannelChains.GetValueOrDefault(code, DefaultChain);
         var groupId = Guid.NewGuid().ToString();
@@ -105,15 +110,26 @@ public sealed class NotificationRouter : INotificationRouter
         {
             if (!_channels.TryGetValue(channelKey, out var channel)) continue;
             if (!channel.CanDeliverTo(recipient)) continue;
+            if (category.Equals("marketing", StringComparison.OrdinalIgnoreCase) && !await IsOptedInAsync(recipient, channelKey, ct)) continue;
 
             attempt++;
             if (await TryChannelAsync(channel, code, channelKey, recipient, tokens, groupId, attempt, ct))
-                return true;
+                return (true, true);
         }
 
         if (attempt == 0)
-            _logger.LogWarning("Notification {Code} not dispatched — no channel in its chain could reach recipient {UserId}.", code, recipient.UserId);
-        return false;
+            _logger.LogWarning("Notification {Code} not dispatched — no channel in its chain could reach or was consented to by recipient {UserId}.", code, recipient.UserId);
+        return (false, attempt > 0);
+    }
+
+    /// <summary>No row for (user, channel, "marketing") means no evidence of consent — never
+    /// inferred as opted-in. Transactional sends never call this.</summary>
+    private async Task<bool> IsOptedInAsync(NotificationRecipient recipient, string channelKey, CancellationToken ct)
+    {
+        if (recipient.UserId is null) return false;
+        return await _db.UserNotificationPreferences.AsNoTracking().AnyAsync(p =>
+            p.TenantId == Tenant && p.UserId == recipient.UserId && p.Channel == channelKey &&
+            p.Category == "marketing" && p.IsOptedIn, ct);
     }
 
     private async Task<bool> TryChannelAsync(INotificationChannel channel, string code, string channelKey,

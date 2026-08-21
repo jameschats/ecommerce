@@ -34,13 +34,19 @@ This phase has **three genuinely independent tracks** — sequence notes below, 
 
 ---
 
-## Track B — Consent & Preferences
+## Track B — Consent & Preferences ✅ Backend done (2026-08-21); UI deferred
 
 ### Scope & checklist
-- [ ] New `UserNotificationPreference` table: UserId, Channel, Category (`transactional` | `marketing`), IsOptedIn, UpdatedAt
-- [ ] WhatsApp-specific opt-in timestamp (WhatsApp's own rules are stricter than email/SMS — needs its own recorded consent event, not just a boolean)
-- [ ] Router (Track A) checks this table before any `marketing`-category send; `transactional` sends are never gated by it
-- [ ] Preference center UI — customer-facing (storefront account settings) and merchant-facing (compliance visibility: who's opted in/out) — **last step of this track**, once there's something real to control
+- [x] New `UserNotificationPreference` table: UserId, Channel, Category (`transactional` | `marketing`), IsOptedIn, UpdatedAt
+- [x] WhatsApp-specific opt-in timestamp — generalized as `OptedInAt` on every row (not WhatsApp-only), since the underlying need ("evidence of *when* consent was given, not just current state") applies the same way to any channel; re-opting-in stamps a fresh timestamp, opting out clears it
+- [x] Router (Track A) checks this table before any `marketing`-category send; `transactional` sends are never gated by it — verified: absence of a row, or `IsOptedIn=false`, is never inferred as consent
+- [ ] Preference center UI — **still deferred, correctly**: no marketing-category send exists anywhere in the codebase yet (the Growth/AI Marketing Engine generates campaign content but has no send pipeline), so there's genuinely nothing real to control yet, exactly as this track's own scope note anticipated. Backend API is ready (`GET`/`PUT /api/account/notification-preferences`) for whenever that UI gets built.
+
+### Implementation notes (what actually shipped)
+- `database/migrations/264_notification_preferences.sql` + `Data/Entities/UserNotificationPreference.cs` — `ITenantScoped`, unique on `(TenantId, UserId, Channel, Category)`.
+- `NotificationRouter.DispatchAsync` gained a `category` parameter (default `"transactional"`, so every existing call site is unaffected). For `"marketing"`, each channel in the chain is checked against this table before being tried — no opted-in row means the channel is skipped exactly like `CanDeliverTo == false`; if every channel in the chain is skipped this way, `DispatchAsync` returns `false` **without** scheduling a Hangfire retry (a consent block isn't a delivery failure — retrying it 5 minutes later can't change anything). This also fixed a small pre-existing inefficiency in Track A's own retry logic (it was scheduling a pointless retry even when a recipient had no reachable channel at all, e.g. no email or phone on file).
+- Self-service API on `AccountController` (`Features/Account/`) — reused the existing profile/address self-service pattern rather than a new controller. `IAccountService.ListNotificationPreferencesAsync`/`SetNotificationPreferenceAsync`.
+- 9 new tests: 3 in `NotificationRouterTests.cs` (blocked-by-default, reaches-an-opted-in-channel, transactional-never-gated) + 6 in `NotificationPreferenceTests.cs` (create/round-trip, opt-out clears timestamp, re-opt-in stamps fresh timestamp, upsert not duplicate, invalid category rejected, per-user scoping). Full suite: 319/319 passing.
 
 ### Design decisions
 - DLT registration (SMS) and WhatsApp Business template approval are **operational/account-setup tasks with the chosen providers**, not application code — call this out explicitly so it doesn't get missed as "someone else's problem" once the code ships. Owner: whoever sets up the MSG91/WhatsApp BSP business accounts.

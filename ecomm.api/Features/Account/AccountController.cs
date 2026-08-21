@@ -60,4 +60,13 @@ public class AccountController : ControllerBase
         var ok = await _account.SetDefaultAddressAsync(CurrentUserId, id, ct);
         return ok ? Ok(ApiResponse<object>.Ok(null!, "Default address set.")) : NotFound(ApiResponse<object>.Fail("Address not found."));
     }
+
+    // ----- Notification preferences (marketing opt-in/out; transactional sends are never gated) -----
+    [HttpGet("notification-preferences")]
+    public async Task<IActionResult> ListNotificationPreferences(CancellationToken ct)
+        => Ok(ApiResponse<List<NotificationPreferenceDto>>.Ok(await _account.ListNotificationPreferencesAsync(CurrentUserId, ct)));
+
+    [HttpPut("notification-preferences")]
+    public async Task<IActionResult> SetNotificationPreference(SetNotificationPreferenceRequest request, CancellationToken ct)
+        => Ok(ApiResponse<NotificationPreferenceDto>.Ok(await _account.SetNotificationPreferenceAsync(CurrentUserId, request, ct), "Preference saved."));
 }

@@ -20,8 +20,8 @@ public sealed class NotificationService : INotificationService
     public NotificationService(INotificationRouter router) => _router = router;
 
     public Task<bool> SendEmailAsync(string code, string toEmail, IReadOnlyDictionary<string, string> tokens, CancellationToken ct = default)
-        => _router.DispatchAsync(code, new NotificationRecipient(Email: toEmail), tokens, ct);
+        => _router.DispatchAsync(code, new NotificationRecipient(Email: toEmail), tokens, ct: ct);
 
     public Task<bool> SendSmsAsync(string code, string toPhone, IReadOnlyDictionary<string, string> tokens, CancellationToken ct = default)
-        => _router.DispatchAsync(code, new NotificationRecipient(Phone: toPhone), tokens, ct);
+        => _router.DispatchAsync(code, new NotificationRecipient(Phone: toPhone), tokens, ct: ct);
 }

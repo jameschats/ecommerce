@@ -111,6 +111,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<ProductSupplier> ProductSuppliers => Set<ProductSupplier>();
     public DbSet<ColorSwatch> ColorSwatches => Set<ColorSwatch>();
     public DbSet<BundleItem> BundleItems => Set<BundleItem>();
+    public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
 
     // --- V2: Plans & Subscriptions ---
     public DbSet<Plan> Plans => Set<Plan>();
@@ -392,6 +393,13 @@ public class EcommerceDbContext : DbContext
         b.Entity<MediaFile>(e => { e.ToTable("MediaFiles"); e.HasKey(x => x.MediaFileId); });
         b.Entity<NotificationTemplate>(e => { e.ToTable("NotificationTemplates"); e.HasKey(x => x.NotificationTemplateId); });
         b.Entity<NotificationHistory>(e => { e.ToTable("NotificationHistory"); e.HasKey(x => x.NotificationHistoryId); });
+        b.Entity<UserNotificationPreference>(e =>
+        {
+            e.ToTable("UserNotificationPreferences");
+            e.HasKey(x => x.UserNotificationPreferenceId);
+            e.HasIndex(x => new { x.TenantId, x.UserId, x.Channel, x.Category }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
         b.Entity<Review>(e => { e.ToTable("Reviews"); e.HasKey(x => x.ReviewId); });
         b.Entity<Coupon>(e =>
         {

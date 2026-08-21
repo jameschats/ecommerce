@@ -15,6 +15,9 @@ public interface IAccountService
     Task<AddressDto?> UpdateAddressAsync(long userId, long addressId, SaveAddressRequest req, CancellationToken ct = default);
     Task<bool> DeleteAddressAsync(long userId, long addressId, CancellationToken ct = default);
     Task<bool> SetDefaultAddressAsync(long userId, long addressId, CancellationToken ct = default);
+
+    Task<List<NotificationPreferenceDto>> ListNotificationPreferencesAsync(long userId, CancellationToken ct = default);
+    Task<NotificationPreferenceDto> SetNotificationPreferenceAsync(long userId, SetNotificationPreferenceRequest req, CancellationToken ct = default);
 }
 
 public sealed class AccountService : IAccountService
@@ -106,6 +109,32 @@ public sealed class AccountService : IAccountService
         await _db.SaveChangesAsync(ct);
         await ClearOtherDefaultsAsync(userId, addressId, ct);
         return true;
+    }
+
+    public Task<List<NotificationPreferenceDto>> ListNotificationPreferencesAsync(long userId, CancellationToken ct = default) =>
+        _db.UserNotificationPreferences.AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => new NotificationPreferenceDto(p.Channel, p.Category, p.IsOptedIn, p.OptedInAt))
+            .ToListAsync(ct);
+
+    public async Task<NotificationPreferenceDto> SetNotificationPreferenceAsync(long userId, SetNotificationPreferenceRequest req, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(req.Channel)) throw new AppException("Channel is required.");
+        if (req.Category != "marketing" && req.Category != "transactional")
+            throw new AppException("Category must be 'marketing' or 'transactional'.");
+
+        var entity = await _db.UserNotificationPreferences.FirstOrDefaultAsync(
+            p => p.UserId == userId && p.Channel == req.Channel && p.Category == req.Category, ct);
+        if (entity is null)
+        {
+            entity = new UserNotificationPreference { UserId = userId, Channel = req.Channel, Category = req.Category };
+            _db.UserNotificationPreferences.Add(entity);
+        }
+        entity.IsOptedIn = req.IsOptedIn;
+        entity.OptedInAt = req.IsOptedIn ? DateTime.UtcNow : null;   // stamps the moment of THIS consent event; cleared on opt-out
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return new NotificationPreferenceDto(entity.Channel, entity.Category, entity.IsOptedIn, entity.OptedInAt);
     }
 
     private async Task ClearOtherDefaultsAsync(long userId, long keepId, CancellationToken ct)

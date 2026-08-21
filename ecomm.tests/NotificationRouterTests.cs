@@ -31,7 +31,7 @@ public class NotificationRouterTests
         public int ScheduleCount;
         public string? LastCode;
 
-        public void ScheduleNotificationRetry(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, TimeSpan delay)
+        public void ScheduleNotificationRetry(string code, NotificationRecipient recipient, Dictionary<string, string> tokens, string category, TimeSpan delay)
         {
             ScheduleCount++;
             LastCode = code;
@@ -219,5 +219,67 @@ public class NotificationRouterTests
         Assert.True(sent);
         Assert.Equal(1, email.SendCount);
         Assert.Equal(0, sms.SendCount);   // SMS channel has no phone on this recipient, correctly never tried
+    }
+
+    [Fact]
+    public async Task Marketing_send_with_no_preference_row_is_blocked_by_default_not_sent()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedTemplate(db, "PromoBlast", "Email");
+        await db.SaveChangesAsync();
+
+        var email = new FakeChannel("Email");
+        var scheduler = new RecordingScheduler();
+        var router = NewRouter(db, [email], scheduler);
+
+        var recipient = new NotificationRecipient(UserId: 42, Email: "a@b.com");
+        var sent = await router.DispatchAsync("PromoBlast", recipient, new Dictionary<string, string> { ["name"] = "Sam" }, category: "marketing");
+
+        Assert.False(sent);
+        Assert.Equal(0, email.SendCount);           // never even attempted — no consent evidence
+        Assert.Equal(0, scheduler.ScheduleCount);    // not a delivery failure, so no retry scheduled
+        Assert.Empty(db.NotificationHistory);
+    }
+
+    [Fact]
+    public async Task Marketing_send_reaches_an_opted_in_channel()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedTemplate(db, "PromoBlast", "Email");
+        db.UserNotificationPreferences.Add(new UserNotificationPreference
+        {
+            UserId = 42, Channel = "Email", Category = "marketing", IsOptedIn = true, OptedInAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var email = new FakeChannel("Email");
+        var router = NewRouter(db, [email]);
+
+        var recipient = new NotificationRecipient(UserId: 42, Email: "a@b.com");
+        var sent = await router.DispatchAsync("PromoBlast", recipient, new Dictionary<string, string> { ["name"] = "Sam" }, category: "marketing");
+
+        Assert.True(sent);
+        Assert.Equal(1, email.SendCount);
+    }
+
+    [Fact]
+    public async Task Transactional_send_is_never_gated_by_preferences_even_when_opted_out()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedTemplate(db, "OrderCancelled", "Email");
+        db.UserNotificationPreferences.Add(new UserNotificationPreference
+        {
+            UserId = 42, Channel = "Email", Category = "marketing", IsOptedIn = false, UpdatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var email = new FakeChannel("Email");
+        var router = NewRouter(db, [email]);
+
+        var recipient = new NotificationRecipient(UserId: 42, Email: "a@b.com");
+        var sent = await router.DispatchAsync("OrderCancelled", recipient, new Dictionary<string, string> { ["name"] = "Sam" });   // category defaults to transactional
+
+        Assert.True(sent);
+        Assert.Equal(1, email.SendCount);
     }
 }
