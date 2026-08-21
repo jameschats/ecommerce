@@ -1,14 +1,17 @@
-# Local: `cp .env.docker.example .env.docker` (fill in), then `docker compose up -d --build`.
-# VPS deploy points env_file at /etc/wavcomm/api.env instead - see
-# documents/v4-stages/phase-0-portability.md for the full cutover plan. MySQL and Nginx are
-# deliberately NOT containerized here (see that doc's "Explicitly out of scope" section).
+# Local: `cp .env.docker.example .env.docker` (fill in), then `docker compose up -d --build` -
+# compose auto-loads a docker-compose.override.yml if present; local dev's own (gitignored) one
+# supplies `env_file: .env.docker` for this service. The VPS's own override supplies its real env
+# file + bind mounts instead - see documents/v4-stages/phase-0-portability.md for the full cutover
+# plan. Deliberately no env_file default here: env_file is a list-type compose key that MERGES
+# across override files rather than replacing, so a hardcoded default here would still try to load
+# alongside whatever an override supplies - each environment supplies its own complete env_file list.
+# MySQL and Nginx are deliberately NOT containerized here (see that doc's "Explicitly out of scope"
+# section).
 services:
   api:
     build:
       context: .
       dockerfile: ecomm.api/Dockerfile
-    env_file:
-      - .env.docker
     environment:
       # Override whatever env_file provides for these two - the container-internal mount points
       # below, not wherever the bare-metal deploy happened to configure. DataProtection keys and

@@ -29,3 +29,6 @@ documents/razorpay_test_api_keys_*.csv
 *.env
 secrets.json
 **/dp-keys/
+
+# Per-environment compose overrides (local dev, VPS) - never committed
+docker-compose.override.yml

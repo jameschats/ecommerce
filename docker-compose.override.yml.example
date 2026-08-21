@@ -1,0 +1,6 @@
+# Local dev only. Copy to docker-compose.override.yml (gitignored, auto-loaded by `docker compose`) -
+# see docker-compose.yml's top comment for why env_file has to live in an override, not the base file.
+services:
+  api:
+    env_file:
+      - .env.docker
