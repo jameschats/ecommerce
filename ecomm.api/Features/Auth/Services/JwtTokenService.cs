@@ -15,6 +15,16 @@ public interface IJwtTokenService
     (string token, DateTime expiresAtUtc) CreateImpersonationToken(User user, IEnumerable<string> roles, string mode, long impersonatorUserId, int minutes = 30);
     (string raw, string hash, DateTime expiresAtUtc) CreateRefreshToken();
     string HashRefreshToken(string raw);
+
+    /// <summary>A short-lived token proving "this user's password (or OTP/Google) already checked out,
+    /// pending their second factor" — issued instead of a real access token when 2FA is enabled.
+    /// Deliberately NEVER wired into the ASP.NET Core JWT Bearer scheme (see Program.cs) - the
+    /// frontend sends it back only as a plain field in the 2FA-verify request body, never as an
+    /// Authorization header, so it can't accidentally authorize anything even if a caller tried.</summary>
+    (string token, DateTime expiresAtUtc) CreateTwoFactorChallengeToken(long userId, int minutes = 5);
+    /// <summary>Returns the user id if the token is a valid, unexpired, correctly-purposed 2FA
+    /// challenge token — null for anything else (wrong purpose, expired, tampered, wrong key).</summary>
+    long? ValidateTwoFactorChallengeToken(string token);
 }
 
 public sealed class JwtTokenService : IJwtTokenService
@@ -81,4 +91,44 @@ public sealed class JwtTokenService : IJwtTokenService
 
     public string HashRefreshToken(string raw) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+
+    private const string TwoFactorPurposeClaim = "purpose";
+    private const string TwoFactorPurposeValue = "2fa-challenge";
+
+    public (string token, DateTime expiresAtUtc) CreateTwoFactorChallengeToken(long userId, int minutes = 5)
+    {
+        var now = DateTime.UtcNow;
+        var expires = now.AddMinutes(minutes);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(TwoFactorPurposeClaim, TwoFactorPurposeValue),
+        };
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var jwt = new JwtSecurityToken(_settings.Issuer, _settings.Audience, claims, now, expires, creds);
+        return (new JwtSecurityTokenHandler().WriteToken(jwt), expires);
+    }
+
+    public long? ValidateTwoFactorChallengeToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
+        var parameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true, ValidIssuer = _settings.Issuer,
+            ValidateAudience = true, ValidAudience = _settings.Audience,
+            ValidateLifetime = true, ValidateIssuerSigningKey = true, IssuerSigningKey = key,
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+        try
+        {
+            var principal = new JwtSecurityTokenHandler().ValidateToken(token, parameters, out _);
+            if (principal.FindFirstValue(TwoFactorPurposeClaim) != TwoFactorPurposeValue) return null;
+            var sub = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            return long.TryParse(sub, out var userId) ? userId : null;
+        }
+        catch { return null; }   // expired, tampered, wrong key — all just "invalid", not an error to surface
+    }
 }

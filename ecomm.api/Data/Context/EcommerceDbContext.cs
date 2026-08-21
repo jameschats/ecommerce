@@ -36,6 +36,7 @@ public class EcommerceDbContext : DbContext
     // --- Auth ---
     public DbSet<AuthProvider> AuthProviders => Set<AuthProvider>();
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
+    public DbSet<UserTwoFactorBackupCode> UserTwoFactorBackupCodes => Set<UserTwoFactorBackupCode>();
     public DbSet<OtpVerification> OtpVerifications => Set<OtpVerification>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -146,6 +147,13 @@ public class EcommerceDbContext : DbContext
         {
             e.ToTable("Users");
             e.HasKey(x => x.UserId);
+        });
+
+        b.Entity<UserTwoFactorBackupCode>(e =>
+        {
+            e.ToTable("UserTwoFactorBackupCodes");
+            e.HasKey(x => x.UserTwoFactorBackupCodeId);
+            e.HasOne(x => x.User).WithMany(u => u.TwoFactorBackupCodes).HasForeignKey(x => x.UserId);
         });
 
         b.Entity<Role>(e => { e.ToTable("Roles"); e.HasKey(x => x.RoleId); });

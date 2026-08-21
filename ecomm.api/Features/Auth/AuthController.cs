@@ -58,6 +58,12 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> Google(GoogleLoginRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.GoogleAsync(request, Ip, ct)));
 
+    /// <summary>Completes a login that returned RequiresTwoFactor=true.</summary>
+    [EnableRateLimiting("auth")]
+    [HttpPost("2fa/verify")]
+    public async Task<IActionResult> VerifyTwoFactor(TwoFactorVerifyRequest request, CancellationToken ct)
+        => Ok(ApiResponse<AuthResponse>.Ok(await _auth.VerifyTwoFactorAsync(request, Ip, ct)));
+
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(RefreshRequest request, CancellationToken ct)
         => Ok(ApiResponse<AuthResponse>.Ok(await _auth.RefreshAsync(request, Ip, ct)));

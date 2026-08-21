@@ -19,6 +19,8 @@ public class SuperAdminTenantAdminTests
         public (string, DateTime) CreateImpersonationToken(User u, IEnumerable<string> roles, string mode, long by, int minutes = 30) => throw new NotImplementedException();
         public (string, string, DateTime) CreateRefreshToken() => throw new NotImplementedException();
         public string HashRefreshToken(string raw) => throw new NotImplementedException();
+        public (string, DateTime) CreateTwoFactorChallengeToken(long userId, int minutes = 5) => throw new NotImplementedException();
+        public long? ValidateTwoFactorChallengeToken(string token) => throw new NotImplementedException();
     }
 
     private sealed class NoopEmail : IEmailSender

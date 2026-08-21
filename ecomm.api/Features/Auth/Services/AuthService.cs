@@ -22,6 +22,9 @@ public interface IAuthService
     Task<bool> ConfirmEmailVerificationAsync(long userId, string code, CancellationToken ct = default);
     /// <summary>Issue access + refresh tokens for an already-provisioned user (e.g. auto-login after onboarding).</summary>
     Task<AuthResponse> IssueTokensForUserAsync(User user, string? ip, CancellationToken ct = default);
+    /// <summary>Completes an email+password login that returned RequiresTwoFactor=true — verifies the
+    /// challenge token + TOTP/backup code, then issues real tokens exactly like a normal login would.</summary>
+    Task<AuthResponse> VerifyTwoFactorAsync(TwoFactorVerifyRequest request, string? ip, CancellationToken ct = default);
 }
 
 public sealed class AuthService : IAuthService
@@ -37,6 +40,7 @@ public sealed class AuthService : IAuthService
     private readonly IOtpService _otp;
     private readonly IGoogleTokenValidator _google;
     private readonly IAuthProviderService _providers;
+    private readonly ITwoFactorService _twoFactor;
 
     public AuthService(
         EcommerceDbContext db,
@@ -44,7 +48,8 @@ public sealed class AuthService : IAuthService
         IJwtTokenService jwt,
         IOtpService otp,
         IGoogleTokenValidator google,
-        IAuthProviderService providers)
+        IAuthProviderService providers,
+        ITwoFactorService twoFactor)
     {
         _db = db;
         _hasher = hasher;
@@ -52,6 +57,7 @@ public sealed class AuthService : IAuthService
         _otp = otp;
         _google = google;
         _providers = providers;
+        _twoFactor = twoFactor;
     }
 
     public async Task<AuthConfigResponse> GetConfigAsync(CancellationToken ct = default)
@@ -125,6 +131,29 @@ public sealed class AuthService : IAuthService
         user.LockoutEndUtc = null;
         user.LastLoginAt = now;
         await _db.SaveChangesAsync(ct);
+
+        if (user.TwoFactorEnabled)
+        {
+            var (challenge, _) = _jwt.CreateTwoFactorChallengeToken(user.UserId);
+            return new AuthResponse(string.Empty, string.Empty, DateTime.MinValue,
+                new AuthUserDto(0, null, null, null, Array.Empty<string>()),
+                RequiresTwoFactor: true, TwoFactorChallengeToken: challenge);
+        }
+        return await IssueTokensAsync(user, ip, ct);
+    }
+
+    public async Task<AuthResponse> VerifyTwoFactorAsync(TwoFactorVerifyRequest request, string? ip, CancellationToken ct = default)
+    {
+        var userId = _jwt.ValidateTwoFactorChallengeToken(request.ChallengeToken)
+            ?? throw new AppException("This code has expired. Please sign in again.", StatusCodes.Status401Unauthorized);
+
+        if (!await _twoFactor.VerifyAsync(userId, request.Code, ct))
+            throw new AppException("Incorrect code.", StatusCodes.Status401Unauthorized);
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId && !u.IsDeleted, ct)
+            ?? throw new AppException("Account not found.", StatusCodes.Status401Unauthorized);
+        if (!user.IsActive) throw new AppException("Your account is disabled.", StatusCodes.Status403Forbidden);
+
         return await IssueTokensAsync(user, ip, ct);
     }
 

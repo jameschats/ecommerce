@@ -29,6 +29,7 @@ public class OnboardingSlugTests
         public Task RequestEmailVerificationAsync(long userId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<bool> ConfirmEmailVerificationAsync(long userId, string code, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<AuthResponse> IssueTokensForUserAsync(User user, string? ip, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<AuthResponse> VerifyTwoFactorAsync(TwoFactorVerifyRequest r, string? ip, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
     private static OnboardingService NewSvc(ecomm.api.Data.Context.EcommerceDbContext db) =>

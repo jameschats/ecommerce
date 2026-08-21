@@ -18,8 +18,18 @@ public sealed record VerifyEmailRequest(string Code);
 public sealed record AuthUserDto(
     long UserId, string? Email, string? FullName, string? PhoneNumber, IReadOnlyList<string> Roles);
 
+/// <summary>RequiresTwoFactor=true means AccessToken/RefreshToken/User are placeholders and login
+/// isn't actually complete yet — the frontend must collect a TOTP/backup code and call
+/// POST /api/auth/2fa/verify with TwoFactorChallengeToken to get a real AuthResponse.</summary>
 public sealed record AuthResponse(
-    string AccessToken, string RefreshToken, DateTime ExpiresAtUtc, AuthUserDto User);
+    string AccessToken, string RefreshToken, DateTime ExpiresAtUtc, AuthUserDto User,
+    bool RequiresTwoFactor = false, string? TwoFactorChallengeToken = null);
+
+public sealed record TwoFactorVerifyRequest(string ChallengeToken, string Code);
+public sealed record TwoFactorEnrollConfirmRequest(string Code);
+public sealed record TwoFactorCodeRequest(string Code);
+public sealed record TwoFactorStatusDto(bool Enabled);
+public sealed record TwoFactorBackupCodesDto(IReadOnlyList<string> Codes);
 
 public sealed record AuthProviderDto(
     string Provider, string? DisplayName, bool IsEnabled, bool AllowRegistration, int DisplayOrder, string? ClientId);

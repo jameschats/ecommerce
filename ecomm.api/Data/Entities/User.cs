@@ -18,9 +18,15 @@ public class User : ITenantScoped
     public DateTime? LastLoginAt { get; set; }
     public int FailedLoginCount { get; set; }
     public DateTime? LockoutEndUtc { get; set; }
+    /// <summary>2FA (v4 Phase 1). TwoFactorSecret is DataProtection-encrypted at rest, same pattern
+    /// as TenantPaymentAccounts' Razorpay secret — never stored or logged in plaintext.</summary>
+    public bool TwoFactorEnabled { get; set; }
+    public string? TwoFactorSecret { get; set; }
+    public DateTime? TwoFactorEnabledAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<UserExternalLogin> ExternalLogins { get; set; } = new List<UserExternalLogin>();
+    public ICollection<UserTwoFactorBackupCode> TwoFactorBackupCodes { get; set; } = new List<UserTwoFactorBackupCode>();
 }
