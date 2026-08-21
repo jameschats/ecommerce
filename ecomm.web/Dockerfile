@@ -14,14 +14,13 @@ EXPOSE 4010
 ENV PORT=4010
 ENV HOST=0.0.0.0
 # @angular/ssr's SSRF guard (NG_ALLOWED_HOSTS) and forwarded-header trust (NG_TRUST_PROXY_HEADERS)
-# both default to reject-everything when unset. This app is genuinely multi-tenant with per-tenant
-# custom domains (Tenant.CustomDomain), so a fixed hostname allowlist would be architecturally wrong
-# - "*" is correct here because Nginx + TenantResolutionMiddleware are the real trust boundary this
-# app relies on, not Angular's generic same-origin SSRF guard. Discovered live, 2026-08-21: the
-# currently-deployed (pre-container) build predates whatever @angular/ssr version/behavior enforces
-# this, so the next normal (non-container) deploy from current source would hit this exact same
-# breakage regardless of containers - see the matching fix applied to the systemd unit.
-ENV NG_ALLOWED_HOSTS=*
-ENV NG_TRUST_PROXY_HEADERS=x-forwarded-host,x-forwarded-proto,x-forwarded-for
+# both default to reject-everything when unset - discovered live during the v4 Phase 0 container
+# cutover (2026-08-21) when every real request 400'd. Turned out this was already solved for the
+# systemd deploy via two drop-in files (documents/deployment.md SS10-WAV) that this Dockerfile-baked
+# version now matches, so both paths agree on the same allowlist rather than drifting apart.
+# NOTE: this list does not cover per-tenant custom domains (Tenant.CustomDomain) - a pre-existing
+# gap in the systemd config this just carries forward unchanged, not something introduced here.
+ENV NG_ALLOWED_HOSTS=wavcommerce.online,*.wavcommerce.online,localhost,127.0.0.1
+ENV NG_TRUST_PROXY_HEADERS=x-forwarded-for,x-forwarded-host,x-forwarded-proto
 
 ENTRYPOINT ["node", "dist/ecomm-web/server/server.mjs"]
