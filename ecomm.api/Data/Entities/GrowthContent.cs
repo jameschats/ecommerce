@@ -16,6 +16,11 @@ public class GrowthContent : ITenantScoped
     public string Language { get; set; } = "English";
     public string? Title { get; set; }
     public string Body { get; set; } = string.Empty;
+    /// <summary>Snapshot of Body/Title at generation time — never touched by an edit, so
+    /// Body != OriginalBody is a real, diffable "this was hand-edited" fact. Null on rows created
+    /// before this column existed; treat null as "unknown," never as "not edited."</summary>
+    public string? OriginalBody { get; set; }
+    public string? OriginalTitle { get; set; }
     public string Status { get; set; } = "Draft";   // Draft | Kept | Discarded
     public long? CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }

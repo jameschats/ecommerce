@@ -12,8 +12,9 @@ export interface BrandKit {
   useEmoji: boolean; hashtags: string | null; doNotSay: string | null;
 }
 export interface GrowthContent {
-  id: number; contentType: string; productId: number | null; language: string;
-  title: string | null; body: string; status: string; createdAt: string;
+  id: number; contentType: string; productId: number | null; campaignId: number | null; language: string;
+  title: string | null; body: string; status: string; wasEdited: boolean;
+  originalTitle: string | null; originalBody: string | null; createdAt: string; updatedAt: string | null;
 }
 export interface GenerateRequest {
   contentType: string; productId?: number | null; language?: string | null; brief?: string | null;
@@ -51,9 +52,16 @@ export class GrowthService {
   generate(req: GenerateRequest): Observable<GrowthContent> {
     return this.unwrap(this.http.post<ApiResponse<GrowthContent>>(`${this.base}/generate`, req));
   }
-  library(contentType?: string, page = 1, pageSize = 20): Observable<PagedResult<GrowthContent>> {
-    const q = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-    if (contentType) q.set('contentType', contentType);
+  library(filters: {
+    contentType?: string | null; productId?: number | null; campaignId?: number | null;
+    from?: string | null; to?: string | null; page?: number; pageSize?: number;
+  } = {}): Observable<PagedResult<GrowthContent>> {
+    const q = new URLSearchParams({ page: String(filters.page ?? 1), pageSize: String(filters.pageSize ?? 20) });
+    if (filters.contentType) q.set('contentType', filters.contentType);
+    if (filters.productId) q.set('productId', String(filters.productId));
+    if (filters.campaignId) q.set('campaignId', String(filters.campaignId));
+    if (filters.from) q.set('from', filters.from);
+    if (filters.to) q.set('to', filters.to);
     return this.unwrap(this.http.get<ApiResponse<PagedResult<GrowthContent>>>(`${this.base}/content?${q}`));
   }
   update(id: number, body: string, title: string | null, status: string): Observable<GrowthContent> {

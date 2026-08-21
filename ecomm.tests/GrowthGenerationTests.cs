@@ -139,9 +139,59 @@ public class GrowthGenerationTests
         var fb = await svc.GenerateAsync(new GenerateRequest("facebook-post", 9, null, null), 1);
         await svc.UpdateAsync(fb.Id, "edited", null, "Discarded");
 
-        Assert.Equal(1, (await svc.LibraryAsync(null, null, 1, 20)).TotalCount);          // discarded hidden
-        Assert.Equal(1, (await svc.LibraryAsync("instagram-caption", null, 1, 20)).TotalCount);
-        Assert.Equal(0, (await svc.LibraryAsync("email", null, 1, 20)).TotalCount);
+        Assert.Equal(1, (await svc.LibraryAsync(null, null, null, null, null, 1, 20)).TotalCount);          // discarded hidden
+        Assert.Equal(1, (await svc.LibraryAsync("instagram-caption", null, null, null, null, 1, 20)).TotalCount);
+        Assert.Equal(0, (await svc.LibraryAsync("email", null, null, null, null, 1, 20)).TotalCount);
+    }
+
+    [Fact]
+    public async Task The_library_filters_by_campaign_and_date_range()
+    {
+        var (db, svc, _) = Setup();
+        using var _db = db;
+        var solo = await svc.GenerateAsync(new GenerateRequest("instagram-caption", 9, null, null), 1);
+        var campaigned = await svc.GenerateAsync(new GenerateRequest("facebook-post", 9, null, null), 1, campaignId: 42);
+
+        var byCampaign = await svc.LibraryAsync(null, null, 42, null, null, 1, 20);
+        Assert.Equal(1, byCampaign.TotalCount);
+        Assert.Equal(campaigned.Id, byCampaign.Items[0].Id);
+
+        var tomorrow = DateTime.UtcNow.AddDays(1);
+        var future = await svc.LibraryAsync(null, null, null, tomorrow, null, 1, 20);
+        Assert.Equal(0, future.TotalCount);   // nothing created after tomorrow
+
+        var today = DateTime.UtcNow.Date;
+        var todayOnly = await svc.LibraryAsync(null, null, null, today, today, 1, 20);
+        Assert.Equal(2, todayOnly.TotalCount);   // both created today, "to" is inclusive of the whole day
+        Assert.Contains(todayOnly.Items, i => i.Id == solo.Id);
+    }
+
+    [Fact]
+    public async Task Editing_content_preserves_the_original_generated_text_and_flags_WasEdited()
+    {
+        var (db, svc, _) = Setup();
+        using var _db = db;
+        var generated = await svc.GenerateAsync(new GenerateRequest("instagram-caption", 9, null, null), 1);
+        Assert.False(generated.WasEdited);
+        Assert.Equal(generated.Body, generated.OriginalBody);
+
+        var edited = await svc.UpdateAsync(generated.Id, "a completely different caption", null, "Kept");
+
+        Assert.True(edited.WasEdited);
+        Assert.Equal("a completely different caption", edited.Body);
+        Assert.Equal(generated.Body, edited.OriginalBody);   // the AI's original text survives the edit
+    }
+
+    [Fact]
+    public async Task Changing_only_the_status_does_not_flag_the_content_as_edited()
+    {
+        var (db, svc, _) = Setup();
+        using var _db = db;
+        var generated = await svc.GenerateAsync(new GenerateRequest("instagram-caption", 9, null, null), 1);
+
+        var kept = await svc.UpdateAsync(generated.Id, generated.Body, generated.Title, "Kept");
+
+        Assert.False(kept.WasEdited);
     }
 
     [Fact]

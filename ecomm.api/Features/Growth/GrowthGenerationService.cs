@@ -11,13 +11,15 @@ namespace ecomm.api.Features.Growth;
 public sealed record GrowthTypeDto(string Key, string Label, string Description, int Credits, bool NeedsProduct);
 public sealed record GenerateRequest(string ContentType, long? ProductId, string? Language, string? Brief);
 public sealed record GrowthContentDto(
-    long Id, string ContentType, long? ProductId, string Language, string? Title, string Body, string Status, DateTime CreatedAt);
+    long Id, string ContentType, long? ProductId, long? CampaignId, string Language, string? Title, string Body,
+    string Status, bool WasEdited, string? OriginalTitle, string? OriginalBody, DateTime CreatedAt, DateTime? UpdatedAt);
 
 public interface IGrowthGenerationService
 {
     IReadOnlyList<GrowthTypeDto> Types();
     Task<GrowthContentDto> GenerateAsync(GenerateRequest req, long? userId, long? campaignId = null, CancellationToken ct = default);
-    Task<PagedResult<GrowthContentDto>> LibraryAsync(string? contentType, long? productId, int page, int pageSize, CancellationToken ct = default);
+    Task<PagedResult<GrowthContentDto>> LibraryAsync(string? contentType, long? productId, long? campaignId,
+        DateTime? from, DateTime? to, int page, int pageSize, CancellationToken ct = default);
     Task<GrowthContentDto> UpdateAsync(long id, string body, string? title, string status, CancellationToken ct = default);
     Task DeleteAsync(long id, CancellationToken ct = default);
 }
@@ -123,6 +125,8 @@ public sealed class GrowthGenerationService(
             Language = language,
             Title = title,
             Body = body,
+            OriginalTitle = title,
+            OriginalBody = body,
             Status = "Draft",
             CreatedByUserId = userId,
             CreatedAt = DateTime.UtcNow,
@@ -134,7 +138,8 @@ public sealed class GrowthGenerationService(
     }
 
     public async Task<PagedResult<GrowthContentDto>> LibraryAsync(
-        string? contentType, long? productId, int page, int pageSize, CancellationToken ct = default)
+        string? contentType, long? productId, long? campaignId, DateTime? from, DateTime? to,
+        int page, int pageSize, CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -142,6 +147,9 @@ public sealed class GrowthGenerationService(
         var q = db.GrowthContents.AsNoTracking().Where(c => c.Status != "Discarded");
         if (!string.IsNullOrWhiteSpace(contentType)) q = q.Where(c => c.ContentType == contentType);
         if (productId is { } pid) q = q.Where(c => c.ProductId == pid);
+        if (campaignId is { } cid) q = q.Where(c => c.CampaignId == cid);
+        if (from is { } f) q = q.Where(c => c.CreatedAt >= f);
+        if (to is { } t) q = q.Where(c => c.CreatedAt < t.AddDays(1));   // inclusive of the whole "to" day
 
         var total = await q.LongCountAsync(ct);
         var items = await q.OrderByDescending(c => c.GrowthContentId)
@@ -190,8 +198,14 @@ public sealed class GrowthGenerationService(
         return (null, text);
     }
 
+    /// <summary>Edited = the current text differs from the generation-time snapshot. Rows from
+    /// before OriginalBody existed have it as null — treated as "unknown," never flagged as edited.</summary>
+    private static bool WasEdited(GrowthContent c) =>
+        c.OriginalBody is not null && (c.Body != c.OriginalBody || c.Title != c.OriginalTitle);
+
     private static GrowthContentDto Map(GrowthContent c) =>
-        new(c.GrowthContentId, c.ContentType, c.ProductId, c.Language, c.Title, c.Body, c.Status, c.CreatedAt);
+        new(c.GrowthContentId, c.ContentType, c.ProductId, c.CampaignId, c.Language, c.Title, c.Body,
+            c.Status, WasEdited(c), c.OriginalTitle, c.OriginalBody, c.CreatedAt, c.UpdatedAt);
 
     private static string Trim(string? v, int max)
     {

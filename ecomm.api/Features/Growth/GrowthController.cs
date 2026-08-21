@@ -38,9 +38,10 @@ public sealed class GrowthController(
 
     [HttpGet("content")]
     public async Task<IActionResult> Library(
-        [FromQuery] string? contentType, [FromQuery] long? productId,
+        [FromQuery] string? contentType, [FromQuery] long? productId, [FromQuery] long? campaignId,
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
-        => Ok(ApiResponse<PagedResult<GrowthContentDto>>.Ok(await gen.LibraryAsync(contentType, productId, page, pageSize, ct)));
+        => Ok(ApiResponse<PagedResult<GrowthContentDto>>.Ok(await gen.LibraryAsync(contentType, productId, campaignId, from, to, page, pageSize, ct)));
 
     [HttpPut("content/{id:long}")]
     public async Task<IActionResult> Update(long id, UpdateContentRequest request, CancellationToken ct)

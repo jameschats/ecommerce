@@ -101,7 +101,9 @@ import { Campaign, CampaignSummary, Goal, GrowthService } from '../../../core/se
               <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between">
                 <div>
                   <div class="text-sm font-medium text-slate-800">{{ c.name }}</div>
-                  <div class="text-xs text-slate-400">{{ c.pieces }} pieces · {{ c.createdAt | date:'dd MMM, HH:mm' }}</div>
+                  <a [routerLink]="['/admin/growth/library']" [queryParams]="{ campaignId: c.id }"
+                     class="text-xs text-primary hover:underline">{{ c.pieces }} pieces</a>
+                  <span class="text-xs text-slate-400"> · {{ c.createdAt | date:'dd MMM, HH:mm' }}</span>
                 </div>
                 <button type="button" (click)="removeCampaign(c)" class="text-sm text-red-600 hover:underline">Delete</button>
               </div>

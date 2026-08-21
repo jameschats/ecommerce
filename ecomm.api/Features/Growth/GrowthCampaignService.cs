@@ -130,7 +130,9 @@ public sealed class GrowthCampaignService(EcommerceDbContext db, IGrowthGenerati
         var content = await db.GrowthContents.AsNoTracking()
             .Where(gc => gc.CampaignId == id)
             .OrderBy(gc => gc.GrowthContentId)
-            .Select(gc => new GrowthContentDto(gc.GrowthContentId, gc.ContentType, gc.ProductId, gc.Language, gc.Title, gc.Body, gc.Status, gc.CreatedAt))
+            .Select(gc => new GrowthContentDto(gc.GrowthContentId, gc.ContentType, gc.ProductId, gc.CampaignId, gc.Language, gc.Title, gc.Body,
+                gc.Status, gc.OriginalBody != null && (gc.Body != gc.OriginalBody || gc.Title != gc.OriginalTitle),
+                gc.OriginalTitle, gc.OriginalBody, gc.CreatedAt, gc.UpdatedAt))
             .ToListAsync(ct);
 
         var channels = content.Select(c => new CampaignChannelDto(c.ContentType, c, null)).ToList();
