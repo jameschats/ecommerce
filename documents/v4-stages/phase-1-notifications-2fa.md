@@ -88,6 +88,15 @@ This phase has **three genuinely independent tracks** — sequence notes below, 
 - `WhatsAppNotificationChannel` adapts this into Track A's router exactly like Email/SMS. Confirmed via test: `OrderShipped`'s chain (`[WhatsApp, SMS, Email]`, set up in Track A before WhatsApp existed) now genuinely prefers WhatsApp the moment it's registered and templated — zero router changes needed, exactly as designed.
 - 10 new tests (6 `GupshupWhatsAppProviderTests.cs` against a fake `HttpMessageHandler`, 4 router-integration cases in `NotificationRouterTests.cs`). Full suite: 329/329 passing.
 
+### Interakt added as a parallel fallback provider (2026-08-21)
+
+Gupshup's own self-serve signup (`laminar.gupshup.io`) had real operational problems getting a live account — an "Invalid sales code received" error on the promo link the AI concierge issued (traced to an expired/stale sales code, not a URL-parsing bug — the hash-fragment fix was tried and ruled out), and the plain signup page wasn't accepting registration either. Two things happening in parallel rather than switching outright:
+- An email was drafted for the user to send Gupshup sales directly, asking them to either fix self-serve signup or route to the **Partner/Tech-Provider** onboarding track — which is the one that actually matches WavCommerce's real need (provisioning a WABA per merchant tenant), as opposed to the self-serve Starter/Pro consumer signup that was failing.
+- `Features/WhatsApp/InteraktWhatsAppProvider.cs` — a second `IWhatsAppProvider` implementation, `WhatsApp:Provider=Interakt`, same config-gated pattern. Contract taken from Interakt's own published docs (`POST https://api.interakt.ai/v1/public/message/`, HTTP Basic auth, split `countryCode`/`phoneNumber` fields unlike Gupshup's single E.164 field, `{"result","message","id"}` response). **The session/free-form message shape is inferred, not documented** — Interakt's public docs only cover the template endpoint; flagged directly in the class doc comment, confirm before relying on it.
+- Explicitly **not** a vendor switch — Interakt is a worse long-term fit for WavCommerce's actual multi-tenant architecture (its white-label is an agency reseller dashboard, not a headless partner API), per the original Track C comparison. This is a parallel unblock so there's a working number to test against sooner, while Gupshup's account situation gets sorted separately.
+- 6 new tests (`InteraktWhatsAppProviderTests.cs`, same fake-`HttpMessageHandler` pattern as the Gupshup provider tests). Full suite: 357/357 passing.
+- **Both providers remain unverified against a live account** — this doesn't change until one of the two vendor situations actually resolves.
+
 ---
 
 ## Track D — 2FA

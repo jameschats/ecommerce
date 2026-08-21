@@ -138,7 +138,9 @@ else
 // once built, no other change needed here.
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.EmailNotificationChannel>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.SmsNotificationChannel>();
-// WhatsApp provider selected by WhatsApp:Provider (None dev-stub | Gupshup real) — v4 Phase 1 Track C.
+// WhatsApp provider selected by WhatsApp:Provider (None dev-stub | Gupshup | Interakt) — v4 Phase 1
+// Track C. Interakt added as a parallel fallback while Gupshup's own signup flow had operational
+// problems — see phase-1-notifications-2fa.md's Track C notes.
 builder.Services.Configure<ecomm.api.Features.WhatsApp.WhatsAppOptions>(builder.Configuration.GetSection(ecomm.api.Features.WhatsApp.WhatsAppOptions.SectionName));
 var whatsAppProvider = builder.Configuration["WhatsApp:Provider"] ?? "None";
 if (whatsAppProvider.Equals("Gupshup", StringComparison.OrdinalIgnoreCase))
@@ -146,6 +148,11 @@ if (whatsAppProvider.Equals("Gupshup", StringComparison.OrdinalIgnoreCase))
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("gupshup"),
         sp.GetRequiredService<IOptions<ecomm.api.Features.WhatsApp.WhatsAppOptions>>(),
         sp.GetRequiredService<ILogger<ecomm.api.Features.WhatsApp.GupshupWhatsAppProvider>>()));
+else if (whatsAppProvider.Equals("Interakt", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<ecomm.api.Features.WhatsApp.IWhatsAppProvider>(sp => new ecomm.api.Features.WhatsApp.InteraktWhatsAppProvider(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("interakt"),
+        sp.GetRequiredService<IOptions<ecomm.api.Features.WhatsApp.WhatsAppOptions>>(),
+        sp.GetRequiredService<ILogger<ecomm.api.Features.WhatsApp.InteraktWhatsAppProvider>>()));
 else
     builder.Services.AddScoped<ecomm.api.Features.WhatsApp.IWhatsAppProvider, ecomm.api.Features.WhatsApp.LoggingWhatsAppProvider>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.WhatsAppNotificationChannel>();
