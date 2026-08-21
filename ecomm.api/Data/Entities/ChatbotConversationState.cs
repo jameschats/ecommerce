@@ -10,6 +10,9 @@ public class ChatbotConversationState : ITenantScoped
     public long SupportTicketId { get; set; }
     public bool IsBotActive { get; set; } = true;
     public int UnresolvedExchangeCount { get; set; }
+    /// <summary>The product most recently surfaced in this conversation (v4 Phase 3 Shopping
+    /// Assistant) — lets "add that to my cart" resolve without repeating the product name.</summary>
+    public long? LastMentionedProductId { get; set; }
     public DateTime? EscalatedAt { get; set; }
     /// <summary>NoGroundedData | Frustration | ExplicitRequest | JudgmentCall | ExchangeLimit — null while still bot-active.</summary>
     public string? EscalationReason { get; set; }

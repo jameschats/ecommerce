@@ -4,6 +4,7 @@ using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Ai;
+using ecomm.api.Features.Cart;
 using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
 using ecomm.api.Features.Faqs;
@@ -26,7 +27,7 @@ namespace ecomm.tests;
 /// </summary>
 public class ChatbotServiceTests
 {
-    private static (EcommerceDbContext db, ChatbotService svc, ScriptedAi ai, ContactTestFeed feed, RecordingRealtime realtime, FakeOrderService orders, FakeProductService products) Setup()
+    private static (EcommerceDbContext db, ChatbotService svc, ScriptedAi ai, ContactTestFeed feed, RecordingRealtime realtime, FakeOrderService orders, FakeProductService products, FakeCartService cart) Setup()
     {
         var db = TestDb.New(tenantId: 1);
         var ai = new ScriptedAi();
@@ -38,9 +39,10 @@ public class ChatbotServiceTests
             realtime);
         var orders = new FakeOrderService();
         var products = new FakeProductService();
+        var cart = new FakeCartService();
         var svc = new ChatbotService(db, conversations, new PassThroughCredits(ai), new FaqService(db),
-            orders, products, realtime, feed, new HelpdeskSettingsService(db), NullLogger<ChatbotService>.Instance);
-        return (db, svc, ai, feed, realtime, orders, products);
+            orders, products, cart, realtime, feed, new HelpdeskSettingsService(db), NullLogger<ChatbotService>.Instance);
+        return (db, svc, ai, feed, realtime, orders, products, cart);
     }
 
     private static long SeedConversation(EcommerceDbContext db, long shopperUserId = 5)
@@ -65,7 +67,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task A_grounded_faq_question_gets_answered_and_not_escalated()
     {
-        var (db, svc, ai, _, realtime, _, _) = Setup();
+        var (db, svc, ai, _, realtime, _, _, _) = Setup();
         using var _db = db;
         db.Faqs.Add(new Faq { TenantId = 1, Question = "Do you ship worldwide?", Answer = "Yes.", IsPublished = true, CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
@@ -84,7 +86,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task An_order_question_grounds_on_the_customers_real_order_not_a_fabricated_one()
     {
-        var (db, svc, ai, _, _, orders, _) = Setup();
+        var (db, svc, ai, _, _, orders, _, _) = Setup();
         using var _db = db;
         ai.Enqueue(OrderTopic, """{"answer":"Your order ORD-1 has shipped.","grounded":true}""");
         orders.Mine = [new OrderListItem(70, "ORD-1", "Shipped", 999m, 1, "Widget", null, DateTime.UtcNow, DateTime.UtcNow, false)];
@@ -105,7 +107,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Ungrounded_answer_escalates_and_logs_the_unanswered_question()
     {
-        var (db, svc, ai, feed, _, _, _) = Setup();
+        var (db, svc, ai, feed, _, _, _, _) = Setup();
         using var _db = db;
         ai.Enqueue(NotFrustrated, Ungrounded);
         var id = SeedConversation(db);
@@ -126,7 +128,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Frustration_escalates_without_ever_calling_compose()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         ai.Enqueue(Frustrated);
         var id = SeedConversation(db);
@@ -141,7 +143,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Explicit_human_request_escalates()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         ai.Enqueue(WantsHuman);
         var id = SeedConversation(db);
@@ -158,7 +160,7 @@ public class ChatbotServiceTests
     [InlineData("I'd like to cancel my order")]
     public async Task Judgment_call_language_escalates_by_rule_with_zero_AI_calls(string message)
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         var id = SeedConversation(db);
 
@@ -172,7 +174,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Once_escalated_the_bot_stays_silent_on_further_messages()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         var id = SeedConversation(db);
         await svc.HandleShopperMessageAsync(id, "I want a refund", 5);   // escalates via judgment call
@@ -188,7 +190,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Three_unresolved_exchanges_escalate_on_the_next_message()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         var id = SeedConversation(db);
         for (var i = 0; i < 3; i++)
@@ -207,7 +209,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task A_classify_failure_degrades_gracefully_and_still_attempts_an_answer()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         ai.ThrowOnNextCall = true;
         ai.Enqueue(Grounded);   // compose still runs with default (non-frustrated) classification
@@ -222,7 +224,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Disabling_the_chatbot_leaves_every_thread_to_a_human_with_zero_AI_calls()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         db.Settings.Add(new ecomm.api.Data.Entities.Setting { TenantId = 1, SettingKey = "ChatbotEnabled", SettingValue = "false", DataType = "string", Category = "Helpdesk", CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
@@ -238,7 +240,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Escalation_outside_configured_active_hours_uses_the_delayed_response_message()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         // A one-minute window that can't possibly contain "now", regardless of when the test runs.
         var almostNow = TimeOnly.FromDateTime(DateTime.UtcNow).AddMinutes(-2).ToString("HH:mm");
@@ -257,7 +259,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Starting_a_new_chat_creates_the_ticket_and_answers_the_first_message_without_double_persisting()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         db.Faqs.Add(new Faq { TenantId = 1, Question = "Do you ship worldwide?", Answer = "Yes.", IsPublished = true, CreatedAt = DateTime.UtcNow });
         db.Users.Add(new User { UserId = 5, TenantId = 1, Email = "priya@example.com", CreatedAt = DateTime.UtcNow });
@@ -277,7 +279,7 @@ public class ChatbotServiceTests
     [Fact]
     public async Task Starting_a_chat_without_an_account_email_is_rejected()
     {
-        var (db, svc, _, _, _, _, _) = Setup();
+        var (db, svc, _, _, _, _, _, _) = Setup();
         using var _db = db;
         db.Users.Add(new User { UserId = 5, TenantId = 1, Email = null, CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
@@ -288,12 +290,146 @@ public class ChatbotServiceTests
     [Fact]
     public async Task A_conversation_the_caller_does_not_own_is_not_found()
     {
-        var (db, svc, ai, _, _, _, _) = Setup();
+        var (db, svc, ai, _, _, _, _, _) = Setup();
         using var _db = db;
         ai.Enqueue(NotFrustrated, Grounded);
         var id = SeedConversation(db, shopperUserId: 5);
 
         await Assert.ThrowsAsync<AppException>(() => svc.HandleShopperMessageAsync(id, "hi", 999));
+    }
+
+    private const string WantsCart = """{"frustrated":false,"wantsHuman":false,"wantsToAddToCart":true,"topic":"product"}""";
+
+    private static ProductListItemDto Product(long id, string name, decimal price, bool inStock = true) => new(
+        ProductId: id, Sku: $"SKU{id}", Name: name, Slug: $"slug-{id}", Price: price, CompareAtPrice: null,
+        Status: "Active", IsFeatured: false, PrimaryImageUrl: null, CategoryName: "Category", BrandName: null,
+        InStock: inStock, AvailableQty: inStock ? 10 : 0, IsLowStock: false, ColorOptions: [],
+        CreatedAt: DateTime.UtcNow, SecondaryImageUrl: null);
+
+    [Fact]
+    public async Task Add_to_cart_with_a_single_clear_match_updates_the_cart_with_no_compose_call()
+    {
+        var (db, svc, ai, _, _, _, products, cart) = Setup();
+        using var _db = db;
+        ai.Enqueue(WantsCart);
+        products.Results = new PagedResult<ProductListItemDto> { Items = [Product(42, "Aloe Moisturizer", 399m)], Page = 1, PageSize = 3, TotalCount = 1 };
+        cart.Result = new CartDto(1, [new CartItemDto(1, 42, null, "Aloe Moisturizer", "slug-42", null, null, 399m, 1, 399m, 10, true)], 1, 1, 399m, "Exclusive");
+        var id = SeedConversation(db);
+
+        var result = await svc.HandleShopperMessageAsync(id, "add the aloe moisturizer to my cart", 5);
+
+        Assert.False(result.Escalated);
+        Assert.Contains("Aloe Moisturizer", result.Reply);
+        Assert.Contains("399", result.Reply);
+        Assert.Equal(42, cart.LastRequest!.ProductId);
+        Assert.Single(ai.Prompts);   // classify only — cart confirmations are built from the real cart response, never composed by the model
+        Assert.Equal(42, db.ChatbotConversationStates.Single().LastMentionedProductId);
+        Assert.True(result.CartUpdated);   // frontend uses this to refresh the header cart badge deterministically
+    }
+
+    [Fact]
+    public async Task Add_to_cart_with_multiple_matches_asks_which_one_instead_of_guessing()
+    {
+        var (db, svc, ai, _, _, _, products, cart) = Setup();
+        using var _db = db;
+        ai.Enqueue(WantsCart);
+        products.Results = new PagedResult<ProductListItemDto>
+        {
+            Items = [Product(1, "Aloe Moisturizer", 399m), Product(2, "Aloe Face Wash", 249m)], Page = 1, PageSize = 3, TotalCount = 2,
+        };
+        var id = SeedConversation(db);
+
+        var result = await svc.HandleShopperMessageAsync(id, "add the aloe one to my cart", 5);
+
+        Assert.False(result.Escalated);
+        Assert.Contains("which one", result.Reply);
+        Assert.Null(cart.LastRequest);   // never guessed
+    }
+
+    [Fact]
+    public async Task Add_to_cart_with_no_match_and_no_prior_context_asks_for_the_product_name()
+    {
+        var (db, svc, ai, _, _, _, products, cart) = Setup();
+        using var _db = db;
+        ai.Enqueue(WantsCart);
+        products.Results = new PagedResult<ProductListItemDto> { Items = [], Page = 1, PageSize = 3, TotalCount = 0 };
+        var id = SeedConversation(db);
+
+        var result = await svc.HandleShopperMessageAsync(id, "add it to my cart", 5);
+
+        Assert.False(result.Escalated);
+        Assert.Contains("not sure which product", result.Reply);
+        Assert.Null(cart.LastRequest);
+    }
+
+    [Fact]
+    public async Task Add_to_cart_falls_back_to_the_last_product_discussed_in_this_conversation()
+    {
+        var (db, svc, ai, _, _, _, products, cart) = Setup();
+        using var _db = db;
+        var id = SeedConversation(db);
+        db.ChatbotConversationStates.Add(new ChatbotConversationState
+        {
+            SupportTicketId = id, IsBotActive = true, LastMentionedProductId = 77, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        ai.Enqueue(WantsCart);
+        products.Results = new PagedResult<ProductListItemDto> { Items = [], Page = 1, PageSize = 3, TotalCount = 0 };   // "it" doesn't search-match anything
+        cart.Result = new CartDto(1, [new CartItemDto(1, 77, null, "Whatever Was Shown", "slug-77", null, null, 199m, 1, 199m, 10, true)], 1, 1, 199m, "Exclusive");
+
+        var result = await svc.HandleShopperMessageAsync(id, "yes add it to my cart", 5);
+
+        Assert.False(result.Escalated);
+        Assert.Equal(77, cart.LastRequest!.ProductId);
+    }
+
+    [Fact]
+    public async Task Add_to_cart_failure_from_the_cart_service_is_reported_without_crashing()
+    {
+        var (db, svc, ai, _, _, _, products, cart) = Setup();
+        using var _db = db;
+        ai.Enqueue(WantsCart);
+        products.Results = new PagedResult<ProductListItemDto> { Items = [Product(1, "Sold Out Thing", 99m, inStock: false)], Page = 1, PageSize = 3, TotalCount = 1 };
+        cart.ThrowOnAdd = new AppException("This item is out of stock.");
+        var id = SeedConversation(db);
+
+        var result = await svc.HandleShopperMessageAsync(id, "add the sold out thing to my cart", 5);
+
+        Assert.False(result.Escalated);
+        Assert.Contains("couldn't add", result.Reply);
+        Assert.Contains("out of stock", result.Reply);
+        Assert.False(result.CartUpdated);
+    }
+
+    [Fact]
+    public async Task A_price_ceiling_in_the_message_is_passed_to_the_catalog_search_as_a_real_filter()
+    {
+        var (db, svc, ai, _, _, _, products, _) = Setup();
+        using var _db = db;
+        ai.Enqueue("""{"frustrated":false,"wantsHuman":false,"topic":"product"}""", Grounded);
+        var id = SeedConversation(db);
+
+        await svc.HandleShopperMessageAsync(id, "moisturizer for dry skin under ₹500", 5);
+
+        Assert.Equal(500m, products.Queries.Single().MaxPrice);
+    }
+
+    [Fact]
+    public async Task Comparing_two_named_products_searches_each_side_separately_and_labels_both_in_context()
+    {
+        var (db, svc, ai, _, _, _, products, _) = Setup();
+        using var _db = db;
+        ai.Enqueue("""{"frustrated":false,"wantsHuman":false,"topic":"product"}""", Grounded);
+        products.ResultsFor = q => q.Search == "the red shirt"
+            ? new PagedResult<ProductListItemDto> { Items = [Product(1, "Red Shirt", 599m)], Page = 1, PageSize = 2, TotalCount = 1 }
+            : new PagedResult<ProductListItemDto> { Items = [Product(2, "Blue Shirt", 649m)], Page = 1, PageSize = 2, TotalCount = 1 };
+        var id = SeedConversation(db);
+
+        await svc.HandleShopperMessageAsync(id, "difference between the red shirt and the blue shirt", 5);
+
+        Assert.Contains("Red Shirt", ai.Prompts[1].User);
+        Assert.Contains("Blue Shirt", ai.Prompts[1].User);
+        Assert.Equal(2, products.Queries.Count);
     }
 
     private sealed class ScriptedAi : IAiService
@@ -351,7 +487,16 @@ public class ChatbotServiceTests
     private sealed class FakeProductService : IProductService
     {
         public PagedResult<ProductListItemDto> Results { get; set; } = new() { Items = [], Page = 1, PageSize = 5, TotalCount = 0 };
-        public Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default) => Task.FromResult(Results);
+        /// <summary>Overrides <see cref="Results"/> per-call when set — needed for comparison tests
+        /// where the two searches (one per side) must return different result sets.</summary>
+        public Func<ProductQuery, PagedResult<ProductListItemDto>>? ResultsFor;
+        public List<ProductQuery> Queries { get; } = new();
+
+        public Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default)
+        {
+            Queries.Add(query);
+            return Task.FromResult(ResultsFor?.Invoke(query) ?? Results);
+        }
         public Task<FacetsDto> FacetsAsync(ProductQuery query, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<ProductDetailDto?> GetByIdAsync(long id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<ProductDetailDto?> GetBySlugAsync(string slug, CancellationToken ct = default) => throw new NotSupportedException();
@@ -359,5 +504,25 @@ public class ChatbotServiceTests
         public Task<ProductDetailDto?> UpdateAsync(long id, SaveProductRequest req, long? userId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(long id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<List<ProductListItemDto>> GetFrequentlyBoughtTogetherAsync(long productId, int take, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private sealed class FakeCartService : ICartService
+    {
+        public CartDto Result { get; set; } = new(1, [], 0, 0, 0, "Exclusive");
+        public Exception? ThrowOnAdd;
+        public AddToCartRequest? LastRequest;
+
+        public Task<CartDto> AddItemAsync(long? userId, string? sessionId, AddToCartRequest req, CancellationToken ct = default)
+        {
+            LastRequest = req;
+            if (ThrowOnAdd is not null) throw ThrowOnAdd;
+            return Task.FromResult(Result);
+        }
+        public Task<CartDto> GetCartAsync(long? userId, string? sessionId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<CartDto> UpdateItemAsync(long? userId, string? sessionId, long itemId, int quantity, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<CartDto> RemoveItemAsync(long? userId, string? sessionId, long itemId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<CartDto> ClearAsync(long? userId, string? sessionId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<CartDto> MergeAsync(long userId, string? sessionId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<CartDto> SetNotesAsync(long? userId, string? sessionId, string? notes, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

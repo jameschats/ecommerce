@@ -9,14 +9,24 @@ This phase has **two independent tracks** with different urgency — the Shoppin
 
 ---
 
-## Track A — Shopping Assistant (ships first, no dependency on Track B)
+## Track A — Shopping Assistant (ships first, no dependency on Track B) ✅ Done (2026-08-21)
 
 ### Scope & checklist
-- [ ] Natural-language product discovery ("moisturizer for dry skin under ₹500") added as a new capability on Phase 2's bot orchestration layer
-- [ ] Product comparison ("what's the difference between these two")
-- [ ] Availability/variant Q&A from live catalog data (bot already fetches this for order-status answers — same data access, new intent)
-- [ ] Cart actions — bot can add a recommended product to cart **on explicit request**, always echoing back what it did
-- [ ] Post-conversation insight log extended from Phase 2's "what the bot couldn't answer" into "what shoppers are asking/comparing/objecting to" — same table, broader capture, real product-content-gap signal for the merchant
+- [x] Natural-language product discovery ("moisturizer for dry skin under ₹500") added as a new capability on Phase 2's bot orchestration layer
+- [x] Product comparison ("what's the difference between these two") — same-message naming only ("compare X and Y" / "X vs Y"); cross-turn pronoun reference ("these two", from earlier messages) is a known v1 gap, flagged below
+- [x] Availability/variant Q&A from live catalog data — already covered by Phase 2's own product-topic grounding (`ProductListItemDto.InStock`/`AvailableQty`), no new data access needed
+- [x] Cart actions — bot can add a product to cart **on explicit request**, always echoing back what it did from the real cart response, never composed by the model
+- [x] Post-conversation insight log — no new code needed. Every topic (order/product/general) now genuinely attempts grounding, so `ChatbotUnansweredQuestions` already broadens automatically: a product search with zero matches naturally can't ground an answer and logs the same way a support question does. "Same table, broader capture" turned out to require zero extra logging logic.
+
+### Implementation notes (what actually shipped)
+
+- Everything landed inside the existing `ChatbotService.cs` (`Features/Support/`) — no second bot, exactly per the design decision. `Classification` gained one field, `WantsToAddToCart`, from the same single classify call (still one JSON round-trip, not two).
+- **Cart mutation is deliberately the one path that skips the AI compose step entirely.** When `WantsToAddToCart` is true, the bot resolves a product (named in the message, or falls back to `ChatbotConversationState.LastMentionedProductId` — new column, migration 267 — the product last surfaced in this conversation) and calls `ICartService.AddItemAsync` directly. The confirmation text is built from the *real* `CartDto` response in code, never from the model — a hallucinated "I added it!" that didn't actually happen was the one failure mode worth designing out entirely rather than trusting the grounding discipline to catch.
+- **Never guesses which product.** If the message-based search returns multiple plausible matches and there's no prior context to disambiguate, the bot asks which one rather than picking — same "read is safe, write needs an explicit trigger" posture as the design decision states, applied literally: an ambiguous write doesn't happen.
+- **Price ceiling ("under ₹500") is a real, code-enforced `ProductQuery.MaxPrice` filter**, not left to the model to eyeball from a dumped list of search results — matches the "never fabricate" discipline extended to filtering, not just facts.
+- **Comparison** searches each named side separately (two `BrowseAsync` calls) rather than one fuzzy combined search, so the compose step describes real differences between two actual products instead of guessing which two a single search happened to return.
+- 7 new tests covering: single-clear-match add succeeds with zero compose calls, multiple-match asks instead of guessing, no-match-no-context asks for the name, falls back to the last-discussed product across turns, a cart-service failure (e.g. out of stock) is reported without crashing, the price ceiling is actually passed to the catalog query, and comparison searches both sides and labels them in context. Full suite: 364/364 passing.
+- `ChatbotReplyDto.CartUpdated` (bool, set true only on a real successful add) — the storefront livechat widget uses this to call the existing Angular `CartService.reload()` so the header cart badge reflects a bot-driven add immediately, without the frontend having to sniff reply text to guess whether something changed.
 
 ### Design decisions
 - **This is Phase 2's bot gaining a second capability set, not a second bot.** The design doc says this directly, and the orchestration layer built in Phase 2 (classify intent → fetch real data → compose grounded answer) already generalizes to "find matching products" as just another intent alongside "look up my order" — no new architecture, new intents and new data-fetch targets on the existing pattern.
@@ -67,4 +77,4 @@ This phase has **two independent tracks** with different urgency — the Shoppin
 - Out-of-stock products never appear in any recommendation placement, confirmed across all strategies including the new ones
 - Shopping Assistant: ask it to find a product by description → relevant, real (in-stock, correctly priced) results; ask it to add one to cart → cart actually updates, bot confirms what it did; ask an order-status question in the same conversation → same bot, same conversation, correct handoff between capability sets
 
-**Status:** not started. Track A (Shopping Assistant) can start immediately; Track B's privacy/consent question should be resolved before event capture ships broadly.
+**Status:** Track A done (2026-08-21), backend only — no frontend surfaces this yet beyond what the existing livechat widget already renders (a bot reply is a bot reply either way; the widget doesn't need to know it triggered a cart add versus an answer). Track B not started — its privacy/consent question is still genuinely unresolved and should be before event capture ships broadly, not silently assumed fine.

@@ -2,6 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Component, OnDestroy, PLATFORM_ID, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
+import { CartService } from '../../core/services/cart.service';
 import { ChatbotReply, ConversationMessage, ConversationService } from '../../core/services/conversation.service';
 import { NotificationService } from '../../core/services/notification.service';
 
@@ -84,6 +85,7 @@ export class LiveChatWidgetComponent implements OnDestroy {
   readonly auth = inject(AuthService);
   private readonly api = inject(ConversationService);
   private readonly notify = inject(NotificationService);
+  private readonly cartSvc = inject(CartService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly open = signal(false);
@@ -136,6 +138,7 @@ export class LiveChatWidgetComponent implements OnDestroy {
       this.messages.update((list) => [...list, { id: this.nextLocalId--, authorType: 'Bot', body: reply.reply, createdAt: new Date().toISOString() }]);
     }
     if (reply.escalated) this.escalated.set(true);
+    if (reply.cartUpdated) this.cartSvc.reload();   // e.g. the header cart badge reflects a bot-driven add immediately
   }
 
   private onSendError(): void {

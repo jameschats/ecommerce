@@ -28,6 +28,7 @@ export interface ChatbotReply {
   reply: string;
   escalated: boolean;
   escalationReason: string | null;
+  cartUpdated: boolean;
 }
 
 export interface StartChatResponse {

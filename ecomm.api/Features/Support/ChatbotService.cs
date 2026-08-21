@@ -5,6 +5,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using ecomm.api.Features.Ai;
+using ecomm.api.Features.Cart;
 using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
 using ecomm.api.Features.Faqs;
@@ -15,7 +16,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Support;
 
-public sealed record ChatbotReplyDto(string Reply, bool Escalated, string? EscalationReason);
+public sealed record ChatbotReplyDto(string Reply, bool Escalated, string? EscalationReason, bool CartUpdated = false);
 public sealed record StartChatResponse(long ConversationId, ChatbotReplyDto Reply);
 
 public interface IChatbotService
@@ -49,6 +50,7 @@ public sealed class ChatbotService(
     IFaqService faqs,
     IOrderService orders,
     IProductService products,
+    ICartService cart,
     IConversationRealtime realtime,
     INotificationFeedService feed,
     IHelpdeskSettingsService helpdeskSettings,
@@ -66,12 +68,13 @@ public sealed class ChatbotService(
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private const string ClassifySystemPrompt =
-        "You classify one customer support chat message for an e-commerce store. " +
+        "You classify one customer support/shopping chat message for an e-commerce store. " +
         "Respond with ONLY strict JSON, no other text: " +
-        "{\"frustrated\": boolean, \"wantsHuman\": boolean, \"topic\": \"order\"|\"product\"|\"general\"}. " +
+        "{\"frustrated\": boolean, \"wantsHuman\": boolean, \"wantsToAddToCart\": boolean, \"topic\": \"order\"|\"product\"|\"general\"}. " +
         "frustrated=true only for clear anger or frustration, not routine questions. " +
         "wantsHuman=true only if they explicitly ask to speak to a human, agent, or real person. " +
-        "topic=\"order\" for order status/shipping/delivery questions, \"product\" for stock/price/product questions, otherwise \"general\".";
+        "wantsToAddToCart=true only if they explicitly ask to add/buy/order a specific product right now, not just browsing or asking about it. " +
+        "topic=\"order\" for order status/shipping/delivery questions, \"product\" for stock/price/product/shopping questions, otherwise \"general\".";
 
     private const string ComposeSystemPrompt =
         "You are a helpful customer support assistant for an online store, chatting directly with a customer. " +
@@ -117,8 +120,9 @@ public sealed class ChatbotService(
         var classification = await ClassifyAsync(message, ct);
         if (classification.Frustrated) return await EscalateAsync(convo, state, "Frustration", settings, ct);
         if (classification.WantsHuman) return await EscalateAsync(convo, state, "ExplicitRequest", settings, ct);
+        if (classification.WantsToAddToCart) return await TryAddToCartAsync(convo, state, message, shopperUserId, ct);
 
-        var context = await BuildContextAsync(classification.Topic, message, shopperUserId, ct);
+        var context = await BuildContextAsync(classification.Topic, message, shopperUserId, state, ct);
         var (answer, grounded) = await ComposeAsync(context, ct);
 
         if (!grounded)
@@ -217,7 +221,48 @@ public sealed class ChatbotService(
         return state;
     }
 
-    private sealed record Classification(bool Frustrated, bool WantsHuman, string Topic);
+    private sealed record Classification(bool Frustrated, bool WantsHuman, bool WantsToAddToCart, string Topic);
+
+    /// <summary>The one genuinely new class of action the bot takes (v4 Phase 3 Track A) — everything
+    /// else is read-only. Resolves a product from the message itself (named explicitly) or, failing
+    /// that, whatever was last surfaced in this conversation; never guesses between multiple
+    /// plausible matches, and the confirmation text is built from the real cart response, never
+    /// composed by the model, so it can't misreport what actually happened.</summary>
+    private async Task<ChatbotReplyDto> TryAddToCartAsync(SupportTicket convo, ChatbotConversationState state, string message, long shopperUserId, CancellationToken ct)
+    {
+        var matches = await SearchProductsAsync(message, null, 3, ct);
+        long? productId = matches.Count == 1 ? matches[0].ProductId : matches.Count == 0 ? state.LastMentionedProductId : null;
+
+        if (productId is null)
+        {
+            var askReply = matches.Count > 1
+                ? "I found a few matching products — which one would you like added? " + string.Join(", ", matches.Select(p => p.Name))
+                : "I'm not sure which product you'd like added — could you tell me its name?";
+            await AppendBotMessageAsync(convo, askReply, ct);
+            return new ChatbotReplyDto(askReply, false, null);
+        }
+
+        string resultReply;
+        var cartUpdated = false;
+        try
+        {
+            var result = await cart.AddItemAsync(shopperUserId, null, new AddToCartRequest(productId.Value, null, 1), ct);
+            var added = result.Items.LastOrDefault(i => i.ProductId == productId);
+            resultReply = added is not null
+                ? $"Added {added.Name} (₹{added.UnitPrice:0.00}) to your cart. You now have {result.ItemCount} item(s) in your cart."
+                : "Added that to your cart.";
+            state.LastMentionedProductId = productId;
+            cartUpdated = true;
+        }
+        catch (AppException ex)
+        {
+            resultReply = $"I couldn't add that — {ex.Message}";
+        }
+
+        state.UpdatedAt = DateTime.UtcNow;
+        await AppendBotMessageAsync(convo, resultReply, ct);
+        return new ChatbotReplyDto(resultReply, false, null, cartUpdated);
+    }
 
     private async Task<Classification> ClassifyAsync(string message, CancellationToken ct)
     {
@@ -234,7 +279,7 @@ public sealed class ChatbotService(
             // A classify hiccup shouldn't break a live chat for the customer — degrade to "just try
             // to answer"; ComposeAsync's own credit check still surfaces a real out-of-credits error.
             logger.LogWarning(ex, "Chatbot classify failed — defaulting to unclassified.");
-            return new Classification(false, false, "general");
+            return new Classification(false, false, false, "general");
         }
     }
 
@@ -247,12 +292,13 @@ public sealed class ChatbotService(
             return new Classification(
                 root.TryGetProperty("frustrated", out var f) && f.ValueKind == JsonValueKind.True,
                 root.TryGetProperty("wantsHuman", out var w) && w.ValueKind == JsonValueKind.True,
+                root.TryGetProperty("wantsToAddToCart", out var c) && c.ValueKind == JsonValueKind.True,
                 root.TryGetProperty("topic", out var t) ? t.GetString() ?? "general" : "general");
         }
-        catch { return new Classification(false, false, "general"); }
+        catch { return new Classification(false, false, false, "general"); }
     }
 
-    private async Task<string> BuildContextAsync(string topic, string message, long shopperUserId, CancellationToken ct)
+    private async Task<string> BuildContextAsync(string topic, string message, long shopperUserId, ChatbotConversationState state, CancellationToken ct)
     {
         var sb = new StringBuilder();
 
@@ -268,7 +314,7 @@ public sealed class ChatbotService(
             await AppendOrderContextAsync(sb, message, shopperUserId, ct);
 
         if (topic == "product")
-            await AppendProductContextAsync(sb, message, ct);
+            await AppendProductContextAsync(sb, message, state, ct);
 
         sb.AppendLine();
         sb.AppendLine($"Customer's message: {message}");
@@ -306,14 +352,53 @@ public sealed class ChatbotService(
         return sb.ToString();
     }
 
-    private async Task AppendProductContextAsync(StringBuilder sb, string message, CancellationToken ct)
+    // "under/below/max ₹500" — a real, code-enforced price filter rather than asking the model to
+    // eyeball prices from a text dump of search results, matching the "never fabricate" discipline
+    // extended to filtering, not just facts.
+    private static readonly Regex PriceCeilingPattern = new(
+        @"(?:under|below|less than|max(?:imum)?)\s*(?:rs\.?|inr|₹)?\s*(\d{2,6})", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // "compare X and Y" / "difference between X and Y" / "X vs Y" — searches each side separately
+    // so the compose step describes real differences instead of guessing which two products a
+    // single fuzzy search happened to return. Cross-turn comparison ("these two", referring to
+    // earlier messages) isn't resolved — known v1 limit, same-message naming only.
+    private static readonly Regex ComparisonPattern = new(
+        @"(?:difference between|compare)\s+(.+?)\s+(?:and|vs\.?|versus)\s+(.+?)(?:\?|$)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private async Task AppendProductContextAsync(StringBuilder sb, string message, ChatbotConversationState state, CancellationToken ct)
     {
-        var results = await products.BrowseAsync(new ProductQuery(Search: message, CategoryId: null, BrandId: null,
-            Status: "Active", IsFeatured: null, Sort: null, Page: 1, PageSize: 5), adminView: false, ct);
-        if (results.Items.Count == 0) return;
+        var cmp = ComparisonPattern.Match(message);
+        if (cmp.Success)
+        {
+            var left = cmp.Groups[1].Value.Trim();
+            var right = cmp.Groups[2].Value.Trim();
+            var a = await SearchProductsAsync(left, null, 2, ct);
+            var b = await SearchProductsAsync(right, null, 2, ct);
+            if (a.Count > 0) { sb.AppendLine($"\"{left}\" matches:"); AppendProductLines(sb, a); }
+            if (b.Count > 0) { sb.AppendLine($"\"{right}\" matches:"); AppendProductLines(sb, b); }
+            return;
+        }
+
+        var ceilingMatch = PriceCeilingPattern.Match(message);
+        var maxPrice = ceilingMatch.Success && decimal.TryParse(ceilingMatch.Groups[1].Value, out var v) ? v : (decimal?)null;
+        var results = await SearchProductsAsync(message, maxPrice, 5, ct);
+        if (results.Count == 0) return;
 
         sb.AppendLine("Matching products (live stock/price):");
-        foreach (var p in results.Items)
+        AppendProductLines(sb, results);
+        if (results.Count == 1) state.LastMentionedProductId = results[0].ProductId;
+    }
+
+    private async Task<List<ProductListItemDto>> SearchProductsAsync(string search, decimal? maxPrice, int take, CancellationToken ct)
+    {
+        var r = await products.BrowseAsync(new ProductQuery(Search: search, CategoryId: null, BrandId: null,
+            Status: "Active", IsFeatured: null, Sort: null, Page: 1, PageSize: take, MaxPrice: maxPrice), adminView: false, ct);
+        return r.Items.ToList();
+    }
+
+    private static void AppendProductLines(StringBuilder sb, List<ProductListItemDto> items)
+    {
+        foreach (var p in items)
             sb.AppendLine($"- {p.Name}: {(p.InStock ? $"in stock ({p.AvailableQty} available)" : "out of stock")}, price {p.Price:0.00}.");
     }
 
