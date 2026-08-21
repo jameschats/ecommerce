@@ -9,6 +9,10 @@ public class NotificationTemplate : ITenantScoped
     public string Channel { get; set; } = "Email";
     public string? Subject { get; set; }
     public string? Body { get; set; }
+    /// <summary>BSP-assigned template id (e.g. Gupshup's template GUID) — only meaningful when
+    /// Channel="WhatsApp", since Meta requires referencing a pre-approved template by id rather
+    /// than sending the rendered text directly like Email/SMS do.</summary>
+    public string? ExternalTemplateId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

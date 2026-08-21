@@ -138,6 +138,17 @@ else
 // once built, no other change needed here.
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.EmailNotificationChannel>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.SmsNotificationChannel>();
+// WhatsApp provider selected by WhatsApp:Provider (None dev-stub | Gupshup real) — v4 Phase 1 Track C.
+builder.Services.Configure<ecomm.api.Features.WhatsApp.WhatsAppOptions>(builder.Configuration.GetSection(ecomm.api.Features.WhatsApp.WhatsAppOptions.SectionName));
+var whatsAppProvider = builder.Configuration["WhatsApp:Provider"] ?? "None";
+if (whatsAppProvider.Equals("Gupshup", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<ecomm.api.Features.WhatsApp.IWhatsAppProvider>(sp => new ecomm.api.Features.WhatsApp.GupshupWhatsAppProvider(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("gupshup"),
+        sp.GetRequiredService<IOptions<ecomm.api.Features.WhatsApp.WhatsAppOptions>>(),
+        sp.GetRequiredService<ILogger<ecomm.api.Features.WhatsApp.GupshupWhatsAppProvider>>()));
+else
+    builder.Services.AddScoped<ecomm.api.Features.WhatsApp.IWhatsAppProvider, ecomm.api.Features.WhatsApp.LoggingWhatsAppProvider>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.WhatsAppNotificationChannel>();
 builder.Services.AddSingleton<ecomm.api.Features.Notifications.IBackgroundJobScheduler, ecomm.api.Features.Notifications.HangfireBackgroundJobScheduler>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationRouter, ecomm.api.Features.Notifications.NotificationRouter>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();

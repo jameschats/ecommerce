@@ -165,8 +165,12 @@ public sealed class NotificationRouter : INotificationRouter
         var ok = false;
         try
         {
-            var metadata = channelKey.Equals("Email", StringComparison.OrdinalIgnoreCase)
-                ? await EmailMetadataAsync(ct) : null;
+            IReadOnlyDictionary<string, string>? metadata = channelKey switch
+            {
+                "Email" => await EmailMetadataAsync(ct),
+                "WhatsApp" => WhatsAppMetadata(template, tokens),
+                _ => null,
+            };
             ok = await channel.SendAsync(recipient, subject ?? "", body, metadata, ct);
             history.Status = ok ? "Sent" : "Failed";
             if (ok) history.SentAt = DateTime.UtcNow;
@@ -192,6 +196,25 @@ public sealed class NotificationRouter : INotificationRouter
         if (rows.TryGetValue("SenderName", out var fromName) && !string.IsNullOrWhiteSpace(fromName)) metadata["FromName"] = fromName;
         if (rows.TryGetValue("ReplyToEmail", out var replyTo) && !string.IsNullOrWhiteSpace(replyTo)) metadata["ReplyTo"] = replyTo;
         return metadata.Count > 0 ? metadata : null;
+    }
+
+    /// <summary>Meta requires WhatsApp template messages to reference the BSP's pre-approved
+    /// template by id, with positional {{1}},{{2}}... parameters — not the rendered text the way
+    /// Email/SMS send. <c>ExternalTemplateId</c> carries the BSP id; the parameter order is derived
+    /// from where each <c>{{token}}</c> placeholder appears in the template's own Body text, so no
+    /// separate "parameter order" column is needed — the admin-edited Body IS the source of truth
+    /// for both the human-readable approved wording and the positional order.</summary>
+    private static IReadOnlyDictionary<string, string>? WhatsAppMetadata(NotificationTemplate template, IReadOnlyDictionary<string, string> tokens)
+    {
+        if (string.IsNullOrWhiteSpace(template.ExternalTemplateId)) return null;
+        var placeholders = System.Text.RegularExpressions.Regex.Matches(template.Body ?? "", "{{\\s*([A-Za-z0-9_]+)\\s*}}")
+            .Select(m => m.Groups[1].Value);
+        var orderedParams = placeholders.Select(key => tokens.GetValueOrDefault(key, ""));
+        return new Dictionary<string, string>
+        {
+            ["ExternalTemplateId"] = template.ExternalTemplateId,
+            ["TemplateParams"] = string.Join(WhatsAppNotificationChannel.TemplateParamDelimiter, orderedParams),
+        };
     }
 
     /// <summary>Replaces <c>{{key}}</c> placeholders (case-insensitive, optional surrounding spaces).</summary>

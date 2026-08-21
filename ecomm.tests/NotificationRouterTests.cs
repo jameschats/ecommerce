@@ -282,4 +282,138 @@ public class NotificationRouterTests
         Assert.True(sent);
         Assert.Equal(1, email.SendCount);
     }
+
+    [Fact]
+    public async Task WhatsApp_registered_and_templated_wins_over_SMS_and_Email_in_the_order_chain()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        // OrderShipped's chain is [WhatsApp, SMS, Email] — WhatsApp should win once it's both
+        // registered in DI and has an active template with an ExternalTemplateId configured.
+        db.NotificationTemplates.Add(new NotificationTemplate
+        {
+            Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}, order {{orderNo}} shipped",
+            ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
+        });
+        SeedTemplate(db, "OrderShipped", "SMS");
+        await db.SaveChangesAsync();
+
+        var whatsapp = new FakeChannel("WhatsApp");
+        var sms = new FakeChannel("SMS");
+        var router = NewRouter(db, [whatsapp, sms]);
+
+        var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
+        var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam", ["orderNo"] = "ORD-1" });
+
+        Assert.True(sent);
+        Assert.Equal(1, whatsapp.SendCount);
+        Assert.Equal(0, sms.SendCount);
+    }
+
+    [Fact]
+    public async Task WhatsApp_channel_metadata_carries_the_external_template_id_and_ordered_params()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        db.NotificationTemplates.Add(new NotificationTemplate
+        {
+            Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}, order {{orderNo}} shipped",
+            ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        IReadOnlyDictionary<string, string>? capturedMetadata = null;
+        var whatsapp = new CapturingChannel("WhatsApp", (r, s, b, m) => capturedMetadata = m);
+        var router = NewRouter(db, [whatsapp]);
+
+        var recipient = new NotificationRecipient(Phone: "9999999999");
+        await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam", ["orderNo"] = "ORD-1" });
+
+        Assert.Equal("gupshup-tmpl-1", capturedMetadata!["ExternalTemplateId"]);
+        var parts = capturedMetadata["TemplateParams"].Split(WhatsAppNotificationChannel.TemplateParamDelimiter);
+        Assert.Equal(["Sam", "ORD-1"], parts);   // in the order {{name}} then {{orderNo}} appear in Body
+    }
+
+    [Fact]
+    public async Task Real_WhatsApp_channel_declines_and_router_falls_back_when_ExternalTemplateId_is_missing()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        db.NotificationTemplates.Add(new NotificationTemplate
+        {
+            Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}",
+            ExternalTemplateId = null, IsActive = true, CreatedAt = DateTime.UtcNow,   // not yet configured
+        });
+        SeedTemplate(db, "OrderShipped", "SMS");
+        await db.SaveChangesAsync();
+
+        var fakeProvider = new FakeWhatsAppProvider();
+        var whatsapp = new WhatsAppNotificationChannel(fakeProvider, NullLogger<WhatsAppNotificationChannel>.Instance);
+        var sms = new FakeChannel("SMS");
+        var router = NewRouter(db, [whatsapp, sms]);
+
+        var recipient = new NotificationRecipient(Phone: "9999999999");
+        var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+
+        Assert.True(sent);
+        Assert.Equal(0, fakeProvider.SendCount);   // real channel logic declined before ever calling the provider
+        Assert.Equal(1, sms.SendCount);
+    }
+
+    [Fact]
+    public async Task Real_WhatsApp_channel_sends_the_ordered_params_through_to_the_provider()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        db.NotificationTemplates.Add(new NotificationTemplate
+        {
+            Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}, order {{orderNo}} shipped",
+            ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var fakeProvider = new FakeWhatsAppProvider();
+        var whatsapp = new WhatsAppNotificationChannel(fakeProvider, NullLogger<WhatsAppNotificationChannel>.Instance);
+        var router = NewRouter(db, [whatsapp]);
+
+        var recipient = new NotificationRecipient(Phone: "9999999999");
+        var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam", ["orderNo"] = "ORD-1" });
+
+        Assert.True(sent);
+        Assert.Equal("gupshup-tmpl-1", fakeProvider.LastTemplateId);
+        Assert.Equal(["Sam", "ORD-1"], fakeProvider.LastParameters);
+    }
+
+    private sealed class FakeWhatsAppProvider : ecomm.api.Features.WhatsApp.IWhatsAppProvider
+    {
+        public int SendCount;
+        public string? LastTemplateId;
+        public IReadOnlyList<string>? LastParameters;
+
+        public Task<ecomm.api.Features.WhatsApp.WhatsAppSendResult> SendTemplateMessageAsync(string toPhone, string templateId,
+            IReadOnlyList<string> parameters, CancellationToken ct = default)
+        {
+            SendCount++;
+            LastTemplateId = templateId;
+            LastParameters = parameters;
+            return Task.FromResult(ecomm.api.Features.WhatsApp.WhatsAppSendResult.Ok("msg-1"));
+        }
+
+        public Task<ecomm.api.Features.WhatsApp.WhatsAppSendResult> SendSessionMessageAsync(string toPhone, string body, CancellationToken ct = default)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class CapturingChannel : INotificationChannel
+    {
+        public string Key { get; }
+        private readonly Action<NotificationRecipient, string, string, IReadOnlyDictionary<string, string>?> _onSend;
+        public CapturingChannel(string key, Action<NotificationRecipient, string, string, IReadOnlyDictionary<string, string>?> onSend)
+        {
+            Key = key;
+            _onSend = onSend;
+        }
+        public bool CanDeliverTo(NotificationRecipient recipient) => true;
+        public Task<bool> SendAsync(NotificationRecipient recipient, string subject, string body,
+            IReadOnlyDictionary<string, string>? metadata, CancellationToken ct = default)
+        {
+            _onSend(recipient, subject, body, metadata);
+            return Task.FromResult(true);
+        }
+    }
 }
