@@ -12,13 +12,23 @@
 ### Scope & checklist
 - [ ] Harden `GrowthContent` into the real Content Library: verify/build version history (what was generated vs. edited vs. approved), tag/search by product/campaign/channel/date, explicit cross-channel reuse tracking
 - [ ] Bulk keyword research & intent mapping across the full catalog (genuinely new AI feature — uses `IAiService`, new credit-metered category)
-- [ ] Automated schema markup (Product, Offer, Review JSON-LD per product page)
+- [x] ~~Automated schema markup~~ — **already shipped, and not what this roadmap assumed.** See correction below (2026-08-21).
 - [ ] Site health monitoring (broken links, duplicate content, crawl errors, thin product pages) — flagged to the merchant, never auto-fixed
 - [ ] Content briefs / blog assist, feeding the same Generate + Brand Voice pipeline Growth already uses
 
+### Correction to this roadmap's own premise (2026-08-21)
+
+This section assumed schema markup and sitemap infrastructure didn't exist. Both already do — the same "audit before scoping" pattern that corrected several other phases in this roadmap. Investigated instead of building blind, and found:
+
+- **Product/Offer/BreadcrumbList JSON-LD already ships** — `ProductPageStore.applySeo()` (`ecomm.web/src/app/features/storefront/product/product-page.store.ts`), via an existing `SeoService` (`core/services/seo.service.ts`) that also handles title/meta description/OG tags, sourced from `Product.MetaTitle`/`MetaDescription` (already AI-assistable via the existing `AiImproveService.SeoAsync` / "✨ Improve with AI" button in the product admin — not new work, already there). Same JSON-LD pattern is also used on the homepage and FAQ page.
+- **`sitemap.xml` already ships** — `ecomm.api/Features/Seo/SitemapController.cs`, `GET /api/sitemap.xml`, built from live categories + active products.
+- **Real gap found and fixed**: the JSON-LD's `Offer.availability` was hardcoded to `https://schema.org/InStock` regardless of actual stock — a genuine bug, not a missing feature. Google Merchant Center treats incorrect availability as a policy violation, not a cosmetic issue. Fixed to read `p.inStock`.
+- **Real gap found and fixed**: `robots.txt` genuinely didn't exist anywhere (confirmed — this half of the roadmap's "SEO infra deferred" note was accurate). Added at `ecomm.web/src/server.ts` as an Express route, **not** a `.NET` controller — robots.txt must be served at the literal domain root for crawlers to find it (unlike sitemap.xml, which only needs to be *referenced*, so staying under `/api/` is fine for that one). Built per-request from the actual host header rather than a fixed config value, since every tenant subdomain needs its own correct `Sitemap:` URL — deliberately more correct than the sitemap controller's own single-hardcoded-base-URL approach (`Cors:AngularOrigin` config, defaults to a stale single-tenant value), which is a **pre-existing gap flagged here, not fixed** — out of scope for this pass, worth a follow-up since every tenant's sitemap currently reports the same base URL.
+- **Genuinely not done, and lower priority than they looked**: individual `Review` markup (only `AggregateRating` exists — sufficient for Google's rich-result eligibility, `Review` is supplementary) and GTIN/MPN identifiers (no field exists on `Product` for this at all; most Indian D2C sellers don't have registered GTINs anyway, so this would be new schema + admin UI for a field with unclear demand — not built without a real ask).
+
 ### Design decisions
 
-**Schema markup is not an AI feature — correcting a mis-categorization in the source doc.** Product/Offer/Review JSON-LD is a deterministic mapping from data that already exists (name, price, availability, rating, review count) into a structured template. It's grouped under "SEO" in the design doc alongside genuinely generative features, but it needs zero `IAiService` calls, zero credits, and zero human review step — it's templating, not generation. Worth building first in this track since it's the fastest, lowest-risk item and immediately useful (every product page ships without it today).
+**Schema markup was never actually an open item** — the "not an AI feature, deterministic templating" framing from the original draft turned out to be correct in principle but moot in practice, since the templating was already built. What was actually open was two concrete bugs/gaps (availability, robots.txt), now closed.
 
 **Site health monitoring is mostly deterministic too** — broken-link and duplicate-content checks are crawl-and-compare, not AI judgment calls. "Thin product page" flagging is the one sub-piece that benefits from an AI content-quality pass; keep that as a small optional layer on top of the deterministic checks, not the foundation of the feature.
 

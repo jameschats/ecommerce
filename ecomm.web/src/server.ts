@@ -29,6 +29,31 @@ const angularApp = new AngularNodeAppEngine();
  */
 
 /**
+ * robots.txt — must be served at the literal domain root for crawlers to find it (unlike
+ * sitemap.xml, which only needs to be *referenced* from here, so it can stay under /api).
+ * Built per-request from the actual host header rather than a config value, since this is a
+ * multi-tenant app — every store's subdomain needs its own correct Sitemap: URL, not one shared
+ * platform default (the .NET sitemap.xml endpoint currently has that exact single-base-URL gap;
+ * this route deliberately doesn't repeat it).
+ */
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(
+    [
+      'User-agent: *',
+      'Allow: /',
+      'Disallow: /admin',
+      'Disallow: /superadmin',
+      'Disallow: /account',
+      'Disallow: /checkout',
+      'Disallow: /cart',
+      '',
+      `Sitemap: ${req.protocol}://${req.get('host')}/api/sitemap.xml`,
+      '',
+    ].join('\n'),
+  );
+});
+
+/**
  * Serve static files from /browser
  */
 app.use(

@@ -293,7 +293,10 @@ export class ProductPageStore {
         aggregateRating: this.reviewCount() > 0
           ? { '@type': 'AggregateRating', ratingValue: this.avgRating(), reviewCount: this.reviewCount() }
           : undefined,
-        offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.price, availability: 'https://schema.org/InStock', url },
+        offers: {
+          '@type': 'Offer', priceCurrency: 'INR', price: p.price, url,
+          availability: p.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        },
       },
       {
         '@context': 'https://schema.org', '@type': 'BreadcrumbList',
