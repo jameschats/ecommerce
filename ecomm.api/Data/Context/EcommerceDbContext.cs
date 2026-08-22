@@ -116,6 +116,9 @@ public class EcommerceDbContext : DbContext
     public DbSet<ChatbotUnansweredQuestion> ChatbotUnansweredQuestions => Set<ChatbotUnansweredQuestion>();
     public DbSet<PricingSeasonRule> PricingSeasonRules => Set<PricingSeasonRule>();
     public DbSet<PriceSuggestion> PriceSuggestions => Set<PriceSuggestion>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     // --- V2: Plans & Subscriptions ---
     public DbSet<Plan> Plans => Set<Plan>();
@@ -424,6 +427,19 @@ public class EcommerceDbContext : DbContext
             foreach (var p in new[] { nameof(PriceSuggestion.InventorySignalPercent), nameof(PriceSuggestion.DemandSignalPercent), nameof(PriceSuggestion.SeasonalitySignalPercent) })
                 e.Property(p).HasPrecision(5, 2);
             e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<ApiKey>(e =>
+        {
+            e.ToTable("ApiKeys");
+            e.HasKey(x => x.ApiKeyId);
+            e.HasIndex(x => x.KeyHash).IsUnique();
+        });
+        b.Entity<WebhookSubscription>(e => { e.ToTable("WebhookSubscriptions"); e.HasKey(x => x.WebhookSubscriptionId); });
+        b.Entity<WebhookDelivery>(e =>
+        {
+            e.ToTable("WebhookDeliveries");
+            e.HasKey(x => x.WebhookDeliveryId);
+            e.HasOne(x => x.Subscription).WithMany().HasForeignKey(x => x.WebhookSubscriptionId).OnDelete(DeleteBehavior.Cascade);
         });
         b.Entity<Review>(e => { e.ToTable("Reviews"); e.HasKey(x => x.ReviewId); });
         b.Entity<Coupon>(e =>

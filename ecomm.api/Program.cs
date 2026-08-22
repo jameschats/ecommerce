@@ -178,6 +178,7 @@ builder.Services.AddScoped<ecomm.api.Features.Search.ISearchService, ecomm.api.F
 // Shopping (Stage 4)
 builder.Services.AddScoped<ecomm.api.Features.Account.IAccountService, ecomm.api.Features.Account.AccountService>();
 builder.Services.AddScoped<ecomm.api.Features.Cart.ICartService, ecomm.api.Features.Cart.CartService>();
+builder.Services.AddScoped<ecomm.api.Features.PublicApi.IApiKeyService, ecomm.api.Features.PublicApi.ApiKeyService>();
 builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingControlsService, ecomm.api.Features.Pricing.PricingControlsService>();
 builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingEngineService, ecomm.api.Features.Pricing.PricingEngineService>();
 builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingSuggestionService, ecomm.api.Features.Pricing.PricingSuggestionService>();
@@ -336,7 +337,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 return Task.CompletedTask;
             },
         };
-    });
+    })
+    // Public API (v4 Phase 6 Track A) — a second, deliberately separate scheme. Public controllers
+    // declare [Authorize(AuthenticationSchemes = ApiKeyAuthDefaults.Scheme)] explicitly; a bare
+    // [Authorize] anywhere else in the app keeps meaning JWT Bearer, since that's still the default.
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ecomm.api.Features.PublicApi.ApiKeyAuthenticationHandler>(
+        ecomm.api.Features.PublicApi.ApiKeyAuthDefaults.Scheme, _ => { });
 builder.Services.AddAuthorization();
 
 // Trust the reverse proxy (Nginx on the same host) so the API sees the real client IP + scheme.
@@ -383,6 +389,23 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("lookup", ctx => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+    // Public API (v4 Phase 6 Track A): partitioned by the caller's API key, not IP — a real
+    // integration's own budget shouldn't shrink because it happens to share an egress IP with
+    // another integration (common for cloud-hosted apps), and an unauthenticated caller (no key
+    // resolved yet at this point in the pipeline) still gets a single shared bucket so the surface
+    // can't be hammered pre-auth either.
+    options.AddPolicy("public-api", ctx =>
+    {
+        var auth = ctx.Request.Headers.Authorization.ToString();
+        // Hash the raw key before using it as an in-memory partition key — no reason for the raw
+        // secret to sit in the rate limiter's dictionary even transiently, when a hash partitions
+        // identically well.
+        var partitionKey = auth.Length > 0
+            ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(auth)))
+            : ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey,
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
 });
 
 var app = builder.Build();
