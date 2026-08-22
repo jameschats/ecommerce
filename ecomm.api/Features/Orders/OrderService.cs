@@ -50,17 +50,27 @@ public sealed class OrderService : IOrderService
     private readonly Features.Shipping.Shiprocket.ITenantShiprocketService _shiprocket;
     private readonly IEntitlementService _entitlements;
     private readonly Features.Catalog.Services.IBundleService _bundles;
+    private readonly Features.PublicApi.IWebhookDispatchService _webhooks;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
         INotificationService notify, INotificationFeedService feed, ICouponService coupons,
         Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, IEntitlementService entitlements,
-        Features.Catalog.Services.IBundleService bundles, ILogger<OrderService> log)
+        Features.Catalog.Services.IBundleService bundles, Features.PublicApi.IWebhookDispatchService webhooks, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
         _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons;
-        _shiprocket = shiprocket; _entitlements = entitlements; _bundles = bundles; _log = log;
+        _shiprocket = shiprocket; _entitlements = entitlements; _bundles = bundles; _webhooks = webhooks; _log = log;
+    }
+
+    /// <summary>Fires a public-API webhook (v4 Phase 6 Track A) — never throws, same "must not break
+    /// the order flow" principle as <see cref="NotifyOrderAsync"/>; a merchant's own integration
+    /// being unreachable can never be the reason a checkout fails.</summary>
+    private async Task DispatchWebhookAsync(string eventType, object payload, CancellationToken ct)
+    {
+        try { await _webhooks.DispatchAsync(eventType, payload, ct); }
+        catch (Exception ex) { _log.LogError(ex, "Webhook dispatch '{Event}' failed.", eventType); }
     }
 
     /// <summary>Reserve/commit/release/restock every real inventory line an order line needs — its own
@@ -364,6 +374,7 @@ public sealed class OrderService : IOrderService
 
             // COD orders are confirmed at placement → send the confirmation now (online sends on payment capture).
             if (isCod) await NotifyOrderAsync(order.OrderId, "OrderConfirmation", "OrderConfirmation", null, ct);
+            await DispatchWebhookAsync("order.created", new { orderId = order.OrderId, orderNumber = order.OrderNumber, status = order.Status, totalAmount = result.amount, currency = result.currency }, ct);
 
             return result;
         }
@@ -621,6 +632,7 @@ public sealed class OrderService : IOrderService
         if (toStatus == "Delivered") await CollectCodOnDeliveryAsync(orderId, ct);
         // Generic status email (Shipped-with-tracking is sent by the Shipments feature).
         await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
+        await DispatchWebhookAsync("order.updated", new { orderId, orderNumber = order.OrderNumber, fromStatus = from, toStatus }, ct);
         return await GetAsync(orderId, null, true, ct);
     }
 

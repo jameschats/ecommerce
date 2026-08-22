@@ -30,14 +30,25 @@ public sealed class ProductService : IProductService
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly ecomm.api.Features.Plans.IEntitlementService _entitlements;
+    private readonly ecomm.api.Features.PublicApi.IWebhookDispatchService _webhooks;
+    private readonly ILogger<ProductService> _log;
     // Mirrors AnalyticsService's SoldStatuses — an order line counts toward "bestseller" ranking once
     // it's actually been paid/fulfilled, not while still a draft/pending/cancelled/returned order.
     private static readonly string[] SoldStatuses = { "Paid", "Confirmed", "Packed", "Shipped", "Delivered" };
 
-    public ProductService(EcommerceDbContext db, ecomm.api.Features.Plans.IEntitlementService entitlements)
+    public ProductService(EcommerceDbContext db, ecomm.api.Features.Plans.IEntitlementService entitlements,
+        ecomm.api.Features.PublicApi.IWebhookDispatchService webhooks, ILogger<ProductService> log)
     {
         _db = db;
         _entitlements = entitlements;
+        _webhooks = webhooks;
+        _log = log;
+    }
+
+    private async Task DispatchWebhookAsync(string eventType, object payload, CancellationToken ct)
+    {
+        try { await _webhooks.DispatchAsync(eventType, payload, ct); }
+        catch (Exception ex) { _log.LogError(ex, "Webhook dispatch '{Event}' failed.", eventType); }
     }
 
     public async Task<PagedResult<ProductListItemDto>> BrowseAsync(ProductQuery query, bool adminView, CancellationToken ct = default)
@@ -408,6 +419,11 @@ public sealed class ProductService : IProductService
         }
 
         await _db.SaveChangesAsync(ct);
+        await DispatchWebhookAsync("product.updated", new
+        {
+            productId = product.ProductId, sku = product.Sku, name = product.Name,
+            status = product.Status, price = product.Price,
+        }, ct);
         return await GetByIdAsync(id, ct);
     }
 

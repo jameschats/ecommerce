@@ -34,6 +34,27 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// A second, narrower OpenAPI document scoped to only the third-party-facing public API
+// (api/public/v1/*) — unlike the full internal document above (which stays dev-only, since it
+// would otherwise map the entire admin/storefront surface for anyone), this one is safe and
+// intended to be reachable in production so integrators can fetch a live, current spec.
+builder.Services.AddOpenApi("public-v1", options =>
+{
+    options.ShouldInclude = apiDesc => apiDesc.RelativePath?.StartsWith("api/public/v1/", StringComparison.OrdinalIgnoreCase) == true;
+    options.AddDocumentTransformer((doc, ctx, ct) =>
+    {
+        doc.Info = new()
+        {
+            Title = "WavCommerce Public API",
+            Version = "v1",
+            Description = "Public REST API for third-party integrations. Authenticate with an API key " +
+                           "(created under Admin → Developer → API Keys) via `Authorization: Bearer <key>` " +
+                           "or the `X-Api-Key` header.",
+        };
+        return Task.CompletedTask;
+    });
+});
+
 // Multi-tenancy (V2-0): tenant context + resolution + request tracing.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
@@ -179,6 +200,11 @@ builder.Services.AddScoped<ecomm.api.Features.Search.ISearchService, ecomm.api.F
 builder.Services.AddScoped<ecomm.api.Features.Account.IAccountService, ecomm.api.Features.Account.AccountService>();
 builder.Services.AddScoped<ecomm.api.Features.Cart.ICartService, ecomm.api.Features.Cart.CartService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IApiKeyService, ecomm.api.Features.PublicApi.ApiKeyService>();
+builder.Services.AddScoped<ecomm.api.Features.PublicApi.IWebhookSubscriptionService, ecomm.api.Features.PublicApi.WebhookSubscriptionService>();
+builder.Services.AddScoped<ecomm.api.Features.PublicApi.IWebhookDispatchService, ecomm.api.Features.PublicApi.WebhookDispatchService>();
+builder.Services.AddSingleton<ecomm.api.Features.PublicApi.IWebhookRetryScheduler, ecomm.api.Features.PublicApi.HangfireWebhookRetryScheduler>();
+// A slow/hanging third-party endpoint must never block a request thread for long.
+builder.Services.AddHttpClient("webhook", c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingControlsService, ecomm.api.Features.Pricing.PricingControlsService>();
 builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingEngineService, ecomm.api.Features.Pricing.PricingEngineService>();
 builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingSuggestionService, ecomm.api.Features.Pricing.PricingSuggestionService>();
@@ -431,12 +457,17 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi();   // both documents, for internal dev/testing use
 }
 else
 {
     app.UseHsts();
 }
+
+// The public-v1 document alone is deliberately served in every environment (integrators need a
+// live spec) — the route constraint pins this endpoint to that one document name only, so it can
+// never be used to fetch the full internal "v1" document outside of Development above.
+app.MapOpenApi("/openapi/{documentName:regex(^public-v1$)}.json").AllowAnonymous();
 
 app.UseHttpsRedirection();
 

@@ -39,11 +39,25 @@ public sealed class InventoryService : IInventoryService
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly INotificationFeedService _feed;
+    private readonly ecomm.api.Features.PublicApi.IWebhookDispatchService _webhooks;
+    private readonly ILogger<InventoryService> _log;
 
-    public InventoryService(EcommerceDbContext db, INotificationFeedService feed)
+    public InventoryService(EcommerceDbContext db, INotificationFeedService feed,
+        ecomm.api.Features.PublicApi.IWebhookDispatchService webhooks, ILogger<InventoryService> log)
     {
         _db = db;
         _feed = feed;
+        _webhooks = webhooks;
+        _log = log;
+    }
+
+    // Fired only from the merchant-driven "set/adjust stock" entry points below, not from the
+    // high-frequency internal Reserve/Release/Commit/Restock hooks used by every cart/order action —
+    // those are already surfaced via order.created/order.updated and would otherwise flood integrators.
+    private async Task DispatchWebhookAsync(string eventType, object payload, CancellationToken ct)
+    {
+        try { await _webhooks.DispatchAsync(eventType, payload, ct); }
+        catch (Exception ex) { _log.LogError(ex, "Webhook dispatch '{Event}' failed.", eventType); }
     }
 
     public async Task<PagedResult<InventoryRowDto>> ListAsync(InventoryQuery query, CancellationToken ct = default)
@@ -96,6 +110,10 @@ public sealed class InventoryService : IInventoryService
         if (!await ProductExists(productId, ct)) return null;
         Validate(req);
         var inv = await SetStockInternalAsync(productId, null, req, userId, ct);
+        await DispatchWebhookAsync("inventory.updated", new
+        {
+            productId, variantId = (long?)null, availableQty = inv.AvailableQty, reorderLevel = inv.ReorderLevel,
+        }, ct);
         return ToRow(productId, inv);
     }
 
@@ -105,6 +123,10 @@ public sealed class InventoryService : IInventoryService
         if (variant is null) return null;
         Validate(req);
         var inv = await SetStockInternalAsync(productId, variantId, req, userId, ct);
+        await DispatchWebhookAsync("inventory.updated", new
+        {
+            productId, variantId = (long?)variantId, availableQty = inv.AvailableQty, reorderLevel = inv.ReorderLevel,
+        }, ct);
         return new VariantInventoryDto(variantId, variant.Sku, variant.Name, inv.AvailableQty, inv.ReservedQty, inv.ReorderLevel, inv.AvailableQty <= inv.ReorderLevel);
     }
 
@@ -149,6 +171,10 @@ public sealed class InventoryService : IInventoryService
         inv.UpdatedAt = DateTime.UtcNow;
         AddTransaction(inv, req.ChangeQty, InventoryTxnType.Adjustment, "Manual", null, req.Notes, userId);
         await _db.SaveChangesAsync(ct);
+        await DispatchWebhookAsync("inventory.updated", new
+        {
+            productId, variantId = (long?)null, availableQty = inv.AvailableQty, reorderLevel = inv.ReorderLevel,
+        }, ct);
         return ToRow(productId, inv);
     }
 

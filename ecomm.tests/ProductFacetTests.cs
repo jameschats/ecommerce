@@ -3,7 +3,9 @@ using ecomm.api.Data.Entities;
 using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
 using ecomm.api.Features.Plans;
+using ecomm.api.Features.PublicApi;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ecomm.tests;
@@ -15,7 +17,14 @@ namespace ecomm.tests;
 /// </summary>
 public class ProductFacetTests
 {
-    private static ProductService NewService(EcommerceDbContext db) => new(db, new EntitlementService(db));
+    private static ProductService NewService(EcommerceDbContext db) =>
+        new(db, new EntitlementService(db), new NoopWebhookDispatch(), NullLogger<ProductService>.Instance);
+
+    private sealed class NoopWebhookDispatch : IWebhookDispatchService
+    {
+        public Task DispatchAsync(string eventType, object payload, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RetryDeliveryAsync(long deliveryId, CancellationToken ct = default) => Task.CompletedTask;
+    }
 
     /// <summary>
     /// Seeds a small apparel catalog: parent "Apparel" → child "Sarees"; two brands; a filterable
