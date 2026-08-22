@@ -114,6 +114,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
     public DbSet<ChatbotConversationState> ChatbotConversationStates => Set<ChatbotConversationState>();
     public DbSet<ChatbotUnansweredQuestion> ChatbotUnansweredQuestions => Set<ChatbotUnansweredQuestion>();
+    public DbSet<PricingSeasonRule> PricingSeasonRules => Set<PricingSeasonRule>();
+    public DbSet<PriceSuggestion> PriceSuggestions => Set<PriceSuggestion>();
 
     // --- V2: Plans & Subscriptions ---
     public DbSet<Plan> Plans => Set<Plan>();
@@ -409,6 +411,20 @@ public class EcommerceDbContext : DbContext
             e.HasIndex(x => x.SupportTicketId).IsUnique();
         });
         b.Entity<ChatbotUnansweredQuestion>(e => { e.ToTable("ChatbotUnansweredQuestions"); e.HasKey(x => x.ChatbotUnansweredQuestionId); });
+        b.Entity<PricingSeasonRule>(e =>
+        {
+            e.ToTable("PricingSeasonRules");
+            e.HasKey(x => x.PricingSeasonRuleId);
+            e.Property(x => x.BiasPercent).HasPrecision(5, 2);
+        });
+        b.Entity<PriceSuggestion>(e =>
+        {
+            e.ToTable("PriceSuggestions");
+            e.HasKey(x => x.PriceSuggestionId);
+            foreach (var p in new[] { nameof(PriceSuggestion.InventorySignalPercent), nameof(PriceSuggestion.DemandSignalPercent), nameof(PriceSuggestion.SeasonalitySignalPercent) })
+                e.Property(p).HasPrecision(5, 2);
+            e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
+        });
         b.Entity<Review>(e => { e.ToTable("Reviews"); e.HasKey(x => x.ReviewId); });
         b.Entity<Coupon>(e =>
         {

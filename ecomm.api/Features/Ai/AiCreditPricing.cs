@@ -16,6 +16,9 @@ public static class AiCreditPricing
     public const string SupportDraft = "support-draft";
     public const string ChatbotClassify = "chatbot-classify";
     public const string ChatbotReply = "chatbot-reply";
+    /// <summary>The model only phrases the merchant-facing explanation of an already-computed price
+    /// suggestion — it never computes the number itself (v4 Phase 5).</summary>
+    public const string PricingExplanation = "pricing-explanation";
 
     // AI Growth — marketing content (G1). Costs scale with output length; text is cheap enough
     // (~₹0.04 a call at gpt-4.1-mini rates) that these are priced for daily use, not rationing.
@@ -45,6 +48,7 @@ public static class AiCreditPricing
         // at the cheapest tier — daily-use pricing, same reasoning as the Growth text features.
         [ChatbotClassify] = 1,
         [ChatbotReply] = 1,
+        [PricingExplanation] = 1,
         [Page] = 5,
         [SampleCatalog] = 25,
         [GrowthWhatsapp] = 2,

@@ -178,6 +178,9 @@ builder.Services.AddScoped<ecomm.api.Features.Search.ISearchService, ecomm.api.F
 // Shopping (Stage 4)
 builder.Services.AddScoped<ecomm.api.Features.Account.IAccountService, ecomm.api.Features.Account.AccountService>();
 builder.Services.AddScoped<ecomm.api.Features.Cart.ICartService, ecomm.api.Features.Cart.CartService>();
+builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingControlsService, ecomm.api.Features.Pricing.PricingControlsService>();
+builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingEngineService, ecomm.api.Features.Pricing.PricingEngineService>();
+builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingSuggestionService, ecomm.api.Features.Pricing.PricingSuggestionService>();
 
 // Checkout & Money (Stage 5)
 builder.Services.Configure<PaymentOptions>(builder.Configuration.GetSection(PaymentOptions.SectionName));
@@ -453,5 +456,14 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Subscriptions.ISubscriptionService>(
     "subscription-lifecycle-sweep",
     svc => svc.RunScheduledLifecycleSweepAsync(CancellationToken.None),
     $"0 */{sweepIntervalHours} * * *");
+
+// Dynamic Pricing suggestion generation (v4 Phase 5) — once daily by default, loops every
+// entitled tenant in its own scope (RunScheduledGenerationAsync). Approval-mode only; this job
+// only ever creates Pending suggestions, never changes a price itself.
+var pricingIntervalHours = Math.Clamp(builder.Configuration.GetValue("Pricing:SweepIntervalHours", 24), 1, 24);
+RecurringJob.AddOrUpdate<ecomm.api.Features.Pricing.IPricingEngineService>(
+    "dynamic-pricing-generation",
+    svc => svc.RunScheduledGenerationAsync(CancellationToken.None),
+    $"0 */{pricingIntervalHours} * * *");
 
 app.Run();

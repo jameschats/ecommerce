@@ -22,6 +22,13 @@ public class Product : ITenantScoped
     public decimal Price { get; set; }
     public decimal? CompareAtPrice { get; set; }
     public decimal? CostPrice { get; set; }
+    /// <summary>Dynamic Pricing (v4 Phase 5) bounds — the engine may never suggest outside these,
+    /// and a product with either unset never receives a suggestion at all (no implicit bounds).</summary>
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    /// <summary>When true, the pricing engine skips this product entirely at generation time — a
+    /// locked product never even produces a pending suggestion to review, not just "would be rejected."</summary>
+    public bool PriceLocked { get; set; }
     public string Status { get; set; } = "Draft";   // Draft | Active | Inactive
     public bool IsFeatured { get; set; }
     public bool IsActive { get; set; } = true;

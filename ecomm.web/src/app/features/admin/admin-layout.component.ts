@@ -296,6 +296,7 @@ export class AdminLayoutComponent implements OnInit {
     ] },
     { title: 'Discounts', color: '#0891b2', links: [
       { path: '/admin/coupons', label: 'Discounts', icon: 'tag' },
+      { path: '/admin/pricing', label: 'Dynamic Pricing', icon: 'chart' },
     ] },
     { title: 'Marketing', color: '#0d9488', links: [
       { path: '/admin/growth', label: 'Generate', exact: true, icon: 'sparkles' },
