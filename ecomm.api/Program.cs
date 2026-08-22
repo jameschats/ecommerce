@@ -451,7 +451,11 @@ app.MapHangfireDashboard("/admin/jobs", new DashboardOptions
 // recurring job on every startup keeps its cron/target in sync with this code; the job method itself
 // (RunScheduledLifecycleSweepAsync) computes "now" fresh at each actual execution, not at this
 // registration call — see the interface doc comment on why that distinction matters for Hangfire.
-var sweepIntervalHours = Math.Clamp(builder.Configuration.GetValue("Billing:SweepIntervalHours", 6), 1, 24);
+// 1-23, not 1-24 — "*/24" is not a valid cron hours step (hours only range 0-23). Dormant today
+// since the default (6) never reaches the boundary, but a real latent bug — caught live when the
+// same one-line pattern, copied for Dynamic Pricing's own sweep below, crashed startup at its
+// default of 24.
+var sweepIntervalHours = Math.Clamp(builder.Configuration.GetValue("Billing:SweepIntervalHours", 6), 1, 23);
 RecurringJob.AddOrUpdate<ecomm.api.Features.Subscriptions.ISubscriptionService>(
     "subscription-lifecycle-sweep",
     svc => svc.RunScheduledLifecycleSweepAsync(CancellationToken.None),
@@ -460,7 +464,9 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Subscriptions.ISubscriptionService>(
 // Dynamic Pricing suggestion generation (v4 Phase 5) — once daily by default, loops every
 // entitled tenant in its own scope (RunScheduledGenerationAsync). Approval-mode only; this job
 // only ever creates Pending suggestions, never changes a price itself.
-var pricingIntervalHours = Math.Clamp(builder.Configuration.GetValue("Pricing:SweepIntervalHours", 24), 1, 24);
+// 1-23, not 1-24 — "*/24" is not a valid cron hours step (hours only range 0-23), which crashed
+// startup in production the first time this shipped (default 24 → invalid "0 */24 * * *").
+var pricingIntervalHours = Math.Clamp(builder.Configuration.GetValue("Pricing:SweepIntervalHours", 24), 1, 23);
 RecurringJob.AddOrUpdate<ecomm.api.Features.Pricing.IPricingEngineService>(
     "dynamic-pricing-generation",
     svc => svc.RunScheduledGenerationAsync(CancellationToken.None),
