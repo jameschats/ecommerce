@@ -165,6 +165,7 @@ export const routes: Routes = [
       { path: 'banners', loadComponent: () => import('./features/admin/cms/admin-banners.component').then((m) => m.AdminBannersComponent) },
       { path: 'import', loadComponent: () => import('./features/admin/catalog/admin-import.component').then((m) => m.AdminImportComponent) },
       { path: 'auth-providers', loadComponent: () => import('./features/admin/auth-providers/auth-providers.component').then((m) => m.AuthProvidersComponent) },
+      { path: 'developer', loadComponent: () => import('./features/admin/developer/admin-developer.component').then((m) => m.AdminDeveloperComponent) },
     ],
   },
   { path: '**', loadComponent: () => import('./features/storefront/not-found.component').then((m) => m.NotFoundComponent) },

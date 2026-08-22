@@ -41,6 +41,7 @@ export class AdminSettingsComponent {
     { path: '/admin/ai', icon: '✨', label: 'AI credits', desc: 'AI usage and credit balance.' },
     { path: '/admin/domain', icon: '🌐', label: 'Custom domain', desc: 'Connect a domain customers recognise.' },
     { path: '/admin/auth-providers', icon: '🔑', label: 'Sign-in methods', desc: 'Email, mobile OTP and Google login.' },
+    { path: '/admin/developer', icon: '🔌', label: 'API & webhooks', desc: 'API keys and webhook subscriptions for integrations.' },
     { path: '/admin/support', icon: '💬', label: 'Support', desc: 'Get help from the platform team.' },
   ];
 }
