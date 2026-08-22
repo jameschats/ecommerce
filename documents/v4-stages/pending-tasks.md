@@ -46,3 +46,15 @@ Added 2026-08-22 — pending items surfaced while building v4 Phases 1–4 (not 
 
 **No frontend yet for (backend real and tested, UI not built):**
 - Any of the WhatsApp-dependent features above, by definition.
+
+---
+
+Added 2026-08-22 — custom domains for stores, audited before scoping (per the "audit before scoping" pattern established this session): most of it turned out to already be built.
+
+**Already real and working, not a gap:** `Tenant.CustomDomain`/`CustomDomainVerified`/`CustomDomainToken`, `DomainService`'s CNAME + `.well-known` HTTP-token verification flow, `TenantResolutionMiddleware` resolving tenants by custom host (not just subdomain), and a genuinely wired admin UI at `/admin/domain` (connect, CNAME instructions, verify, disconnect) — none of this needs building.
+
+**Genuinely missing, confirmed by reading the code, not assumed:**
+- **TLS/SSL certificate provisioning for connected custom domains.** A merchant can connect and verify a custom domain today and it resolves to their store over plain HTTP only — nothing in the repo provisions a certificate for it. `DomainService.cs` and the admin UI both just say HTTPS is "handled at the edge," but no such edge handling exists yet (no ACME/Let's Encrypt automation, no Cloudflare-for-SaaS-style integration). This is a real security/trust gap for any merchant who actually connects a domain, not paperwork. See [[phase-6-platform-surfaces.md]] Track D for the fuller writeup.
+- A guided setup wizard (per-registrar DNS instructions, propagation polling instead of a manual Verify click) — lower stakes than the TLS gap, cosmetic/UX rather than functional.
+
+Filed under Track D (Migration/Onboarding, item 8) since that's where the existing domain-migration checklist already lives — TLS provisioning is the part of it that actually needs new infrastructure, not just a wizard.
