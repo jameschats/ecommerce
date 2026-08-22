@@ -7,18 +7,27 @@
 
 ---
 
-## Track A — Public API + Webhooks (pending item 6)
+## Track A — Public API + Webhooks (pending item 6) — done 2026-08-22
 
 ### Scope & checklist
-- [ ] A **separate, deliberately-versioned public API surface** (e.g. `/api/public/v1/`), not the internal admin API exposed directly
-- [ ] Per-tenant API keys, scoped permissions (read-only vs. read-write, per resource)
-- [ ] Webhook subscription + delivery system, retry/backoff via Phase 0's Hangfire
-- [ ] Rate limiting on the public surface — reuse the existing rate-limiting infra from v1's hardening stage, don't rebuild it
-- [ ] OpenAPI/Swagger documentation, generated from the actual public controllers — the technical foundation for the developer half of the docs site (pending item 13)
+- [x] A **separate, deliberately-versioned public API surface** (`/api/public/v1/products|orders|inventory`), with hand-maintained public DTOs distinct from the internal admin DTOs — internal refactors can't silently break integrators
+- [x] Per-tenant API keys, scoped permissions (`products:read`, `orders:read`, `inventory:read`, `inventory:write`) via a second `ApiKey` auth scheme alongside JWT Bearer
+- [x] Webhook subscription + delivery system, retry/backoff via Hangfire (`order.created`, `order.updated`, `product.updated`, `inventory.updated`)
+- [x] Rate limiting on the public surface — a `"public-api"` policy added to the existing `AddRateLimiter` infra from v1's hardening stage, partitioned by a hash of the `Authorization` header
+- [x] OpenAPI documentation — a second, narrower `AddOpenApi("public-v1", ...)` document scoped to just the public controllers, served at `/openapi/public-v1.json` in every environment (the full internal document stays Development-only, as before)
 
 ### Design decisions
-- **This must not be the same surface the Angular admin app calls.** The internal API is shaped for that app's exact needs and changes freely as the frontend evolves — a third-party integrator building against it would break on every internal refactor. A public API needs its own stability contract from day one: versioned, deliberately scoped, changed only with real backward-compatibility discipline. This is the single most important decision in this track — get it wrong and every future phase's internal changes become breaking changes for outside developers.
-- **Webhooks, not polling, for anything event-driven** (order placed, product updated, inventory changed) — matches how every serious platform API (Shopify included) actually works, and reuses infrastructure this roadmap already built rather than inventing a new delivery mechanism.
+- **This must not be the same surface the Angular admin app calls.** The internal API is shaped for that app's exact needs and changes freely as the frontend evolves — a third-party integrator building against it would break on every internal refactor. A public API needs its own stability contract from day one: versioned, deliberately scoped, changed only with real backward-compatibility discipline. This is the single most important decision in this track — get it wrong and every future phase's internal changes become breaking changes for outside developers. Built as separate, hand-maintained `PublicProductDto`/`PublicOrderSummaryDto`/`PublicOrderDto`/`PublicInventoryDto` records, never the internal admin DTOs directly.
+- **Webhooks, not polling, for anything event-driven** (order placed, product updated, inventory changed) — matches how every serious platform API (Shopify included) actually works, and reuses infrastructure this roadmap already built (the Hangfire-wrapping scheduler pattern from the notification router) rather than inventing a new delivery mechanism.
+- **Customer PII is deliberately not exposed by any scope yet** — same posture as Phase 3's DPDP flag; third-party access to customer data is its own real privacy question, not silently decided here.
+- **Inventory webhook firing is scoped to the merchant-driven write paths only** (`SetStockAsync`/`SetVariantStockAsync`/`AdjustAsync`), not the high-frequency internal `Reserve`/`Release`/`Commit`/`Restock` hooks every cart/order action already triggers — those would flood integrators and are already covered by `order.created`/`order.updated`.
+
+### Implementation notes
+- API key auth is a genuinely second scheme (`ApiKeyAuthDefaults.Scheme = "ApiKey"`), not folded into the JWT Bearer default — public controllers declare `[Authorize(AuthenticationSchemes = ApiKeyAuthDefaults.Scheme)]` explicitly, so a bare `[Authorize]` everywhere else keeps meaning JWT exactly as it always has. Keys are stored as a one-way SHA-256 hash; the raw value is shown exactly once at creation.
+- Tenant resolution for a key reuses `TenantResolutionMiddleware`'s existing cross-check (it already validates any authenticated principal's `"tenant"` claim against the Host-resolved tenant) for free — the auth handler just stamps that claim from the key's own `TenantId`.
+- Webhook deliveries are HMAC-SHA256 signed (`X-WavCommerce-Signature: sha256=...`, the Shopify/Stripe convention) with a bounded backoff schedule (1m, 5m, 30m, 2h, 6h, then `Exhausted`); every attempt persists its own state on the `WebhookDelivery` row (attempt count, last status code, last error) for a full audit trail.
+- Merchant self-service UI lives at **Settings → API & webhooks** (`/admin/developer`) — create/revoke keys, create/pause/resume/delete webhook subscriptions, with the one-time secret/key reveal pattern.
+- Not built: an OpenAPI-generated *docs site page* (Track G's job, not this track's) — the spec itself is live and complete.
 
 ---
 
