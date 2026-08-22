@@ -19,7 +19,7 @@ import { ImportJobResult } from '../../../core/models/admin-catalog.model';
         <h1 class="text-xl font-bold text-slate-900">Import from any spreadsheet</h1>
         <a routerLink="/admin/ai" class="text-sm text-slate-500 hover:underline">AI credits ↗</a>
       </div>
-      <p class="text-sm text-slate-500 mb-5">Migrating from Shopify, WooCommerce or Wix — or any spreadsheet in any layout (.xlsx or .csv)? We recognise the big platforms automatically and AI maps the rest. Review the mapping, then import; new categories are created for you.</p>
+      <p class="text-sm text-slate-500 mb-5">Migrating from Shopify, WooCommerce, Wix, Zoho Commerce, Dukaan or Instamojo — or any spreadsheet in any layout (.xlsx or .csv)? We recognise the big platforms automatically and AI maps the rest. Review the mapping, then import; new categories are created for you.</p>
 
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }

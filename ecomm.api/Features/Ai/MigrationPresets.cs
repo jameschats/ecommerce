@@ -51,7 +51,52 @@ public static class MigrationPresets
             ("discountValue", "ignore"), ("inventory", "ignore"), ("weight", "ignore"), ("cost", "costprice"),
             ("brand", "brand")));
 
-    public static readonly IReadOnlyList<MigrationPreset> All = new[] { Shopify, WooCommerce, Wix };
+    // Confident: sourced from Zoho Commerce's own published export-column documentation
+    // (zoho.com/commerce/api/export-products.html) — Product Name, Store/Long Description,
+    // Selling/Label Price, Category URL, SEO fields, EAN/UPC/ISBN, and the Attribute1-3 columns
+    // for variants are all exactly as Zoho's own docs describe them.
+    private static readonly MigrationPreset ZohoCommerce = new("zoho", "Zoho Commerce",
+        new[] { "Store Description", "Selling Price", "Qualifies For Returns", "Label Price" },
+        Ci(
+            ("Product ID", "ignore"), ("Handle", "ignore"), ("Product Name", "name"),
+            ("Store Description", "shortdescription"), ("Long Description", "description"), ("Brand", "brand"),
+            ("SKU", "sku"), ("Selling Price", "price"), ("Label Price", "compareatprice"),
+            ("Category URL", "category"), ("Tags", "ignore"), ("Item Type", "ignore"), ("On Sale", "ignore"),
+            ("Show In Store", "ignore"), ("Qualifies For Returns", "ignore"), ("Opening Stock", "ignore"),
+            ("Reorder Level", "ignore"), ("Variant ID", "ignore"), ("Part Number", "ignore"),
+            ("EAN", "ignore"), ("UPC", "ignore"), ("ISBN", "ignore"), ("Avalara Tax Code", "ignore"),
+            ("SEO Title", "ignore"), ("SEO Description", "ignore"), ("SEO Keyword", "ignore"),
+            ("Package Height", "ignore"), ("Package Length", "ignore"), ("Package Width", "ignore"), ("Package Weight", "ignore"),
+            ("AttributeName1", "ignore"), ("AttributeOption1", "ignore"), ("AttributeType1", "ignore"),
+            ("AttributeName2", "ignore"), ("AttributeOption2", "ignore"), ("AttributeType2", "ignore"),
+            ("AttributeName3", "ignore"), ("AttributeOption3", "ignore"), ("AttributeType3", "ignore")));
+
+    // Best-effort, NOT verified against a real export file — Dukaan's and Instamojo's own bulk-
+    // upload templates aren't published in a way this could be confirmed against. Two distinct risks
+    // this carries, both bounded by the existing review-before-write flow (nothing is ever written
+    // without the merchant seeing and correcting the proposed mapping first): (1) a wrong header
+    // guess simply never matches a real column and is inert, same as an unlisted platform; (2) the
+    // signature lists below lean on fairly generic column names ("Product Name", "Price"), which
+    // could false-positive auto-detect against a genuinely different, unlisted platform's export —
+    // worse UX (wrong preset pre-selected) but not data-corrupting, since the merchant still reviews
+    // and corrects before Apply. Confirm the exact column names against a real export the first time
+    // either of these actually gets used, and correct this preset then.
+    private static readonly MigrationPreset Dukaan = new("dukaan", "Dukaan",
+        new[] { "HSN Code", "Product Name", "Selling Price" },
+        Ci(
+            ("Product Name", "name"), ("Description", "description"), ("Category", "category"),
+            ("Selling Price", "price"), ("MRP", "compareatprice"), ("SKU", "sku"), ("HSN Code", "ignore"),
+            ("Stock", "ignore"), ("Image", "imageurl"), ("Image URL", "imageurl"), ("Brand", "brand"),
+            ("SEO title", "ignore"), ("SEO description", "ignore")));
+
+    private static readonly MigrationPreset Instamojo = new("instamojo", "Instamojo",
+        new[] { "Product Name", "Price", "Category" },
+        Ci(
+            ("Product Name", "name"), ("Description", "description"), ("Category", "category"),
+            ("Price", "price"), ("SKU", "sku"), ("Stock", "ignore"), ("Image URL", "imageurl"),
+            ("Quantity", "ignore"), ("Weight", "ignore")));
+
+    public static readonly IReadOnlyList<MigrationPreset> All = new[] { Shopify, WooCommerce, Wix, ZohoCommerce, Dukaan, Instamojo };
 
     /// <summary>Best-matching platform for a header row (≥2 signature columns present), or null.</summary>
     public static MigrationPreset? Detect(IReadOnlyList<string> headers)
