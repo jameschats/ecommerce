@@ -87,3 +87,5 @@ Phase 3 flagged that `Plan.MarketingEngineLevel`/etc. are currently decorative l
 - Confirm, by code review specifically for this module, that no individual-shopper signal (identity, location, personal browsing history) is reachable from the pricing computation path
 
 **Status:** Done, 2026-08-22 — with the demand signal honestly stubbed at neutral pending Phase 3 Track B.
+
+**Deploy incident (2026-08-22, ~1 min):** the first deploy of this phase crash-looped the live API — `Math.Clamp(..., 1, 24)` on the new Hangfire sweep's config default produced the cron expression `0 */24 * * *`, and `*/24` isn't valid in an hours field (hours only range 0-23). Caught immediately via container logs, fixed to `Math.Clamp(..., 1, 23)`, redeployed within a couple of minutes. Found and fixed the identical dormant bug in the pre-existing subscription sweep's own clamp while there (same one-line pattern; harmless today only because its default of 6 never reaches the boundary).
