@@ -46,16 +46,24 @@ public sealed class BackInStockService(
     {
         try
         {
-            var pending = await db.BackInStockRequests
-                .Where(r => r.ProductId == productId && r.NotifiedAt == null)
-                .ToListAsync(ct);
-            if (pending.Count == 0) return;
-
             var product = await db.Products.AsNoTracking()
                 .Where(p => p.ProductId == productId)
                 .Select(p => new { p.Name, p.Slug })
                 .FirstOrDefaultAsync(ct);
             if (product is null) return;
+
+            var pending = await db.BackInStockRequests
+                .Where(r => r.ProductId == productId && r.NotifiedAt == null)
+                .ToListAsync(ct);
+
+            // Wishlist owners get a courtesy restock alert too, throttled so a product that flaps
+            // in and out of stock doesn't spam them.
+            var wlCutoff = DateTime.UtcNow.AddDays(-14);
+            var wishlist = await db.WishlistItems
+                .Where(w => w.ProductId == productId && (w.RestockNotifiedAt == null || w.RestockNotifiedAt < wlCutoff))
+                .ToListAsync(ct);
+
+            if (pending.Count == 0 && wishlist.Count == 0) return;
 
             var url = await BuildProductUrlAsync(product.Slug, ct);
             var subject = $"Back in stock: {product.Name}";
@@ -63,24 +71,43 @@ public sealed class BackInStockService(
                      + (url is null ? "" : $"<p><a href=\"{url}\">View it now</a> before it sells out again.</p>");
 
             var now = DateTime.UtcNow;
+            var sentTo = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 1) Explicit "notify me" opt-ins (consumed — NotifiedAt set).
             foreach (var r in pending)
+                if (await TrySendAsync(r.Email, subject, body, productId, ct)) { r.NotifiedAt = now; sentTo.Add(r.Email); }
+
+            // 2) Wishlist owners, skipping anyone already emailed above.
+            if (wishlist.Count > 0)
             {
-                try
+                var userIds = wishlist.Select(w => w.UserId).Distinct().ToList();
+                var emailByUser = (await db.Users
+                        .Where(u => userIds.Contains(u.UserId) && u.Email != null && !u.IsDeleted)
+                        .Select(u => new { u.UserId, u.Email }).ToListAsync(ct))
+                    .ToDictionary(x => x.UserId, x => x.Email!);
+                foreach (var w in wishlist)
                 {
-                    await email.SendAsync(r.Email, subject, body, ct);
-                    r.NotifiedAt = now;
-                }
-                catch (Exception ex)
-                {
-                    // Leave NotifiedAt null so a later restock retries this address; don't fail the batch.
-                    log.LogWarning(ex, "Back-in-stock email to {Email} for product {ProductId} failed.", r.Email, productId);
+                    if (!emailByUser.TryGetValue(w.UserId, out var addr)) continue;
+                    if (sentTo.Contains(addr)) { w.RestockNotifiedAt = now; continue; }   // already got the opt-in email
+                    if (await TrySendAsync(addr, subject, body, productId, ct)) { w.RestockNotifiedAt = now; sentTo.Add(addr); }
                 }
             }
+
             await db.SaveChangesAsync(ct);
         }
         catch (Exception ex)
         {
             log.LogError(ex, "NotifyRestockAsync failed for product {ProductId} (non-fatal).", productId);
+        }
+    }
+
+    private async Task<bool> TrySendAsync(string toEmail, string subject, string body, long productId, CancellationToken ct)
+    {
+        try { await email.SendAsync(toEmail, subject, body, ct); return true; }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Restock email to {Email} for product {ProductId} failed.", toEmail, productId);
+            return false;
         }
     }
 

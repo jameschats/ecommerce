@@ -8,4 +8,5 @@ public class WishlistItem : ITenantScoped
     public long UserId { get; set; }
     public long ProductId { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? RestockNotifiedAt { get; set; }   // last time this saver was alerted the product restocked (throttle)
 }
