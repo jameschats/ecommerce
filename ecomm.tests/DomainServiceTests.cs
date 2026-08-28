@@ -16,9 +16,19 @@ public class DomainServiceTests
         public HttpClient CreateClient(string name) => throw new InvalidOperationException("not used in this test");
     }
 
+    // Cloudflare-for-SaaS disabled: DomainService then behaves as it did before custom-hostname provisioning.
+    private sealed class NoopCloudflare : ICloudflareSaas
+    {
+        public bool Enabled => false;
+        public string? CnameTarget => null;
+        public Task<CustomHostnameStatus?> EnsureAsync(string hostname, CancellationToken ct = default) => Task.FromResult<CustomHostnameStatus?>(null);
+        public Task<CustomHostnameStatus?> GetAsync(string hostname, CancellationToken ct = default) => Task.FromResult<CustomHostnameStatus?>(null);
+        public Task DeleteAsync(string hostname, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     private static DomainService NewSvc(ecomm.api.Data.Context.EcommerceDbContext db, long tenantId = 1, string baseDomain = "wavcommerce.online")
         => new(db, new FixedTenant(tenantId), Options.Create(new ecomm.api.Common.Tenancy.TenancyOptions { BaseDomain = baseDomain }),
-            new ThrowingHttpFactory(), new MemoryCache(new MemoryCacheOptions()), NullLogger<DomainService>.Instance);
+            new ThrowingHttpFactory(), new MemoryCache(new MemoryCacheOptions()), new NoopCloudflare(), NullLogger<DomainService>.Instance);
 
     private static async Task<ecomm.api.Data.Context.EcommerceDbContext> DbWithTenant(long id = 1)
     {

@@ -44,8 +44,11 @@ public class SuperAdminTenantAdminTests
         var dp = Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests");
         var gateways = new ecomm.api.Features.Payments.PlatformPaymentGatewayFactory(
             new StubHttpFactory(), Options.Create(new ecomm.api.Features.Payments.PaymentOptions()), db, dp);
+        var emailFactory = new ecomm.api.Features.Notifications.EmailSenderFactory(
+            Options.Create(new ecomm.api.Features.Notifications.EmailOptions()), db, dp,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ecomm.api.Features.Notifications.LoggingEmailSender>.Instance);
         var svc = new SuperAdminService(db, new StubJwt(), Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online" }), tenant,
-            new NoopEmail(), new NoopSms(), gateways, dp);
+            new NoopEmail(), new NoopSms(), gateways, emailFactory, dp);
         return (db, svc);
     }
 

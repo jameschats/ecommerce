@@ -36,8 +36,13 @@ public sealed record UpdateCustomerRequest(string? FullName, string? PhoneNumber
 
 public sealed record SegmentDto(string Key, string Label, int Count);
 
+/// <summary>A consented email recipient for a marketing campaign send (M1).</summary>
+public sealed record CampaignRecipient(long UserId, string Email, string? FullName);
+
 public interface ICustomerAdminService
 {
+    /// <summary>Customers in a segment who have opted in to email marketing (consent enforced regardless of segment).</summary>
+    Task<IReadOnlyList<CampaignRecipient>> EmailRecipientsAsync(string? segment, CancellationToken ct = default);
     Task<PagedResult<CustomerListItem>> ListAsync(string? search, string? segment, string? tag, int page, int pageSize, CancellationToken ct = default);
     Task<CustomerDetailDto> GetAsync(long userId, CancellationToken ct = default);
     Task<CustomerDetailDto> CreateAsync(CreateCustomerRequest req, CancellationToken ct = default);
@@ -333,6 +338,17 @@ public sealed class CustomerAdminService(EcommerceDbContext db) : ICustomerAdmin
             return new CustomerListItem(c.UserId, c.FullName, c.Email, c.PhoneNumber,
                 a?.Count ?? 0, a?.Spent ?? 0m, a?.Last, p?.AcceptsEmailMarketing ?? false, SplitTags(p?.Tags), c.CreatedAt);
         }).ToList();
+    }
+
+    public async Task<IReadOnlyList<CampaignRecipient>> EmailRecipientsAsync(string? segment, CancellationToken ct = default)
+    {
+        var all = await LoadAllAsync(ct);
+        // Marketing consent is enforced on top of the segment — a shopper who hasn't opted in to email
+        // marketing is never included, even in the "all" segment. This is a legal boundary, not a filter.
+        return ApplySegment(all, segment)
+            .Where(c => c.AcceptsEmailMarketing && !string.IsNullOrWhiteSpace(c.Email))
+            .Select(c => new CampaignRecipient(c.UserId, c.Email!, c.FullName))
+            .ToList();
     }
 
     private static IEnumerable<CustomerListItem> ApplySegment(IEnumerable<CustomerListItem> q, string? segment) => segment switch

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
 import { ProductListItem } from '../../../core/models/catalog.model';
-import { Campaign, CampaignSummary, Goal, GrowthService } from '../../../core/services/growth.service';
+import { Campaign, CampaignSendStatus, CampaignSummary, CustomerSegment, Goal, GrowthService } from '../../../core/services/growth.service';
 
 @Component({
   selector: 'app-admin-campaigns',
@@ -88,6 +88,10 @@ import { Campaign, CampaignSummary, Goal, GrowthService } from '../../../core/se
                 }
               </div>
             }
+            <div class="flex gap-2 pt-3 mt-1 border-t border-slate-100">
+              <button type="button" (click)="openSend(c.id, c.name)" class="btn-primary text-sm">📧 Send / schedule email</button>
+              <button type="button" (click)="exportCampaign(c.id, c.name)" class="text-sm text-slate-600 hover:text-primary border border-slate-200 rounded-lg px-3">⬇ Export pack</button>
+            </div>
           </div>
         }
 
@@ -104,10 +108,70 @@ import { Campaign, CampaignSummary, Goal, GrowthService } from '../../../core/se
                   <a [routerLink]="['/admin/growth/library']" [queryParams]="{ campaignId: c.id }"
                      class="text-xs text-primary hover:underline">{{ c.pieces }} pieces</a>
                   <span class="text-xs text-slate-400"> · {{ c.createdAt | date:'dd MMM, HH:mm' }}</span>
+                  @if (c.status && c.status !== 'Draft' && c.status !== 'Kept') {
+                    <span class="ml-2 text-[11px] px-2 py-0.5 rounded-full"
+                          [class]="statusClass(c.status)">{{ statusLabel(c.status) }}</span>
+                  }
                 </div>
-                <button type="button" (click)="removeCampaign(c)" class="text-sm text-red-600 hover:underline">Delete</button>
+                <div class="flex items-center gap-3 shrink-0">
+                  <button type="button" (click)="openSend(c.id, c.name)" class="text-sm text-primary hover:underline">Send</button>
+                  <button type="button" (click)="exportCampaign(c.id, c.name)" class="text-sm text-slate-500 hover:text-primary">Export</button>
+                  <button type="button" (click)="removeCampaign(c)" class="text-sm text-red-600 hover:underline">Delete</button>
+                </div>
               </div>
             }
+          </div>
+        }
+
+        <!-- Send / schedule modal -->
+        @if (sendFor(); as sc) {
+          <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/40" (click)="closeSend()"></div>
+            <div class="relative bg-white rounded-xl shadow-xl w-full max-w-md p-5">
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <h3 class="font-semibold text-slate-900">Send email campaign</h3>
+                <button type="button" (click)="closeSend()" class="text-slate-400 text-xl leading-none">×</button>
+              </div>
+              <p class="text-xs text-slate-500 -mt-2 mb-4 truncate">{{ sc.name }}</p>
+
+              @if (sendStatus() && !sendStatus()!.hasEmailContent) {
+                <p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  This campaign has no email copy to send. Generate the email channel first.
+                </p>
+              } @else if (sendStatus()?.status === 'Sending') {
+                <p class="text-sm text-slate-600">This campaign is currently being sent…</p>
+              } @else {
+                <label class="lbl">Send to</label>
+                <select [(ngModel)]="sendSegment" name="seg" (ngModelChange)="refreshPreview()" class="input mb-1">
+                  @for (s of segments(); track s.key) { <option [ngValue]="s.key">{{ s.label }} ({{ s.count }})</option> }
+                </select>
+                <p class="text-xs text-slate-500 mb-4">
+                  @if (previewBusy()) { Checking… }
+                  @else { <strong>{{ sendStatus()?.eligibleNow ?? 0 }}</strong> customer(s) here have opted in to email marketing. }
+                </p>
+
+                <label class="lbl">When</label>
+                <div class="flex items-center gap-3 mb-2 text-sm">
+                  <label class="inline-flex items-center gap-1.5"><input type="radio" name="when" [checked]="!scheduleLater" (change)="scheduleLater = false" /> Send now</label>
+                  <label class="inline-flex items-center gap-1.5"><input type="radio" name="when" [checked]="scheduleLater" (change)="scheduleLater = true" /> Schedule</label>
+                </div>
+                @if (scheduleLater) {
+                  <input type="datetime-local" [(ngModel)]="scheduleAt" name="at" class="input mb-2" />
+                }
+
+                @if (sendError()) { <p class="text-sm text-red-600 mb-2">{{ sendError() }}</p> }
+
+                <div class="flex items-center justify-between mt-4">
+                  @if (sendStatus()?.status === 'Scheduled') {
+                    <button type="button" (click)="cancelSend()" class="text-sm text-red-600 hover:underline">Cancel scheduled send</button>
+                  } @else { <span></span> }
+                  <button type="button" (click)="doSend()" [disabled]="sendBusy() || (sendStatus()?.eligibleNow ?? 0) === 0"
+                          class="btn-primary text-sm disabled:opacity-60">
+                    {{ sendBusy() ? 'Working…' : (scheduleLater ? 'Schedule send' : 'Send now') }}
+                  </button>
+                </div>
+              }
+            </div>
           </div>
         }
       }
@@ -137,13 +201,90 @@ export class AdminCampaignsComponent implements OnInit {
     'instagram-caption': 'Instagram', 'facebook-post': 'Facebook', 'whatsapp': 'WhatsApp', 'email': 'Email',
   };
 
+  // ----- Send / schedule (M1) -----
+  readonly segments = signal<CustomerSegment[]>([]);
+  readonly sendFor = signal<{ id: number; name: string } | null>(null);
+  readonly sendStatus = signal<CampaignSendStatus | null>(null);
+  readonly sendBusy = signal(false);
+  readonly previewBusy = signal(false);
+  readonly sendError = signal<string | null>(null);
+  sendSegment: string | null = 'all';
+  scheduleLater = false;
+  scheduleAt = '';
+
   ngOnInit(): void {
     this.api.goals().subscribe({
       next: (g) => this.goals.set(g),
       error: (e) => { if (e?.status === 402) this.locked.set(true); },
     });
     this.catalog.listProducts({ page: 1, pageSize: 200 }).subscribe((r) => this.products.set(r.items));
+    this.api.segments().subscribe({ next: (s) => this.segments.set(s), error: () => {} });
     this.loadPast();
+  }
+
+  openSend(id: number, name: string): void {
+    this.sendFor.set({ id, name });
+    this.sendStatus.set(null);
+    this.sendError.set(null);
+    this.scheduleLater = false;
+    this.scheduleAt = '';
+    this.refreshPreview();
+  }
+  closeSend(): void { this.sendFor.set(null); }
+
+  refreshPreview(): void {
+    const sc = this.sendFor();
+    if (!sc) return;
+    this.previewBusy.set(true);
+    this.api.sendPreview(sc.id, this.sendSegment).subscribe({
+      next: (st) => { this.sendStatus.set(st); this.previewBusy.set(false); },
+      error: () => this.previewBusy.set(false),
+    });
+  }
+
+  doSend(): void {
+    const sc = this.sendFor();
+    if (!sc) return;
+    this.sendBusy.set(true);
+    this.sendError.set(null);
+    const scheduledAt = this.scheduleLater && this.scheduleAt ? new Date(this.scheduleAt).toISOString() : null;
+    this.api.sendCampaign(sc.id, this.sendSegment, scheduledAt).subscribe({
+      next: () => { this.sendBusy.set(false); this.closeSend(); this.loadPast(); },
+      error: (e) => { this.sendBusy.set(false); this.sendError.set(e?.error?.message ?? 'Could not start the send.'); },
+    });
+  }
+
+  cancelSend(): void {
+    const sc = this.sendFor();
+    if (!sc) return;
+    this.sendBusy.set(true);
+    this.api.cancelSend(sc.id).subscribe({
+      next: () => { this.sendBusy.set(false); this.closeSend(); this.loadPast(); },
+      error: (e) => { this.sendBusy.set(false); this.sendError.set(e?.error?.message ?? 'Could not cancel.'); },
+    });
+  }
+
+  exportCampaign(id: number, name: string): void {
+    this.api.exportCampaign(id).subscribe((blob) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'campaign';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `campaign-${slug}.md`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  statusLabel(s: string): string {
+    return { Scheduled: 'Scheduled', Sending: 'Sending…', Sent: 'Sent', Failed: 'Failed' }[s] ?? s;
+  }
+  statusClass(s: string): string {
+    return {
+      Scheduled: 'bg-amber-100 text-amber-700',
+      Sending: 'bg-blue-100 text-blue-700',
+      Sent: 'bg-emerald-100 text-emerald-700',
+      Failed: 'bg-red-100 text-red-700',
+    }[s] ?? 'bg-slate-100 text-slate-600';
   }
 
   label(key: string): string { return this.labels[key] ?? key; }

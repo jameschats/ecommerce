@@ -30,6 +30,14 @@ export interface CampaignSummary { id: number; name: string; goal: string; statu
 export interface CreateCampaignRequest {
   goal: string; name?: string | null; productId: number; brief?: string | null; language?: string | null;
 }
+export interface CustomerSegment { key: string; label: string; count: number; }
+export interface CampaignSendStatus {
+  campaignId: number; status: string; channel: string; segment: string | null;
+  scheduledAt: string | null; sentAt: string | null;
+  recipientCount: number; sentCount: number; failedCount: number;
+  eligibleNow: number; hasEmailContent: boolean;
+}
+export interface BulkJob { queued: number; message: string; }
 export interface ImageStyle { key: string; label: string; description: string; }
 export interface ImageFormat { key: string; label: string; size: string; }
 export interface GeneratedImage { id: number; url: string; costInr: number; createdAt: string; }
@@ -86,6 +94,30 @@ export class GrowthService {
   }
   removeCampaign(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/campaigns/${id}`);
+  }
+
+  // ----- Campaign sends (M1) -----
+  segments(): Observable<CustomerSegment[]> {
+    return this.unwrap(this.http.get<ApiResponse<CustomerSegment[]>>(`${this.base}/segments`));
+  }
+  sendPreview(campaignId: number, segment: string | null): Observable<CampaignSendStatus> {
+    const q = segment ? `?segment=${encodeURIComponent(segment)}` : '';
+    return this.unwrap(this.http.get<ApiResponse<CampaignSendStatus>>(`${this.base}/campaigns/${campaignId}/send${q}`));
+  }
+  sendCampaign(campaignId: number, segment: string | null, scheduledAt: string | null): Observable<CampaignSendStatus> {
+    return this.unwrap(this.http.post<ApiResponse<CampaignSendStatus>>(`${this.base}/campaigns/${campaignId}/send`, { segment, scheduledAt }));
+  }
+  cancelSend(campaignId: number): Observable<CampaignSendStatus> {
+    return this.unwrap(this.http.post<ApiResponse<CampaignSendStatus>>(`${this.base}/campaigns/${campaignId}/cancel-send`, {}));
+  }
+  /** The copy-paste export pack as a blob (auth header added by the interceptor); caller triggers the download. */
+  exportCampaign(campaignId: number): Observable<Blob> {
+    return this.http.get(`${this.base}/campaigns/${campaignId}/export`, { responseType: 'blob' });
+  }
+
+  // ----- Bulk generate (M1) -----
+  bulkGenerate(contentType: string, productIds: number[], language: string | null, brief: string | null): Observable<BulkJob> {
+    return this.unwrap(this.http.post<ApiResponse<BulkJob>>(`${this.base}/bulk`, { contentType, productIds, language, brief }));
   }
 
   // ----- Images (beta) -----

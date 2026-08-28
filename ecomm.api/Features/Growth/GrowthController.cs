@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using System.Text;
 using ecomm.api.Common.Models;
+using ecomm.api.Features.Customers;
 using ecomm.api.Features.Plans;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +18,8 @@ namespace ecomm.api.Features.Growth;
 [Route("api/admin/growth")]
 public sealed class GrowthController(
     IGrowthGenerationService gen, IBrandKitService brandKit, IGrowthCampaignService campaigns,
-    IGrowthImageService images) : ControllerBase
+    IGrowthImageService images, IGrowthCampaignSendService sends, IGrowthBulkService bulk,
+    ICustomerAdminService customers) : ControllerBase
 {
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -76,6 +79,68 @@ public sealed class GrowthController(
     {
         await campaigns.DeleteAsync(id, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Campaign removed."));
+    }
+
+    // ---- Campaign sends (M1): email a campaign to a customer segment, now or scheduled ----
+
+    /// <summary>The customer segments a campaign can be sent to, with live counts.</summary>
+    [HttpGet("segments")]
+    public async Task<IActionResult> Segments(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<SegmentDto>>.Ok(await customers.SegmentsAsync(ct)));
+
+    /// <summary>Preview a send: how many consented recipients a segment has and whether email copy exists.</summary>
+    [HttpGet("campaigns/{id:long}/send")]
+    public async Task<IActionResult> SendPreview(long id, [FromQuery] string? segment, CancellationToken ct)
+        => Ok(ApiResponse<CampaignSendStatusDto>.Ok(await sends.PreviewAsync(id, segment, ct)));
+
+    [HttpPost("campaigns/{id:long}/send")]
+    public async Task<IActionResult> Send(long id, SendCampaignRequest request, CancellationToken ct)
+    {
+        var status = await sends.ScheduleAsync(id, request, ct);
+        var msg = status.ScheduledAt > DateTime.UtcNow ? "Campaign scheduled." : "Campaign send started.";
+        return Ok(ApiResponse<CampaignSendStatusDto>.Ok(status, msg));
+    }
+
+    [HttpPost("campaigns/{id:long}/cancel-send")]
+    public async Task<IActionResult> CancelSend(long id, CancellationToken ct)
+        => Ok(ApiResponse<CampaignSendStatusDto>.Ok(await sends.CancelAsync(id, ct), "Scheduled send cancelled."));
+
+    /// <summary>Download a copy-paste pack of every channel's copy — for channels we don't send to directly.</summary>
+    [HttpGet("campaigns/{id:long}/export")]
+    public async Task<IActionResult> ExportCampaign(long id, CancellationToken ct)
+    {
+        var c = await campaigns.GetAsync(id, ct);
+        var sb = new StringBuilder();
+        sb.Append("# ").Append(c.Name).Append("\n\n");
+        sb.Append("_Goal: ").Append(c.Goal).Append(" · Language: ").Append(c.Language).Append("_\n\n");
+        foreach (var ch in c.Channels)
+        {
+            sb.Append("\n## ").Append(ChannelLabel(ch.Channel)).Append("\n\n");
+            if (ch.Content is null) { sb.Append("_(not generated: ").Append(ch.Error ?? "n/a").Append(")_\n"); continue; }
+            if (!string.IsNullOrWhiteSpace(ch.Content.Title)) sb.Append("**Subject:** ").Append(ch.Content.Title).Append("\n\n");
+            sb.Append(ch.Content.Body).Append('\n');
+        }
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        var slug = new string((c.Name ?? "campaign").Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+        return File(bytes, "text/markdown", $"campaign-{slug}.md");
+    }
+
+    private static string ChannelLabel(string key) => key switch
+    {
+        "instagram-caption" => "Instagram caption",
+        "facebook-post" => "Facebook post",
+        "whatsapp" => "WhatsApp broadcast",
+        "email" => "Email campaign",
+        _ => key,
+    };
+
+    // ---- Bulk generation (M1): one content type across many products, async ----
+
+    [HttpPost("bulk")]
+    public async Task<IActionResult> Bulk(BulkGenerateRequest request, CancellationToken ct)
+    {
+        var result = await bulk.QueueAsync(request, UserId, ct);
+        return Ok(ApiResponse<BulkJobDto>.Ok(result, result.Message));
     }
 
     // ---- Image generation (POC) ----

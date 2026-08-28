@@ -40,12 +40,12 @@ public class DashboardTests
 
         // Tax decided ("None"), but no business name/contact yet — the combined step stays open.
         await new StoreSettingsService(db).UpdateAsync(
-            new UpdateStoreSettingsRequest("None", null, null, null, false, null, null, null, null));
+            new UpdateStoreSettingsRequest("None", null, null, null, false, null, null, null, null, false));
         Assert.False((await svc.GetAsync()).Checklist.Single(i => i.Key == "details").Done);
 
         await new StoreSettingsService(db).UpdateAsync(
             new UpdateStoreSettingsRequest("None", null, null, StoreLegalName: "Acme Sarees", false,
-                StoreEmail: "hi@acme.test", null, null, null));
+                StoreEmail: "hi@acme.test", null, null, null, false));
 
         var d = await svc.GetAsync();
         Assert.True(d.Checklist.Single(i => i.Key == "details").Done);
@@ -59,7 +59,7 @@ public class DashboardTests
 
         // Signup seeds CodEnabled=true; that must not satisfy "accept online payments".
         await new StoreSettingsService(db).UpdateAsync(
-            new UpdateStoreSettingsRequest("None", null, null, null, true, null, null, null, null));
+            new UpdateStoreSettingsRequest("None", null, null, null, true, null, null, null, null, false));
 
         var payments = (await svc.GetAsync()).Checklist.Single(i => i.Key == "payments");
 

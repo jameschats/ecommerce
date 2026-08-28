@@ -66,10 +66,33 @@ import { GenerateRequest, GrowthContent, GrowthService, GrowthType } from '../..
             </div>
 
             @if (error()) { <p class="text-sm text-red-600 mt-3">{{ error() }}</p> }
-            <button type="button" (click)="generate(t)" [disabled]="generating() || !ready(t)"
-                    class="btn-primary mt-4 disabled:opacity-60">
-              {{ generating() ? 'Generating…' : 'Generate (' + t.credits + ' credits)' }}
-            </button>
+            <div class="flex flex-wrap items-center gap-3 mt-4">
+              <button type="button" (click)="generate(t)" [disabled]="generating() || !ready(t)"
+                      class="btn-primary disabled:opacity-60">
+                {{ generating() ? 'Generating…' : 'Generate (' + t.credits + ' credits)' }}
+              </button>
+              @if (t.needsProduct) {
+                <button type="button" (click)="bulkMode.set(!bulkMode())" class="text-sm text-primary hover:underline">
+                  {{ bulkMode() ? '← Single product' : 'Generate for many products →' }}
+                </button>
+              }
+            </div>
+
+            @if (t.needsProduct && bulkMode()) {
+              <div class="mt-4 border-t border-slate-100 pt-4">
+                <label class="lbl">Pick products (up to 50) — one {{ t.label.toLowerCase() }} each, generated in the background</label>
+                <select multiple size="6" [(ngModel)]="bulkIds" name="bulkIds" class="input h-auto">
+                  @for (p of products(); track p.productId) { <option [ngValue]="p.productId">{{ p.name }}</option> }
+                </select>
+                <div class="flex items-center gap-3 mt-3">
+                  <button type="button" (click)="bulkGenerate(t)" [disabled]="bulkBusy() || bulkIds.length === 0"
+                          class="btn-primary disabled:opacity-60">
+                    {{ bulkBusy() ? 'Queuing…' : 'Generate for ' + bulkIds.length + ' product(s) (' + (bulkIds.length * t.credits) + ' cr)' }}
+                  </button>
+                  @if (bulkMsg()) { <span class="text-sm text-emerald-700">{{ bulkMsg() }}</span> }
+                </div>
+              </div>
+            }
           </div>
         }
 
@@ -114,6 +137,12 @@ export class AdminGrowthGenerateComponent implements OnInit {
   language: string | null = null;
   editBody = '';
   editTitle = '';
+
+  // Bulk generate (M1)
+  readonly bulkMode = signal(false);
+  readonly bulkBusy = signal(false);
+  readonly bulkMsg = signal<string | null>(null);
+  bulkIds: number[] = [];
 
   readonly languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Hinglish'];
 
@@ -163,6 +192,20 @@ export class AdminGrowthGenerateComponent implements OnInit {
   regenerate(): void {
     const t = this.selected();
     if (t) this.generate(t);
+  }
+
+  bulkGenerate(t: GrowthType): void {
+    if (this.bulkIds.length === 0) return;
+    this.bulkBusy.set(true);
+    this.bulkMsg.set(null);
+    this.error.set(null);
+    this.api.bulkGenerate(t.key, this.bulkIds, this.language, this.brief.trim() || null).subscribe({
+      next: (r) => { this.bulkBusy.set(false); this.bulkMsg.set(r.message); this.bulkIds = []; },
+      error: (e) => {
+        this.bulkBusy.set(false);
+        this.error.set(e?.status === 402 ? "You're out of AI credits — top up to keep generating." : e?.error?.message ?? 'Could not queue the batch.');
+      },
+    });
   }
 
   save(r: GrowthContent, status: string): void {
