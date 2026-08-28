@@ -198,6 +198,22 @@ export class CatalogService {
     );
   }
 
+  /** Personalized picks for a visitor (by first-party session id + login). Empty until enough signal. */
+  getPersonalized(sessionId: string, limit = 8): Observable<ProductListItem[]> {
+    return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/personalized`, { params: { sessionId, limit } }).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
+    );
+  }
+
+  /** The visitor's recently-viewed products (server-side). */
+  getRecentlyViewed(sessionId: string, limit = 8): Observable<ProductListItem[]> {
+    return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/recently-viewed`, { params: { sessionId, limit } }).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
+    );
+  }
+
   /** Products most often bought alongside this one, ranked by real co-purchase frequency. */
   getFrequentlyBoughtTogether(productId: number, take = 3): Observable<ProductListItem[]> {
     return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/products/${productId}/frequently-bought-together`, { params: { take } }).pipe(

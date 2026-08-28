@@ -27,6 +27,12 @@ public interface IProductService
     /// (behavioural events) and purchases (order history) over a recent window. In-stock only. Empty when
     /// there's not enough recent activity yet (the caller falls back to best-sellers/featured).</summary>
     Task<List<ProductListItemDto>> GetTrendingAsync(int take, int windowDays, CancellationToken ct = default);
+    /// <summary>Personalized picks for one visitor: in-stock products in the categories they've recently
+    /// viewed/added, excluding what they've already seen. Empty below a minimum per-visitor signal
+    /// (cold-start → caller falls back to trending/best-sellers).</summary>
+    Task<List<ProductListItemDto>> GetPersonalizedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default);
+    /// <summary>A visitor's recently-viewed products, most-recent first (from server-side view events).</summary>
+    Task<List<ProductListItemDto>> GetRecentlyViewedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default);
 }
 
 public sealed class ProductService : IProductService
@@ -374,6 +380,59 @@ public sealed class ProductService : IProductService
             .OrderByDescending(i => score.GetValueOrDefault(i.ProductId))
             .Take(take)
             .ToList();
+    }
+
+    public async Task<List<ProductListItemDto>> GetPersonalizedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default)
+    {
+        take = Math.Clamp(take, 1, 24);
+        var seen = await VisitorProductIdsAsync(sessionId, userId, new[] { "view", "add-to-cart" }, 30, ct);
+        if (seen.Count < 2) return [];   // per-visitor threshold — not enough signal to personalize
+
+        var cats = await _db.Products.AsNoTracking()
+            .Where(p => seen.Contains(p.ProductId)).Select(p => p.CategoryId).Distinct().ToListAsync(ct);
+        if (cats.Count == 0) return [];
+
+        return await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active"
+                && cats.Contains(p.CategoryId) && !seen.Contains(p.ProductId)
+                && p.InventoryRecords.Sum(i => i.AvailableQty) > 0)
+            .OrderByDescending(p => p.IsFeatured).ThenByDescending(p => p.CreatedAt)
+            .Take(take)
+            .Select(ListItemProjection())
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<ProductListItemDto>> GetRecentlyViewedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default)
+    {
+        take = Math.Clamp(take, 1, 24);
+        var ids = await VisitorProductIdsAsync(sessionId, userId, new[] { "view" }, take, ct);
+        if (ids.Count == 0) return [];
+
+        var items = await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active" && ids.Contains(p.ProductId))
+            .Select(ListItemProjection())
+            .ToListAsync(ct);
+
+        var rank = ids.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
+        return items.OrderBy(i => rank[i.ProductId]).ToList();
+    }
+
+    /// <summary>Distinct product ids a visitor (by anonymous session and/or logged-in user) recently
+    /// produced events for, most-recent first.</summary>
+    private async Task<List<long>> VisitorProductIdsAsync(string? sessionId, long? userId, string[] types, int take, CancellationToken ct)
+    {
+        var sid = string.IsNullOrWhiteSpace(sessionId) ? null : sessionId.Trim();
+        if (sid is null && userId is null) return [];
+
+        var ordered = await _db.CustomerEvents.AsNoTracking()
+            .Where(e => e.ProductId != null && types.Contains(e.EventType)
+                && ((sid != null && e.SessionId == sid) || (userId != null && e.UserId == userId)))
+            .OrderByDescending(e => e.CreatedAt)
+            .Select(e => e.ProductId!.Value)
+            .Take(take * 4)   // over-fetch so Distinct still yields enough
+            .ToListAsync(ct);
+
+        return ordered.Distinct().Take(take).ToList();
     }
 
     public Task<ProductDetailDto?> GetByIdAsync(long id, CancellationToken ct = default) =>

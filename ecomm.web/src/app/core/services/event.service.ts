@@ -33,6 +33,9 @@ export class EventService {
     });
   }
 
+  /** The first-party visitor id, for per-visitor recommendation calls. Empty when storage is unavailable. */
+  getVisitorId(): string { return this.visitorId; }
+
   view(productId: number): void { this.push({ type: 'view', productId }); }
   search(term: string): void { const t = term?.trim(); if (t) this.push({ type: 'search', metadata: t.slice(0, 120) }); }
   addToCart(productId: number, quantity: number): void { this.push({ type: 'add-to-cart', productId, metadata: `qty:${quantity}` }); }

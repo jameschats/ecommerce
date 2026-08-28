@@ -136,4 +136,18 @@ public sealed class CatalogController : ControllerBase
     [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = "public")]
     public async Task<IActionResult> Trending([FromQuery] int limit = 12, [FromQuery] int days = 7, CancellationToken ct = default)
         => Ok(ApiResponse<List<ProductListItemDto>>.Ok(await _products.GetTrendingAsync(limit <= 0 ? 12 : limit, days <= 0 ? 7 : days, ct)));
+
+    private long? VisitorUserId =>
+        long.TryParse(User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : null;
+
+    /// <summary>Personalized picks for this visitor (by their first-party session id + login). Per-visitor,
+    /// so never cached. Empty until the visitor has enough signal — the caller falls back to trending.</summary>
+    [HttpGet("personalized")]
+    public async Task<IActionResult> Personalized([FromQuery] string? sessionId, [FromQuery] int limit = 8, CancellationToken ct = default)
+        => Ok(ApiResponse<List<ProductListItemDto>>.Ok(await _products.GetPersonalizedAsync(sessionId, VisitorUserId, limit <= 0 ? 8 : limit, ct)));
+
+    /// <summary>This visitor's recently-viewed products (server-side, works across devices once logged in).</summary>
+    [HttpGet("recently-viewed")]
+    public async Task<IActionResult> RecentlyViewed([FromQuery] string? sessionId, [FromQuery] int limit = 8, CancellationToken ct = default)
+        => Ok(ApiResponse<List<ProductListItemDto>>.Ok(await _products.GetRecentlyViewedAsync(sessionId, VisitorUserId, limit <= 0 ? 8 : limit, ct)));
 }
