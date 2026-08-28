@@ -9,7 +9,8 @@ using Microsoft.Extensions.Options;
 namespace ecomm.api.Features.Domains;
 
 public sealed record DomainStatusDto(
-    string? Domain, bool Verified, string? VerificationPath, string? VerificationToken, string? CnameTarget);
+    string? Domain, bool Verified, string? VerificationPath, string? VerificationToken, string? CnameTarget,
+    string? SslStatus);
 public sealed record ConnectDomainRequest(string Domain);
 
 public interface IDomainService
@@ -28,12 +29,12 @@ public interface IDomainService
 /// </summary>
 public sealed class DomainService(
     EcommerceDbContext db, ICurrentTenantService tenant, IOptions<TenancyOptions> tenancy,
-    IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<DomainService> log) : IDomainService
+    IHttpClientFactory httpFactory, IMemoryCache cache, ICloudflareSaas cf, ILogger<DomainService> log) : IDomainService
 {
     public const string WellKnownPath = "/.well-known/wavcommerce-domain-verification";
     private static readonly Regex DomainRx = new(@"^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$", RegexOptions.Compiled);
 
-    public async Task<DomainStatusDto> GetAsync(CancellationToken ct = default) => ToDto(await CurrentAsync(ct));
+    public async Task<DomainStatusDto> GetAsync(CancellationToken ct = default) => await ToDtoAsync(await CurrentAsync(ct), ct);
 
     public async Task<DomainStatusDto> ConnectAsync(string domain, CancellationToken ct = default)
     {
@@ -55,9 +56,10 @@ public sealed class DomainService(
         t.CustomDomainToken ??= Guid.NewGuid().ToString("N");
         t.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        if (!string.IsNullOrEmpty(previous)) cache.Remove($"tenant:domain:{previous}");
+        if (!string.IsNullOrEmpty(previous)) { cache.Remove($"tenant:domain:{previous}"); await cf.DeleteAsync(previous, ct); }
         cache.Remove($"tenant:domain:{host}");
-        return ToDto(t);
+        await cf.EnsureAsync(host, ct);   // start Cloudflare cert provisioning (no-op if CF unconfigured)
+        return await ToDtoAsync(t, ct);
     }
 
     public async Task<DomainStatusDto> VerifyAsync(CancellationToken ct = default)
@@ -65,6 +67,22 @@ public sealed class DomainService(
         var t = await CurrentAsync(ct);
         if (string.IsNullOrEmpty(t.CustomDomain)) throw new AppException("Connect a domain first.");
 
+        if (cf.Enabled)
+        {
+            // Cloudflare-for-SaaS path: Cloudflare validates control + issues the edge cert once the
+            // merchant's CNAME points at our fallback origin. "Verified" = the edge cert is active.
+            var status = await cf.EnsureAsync(t.CustomDomain, ct)
+                         ?? throw new AppException("Couldn't reach Cloudflare to check the certificate. Try again in a moment.");
+            if (!string.Equals(status.SslStatus, "active", StringComparison.OrdinalIgnoreCase))
+                throw new AppException($"Certificate is still provisioning (status: {status.SslStatus}). Make sure the CNAME points to {cf.CnameTarget}, then retry in a few minutes.");
+            t.CustomDomainVerified = true;
+            t.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            cache.Remove($"tenant:domain:{t.CustomDomain}");
+            return await ToDtoAsync(t, ct);
+        }
+
+        // Fallback (Cloudflare unconfigured): prove routing via the well-known token over HTTP.
         var url = $"http://{t.CustomDomain}{WellKnownPath}";
         try
         {
@@ -88,7 +106,7 @@ public sealed class DomainService(
             log.LogInformation(ex, "Domain verification fetch failed for {Domain}", t.CustomDomain);
             throw new AppException("Couldn't reach your domain yet. Make sure the DNS record points to us, then retry.");
         }
-        return ToDto(t);
+        return await ToDtoAsync(t, ct);
     }
 
     public async Task<DomainStatusDto> DisconnectAsync(CancellationToken ct = default)
@@ -100,18 +118,26 @@ public sealed class DomainService(
         t.CustomDomainToken = null;
         t.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        if (!string.IsNullOrEmpty(previous)) cache.Remove($"tenant:domain:{previous}");
-        return ToDto(t);
+        if (!string.IsNullOrEmpty(previous)) { cache.Remove($"tenant:domain:{previous}"); await cf.DeleteAsync(previous, ct); }
+        return await ToDtoAsync(t, ct);
     }
 
     private async Task<ecomm.api.Data.Entities.Tenant> CurrentAsync(CancellationToken ct) =>
         await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenant.CurrentTenantId, ct)
             ?? throw new AppException("Store not found.", 404);
 
-    private DomainStatusDto ToDto(ecomm.api.Data.Entities.Tenant t) => new(
-        t.CustomDomain, t.CustomDomainVerified, string.IsNullOrEmpty(t.CustomDomain) ? null : WellKnownPath,
-        t.CustomDomainToken,
-        string.IsNullOrEmpty(tenancy.Value.BaseDomain) ? null : tenancy.Value.BaseDomain);
+    private async Task<DomainStatusDto> ToDtoAsync(ecomm.api.Data.Entities.Tenant t, CancellationToken ct)
+    {
+        string? ssl = null;
+        if (!string.IsNullOrEmpty(t.CustomDomain) && cf.Enabled)
+            ssl = (await cf.GetAsync(t.CustomDomain, ct))?.SslStatus;
+        // Merchants CNAME to the Cloudflare-for-SaaS fallback origin; without CF, to the platform apex.
+        var cname = cf.CnameTarget ?? (string.IsNullOrEmpty(tenancy.Value.BaseDomain) ? null : tenancy.Value.BaseDomain);
+        return new DomainStatusDto(
+            t.CustomDomain, t.CustomDomainVerified,
+            string.IsNullOrEmpty(t.CustomDomain) ? null : WellKnownPath,
+            t.CustomDomainToken, cname, ssl);
+    }
 
     private static string Normalize(string domain)
     {

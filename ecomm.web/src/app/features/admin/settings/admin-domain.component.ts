@@ -25,10 +25,12 @@ import { DomainService, DomainStatus } from '../../../core/services/domain.servi
           <!-- Status -->
           <div class="bg-white border border-slate-200 rounded-xl p-6 mb-4">
             <div class="flex items-center justify-between gap-4 flex-wrap">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-mono text-slate-800">{{ s.domain }}</span>
                 @if (s.verified) { <span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">Connected</span> }
                 @else { <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Pending verification</span> }
+                @if (s.sslStatus === 'active') { <span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">🔒 HTTPS active</span> }
+                @else if (s.sslStatus) { <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">🔒 Certificate: {{ s.sslStatus }}</span> }
               </div>
               <button type="button" (click)="disconnect()" [disabled]="busy()"
                       class="text-sm px-3 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">Disconnect</button>
@@ -46,13 +48,13 @@ import { DomainService, DomainStatus } from '../../../core/services/domain.servi
                     <div>Points to: <span class="text-slate-800">{{ s.cnameTarget || 'your platform host' }}</span></div>
                   </div>
                 </li>
-                <li>DNS can take a few minutes to propagate. Then click <strong>Verify</strong> below — we'll confirm the domain points to us.</li>
+                <li>DNS can take a few minutes to propagate. Then click <strong>Verify</strong> below — we'll confirm the certificate is issued and switch your store over.</li>
               </ol>
-              <p class="text-xs text-slate-400">Note: HTTPS certificate provisioning for your domain is handled by us at the edge after verification.</p>
+              <p class="text-xs text-slate-400">🔒 A free HTTPS certificate is provisioned + auto-renewed for your domain automatically — no setup needed on your side.</p>
               <button type="button" (click)="verify()" [disabled]="busy()" class="btn-primary px-5 py-2.5">{{ busy() ? 'Verifying…' : 'Verify' }}</button>
             </div>
           } @else {
-            <p class="text-sm text-slate-600">Your store is live on <span class="font-mono">{{ s.domain }}</span>.</p>
+            <p class="text-sm text-slate-600">Your store is live on <span class="font-mono">https://{{ s.domain }}</span> with HTTPS. 🎉</p>
           }
         }
       }

@@ -10,6 +10,7 @@ export interface DomainStatus {
   verificationPath: string | null;
   verificationToken: string | null;
   cnameTarget: string | null;
+  sslStatus: string | null;   // Cloudflare edge-cert status: 'active' once HTTPS is live, else provisioning
 }
 
 @Injectable({ providedIn: 'root' })

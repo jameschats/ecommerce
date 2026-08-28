@@ -216,6 +216,8 @@ builder.Services.AddScoped<ecomm.api.Features.Pricing.IPricingSuggestionService,
 // Checkout & Money (Stage 5)
 builder.Services.Configure<PaymentOptions>(builder.Configuration.GetSection(PaymentOptions.SectionName));
 builder.Services.AddHttpClient();
+builder.Services.Configure<ecomm.api.Features.Domains.CloudflareOptions>(builder.Configuration.GetSection(ecomm.api.Features.Domains.CloudflareOptions.SectionName));
+builder.Services.AddHttpClient<ecomm.api.Features.Domains.ICloudflareSaas, ecomm.api.Features.Domains.CloudflareSaas>();
 builder.Services.AddScoped<ecomm.api.Features.Domains.IDomainService, ecomm.api.Features.Domains.DomainService>();
 // Short-timeout client for verifying a merchant's custom domain routes to us.
 // Follow a couple of redirects so an edge http→https upgrade (e.g. Cloudflare) still resolves.
