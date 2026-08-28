@@ -40,14 +40,16 @@ public sealed class InventoryService : IInventoryService
     private readonly EcommerceDbContext _db;
     private readonly INotificationFeedService _feed;
     private readonly ecomm.api.Features.PublicApi.IWebhookDispatchService _webhooks;
+    private readonly IBackInStockService _backInStock;
     private readonly ILogger<InventoryService> _log;
 
     public InventoryService(EcommerceDbContext db, INotificationFeedService feed,
-        ecomm.api.Features.PublicApi.IWebhookDispatchService webhooks, ILogger<InventoryService> log)
+        ecomm.api.Features.PublicApi.IWebhookDispatchService webhooks, IBackInStockService backInStock, ILogger<InventoryService> log)
     {
         _db = db;
         _feed = feed;
         _webhooks = webhooks;
+        _backInStock = backInStock;
         _log = log;
     }
 
@@ -148,6 +150,7 @@ public sealed class InventoryService : IInventoryService
     private async Task<Data.Entities.Inventory> SetStockInternalAsync(long productId, long? variantId, SetStockRequest req, long? userId, CancellationToken ct)
     {
         var inv = await GetOrCreateAsync(productId, variantId, ct);
+        var before = inv.AvailableQty;
         var delta = req.AvailableQty - inv.AvailableQty;
         inv.AvailableQty = req.AvailableQty;
         inv.ReorderLevel = req.ReorderLevel;
@@ -155,6 +158,9 @@ public sealed class InventoryService : IInventoryService
         if (delta != 0)
             AddTransaction(inv, delta, InventoryTxnType.Adjustment, "Manual", null, "Stock set by admin", userId);
         await _db.SaveChangesAsync(ct);
+        // Product came back in stock → email the shoppers waiting on it (product-level stock only).
+        if (variantId is null && before <= 0 && inv.AvailableQty > 0)
+            await _backInStock.NotifyRestockAsync(productId, ct);
         return inv;
     }
 
@@ -167,6 +173,7 @@ public sealed class InventoryService : IInventoryService
     {
         if (!await ProductExists(productId, ct)) return null;
         var inv = await GetOrCreateAsync(productId, null, ct);
+        var before = inv.AvailableQty;
         inv.AvailableQty = Math.Max(0, inv.AvailableQty + req.ChangeQty);
         inv.UpdatedAt = DateTime.UtcNow;
         AddTransaction(inv, req.ChangeQty, InventoryTxnType.Adjustment, "Manual", null, req.Notes, userId);
@@ -175,6 +182,8 @@ public sealed class InventoryService : IInventoryService
         {
             productId, variantId = (long?)null, availableQty = inv.AvailableQty, reorderLevel = inv.ReorderLevel,
         }, ct);
+        if (before <= 0 && inv.AvailableQty > 0)
+            await _backInStock.NotifyRestockAsync(productId, ct);
         return ToRow(productId, inv);
     }
 

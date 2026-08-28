@@ -205,6 +205,25 @@ export class ProductGalleryComponent {
           @if (store.addedMessage()) { <p class="text-sm text-green-600 mt-2">✓ Added to your cart. <a routerLink="/cart" class="underline font-medium">View cart</a></p> }
           @if (store.cartError(); as err) { <p class="text-sm text-red-600 mt-2">{{ err }}</p> }
 
+          @if (!p.inStock) {
+            <div class="mt-4 max-w-sm rounded-xl border border-slate-200 bg-slate-50 p-3">
+              @if (store.notifyDone()) {
+                <p class="text-sm text-green-600 font-medium">✓ We'll email you the moment it's back in stock.</p>
+              } @else {
+                <p class="text-sm text-slate-600 mb-2">Get an email when it's back in stock.</p>
+                <div class="flex gap-2">
+                  <input type="email" [(ngModel)]="store.notifyEmail" placeholder="you@email.com" (keyup.enter)="store.notifyBackInStock()"
+                    class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <button type="button" (click)="store.notifyBackInStock()" [disabled]="store.notifying() || !store.notifyEmail.trim()"
+                    class="shrink-0 bg-primary hover:bg-primary-dark disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg text-sm">
+                    {{ store.notifying() ? 'Saving…' : 'Notify me' }}
+                  </button>
+                </div>
+                @if (store.notifyError(); as err) { <p class="text-sm text-red-600 mt-1">{{ err }}</p> }
+              }
+            </div>
+          }
+
           <div class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 border-t border-slate-100 pt-4">
             <span>🚚 Free shipping</span><span>✅ 100% satisfaction</span><span>🏷️ Best price guaranteed</span>
           </div>

@@ -204,6 +204,11 @@ export class CatalogService {
     );
   }
 
+  /** Register the shopper to be emailed when an out-of-stock product is available again. */
+  notifyBackInStock(productId: number, email: string): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/products/${productId}/notify-back-in-stock`, { email });
+  }
+
   /** Name suggestions + the real price spread of matching products, in one call — feeds both the
    *  text-suggestion list and the generic "under ₹N" price chips (see core/utils/price-search.ts).
    *  Shared by the header search and the on-page collection search. */

@@ -194,6 +194,7 @@ builder.Services.AddScoped<ecomm.api.Features.ColorSwatches.IColorSwatchService,
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IBundleService, ecomm.api.Features.Catalog.Services.BundleService>();
 
 // Inventory & Search
+builder.Services.AddScoped<ecomm.api.Features.Inventory.IBackInStockService, ecomm.api.Features.Inventory.BackInStockService>();
 builder.Services.AddScoped<ecomm.api.Features.Inventory.IInventoryService, ecomm.api.Features.Inventory.InventoryService>();
 builder.Services.AddScoped<ecomm.api.Features.Inventory.IInventoryImportService, ecomm.api.Features.Inventory.InventoryImportService>();
 builder.Services.AddScoped<ecomm.api.Features.Search.ISearchService, ecomm.api.Features.Search.SearchService>();

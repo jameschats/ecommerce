@@ -3,6 +3,7 @@ using ecomm.api.Features.Catalog.Dtos;
 using ecomm.api.Features.Catalog.Services;
 using ecomm.api.Features.Checkout;
 using ecomm.api.Features.ColorSwatches;
+using ecomm.api.Features.Inventory;
 using ecomm.api.Features.Search;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -22,8 +23,9 @@ public sealed class CatalogController : ControllerBase
     private readonly ISearchService _search;
     private readonly IColorSwatchService _swatches;
     private readonly IShippingService _shipping;
+    private readonly IBackInStockService _backInStock;
 
-    public CatalogController(ICategoryService categories, IBrandService brands, IProductService products, ISearchService search, IColorSwatchService swatches, IShippingService shipping)
+    public CatalogController(ICategoryService categories, IBrandService brands, IProductService products, ISearchService search, IColorSwatchService swatches, IShippingService shipping, IBackInStockService backInStock)
     {
         _categories = categories;
         _brands = brands;
@@ -31,6 +33,17 @@ public sealed class CatalogController : ControllerBase
         _search = search;
         _swatches = swatches;
         _shipping = shipping;
+        _backInStock = backInStock;
+    }
+
+    /// <summary>Public: register a shopper to be emailed when an out-of-stock product returns.</summary>
+    [HttpPost("products/{id:long}/notify-back-in-stock")]
+    [OutputCache(NoStore = true)]
+    public async Task<IActionResult> NotifyBackInStock(long id, [FromBody] NotifyBackInStockRequest req, CancellationToken ct)
+    {
+        var userId = long.TryParse(User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (long?)null;
+        await _backInStock.RequestAsync(id, req?.Email ?? "", userId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "We'll email you when it's back in stock."));
     }
 
     [HttpGet("categories")]

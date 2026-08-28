@@ -39,6 +39,12 @@ export class ProductPageStore {
   readonly cartError = signal<string | null>(null);
   readonly adding = signal(false);
 
+  // "Email me when back in stock" (shown on out-of-stock products).
+  notifyEmail = '';
+  readonly notifying = signal(false);
+  readonly notifyDone = signal(false);
+  readonly notifyError = signal<string | null>(null);
+
   readonly currentImage = signal(0);
   readonly qty = signal(1);
   selected: Record<string, string> = {};
@@ -278,6 +284,18 @@ export class ProductPageStore {
     this.cart.add(p.productId, this.resolveVariantId(), this.qty()).subscribe({
       next: () => { this.adding.set(false); this.router.navigateByUrl('/checkout'); },
       error: (e) => { this.adding.set(false); this.cartError.set(e?.error?.message ?? 'Could not add to cart.'); },
+    });
+  }
+
+  notifyBackInStock(): void {
+    const p = this.product();
+    const email = this.notifyEmail.trim();
+    if (!p || !email || this.notifying()) return;
+    this.notifying.set(true);
+    this.notifyError.set(null);
+    this.catalog.notifyBackInStock(p.productId, email).subscribe({
+      next: () => { this.notifying.set(false); this.notifyDone.set(true); },
+      error: (e) => { this.notifying.set(false); this.notifyError.set(e?.error?.message ?? 'Could not sign you up. Try again.'); },
     });
   }
 

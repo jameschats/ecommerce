@@ -68,3 +68,5 @@ public sealed record FacetsDto(
     decimal PriceMin, decimal PriceMax,
     IReadOnlyList<int> RatingCounts,   // index 0 = 1★+, … index 4 = 5★
     int InStockCount, int OnSaleCount);
+
+public sealed record NotifyBackInStockRequest(string Email);
