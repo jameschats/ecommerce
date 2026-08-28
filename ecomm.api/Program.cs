@@ -202,6 +202,7 @@ builder.Services.AddScoped<ecomm.api.Features.Search.ISearchService, ecomm.api.F
 // Shopping (Stage 4)
 builder.Services.AddScoped<ecomm.api.Features.Account.IAccountService, ecomm.api.Features.Account.AccountService>();
 builder.Services.AddScoped<ecomm.api.Features.Cart.ICartService, ecomm.api.Features.Cart.CartService>();
+builder.Services.AddScoped<ecomm.api.Features.Cart.IAbandonedCartService, ecomm.api.Features.Cart.AbandonedCartService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IApiKeyService, ecomm.api.Features.PublicApi.ApiKeyService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IWebhookSubscriptionService, ecomm.api.Features.PublicApi.WebhookSubscriptionService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IWebhookDispatchService, ecomm.api.Features.PublicApi.WebhookDispatchService>();
@@ -528,5 +529,14 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Pricing.IPricingEngineService>(
     "dynamic-pricing-generation",
     svc => svc.RunScheduledGenerationAsync(CancellationToken.None),
     $"0 */{pricingIntervalHours} * * *");
+
+// Abandoned-cart recovery (v1.1) — hourly by default; cross-tenant but only emails carts for stores
+// that opted in via the AbandonedCartRecoveryEnabled setting (default OFF). 1-23, not 1-24 (cron hours
+// step), same latent-bug guard as the two sweeps above.
+var cartSweepHours = Math.Clamp(builder.Configuration.GetValue("AbandonedCart:SweepIntervalHours", 1), 1, 23);
+RecurringJob.AddOrUpdate<ecomm.api.Features.Cart.IAbandonedCartService>(
+    "abandoned-cart-recovery",
+    svc => svc.RunRecoverySweepAsync(CancellationToken.None),
+    $"0 */{cartSweepHours} * * *");
 
 app.Run();

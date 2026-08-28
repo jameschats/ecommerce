@@ -10,6 +10,7 @@ public class Cart : ITenantScoped
     public string? Notes { get; set; }                // shopper-entered note, carried into Order.Notes at checkout
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public DateTime? RecoveryEmailSentAt { get; set; }   // set once an abandoned-cart recovery email is sent
 
     public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
 }
