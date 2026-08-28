@@ -26,6 +26,11 @@ export class CartService {
   readonly subtotal = computed(() => this.cart()?.subtotal ?? 0);
   readonly items = computed(() => this.cart()?.items ?? []);
 
+  /** Mini-cart flyout open state (opened by the header cart icon + after add-to-cart). */
+  readonly drawerOpen = signal(false);
+  openDrawer(): void { this.drawerOpen.set(true); }
+  closeDrawer(): void { this.drawerOpen.set(false); }
+
   private lastUserId: number | null | undefined = undefined;
 
   constructor() {

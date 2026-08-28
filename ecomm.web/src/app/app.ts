@@ -15,6 +15,7 @@ import { NotificationBellComponent } from './shared/notification-bell/notificati
 import { AnnouncementBarComponent } from './features/storefront/announcement-bar.component';
 import { QuickViewComponent } from './shared/quick-view/quick-view.component';
 import { CompareBarComponent } from './shared/compare-bar/compare-bar.component';
+import { CartDrawerComponent } from './shared/cart-drawer/cart-drawer.component';
 import { LiveChatWidgetComponent } from './shared/live-chat-widget/live-chat-widget.component';
 import { MobileNavDrawerComponent } from './shared/mobile-nav-drawer/mobile-nav-drawer.component';
 import { parsePriceCeiling, priceBreakpoints } from './core/utils/price-search';
@@ -23,7 +24,7 @@ import { parsePriceCeiling, priceBreakpoints } from './core/utils/price-search';
   selector: 'app-root',
   imports: [
     RouterOutlet, RouterLink, FormsModule, NgTemplateOutlet, DecimalPipe, NotificationBellComponent, AnnouncementBarComponent,
-    QuickViewComponent, CompareBarComponent, MobileNavDrawerComponent, LiveChatWidgetComponent,
+    QuickViewComponent, CompareBarComponent, MobileNavDrawerComponent, LiveChatWidgetComponent, CartDrawerComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -45,6 +46,9 @@ export class App implements OnInit {
   readonly logo = this.theme.logo;
   readonly storeName = this.theme.storeName;
   readonly cartCount = this.cart.itemCount;
+
+  /** Header cart icon opens the mini-cart flyout instead of navigating to /cart. */
+  openCartDrawer(): void { this.cart.openDrawer(); }
   readonly displayName = computed(() => {
     const u = this.user();
     return u?.fullName || u?.email || u?.phoneNumber || 'Account';

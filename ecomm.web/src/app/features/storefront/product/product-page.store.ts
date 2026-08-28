@@ -271,7 +271,7 @@ export class ProductPageStore {
     this.adding.set(true);
     this.cartError.set(null);
     this.cart.add(p.productId, this.resolveVariantId(), this.qty()).subscribe({
-      next: () => { this.adding.set(false); this.addedMessage.set(true); setTimeout(() => this.addedMessage.set(false), 2500); },
+      next: () => { this.adding.set(false); this.addedMessage.set(true); setTimeout(() => this.addedMessage.set(false), 2500); this.cart.openDrawer(); },
       error: (e) => { this.adding.set(false); this.cartError.set(e?.error?.message ?? 'Could not add to cart.'); },
     });
   }
