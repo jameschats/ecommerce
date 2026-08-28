@@ -453,7 +453,22 @@ public sealed class AuthService : IAuthService
     {
         var role = await _db.Roles.FirstOrDefaultAsync(
             r => r.TenantId == user.TenantId && r.NormalizedName == normalizedRole, ct);
-        if (role is null) return;
+        if (role is null)
+        {
+            // Roles are tenant-scoped, but they aren't seeded for every store (onboarding only assigns
+            // an existing role). A missing one used to make this a silent no-op — leaving the shopper
+            // role-less and invisible to the admin Customers list. Create it on demand instead.
+            role = new Role
+            {
+                TenantId = user.TenantId,
+                Name = normalizedRole.Length > 0 ? char.ToUpper(normalizedRole[0]) + normalizedRole[1..].ToLowerInvariant() : normalizedRole,
+                NormalizedName = normalizedRole,
+                IsSystem = true,
+                CreatedAt = DateTime.UtcNow,
+            };
+            _db.Roles.Add(role);
+            await _db.SaveChangesAsync(ct);
+        }
 
         var exists = await _db.UserRoles.AnyAsync(ur => ur.UserId == user.UserId && ur.RoleId == role.RoleId, ct);
         if (!exists)
