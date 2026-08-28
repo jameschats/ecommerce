@@ -133,6 +133,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<PlatformPaymentSetting> PlatformPaymentSettings => Set<PlatformPaymentSetting>();
     public DbSet<PlatformEmailSetting> PlatformEmailSettings => Set<PlatformEmailSetting>();
     public DbSet<BackInStockRequest> BackInStockRequests => Set<BackInStockRequest>();
+    public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
     public DbSet<SupportTicketActivity> SupportTicketActivities => Set<SupportTicketActivity>();
@@ -499,6 +500,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<PlatformPaymentSetting>(e => { e.ToTable("PlatformPaymentSettings"); e.HasKey(x => x.PlatformPaymentSettingId); });
         b.Entity<PlatformEmailSetting>(e => { e.ToTable("PlatformEmailSettings"); e.HasKey(x => x.PlatformEmailSettingId); });
         b.Entity<BackInStockRequest>(e => { e.ToTable("BackInStockRequests"); e.HasKey(x => x.BackInStockRequestId); });
+        b.Entity<NewsletterSubscriber>(e => { e.ToTable("NewsletterSubscribers"); e.HasKey(x => x.NewsletterSubscriberId); });
         b.Entity<SupportTicket>(e => { e.ToTable("SupportTickets"); e.HasKey(x => x.SupportTicketId); });
         b.Entity<SupportMessage>(e => { e.ToTable("SupportMessages"); e.HasKey(x => x.SupportMessageId); });
         b.Entity<SupportTicketActivity>(e => { e.ToTable("SupportTicketActivities"); e.HasKey(x => x.SupportTicketActivityId); });

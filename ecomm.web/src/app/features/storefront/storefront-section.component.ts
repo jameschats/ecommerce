@@ -2,6 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Component, ElementRef, HostBinding, HostListener, OnDestroy, OnInit, PLATFORM_ID, ViewChild, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { CatalogService } from '../../core/services/catalog.service';
 import { RecentlyViewedService } from '../../core/services/recently-viewed.service';
 import { BuilderSection } from '../../core/services/cms.service';
@@ -17,7 +18,7 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
  */
 @Component({
   selector: 'app-storefront-section',
-  imports: [RouterLink, ProductCardComponent],
+  imports: [RouterLink, ProductCardComponent, FormsModule],
   template: `
     @switch (section().sectionType) {
       @case ('Hero') {
@@ -250,7 +251,19 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
                  [style.color]="theme.resolveText(s()['colorScheme'], '#ffffff')">
           @if (s().heading) { <h2 class="text-2xl font-bold" data-field="heading">{{ s().heading }}</h2> }
           @if (s().subtext) { <p class="mt-1 text-white/80" data-field="subtext">{{ s().subtext }}</p> }
-          @if (s().buttonText) { <a [href]="s().buttonLink || '#'" class="inline-block mt-4 px-6 py-2 rounded-lg bg-white text-slate-900 font-medium" data-field="buttonText">{{ s().buttonText }}</a> }
+          @if (newsletterDone()) {
+            <p class="mt-4 font-medium">✓ Thanks — you're subscribed!</p>
+          } @else {
+            <form (ngSubmit)="subscribeNewsletter()" class="mt-4 flex gap-2 justify-center max-w-md mx-auto">
+              <input type="email" [(ngModel)]="newsletterEmail" name="nlEmail" placeholder="you@email.com" required
+                class="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none" />
+              <button type="submit" [disabled]="newsletterBusy() || !newsletterEmail.trim()" data-field="buttonText"
+                class="shrink-0 px-5 py-2 rounded-lg bg-white text-slate-900 font-medium disabled:opacity-50">
+                {{ newsletterBusy() ? '…' : (s().buttonText || 'Subscribe') }}
+              </button>
+            </form>
+            @if (newsletterError(); as err) { <p class="mt-2 text-sm text-red-200">{{ err }}</p> }
+          }
         </section>
       }
       @case ('Categories') {
@@ -653,6 +666,22 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly sanitizer = inject(DomSanitizer);
   readonly theme = inject(ThemeService);
+
+  // Newsletter signup (CtaNewsletter section).
+  newsletterEmail = '';
+  readonly newsletterBusy = signal(false);
+  readonly newsletterDone = signal(false);
+  readonly newsletterError = signal<string | null>(null);
+  subscribeNewsletter(): void {
+    const email = this.newsletterEmail.trim();
+    if (!email || this.newsletterBusy()) return;
+    this.newsletterBusy.set(true);
+    this.newsletterError.set(null);
+    this.catalog.subscribeNewsletter(email).subscribe({
+      next: () => { this.newsletterBusy.set(false); this.newsletterDone.set(true); },
+      error: (e) => { this.newsletterBusy.set(false); this.newsletterError.set((e as { error?: { message?: string } })?.error?.message ?? 'Could not subscribe. Try again.'); },
+    });
+  }
   readonly section = input.required<BuilderSection>();
 
   readonly products = signal<ProductListItem[]>([]);

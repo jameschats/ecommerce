@@ -203,6 +203,7 @@ builder.Services.AddScoped<ecomm.api.Features.Search.ISearchService, ecomm.api.F
 builder.Services.AddScoped<ecomm.api.Features.Account.IAccountService, ecomm.api.Features.Account.AccountService>();
 builder.Services.AddScoped<ecomm.api.Features.Cart.ICartService, ecomm.api.Features.Cart.CartService>();
 builder.Services.AddScoped<ecomm.api.Features.Cart.IAbandonedCartService, ecomm.api.Features.Cart.AbandonedCartService>();
+builder.Services.AddScoped<ecomm.api.Features.Newsletter.INewsletterService, ecomm.api.Features.Newsletter.NewsletterService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IApiKeyService, ecomm.api.Features.PublicApi.ApiKeyService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IWebhookSubscriptionService, ecomm.api.Features.PublicApi.WebhookSubscriptionService>();
 builder.Services.AddScoped<ecomm.api.Features.PublicApi.IWebhookDispatchService, ecomm.api.Features.PublicApi.WebhookDispatchService>();
