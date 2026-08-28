@@ -367,19 +367,30 @@ public sealed class ProductService : IProductService
         foreach (var p in purchases)
             score[p.ProductId] = score.GetValueOrDefault(p.ProductId) + p.Qty * 8.0;
 
-        if (score.Count == 0) return [];
+        // Over-fetch, then drop anything not live/in-stock/excluded, then take the top N (guardrail: never OOS).
+        var trending = new List<ProductListItemDto>();
+        if (score.Count > 0)
+        {
+            var rankedIds = score.OrderByDescending(kv => kv.Value).Take(take * 3).Select(kv => kv.Key).ToList();
+            var items = await _db.Products
+                .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active"
+                    && !p.ExcludeFromRecommendations && rankedIds.Contains(p.ProductId))
+                .Select(ListItemProjection())
+                .ToListAsync(ct);
+            trending = items.Where(i => i.InStock).OrderByDescending(i => score.GetValueOrDefault(i.ProductId)).ToList();
+        }
 
-        // Over-fetch, then drop anything not live/in-stock, then take the top N (guardrail: never OOS).
-        var rankedIds = score.OrderByDescending(kv => kv.Value).Take(take * 3).Select(kv => kv.Key).ToList();
-        var items = await _db.Products
-            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active" && rankedIds.Contains(p.ProductId))
+        // Merchant control: pinned products always appear first (in-stock, not excluded), even with no trend data.
+        var pinned = await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active"
+                && p.PinnedInRecommendations && !p.ExcludeFromRecommendations && p.InventoryRecords.Sum(i => i.AvailableQty) > 0)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(take)
             .Select(ListItemProjection())
             .ToListAsync(ct);
 
-        return items.Where(i => i.InStock)
-            .OrderByDescending(i => score.GetValueOrDefault(i.ProductId))
-            .Take(take)
-            .ToList();
+        var pinnedIds = pinned.Select(p => p.ProductId).ToHashSet();
+        return pinned.Concat(trending.Where(t => !pinnedIds.Contains(t.ProductId))).Take(take).ToList();
     }
 
     public async Task<List<ProductListItemDto>> GetPersonalizedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default)
@@ -394,9 +405,9 @@ public sealed class ProductService : IProductService
 
         return await _db.Products
             .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active"
-                && cats.Contains(p.CategoryId) && !seen.Contains(p.ProductId)
+                && !p.ExcludeFromRecommendations && cats.Contains(p.CategoryId) && !seen.Contains(p.ProductId)
                 && p.InventoryRecords.Sum(i => i.AvailableQty) > 0)
-            .OrderByDescending(p => p.IsFeatured).ThenByDescending(p => p.CreatedAt)
+            .OrderByDescending(p => p.PinnedInRecommendations).ThenByDescending(p => p.IsFeatured).ThenByDescending(p => p.CreatedAt)
             .Take(take)
             .Select(ListItemProjection())
             .ToListAsync(ct);
@@ -471,6 +482,8 @@ public sealed class ProductService : IProductService
             CostPrice = req.CostPrice,
             Status = NormalizeStatus(req.Status),
             IsFeatured = req.IsFeatured,
+            ExcludeFromRecommendations = req.ExcludeFromRecommendations,
+            PinnedInRecommendations = req.PinnedInRecommendations,
             IsBundle = req.IsBundle,
             IsActive = true,
             CreatedBy = userId,
@@ -512,6 +525,8 @@ public sealed class ProductService : IProductService
         product.CostPrice = req.CostPrice;
         product.Status = NormalizeStatus(req.Status);
         product.IsFeatured = req.IsFeatured;
+        product.ExcludeFromRecommendations = req.ExcludeFromRecommendations;
+        product.PinnedInRecommendations = req.PinnedInRecommendations;
         product.IsBundle = req.IsBundle;
         product.UpdatedBy = userId;
         product.UpdatedAt = now;
@@ -563,7 +578,8 @@ public sealed class ProductService : IProductService
                 .Select(a => new ProductAttributeValueDto(a.ProductAttributeValueId, a.AttributeId, a.Attribute!.Name,
                     a.AttributeValueId, a.Value != null ? a.Value.Value : null, a.ValueText))
                 .ToList(),
-            p.ProductType, p.Tags, p.MetaTitle, p.MetaDescription, p.IsBundle))
+            p.ProductType, p.Tags, p.MetaTitle, p.MetaDescription, p.IsBundle,
+            p.ExcludeFromRecommendations, p.PinnedInRecommendations))
         .FirstOrDefaultAsync(ct);
 
     private static string? NormalizeTags(string? tags) =>

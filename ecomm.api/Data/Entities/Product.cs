@@ -32,6 +32,10 @@ public class Product : ITenantScoped
     public string Status { get; set; } = "Draft";   // Draft | Active | Inactive
     public bool IsFeatured { get; set; }
     public bool IsActive { get; set; } = true;
+    /// <summary>Merchant control: never surface this product in any recommendation placement (AI Commerce C4).</summary>
+    public bool ExcludeFromRecommendations { get; set; }
+    /// <summary>Merchant control: always surface this product in recommendation placements (AI Commerce C4).</summary>
+    public bool PinnedInRecommendations { get; set; }
     public bool IsDeleted { get; set; }
     public long? CreatedBy { get; set; }
     public long? UpdatedBy { get; set; }

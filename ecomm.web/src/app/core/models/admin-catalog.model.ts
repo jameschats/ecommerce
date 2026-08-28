@@ -46,6 +46,8 @@ export interface SaveProductRequest {
   metaDescription?: string | null;
   images?: ProductImageInput[];
   isBundle?: boolean;
+  excludeFromRecommendations?: boolean;
+  pinnedInRecommendations?: boolean;
 }
 
 export interface BundleItemInput {

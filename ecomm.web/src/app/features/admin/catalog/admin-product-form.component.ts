@@ -89,6 +89,7 @@ export class AdminProductFormComponent implements OnInit {
       sku: '', name: '', categoryId: 0, brandId: null, price: 0, compareAtPrice: null, costPrice: null,
       shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false,
       productType: '', tags: '', metaTitle: '', metaDescription: '', images: [], isBundle: false,
+      excludeFromRecommendations: false, pinnedInRecommendations: false,
     };
   }
 
@@ -108,6 +109,8 @@ export class AdminProductFormComponent implements OnInit {
           productType: p.productType, tags: p.tags, metaTitle: p.metaTitle, metaDescription: p.metaDescription,
           images: p.images.map((i) => ({ url: i.url, altText: i.altText, displayOrder: i.displayOrder, isPrimary: i.isPrimary })),
           isBundle: p.isBundle,
+          excludeFromRecommendations: p.excludeFromRecommendations ?? false,
+          pinnedInRecommendations: p.pinnedInRecommendations ?? false,
         };
         this.variants.set(p.variants);
         this.attrValues = {};

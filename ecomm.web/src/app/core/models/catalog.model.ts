@@ -99,6 +99,8 @@ export interface ProductDetail {
   metaTitle: string | null;
   metaDescription: string | null;
   isBundle: boolean;
+  excludeFromRecommendations?: boolean;
+  pinnedInRecommendations?: boolean;
 }
 
 export interface BundleComponent {

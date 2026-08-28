@@ -25,8 +25,8 @@ public interface IPricingEngineService
 /// The pricing engine itself (v4 Phase 5): deterministic C#, not an LLM and not ML — computing a
 /// price is exactly the kind of task a model is unreliable at (precise arithmetic, reproducibility,
 /// auditability). Three signals, summed as percentages, clamped to the product's own MinPrice/
-/// MaxPrice: inventory (real, from day one), demand (stubbed at 0 — Phase 3 Track B's event capture
-/// doesn't exist yet, so this is deliberately neutral rather than fabricated), and seasonality (a
+/// MaxPrice: inventory (real, from day one), demand (now real — aggregate recent behavioural-event
+/// velocity from the AI Commerce data layer, market-based and never per-shopper), and seasonality (a
 /// merchant-defined <see cref="PricingSeasonRule"/> window). The model's only job is phrasing the
 /// plain-language explanation shown to the merchant from those same numbers — it never computes the
 /// suggested price.
@@ -68,13 +68,29 @@ public sealed class PricingEngineService(
             .ToListAsync(ct);
         var inventoryLookup = inventoryByProduct.ToDictionary(i => i.ProductId);
 
+        // Demand signal (AI Commerce C4): weighted recent velocity from the behavioural event layer —
+        // aggregate, market-based, never per-shopper. Firms price up slightly for products with strong
+        // recent demand; neutral otherwise. Bounded and clamped by the product's floor/ceiling below.
+        var demandSince = DateTime.UtcNow.AddDays(-7);
+        var candidateIds = candidates.Select(c => c.ProductId).ToList();
+        var demandRaw = await db.CustomerEvents.AsNoTracking()
+            .Where(e => e.ProductId != null && candidateIds.Contains(e.ProductId!.Value) && e.CreatedAt >= demandSince
+                && (e.EventType == "view" || e.EventType == "add-to-cart"))
+            .GroupBy(e => new { e.ProductId, e.EventType })
+            .Select(g => new { g.Key.ProductId, g.Key.EventType, Count = g.Count() })
+            .ToListAsync(ct);
+        var demandWeight = new Dictionary<long, double>();
+        foreach (var d in demandRaw)
+            if (d.ProductId is { } pid)
+                demandWeight[pid] = demandWeight.GetValueOrDefault(pid) + d.Count * (d.EventType == "add-to-cart" ? 3.0 : 1.0);
+
         var created = 0;
         foreach (var p in candidates)
         {
             if (alreadySuggestedToday.Contains(p.ProductId)) continue;
 
             var inventorySignal = InventorySignal(inventoryLookup.GetValueOrDefault(p.ProductId)?.Available, inventoryLookup.GetValueOrDefault(p.ProductId)?.Reorder);
-            const decimal demandSignal = 0m;   // neutral until Phase 3 Track B exists — see class doc comment
+            var demandSignal = DemandSignal(demandWeight.GetValueOrDefault(p.ProductId));
             var seasonalitySignal = SeasonalitySignal(seasonRules, p.CategoryId);
 
             var totalPercent = inventorySignal + demandSignal + seasonalitySignal;
@@ -118,6 +134,17 @@ public sealed class PricingEngineService(
     /// <summary>Stock level vs. reorder level. Deliberately simple, fixed thresholds for v1 — an
     /// ML-tuned response curve is a legitimate future direction once there's real outcome data to
     /// validate against, not something to guess at now.</summary>
+    /// <summary>Aggregate recent demand velocity (weighted views + add-to-cart over 7 days) → a small,
+    /// bounded upward price bias. Conservative fixed thresholds for v1, same posture as the inventory
+    /// signal; market-based (store-wide aggregate), never keyed to an individual shopper.</summary>
+    private static decimal DemandSignal(double weight) => weight switch
+    {
+        >= 50 => 3m,
+        >= 20 => 2m,
+        >= 8 => 1m,
+        _ => 0m,
+    };
+
     private static decimal InventorySignal(int? available, int? reorder)
     {
         if (available is null || reorder is null or <= 0) return 0;
@@ -146,6 +173,7 @@ public sealed class PricingEngineService(
         var facts = new List<string>();
         if (inventory > 0) facts.Add("stock is low relative to the reorder level");
         else if (inventory < 0) facts.Add("stock is well above the reorder level");
+        if (demand > 0) facts.Add("recent shopper demand for this product is strong");
         if (seasonality != 0) facts.Add($"an active seasonal pricing rule applies a {seasonality:0.#}% bias");
         if (facts.Count == 0) return null;
 

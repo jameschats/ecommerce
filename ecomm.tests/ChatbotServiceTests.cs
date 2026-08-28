@@ -504,6 +504,9 @@ public class ChatbotServiceTests
         public Task<ProductDetailDto?> UpdateAsync(long id, SaveProductRequest req, long? userId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(long id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<List<ProductListItemDto>> GetFrequentlyBoughtTogetherAsync(long productId, int take, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<List<ProductListItemDto>> GetTrendingAsync(int take, int windowDays, CancellationToken ct = default) => Task.FromResult(new List<ProductListItemDto>());
+        public Task<List<ProductListItemDto>> GetPersonalizedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default) => Task.FromResult(new List<ProductListItemDto>());
+        public Task<List<ProductListItemDto>> GetRecentlyViewedAsync(string? sessionId, long? userId, int take, CancellationToken ct = default) => Task.FromResult(new List<ProductListItemDto>());
     }
 
     private sealed class FakeCartService : ICartService

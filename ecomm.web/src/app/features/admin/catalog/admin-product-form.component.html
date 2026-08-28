@@ -65,6 +65,8 @@
                        (applied)="form.description = $event" />
       </div>
       <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.isFeatured" /> Featured</label>
+      <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.pinnedInRecommendations" /> Pin to recommendations (always show in Trending/Recommended)</label>
+      <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" [(ngModel)]="form.excludeFromRecommendations" /> Exclude from recommendations (e.g. discontinued)</label>
       <label class="flex items-center gap-2 text-sm text-slate-600">
         <input type="checkbox" [(ngModel)]="form.isBundle" /> This is a bundle/kit (sells as one SKU, made up of other products)
       </label>
