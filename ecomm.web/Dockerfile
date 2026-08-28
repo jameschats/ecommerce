@@ -18,9 +18,13 @@ ENV HOST=0.0.0.0
 # cutover (2026-08-21) when every real request 400'd. Turned out this was already solved for the
 # systemd deploy via two drop-in files (documents/deployment.md SS10-WAV) that this Dockerfile-baked
 # version now matches, so both paths agree on the same allowlist rather than drifting apart.
-# NOTE: this list does not cover per-tenant custom domains (Tenant.CustomDomain) - a pre-existing
-# gap in the systemd config this just carries forward unchanged, not something introduced here.
-ENV NG_ALLOWED_HOSTS=wavcommerce.online,*.wavcommerce.online,localhost,127.0.0.1
+# Allow ALL hosts ("*"): merchants connect arbitrary custom domains (Tenant.CustomDomain) via
+# Cloudflare for SaaS, so the SSR host allowlist can't enumerate them. The real security boundary is
+# Nginx (which is public) + the API's tenant resolution (an unknown host resolves to no store -> 404),
+# not this guard. Enumerating "*.wavcommerce.online" here 400'd every custom-domain storefront
+# (verified live 2026-08-28 on store.cherrycommerce.online). The VPS docker-compose.override also sets
+# this; keeping both in sync.
+ENV NG_ALLOWED_HOSTS=*
 ENV NG_TRUST_PROXY_HEADERS=x-forwarded-for,x-forwarded-host,x-forwarded-proto
 
 ENTRYPOINT ["node", "dist/ecomm-web/server/server.mjs"]
