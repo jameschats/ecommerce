@@ -38,6 +38,11 @@ export interface CampaignSendStatus {
   eligibleNow: number; hasEmailContent: boolean;
 }
 export interface BulkJob { queued: number; message: string; }
+export interface KeywordIdea { keyword: string; intent: string; note: string | null; }
+export interface ContentBrief {
+  targetKeyword: string; suggestedTitle: string; metaDescription: string;
+  outline: string[]; questions: string[];
+}
 export interface Festival {
   id: number; name: string; date: string; region: string; suggestedGoal: string; note: string | null; daysAway: number;
 }
@@ -133,6 +138,14 @@ export class GrowthService {
   }
   calendar(from: string, to: string): Observable<CalendarEntry[]> {
     return this.unwrap(this.http.get<ApiResponse<CalendarEntry[]>>(`${this.base}/calendar?from=${from}&to=${to}`));
+  }
+
+  // ----- SEO assistant (M4) -----
+  keywordIdeas(seed: string | null, language: string | null): Observable<KeywordIdea[]> {
+    return this.unwrap(this.http.post<ApiResponse<KeywordIdea[]>>(`${this.base}/seo/keywords`, { seed, language }));
+  }
+  contentBrief(keyword: string, language: string | null): Observable<ContentBrief> {
+    return this.unwrap(this.http.post<ApiResponse<ContentBrief>>(`${this.base}/seo/brief`, { keyword, language }));
   }
 
   // ----- Images (beta) -----

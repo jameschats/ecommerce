@@ -31,6 +31,10 @@ public static class AiCreditPricing
     public const string GrowthGoogleAds = "growth-google-ads";
     /// <summary>A full ~800-word blog article (G5) — longest text output, priced above the short formats.</summary>
     public const string GrowthArticle = "growth-article";
+    /// <summary>A batch of SEO keyword/topic ideas (Phase-4 Track A).</summary>
+    public const string GrowthKeywords = "growth-keywords";
+    /// <summary>An SEO content brief (outline + questions) that feeds the article writer (Phase-4 Track A).</summary>
+    public const string GrowthBrief = "growth-brief";
 
     // AI Growth — image generation (POC). Real cost is ~₹4-7 per image (100x a text call), so this is
     // priced far higher than text and tracked precisely via AiUsageLog.CostMicros. Re-tune once real
@@ -60,6 +64,8 @@ public static class AiCreditPricing
         [GrowthGoogleAds] = 5,
         [GrowthProductDescription] = 5,
         [GrowthEmail] = 8,
+        [GrowthKeywords] = 2,
+        [GrowthBrief] = 3,
         [GrowthArticle] = 12,
         [GrowthImage] = 20,
     };

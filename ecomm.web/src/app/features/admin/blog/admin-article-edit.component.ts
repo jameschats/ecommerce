@@ -109,6 +109,10 @@ export class AdminArticleEditComponent implements OnInit {
       this.id.set(id);
       this.isNew.set(false);
       this.api.get(id).subscribe((a) => this.fill(a));
+    } else {
+      // Prefill the AI-draft topic from an SEO-brief "Write this article" link.
+      const topic = this.route.snapshot.queryParamMap.get('topic');
+      if (topic) this.topic = topic;
     }
   }
 

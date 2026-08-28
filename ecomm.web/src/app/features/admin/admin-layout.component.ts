@@ -303,6 +303,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/growth', label: 'Generate', exact: true, icon: 'sparkles' },
       { path: '/admin/growth/campaigns', label: 'Campaigns', icon: 'megaphone' },
       { path: '/admin/growth/calendar', label: 'Calendar', icon: 'calendar' },
+      { path: '/admin/growth/seo', label: 'SEO ideas', icon: 'help' },
       { path: '/admin/articles', label: 'Blog', icon: 'draft' },
       { path: '/admin/growth/images', label: 'Product images', icon: 'photo' },
       { path: '/admin/growth/library', label: 'Content library', icon: 'list' },

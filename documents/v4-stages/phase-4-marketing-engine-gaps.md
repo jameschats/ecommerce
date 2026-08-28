@@ -112,4 +112,31 @@ Researched before building (same discipline as the SEO correction above) — `Gr
 - WhatsApp: catalog syncs correctly, an order placed via WhatsApp produces a real `Order` with correct GST and a real invoice PDF, identical in structure to a storefront order
 - WhatsApp conversational checkout: a real UPI payment collected through the chat thread correctly completes via the same `IPaymentGateway` flow storefront checkout uses — verified last, after everything else in the track is stable
 
-**Status:** not started. Track A can start immediately in parallel with Phases 3/5.
+**Status:** Track A largely shipped (see build log below); Tracks B/C deferred pending external platform accounts.
+
+---
+
+## Build log (2026-08-29) — AI Marketing M1–M4
+
+Shipped as four milestones on top of the already-live Growth generation module (Brand Voice, Generate,
+Campaigns, Images):
+
+- **M1 — real campaign sends + scheduling + bulk generate + export.** Campaigns now *go out*, not just
+  generate: email a campaign to a customer segment (consent enforced on top of every segment), now or
+  scheduled, via Hangfire under a re-established tenant scope; bulk-generate one content type across up
+  to 50 products async; download a copy-paste export pack for unowned channels (the doc's recommended
+  alternative to auto-publishing). `GrowthCampaignSendService`, `GrowthBulkService`, migration 278.
+- **M2 — content calendar + Indian festival calendar (G3).** Global `GrowthFestival` (migration 279 seeds
+  ~35 festivals/occasions 2026 H2–2027) + month view merging festivals with scheduled/sent campaigns +
+  lead-time nudges + one-click "Generate campaign" prefill. "the moat" per the ai-growth doc.
+- **M3 — blog/article surface + AI writer (G5).** `Article` entity (migration 280) + storefront `/blog`
+  (SEO meta + BlogPosting JSON-LD + sitemap) + admin editor with an AI first-draft. Closes the "generator
+  with nowhere to publish" gap flagged in four docs.
+- **M4 — SEO assistant (Track A's two new IAiService consumers).** Bulk keyword ideas + content briefs
+  that hand straight to the blog writer. `GrowthSeoService`.
+
+**Still deferred (unchanged rationale):** Track A's site-health monitoring (deterministic crawl, lower
+priority); **Track B** (Meta/Pinterest organic posting + scheduling calendar) and **Track C** (Meta/Google
+Ads connectors, product-feed sync, WhatsApp Commerce) — all blocked on real external platform accounts +
+app review, and on a live WhatsApp BSP account. Generation for these channels is already done; only the
+connect/publish integrations remain, to be built when a merchant asks by name (per the ai-growth Verdict).

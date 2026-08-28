@@ -144,6 +144,7 @@ export const routes: Routes = [
       { path: 'growth/library', loadComponent: () => import('./features/admin/growth/admin-growth-library.component').then((m) => m.AdminGrowthLibraryComponent) },
       { path: 'growth/campaigns', loadComponent: () => import('./features/admin/growth/admin-campaigns.component').then((m) => m.AdminCampaignsComponent) },
       { path: 'growth/calendar', loadComponent: () => import('./features/admin/growth/admin-growth-calendar.component').then((m) => m.AdminGrowthCalendarComponent) },
+      { path: 'growth/seo', loadComponent: () => import('./features/admin/growth/admin-growth-seo.component').then((m) => m.AdminGrowthSeoComponent) },
       { path: 'articles', loadComponent: () => import('./features/admin/blog/admin-articles.component').then((m) => m.AdminArticlesComponent) },
       { path: 'articles/:id', loadComponent: () => import('./features/admin/blog/admin-article-edit.component').then((m) => m.AdminArticleEditComponent) },
       { path: 'growth/images', loadComponent: () => import('./features/admin/growth/admin-growth-images.component').then((m) => m.AdminGrowthImagesComponent) },

@@ -19,7 +19,7 @@ namespace ecomm.api.Features.Growth;
 public sealed class GrowthController(
     IGrowthGenerationService gen, IBrandKitService brandKit, IGrowthCampaignService campaigns,
     IGrowthImageService images, IGrowthCampaignSendService sends, IGrowthBulkService bulk,
-    ICustomerAdminService customers, IGrowthCalendarService calendar) : ControllerBase
+    ICustomerAdminService customers, IGrowthCalendarService calendar, IGrowthSeoService seo) : ControllerBase
 {
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -145,6 +145,16 @@ public sealed class GrowthController(
     [HttpGet("calendar")]
     public async Task<IActionResult> Calendar([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken ct = default)
         => Ok(ApiResponse<IReadOnlyList<CalendarEntryDto>>.Ok(await calendar.CalendarAsync(from, to, ct)));
+
+    // ---- SEO assistant (M4 / Phase-4 Track A): keyword ideas + content briefs ----
+
+    [HttpPost("seo/keywords")]
+    public async Task<IActionResult> KeywordIdeas(KeywordIdeasRequest request, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<KeywordIdeaDto>>.Ok(await seo.KeywordIdeasAsync(request, ct), "Ideas ready."));
+
+    [HttpPost("seo/brief")]
+    public async Task<IActionResult> ContentBrief(ContentBriefRequest request, CancellationToken ct)
+        => Ok(ApiResponse<ContentBriefDto>.Ok(await seo.ContentBriefAsync(request, ct), "Brief ready."));
 
     // ---- Bulk generation (M1): one content type across many products, async ----
 
