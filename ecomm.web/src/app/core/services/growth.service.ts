@@ -38,6 +38,13 @@ export interface CampaignSendStatus {
   eligibleNow: number; hasEmailContent: boolean;
 }
 export interface BulkJob { queued: number; message: string; }
+export interface Festival {
+  id: number; name: string; date: string; region: string; suggestedGoal: string; note: string | null; daysAway: number;
+}
+export interface CalendarEntry {
+  kind: 'festival' | 'campaign'; date: string; title: string; subtitle: string | null;
+  campaignId: number | null; status: string | null; suggestedGoal: string | null; region: string | null;
+}
 export interface ImageStyle { key: string; label: string; description: string; }
 export interface ImageFormat { key: string; label: string; size: string; }
 export interface GeneratedImage { id: number; url: string; costInr: number; createdAt: string; }
@@ -118,6 +125,14 @@ export class GrowthService {
   // ----- Bulk generate (M1) -----
   bulkGenerate(contentType: string, productIds: number[], language: string | null, brief: string | null): Observable<BulkJob> {
     return this.unwrap(this.http.post<ApiResponse<BulkJob>>(`${this.base}/bulk`, { contentType, productIds, language, brief }));
+  }
+
+  // ----- Marketing calendar (M2 / G3) -----
+  festivals(withinDays = 120): Observable<Festival[]> {
+    return this.unwrap(this.http.get<ApiResponse<Festival[]>>(`${this.base}/festivals?withinDays=${withinDays}`));
+  }
+  calendar(from: string, to: string): Observable<CalendarEntry[]> {
+    return this.unwrap(this.http.get<ApiResponse<CalendarEntry[]>>(`${this.base}/calendar?from=${from}&to=${to}`));
   }
 
   // ----- Images (beta) -----

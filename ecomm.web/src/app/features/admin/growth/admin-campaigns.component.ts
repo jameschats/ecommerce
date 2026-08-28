@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
 import { ProductListItem } from '../../../core/models/catalog.model';
 import { Campaign, CampaignSendStatus, CampaignSummary, CustomerSegment, Goal, GrowthService } from '../../../core/services/growth.service';
@@ -181,6 +181,7 @@ import { Campaign, CampaignSendStatus, CampaignSummary, CustomerSegment, Goal, G
 export class AdminCampaignsComponent implements OnInit {
   private readonly api = inject(GrowthService);
   private readonly catalog = inject(AdminCatalogService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly goals = signal<Goal[]>([]);
   readonly products = signal<ProductListItem[]>([]);
@@ -220,6 +221,13 @@ export class AdminCampaignsComponent implements OnInit {
     this.catalog.listProducts({ page: 1, pageSize: 200 }).subscribe((r) => this.products.set(r.items));
     this.api.segments().subscribe({ next: (s) => this.segments.set(s), error: () => {} });
     this.loadPast();
+
+    // Prefill from a calendar "Generate campaign" link (?goal=festival&brief=Diwali).
+    const qp = this.route.snapshot.queryParamMap;
+    const goal = qp.get('goal');
+    const brief = qp.get('brief');
+    if (goal) this.goal.set(goal);
+    if (brief) this.brief = brief;
   }
 
   openSend(id: number, name: string): void {

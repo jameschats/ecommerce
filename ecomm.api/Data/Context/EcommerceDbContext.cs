@@ -144,6 +144,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<GrowthBrandKit> GrowthBrandKits => Set<GrowthBrandKit>();
     public DbSet<GrowthContent> GrowthContents => Set<GrowthContent>();
     public DbSet<GrowthCampaign> GrowthCampaigns => Set<GrowthCampaign>();
+    public DbSet<GrowthFestival> GrowthFestivals => Set<GrowthFestival>();
 
     // --- V2: AI credits (AI-0) ---
     public DbSet<TenantAiCredit> TenantAiCredits => Set<TenantAiCredit>();
@@ -511,6 +512,8 @@ public class EcommerceDbContext : DbContext
         b.Entity<GrowthBrandKit>(e => { e.ToTable("GrowthBrandKits"); e.HasKey(x => x.GrowthBrandKitId); });
         b.Entity<GrowthContent>(e => { e.ToTable("GrowthContents"); e.HasKey(x => x.GrowthContentId); });
         b.Entity<GrowthCampaign>(e => { e.ToTable("GrowthCampaigns"); e.HasKey(x => x.GrowthCampaignId); });
+        // Global (not tenant-scoped): the festival calendar is shared across all stores.
+        b.Entity<GrowthFestival>(e => { e.ToTable("GrowthFestivals"); e.HasKey(x => x.GrowthFestivalId); e.Property(x => x.Date).HasColumnType("date"); });
         b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
         b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
         b.Entity<AiCreditPack>(e => { e.ToTable("AiCreditPacks"); e.HasKey(x => x.AiCreditPackId); e.Property(x => x.PriceInr).HasPrecision(10, 2); });

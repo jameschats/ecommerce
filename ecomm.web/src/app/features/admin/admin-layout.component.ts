@@ -31,6 +31,7 @@ const NAV_ICONS: Record<string, string> = {
   tag: '<path d="M10.5 3H16v5.5L9 15.5 3.5 10 10.5 3Z"/><circle cx="13" cy="6" r="1" fill="currentColor" stroke="none"/>',
   sparkles: '<path d="M9 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z"/><path d="M15 11l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6.6-1.8Z"/>',
   megaphone: '<path d="M3 8v4h2l7 3V5L5 8H3Z"/><path d="M12 7.5a3 3 0 0 1 0 5"/>',
+  calendar: '<rect x="3" y="4.5" width="14" height="12" rx="1.5"/><path d="M3 8h14M6.5 2.5v3M13.5 2.5v3"/>',
   photo: '<rect x="3" y="4" width="14" height="12" rx="1.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M4 15l4-4 3 3 3.5-4.5L17 13"/>',
   chat: '<path d="M3 4.5h14v9H8l-3 3v-3H3v-9Z"/>',
   paint: '<path d="M14 3 8 9l-1 1 3 3 1-1 6-6-3-3Z"/><path d="M7 10l-3 6 6-3"/>',
@@ -301,6 +302,7 @@ export class AdminLayoutComponent implements OnInit {
     { title: 'Marketing', color: '#0d9488', links: [
       { path: '/admin/growth', label: 'Generate', exact: true, icon: 'sparkles' },
       { path: '/admin/growth/campaigns', label: 'Campaigns', icon: 'megaphone' },
+      { path: '/admin/growth/calendar', label: 'Calendar', icon: 'calendar' },
       { path: '/admin/growth/images', label: 'Product images', icon: 'photo' },
       { path: '/admin/growth/library', label: 'Content library', icon: 'list' },
       { path: '/admin/growth/brand-kit', label: 'Brand voice', icon: 'chat' },

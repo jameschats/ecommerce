@@ -19,7 +19,7 @@ namespace ecomm.api.Features.Growth;
 public sealed class GrowthController(
     IGrowthGenerationService gen, IBrandKitService brandKit, IGrowthCampaignService campaigns,
     IGrowthImageService images, IGrowthCampaignSendService sends, IGrowthBulkService bulk,
-    ICustomerAdminService customers) : ControllerBase
+    ICustomerAdminService customers, IGrowthCalendarService calendar) : ControllerBase
 {
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -133,6 +133,18 @@ public sealed class GrowthController(
         "email" => "Email campaign",
         _ => key,
     };
+
+    // ---- Marketing calendar (M2 / G3) ----
+
+    /// <summary>Upcoming festivals/occasions within a window (default 120 days), for the lead-time nudges.</summary>
+    [HttpGet("festivals")]
+    public async Task<IActionResult> Festivals([FromQuery] int withinDays = 120, CancellationToken ct = default)
+        => Ok(ApiResponse<IReadOnlyList<FestivalDto>>.Ok(await calendar.UpcomingFestivalsAsync(withinDays, ct)));
+
+    /// <summary>Festivals + this store's scheduled/sent campaigns between two dates (the month grid).</summary>
+    [HttpGet("calendar")]
+    public async Task<IActionResult> Calendar([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken ct = default)
+        => Ok(ApiResponse<IReadOnlyList<CalendarEntryDto>>.Ok(await calendar.CalendarAsync(from, to, ct)));
 
     // ---- Bulk generation (M1): one content type across many products, async ----
 
