@@ -4,24 +4,23 @@ using Microsoft.Extensions.Options;
 namespace ecomm.api.Features.WhatsApp;
 
 /// <summary>
-/// Real WhatsApp delivery via Gupshup's WhatsApp Business API. Activated by
-/// <c>WhatsApp:Provider=Gupshup</c> with an API key and the business's registered source number.
-/// <para><b>Unverified against a live account</b> — the vendor decision (Gupshup, see
-/// phase-1-notifications-2fa.md Track C) was made 2026-08-21 before a real Gupshup business
-/// account/WABA existed; that's an operational step (KYC, Meta business verification, template
-/// approval — all take real calendar time), not something this code can do. This implementation
-/// follows Gupshup's public API docs (console-docs.gupshup.io) as closely as available, but has
-/// not been exercised against a live account/API key. Re-verify the exact header name and endpoint
-/// once real credentials exist — most Gupshup v1 endpoints use an <c>apikey</c> header, but at
-/// least one docs page showed <c>api_key</c> for the session-message endpoint, which may be a
-/// documentation artifact rather than a real inconsistency; test both if the first send 401s.
-/// </para>
+/// Real WhatsApp delivery via Gupshup's <b>GatewayAPI/rest</b> (the smsGupshup "enterprise" line that
+/// Conversation Cloud self-serve accounts actually expose under Integrations → APIs — NOT the
+/// api.gupshup.io/sm/api/v1 self-serve line this class targeted before). Activated by
+/// <c>WhatsApp:Provider=Gupshup</c> with the account's <b>Client ID</b> (<see cref="WhatsAppOptions.UserId"/>,
+/// the <c>userid</c> field) and <b>Secret Token</b> (<see cref="WhatsAppOptions.ApiKey"/>, sent as a Bearer token).
+/// <para>Contract confirmed 2026-08-28 from the live account's own API page
+/// (console.gupshup.io/unified/apis): <c>POST {ApiBaseUrl}</c>, form-urlencoded,
+/// <c>method=SendMessage&amp;msg_type=text&amp;auth_scheme=plain&amp;v=1.1&amp;format=json</c>; a pre-approved
+/// template send sets <c>isHSM=true&amp;isTemplate=true&amp;whatsAppTemplateId=&lt;id&gt;</c> and passes body
+/// placeholders as <c>var1,var2,…</c> (a plain no-variable template needs no <c>msg</c>). Success JSON is
+/// <c>{"response":{"id","phone","details","status":"success"}}</c>.</para>
+/// <para><b>Not yet exercised end-to-end against the live account</b> — pending the account's
+/// <c>PENDING_INTERNAL_SETUP</c>/MM-Lite completion and a Meta-approved template. Re-verify on the first
+/// real send: the exact <c>var</c> naming and whether a variable template also wants <c>msg</c>.</para>
 /// </summary>
 public sealed class GupshupWhatsAppProvider : IWhatsAppProvider
 {
-    private const string TemplateMsgUrl = "https://api.gupshup.io/sm/api/v1/template/msg";
-    private const string SessionMsgUrl = "https://api.gupshup.io/sm/api/v1/msg";
-
     private readonly HttpClient _http;
     private readonly WhatsAppOptions _opts;
     private readonly ILogger<GupshupWhatsAppProvider> _logger;
@@ -39,14 +38,13 @@ public sealed class GupshupWhatsAppProvider : IWhatsAppProvider
         var destination = Normalize(toPhone);
         if (destination is null) return WhatsAppSendResult.Fail($"Could not normalize destination phone '{toPhone}'.");
 
-        var templateJson = JsonSerializer.Serialize(new { id = templateId, @params = parameters });
-        var form = new Dictionary<string, string>
-        {
-            ["source"] = _opts.SourceNumber,
-            ["destination"] = destination,
-            ["template"] = templateJson,
-        };
-        return await PostAsync(TemplateMsgUrl, form, ct);
+        var form = BaseForm(destination);
+        form["isHSM"] = "true";
+        form["isTemplate"] = "true";
+        form["whatsAppTemplateId"] = templateId;
+        // Body placeholders {{1}},{{2}},… map to var1,var2,… in the GatewayAPI.
+        for (var i = 0; i < parameters.Count; i++) form[$"var{i + 1}"] = parameters[i] ?? "";
+        return await PostAsync(form, ct);
     }
 
     public async Task<WhatsAppSendResult> SendSessionMessageAsync(string toPhone, string body, CancellationToken ct = default)
@@ -54,22 +52,29 @@ public sealed class GupshupWhatsAppProvider : IWhatsAppProvider
         var destination = Normalize(toPhone);
         if (destination is null) return WhatsAppSendResult.Fail($"Could not normalize destination phone '{toPhone}'.");
 
-        var messageJson = JsonSerializer.Serialize(new { type = "text", text = body });
-        var form = new Dictionary<string, string>
-        {
-            ["channel"] = "whatsapp",
-            ["source"] = _opts.SourceNumber,
-            ["src.name"] = _opts.AppName,
-            ["destination"] = destination,
-            ["message"] = messageJson,
-        };
-        return await PostAsync(SessionMsgUrl, form, ct);
+        // Free-form (session) message: same endpoint, no HSM/template flags — just the text in `msg`.
+        var form = BaseForm(destination);
+        form["msg"] = body;
+        return await PostAsync(form, ct);
     }
 
-    private async Task<WhatsAppSendResult> PostAsync(string url, Dictionary<string, string> form, CancellationToken ct)
+    /// <summary>Params common to every GatewayAPI SendMessage call. Credentials go in the body
+    /// (<c>userid</c>) and header (Bearer <c>ApiKey</c>).</summary>
+    private Dictionary<string, string> BaseForm(string destination) => new()
     {
-        using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = new FormUrlEncodedContent(form) };
-        req.Headers.TryAddWithoutValidation("apikey", _opts.ApiKey);
+        ["method"] = "SendMessage",
+        ["userid"] = _opts.UserId,
+        ["send_to"] = destination,
+        ["msg_type"] = "text",
+        ["auth_scheme"] = "plain",
+        ["v"] = "1.1",
+        ["format"] = "json",
+    };
+
+    private async Task<WhatsAppSendResult> PostAsync(Dictionary<string, string> form, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, _opts.ApiBaseUrl) { Content = new FormUrlEncodedContent(form) };
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {_opts.ApiKey}");
 
         try
         {
@@ -81,13 +86,17 @@ public sealed class GupshupWhatsAppProvider : IWhatsAppProvider
                 return WhatsAppSendResult.Fail($"HTTP {(int)res.StatusCode}: {body}");
             }
 
+            // { "response": { "id": "...", "phone": "...", "details": "...", "status": "success" } }
             using var doc = JsonDocument.Parse(body);
-            var status = doc.RootElement.TryGetProperty("status", out var s) ? s.GetString() : null;
-            var messageId = doc.RootElement.TryGetProperty("messageId", out var m) ? m.GetString() : null;
-            if (!string.Equals(status, "submitted", StringComparison.OrdinalIgnoreCase))
+            if (!doc.RootElement.TryGetProperty("response", out var resp))
+                return WhatsAppSendResult.Fail($"Unexpected response: {body}");
+
+            var status = resp.TryGetProperty("status", out var s) ? s.GetString() : null;
+            var messageId = resp.TryGetProperty("id", out var m) ? m.GetString() : null;
+            if (!string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogError("Gupshup reported non-submitted status: {Body}", body);
-                return WhatsAppSendResult.Fail($"Unexpected status: {body}");
+                _logger.LogError("Gupshup reported non-success status: {Body}", body);
+                return WhatsAppSendResult.Fail($"Send not accepted: {body}");
             }
             return WhatsAppSendResult.Ok(messageId ?? "");
         }
