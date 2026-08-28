@@ -5,8 +5,8 @@
 -- =====================================================================
 
 SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Carts' AND COLUMN_NAME = 'RecoveryEmailSentAt');
-SET @sql := IF(@col = 0, 'ALTER TABLE `Carts` ADD COLUMN `RecoveryEmailSentAt` DATETIME NULL AFTER `UpdatedAt`', 'SELECT 1');
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Cart' AND COLUMN_NAME = 'RecoveryEmailSentAt');
+SET @sql := IF(@col = 0, 'ALTER TABLE `Cart` ADD COLUMN `RecoveryEmailSentAt` DATETIME NULL AFTER `UpdatedAt`', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 INSERT INTO `__schema_migrations` (`script_name`)
