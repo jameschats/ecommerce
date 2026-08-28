@@ -42,6 +42,12 @@ public sealed record TenantPaymentInfo(string Provider, string? RazorpayKeyId, b
 public sealed record PlatformPaymentDto(string Provider, string? RazorpayKeyId, bool HasSecret, string Source);
 public sealed record PlatformPaymentUpsert(string Provider, string? RazorpayKeyId, string? RazorpayKeySecret);
 
+/// <summary>Platform transactional-email (SMTP) config. Provider = Logging (mock) | Smtp (live).
+/// Password never returned — only <c>HasSecret</c>. Source = console | env.</summary>
+public sealed record PlatformEmailDto(string Provider, string? Host, int Port, string? Username, string? FromAddress, string? FromName, bool UseSsl, bool HasSecret, string Source);
+public sealed record PlatformEmailUpsert(string Provider, string? Host, int Port, string? Username, string? Password, string? FromAddress, string? FromName, bool UseSsl);
+public sealed record TestEmailReq(string To);
+
 public sealed record BillingChargeDto(long Id, long TenantId, decimal Amount, string Status, DateTime BilledAt, DateTime? PeriodStart, DateTime? PeriodEnd, string? RazorpayPaymentId);
 public sealed record SubStatusRow(long TenantId, string Name, string? Slug, string? PlanName, string Status, DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt);
 
@@ -78,6 +84,9 @@ public interface ISuperAdminService
     Task RecordManualPaymentAsync(long tenantId, int planId, decimal amount, string? reference, long adminUserId, CancellationToken ct);
     Task<PlatformPaymentDto> GetPlatformPaymentAsync(CancellationToken ct);
     Task<PlatformPaymentDto> SavePlatformPaymentAsync(PlatformPaymentUpsert req, long adminUserId, CancellationToken ct);
+    Task<PlatformEmailDto> GetPlatformEmailAsync(CancellationToken ct);
+    Task<PlatformEmailDto> SavePlatformEmailAsync(PlatformEmailUpsert req, long adminUserId, CancellationToken ct);
+    Task SendTestEmailAsync(string toEmail, long adminUserId, CancellationToken ct);
     Task<TenantDiagnosticsDto> DiagnosticsAsync(long tenantId, CancellationToken ct);
     Task ResendNotificationAsync(long historyId, long adminUserId, CancellationToken ct);
     Task SetStandingAsync(long tenantId, string standing, string? reason, long adminUserId, CancellationToken ct);
@@ -109,6 +118,7 @@ public interface ISuperAdminService
 public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jwt, IOptions<TenancyOptions> tenancy, ICurrentTenantService tenant,
     IEmailSender email, ISmsSender sms,
     ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
+    EmailSenderFactory emailFactory,
     Microsoft.AspNetCore.DataProtection.IDataProtectionProvider dp) : ISuperAdminService
 {
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
@@ -341,6 +351,68 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
         db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = null, Action = "PlatformPaymentSettings", Detail = provider, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync(ct);
         return new PlatformPaymentDto(row.Provider, row.RazorpayKeyId, !string.IsNullOrEmpty(row.RazorpayKeySecret), "console");
+    }
+
+    public Task<PlatformEmailDto> GetPlatformEmailAsync(CancellationToken ct)
+    {
+        var d = emailFactory.Describe();
+        return Task.FromResult(new PlatformEmailDto(d.Provider, d.Host, d.Port, d.Username, d.FromAddress, d.FromName, d.UseSsl, d.HasSecret, d.Source));
+    }
+
+    /// <summary>
+    /// Store the platform SMTP config in the DB (overriding api.env). A blank password keeps the existing
+    /// one, so the host/username can be edited without re-typing the key. Encrypted at rest, never returned.
+    /// </summary>
+    public async Task<PlatformEmailDto> SavePlatformEmailAsync(PlatformEmailUpsert req, long adminUserId, CancellationToken ct)
+    {
+        var provider = string.Equals(req.Provider, "Smtp", StringComparison.OrdinalIgnoreCase) ? "Smtp" : "Logging";
+        var row = await db.PlatformEmailSettings.FirstOrDefaultAsync(ct);
+        if (row is null)
+        {
+            row = new PlatformEmailSetting { PlatformEmailSettingId = 1, CreatedAt = DateTime.UtcNow };
+            db.PlatformEmailSettings.Add(row);
+        }
+        row.Provider = provider;
+        row.Host = req.Host?.Trim();
+        row.Port = req.Port > 0 ? req.Port : 587;
+        row.Username = req.Username?.Trim();
+        if (!string.IsNullOrWhiteSpace(req.Password))
+            row.Password = dp.CreateProtector(EmailSenderFactory.ProtectorPurpose).Protect(req.Password.Trim());
+        row.FromAddress = req.FromAddress?.Trim();
+        row.FromName = req.FromName?.Trim();
+        row.UseSsl = req.UseSsl;
+        row.UpdatedAt = DateTime.UtcNow;
+
+        if (provider == "Smtp" && (string.IsNullOrWhiteSpace(row.Host) || string.IsNullOrWhiteSpace(row.Username)
+            || string.IsNullOrEmpty(row.Password) || string.IsNullOrWhiteSpace(row.FromAddress)))
+            throw new AppException("Live SMTP needs a host, username, saved password, and from-address.", StatusCodes.Status400BadRequest);
+
+        db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = null, Action = "PlatformEmailSettings", Detail = provider, CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
+        return new PlatformEmailDto(row.Provider, row.Host, row.Port, row.Username, row.FromAddress, row.FromName, row.UseSsl, !string.IsNullOrEmpty(row.Password), "console");
+    }
+
+    /// <summary>Send a test email using the currently-saved platform settings, so the admin can confirm
+    /// SMTP works before real notifications rely on it.</summary>
+    public async Task SendTestEmailAsync(string toEmail, long adminUserId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(toEmail) || !toEmail.Contains('@'))
+            throw new AppException("Enter a valid email address to send the test to.", StatusCodes.Status400BadRequest);
+        if (!emailFactory.Describe().Provider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
+            throw new AppException("Switch to Live and Save first — in Mock nothing is actually sent.", StatusCodes.Status400BadRequest);
+
+        var body = $"<p>This is a test email from your WavCommerce platform email settings.</p>"
+                 + $"<p>If you received this, live email delivery is working. Sent {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC.</p>";
+        try
+        {
+            await emailFactory.Create().SendAsync(toEmail.Trim(), "WavCommerce test email", body, ct);
+        }
+        catch (Exception ex)
+        {
+            throw new AppException($"Send failed: {ex.Message}", StatusCodes.Status400BadRequest);
+        }
+        db.PlatformAccessLog.Add(new PlatformAccessLog { AdminUserId = adminUserId, TenantId = null, Action = "PlatformEmailTest", Detail = toEmail.Trim(), CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<TenantDiagnosticsDto> DiagnosticsAsync(long tenantId, CancellationToken ct)

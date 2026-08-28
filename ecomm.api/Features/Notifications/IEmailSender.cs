@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Mail;
-using Microsoft.Extensions.Options;
 
 namespace ecomm.api.Features.Notifications;
 
@@ -33,12 +32,15 @@ public sealed class LoggingEmailSender : IEmailSender
     }
 }
 
-/// <summary>Real SMTP sender (used when <c>Email:Provider=Smtp</c> and credentials are set).</summary>
+/// <summary>Real SMTP sender (used when the resolved provider is <c>Smtp</c> and credentials are set).
+/// Constructed with already-resolved <see cref="EmailOptions"/> — <see cref="EmailSenderFactory"/> builds
+/// it per request from either the platform DB row or the env fallback, so config changes take effect
+/// without a restart.</summary>
 public sealed class SmtpEmailSender : IEmailSender
 {
     private readonly EmailOptions _opts;
 
-    public SmtpEmailSender(IOptions<EmailOptions> opts) => _opts = opts.Value;
+    public SmtpEmailSender(EmailOptions opts) => _opts = opts;
 
     public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default,
         string? fromName = null, string? replyTo = null)

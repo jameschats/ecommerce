@@ -147,13 +147,15 @@ builder.Services.AddSingleton<ecomm.api.Features.Media.IMediaStorage, ecomm.api.
 builder.Services.AddSingleton<ecomm.api.Features.Media.IImageVariantService, ecomm.api.Features.Media.ImageVariantService>();
 builder.Services.AddScoped<ecomm.api.Features.Media.IMediaService, ecomm.api.Features.Media.MediaService>();
 
-// Notifications — email sender selected by Email:Provider (Logging dev-stub | Smtp real).
+// Notifications — the effective email sender is resolved per request by EmailSenderFactory: the
+// super-admin-set PlatformEmailSettings row wins, else the app-wide `Email` env config, else the
+// Logging dev-stub. This lets the Mock/Live toggle + SMTP credentials be changed from the console
+// with no restart (same pattern as PlatformPaymentGatewayFactory). The env `Email` section stays the
+// fallback source.
 builder.Services.Configure<ecomm.api.Features.Notifications.EmailOptions>(builder.Configuration.GetSection(ecomm.api.Features.Notifications.EmailOptions.SectionName));
-var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
-if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
-    builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.SmtpEmailSender>();
-else
-    builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender, ecomm.api.Features.Notifications.LoggingEmailSender>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.EmailSenderFactory>();
+builder.Services.AddScoped<ecomm.api.Features.Notifications.IEmailSender>(sp =>
+    sp.GetRequiredService<ecomm.api.Features.Notifications.EmailSenderFactory>().Create());
 // Channel router: code -> primary channel + fallback chain (v4 Phase 1 Track A). One
 // INotificationChannel per transport, wrapping the senders above — WhatsApp/Push join this list
 // once built, no other change needed here.

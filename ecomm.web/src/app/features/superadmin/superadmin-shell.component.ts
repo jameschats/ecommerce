@@ -42,6 +42,7 @@ export class SuperAdminShellComponent {
     { path: 'billing', label: 'Billing', icon: '🧾' },
     { path: 'plans', label: 'Plans & credits', icon: '🏷️' },
     { path: 'payments', label: 'Payments', icon: '💳' },
+    { path: 'email', label: 'Email', icon: '✉️' },
     { path: 'support', label: 'Support', icon: '💬' },
     { path: 'announcements', label: 'Announcements', icon: '📣' },
     { path: 'blocklist', label: 'Blocklist', icon: '⛔' },

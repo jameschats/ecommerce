@@ -180,6 +180,21 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
     public async Task<IActionResult> SavePlatformPayment([FromBody] PlatformPaymentUpsert req, CancellationToken ct)
         => Ok(ApiResponse<PlatformPaymentDto>.Ok(await svc.SavePlatformPaymentAsync(req, AdminUserId, ct), "Payment settings saved."));
 
+    [HttpGet("email-settings")]
+    public async Task<IActionResult> PlatformEmail(CancellationToken ct)
+        => Ok(ApiResponse<PlatformEmailDto>.Ok(await svc.GetPlatformEmailAsync(ct)));
+
+    [HttpPut("email-settings")]
+    public async Task<IActionResult> SavePlatformEmail([FromBody] PlatformEmailUpsert req, CancellationToken ct)
+        => Ok(ApiResponse<PlatformEmailDto>.Ok(await svc.SavePlatformEmailAsync(req, AdminUserId, ct), "Email settings saved."));
+
+    [HttpPost("email-settings/test")]
+    public async Task<IActionResult> SendTestEmail([FromBody] TestEmailReq req, CancellationToken ct)
+    {
+        await svc.SendTestEmailAsync(req.To, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Test email sent."));
+    }
+
     [HttpGet("tenants/{id:long}/diagnostics")]
     public async Task<IActionResult> Diagnostics(long id, CancellationToken ct)
         => Ok(ApiResponse<TenantDiagnosticsDto>.Ok(await svc.DiagnosticsAsync(id, ct)));

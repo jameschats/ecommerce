@@ -92,6 +92,15 @@ export interface TenantPaymentInfo { provider: string; razorpayKeyId: string | n
 export interface PlatformPayment { provider: string; razorpayKeyId: string | null; hasSecret: boolean; source: string; }
 export interface PlatformPaymentUpsert { provider: string; razorpayKeyId: string | null; razorpayKeySecret: string | null; }
 
+export interface PlatformEmail {
+  provider: string; host: string | null; port: number; username: string | null;
+  fromAddress: string | null; fromName: string | null; useSsl: boolean; hasSecret: boolean; source: string;
+}
+export interface PlatformEmailUpsert {
+  provider: string; host: string | null; port: number; username: string | null; password: string | null;
+  fromAddress: string | null; fromName: string | null; useSsl: boolean;
+}
+
 export interface BillingCharge {
   id: number;
   tenantId: number;
