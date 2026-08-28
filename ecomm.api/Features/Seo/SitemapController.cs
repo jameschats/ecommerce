@@ -25,7 +25,11 @@ public sealed class SitemapController : ControllerBase
     [Produces("application/xml")]
     public async Task<IActionResult> Sitemap(CancellationToken ct)
     {
-        var baseUrl = (_config["Cors:AngularOrigin"] ?? "https://calendarshop.online").TrimEnd('/');
+        // Per-tenant: each store's sitemap must list ITS OWN host (bazaar.wavcommerce.online), not a
+        // single platform-wide URL — otherwise every tenant's sitemap points search engines at the same
+        // domain. Derive it from the request host (X-Forwarded-Host wins behind the SSR/Nginx proxy),
+        // falling back to config only when there's no host (dev).
+        var baseUrl = RequestBaseUrl() ?? (_config["Cors:AngularOrigin"] ?? "https://wavcommerce.online").TrimEnd('/');
 
         var sb = new StringBuilder();
         sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -59,6 +63,17 @@ public sealed class SitemapController : ControllerBase
 
         sb.Append("</urlset>");
         return Content(sb.ToString(), "application/xml", Encoding.UTF8);
+    }
+
+    /// <summary>This request's public origin (scheme+host), X-Forwarded-* winning behind the proxy; null in dev with no host.</summary>
+    private string? RequestBaseUrl()
+    {
+        var fwdHost = Request.Headers["X-Forwarded-Host"].ToString();
+        var host = (!string.IsNullOrEmpty(fwdHost) ? fwdHost.Split(',')[0].Trim() : Request.Host.Value ?? "").Trim();
+        if (string.IsNullOrEmpty(host)) return null;
+        var fwdProto = Request.Headers["X-Forwarded-Proto"].ToString();
+        var scheme = !string.IsNullOrEmpty(fwdProto) ? fwdProto.Split(',')[0].Trim() : Request.Scheme;
+        return $"{scheme}://{host}".TrimEnd('/');
     }
 
     private static string Escape(string s) =>

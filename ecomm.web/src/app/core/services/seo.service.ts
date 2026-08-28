@@ -9,6 +9,8 @@ export interface SeoData {
   image?: string;
   url?: string;
   type?: string;
+  /** Keep this page out of search results (cart, checkout, account, search results, etc.). */
+  noindex?: boolean;
 }
 
 /**
@@ -26,6 +28,7 @@ export class SeoService {
   setMeta(data: SeoData): void {
     const desc = data.description ?? '';
     this.title.setTitle(data.title);
+    this.meta.updateTag({ name: 'robots', content: data.noindex ? 'noindex, nofollow' : 'index, follow' });
     this.meta.updateTag({ name: 'description', content: desc });
     this.meta.updateTag({ property: 'og:title', content: data.title });
     this.meta.updateTag({ property: 'og:description', content: desc });

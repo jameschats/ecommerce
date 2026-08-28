@@ -276,7 +276,7 @@ export class ProductPageStore {
     this.adding.set(true);
     this.cartError.set(null);
     this.cart.add(p.productId, this.resolveVariantId(), this.qty()).subscribe({
-      next: () => { this.adding.set(false); this.router.navigateByUrl('/cart'); },
+      next: () => { this.adding.set(false); this.router.navigateByUrl('/checkout'); },
       error: (e) => { this.adding.set(false); this.cartError.set(e?.error?.message ?? 'Could not add to cart.'); },
     });
   }
