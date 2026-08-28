@@ -77,4 +77,15 @@ This phase has **two independent tracks** with different urgency — the Shoppin
 - Out-of-stock products never appear in any recommendation placement, confirmed across all strategies including the new ones
 - Shopping Assistant: ask it to find a product by description → relevant, real (in-stock, correctly priced) results; ask it to add one to cart → cart actually updates, bot confirms what it did; ask an order-status question in the same conversation → same bot, same conversation, correct handoff between capability sets
 
-**Status:** Track A done (2026-08-21), backend only — no frontend surfaces this yet beyond what the existing livechat widget already renders (a bot reply is a bot reply either way; the widget doesn't need to know it triggered a cart add versus an answer). Track B not started — its privacy/consent question is still genuinely unresolved and should be before event capture ships broadly, not silently assumed fine.
+**Status:** Track A done (2026-08-21). **Track B shipped 2026-08-29** as AI Commerce C1–C4 (build log below).
+
+---
+
+## Track B build log (2026-08-29) — AI Commerce C1–C4
+
+- **C1 — data layer.** `CustomerEvent` (migration 281), `POST /api/events` → in-memory buffer → per-minute Hangfire flush (batched, per-tenant `BeginScope`, off the hot path). Frontend `EventService` (first-party visitor id, batched, SSR-safe) captures view / add-to-cart / remove. Verified end-to-end on prod.
+- **C2 — Trending Now.** `GetTrendingAsync`: weighted views + add-to-cart (events) + purchases (orders) over a window, in-stock only. `GET /api/catalog/trending`, self-hiding rail.
+- **C3 — Personalized Picks + Recently Viewed.** Category-affinity from the visitor's own events, gated at ≥2 interactions, cold-start → trending. `GET /api/catalog/personalized` + `/recently-viewed`. Rails on the cart page.
+- **C4 — merchant pin/exclude + demand→pricing.** `Products.ExcludeFromRecommendations`/`PinnedInRecommendations` (migration 282, admin toggles, applied across strategies) and the Dynamic-Pricing demand signal wired to real 7-day event velocity (was hardcoded 0) — closes the Phase-5 gap.
+
+**Placement note:** storefront home/PLP/PDP are theme-template-driven, so new placements there need a theme section type; the cart page (plain component) hosts the rails today. **Privacy:** first-party, purpose-limited, `BehaviorTrackingEnabled` per-store toggle (default on); the DPDP consent review is still the open item before broad rollout.
