@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import { Cart } from '../models/cart.model';
 import { AuthService } from './auth.service';
+import { EventService } from './event.service';
 import { TokenStorageService } from './token-storage.service';
 
 /**
@@ -18,6 +19,7 @@ export class CartService {
   private readonly http = inject(HttpClient);
   private readonly storage = inject(TokenStorageService);
   private readonly auth = inject(AuthService);
+  private readonly events = inject(EventService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly base = `${API_BASE_URL}/cart`;
 
@@ -59,6 +61,7 @@ export class CartService {
   }
 
   add(productId: number, productVariantId: number | null, quantity: number): Observable<Cart> {
+    this.events.addToCart(productId, quantity);
     return this.mutate(this.http.post<ApiResponse<Cart>>(`${this.base}/items`, { productId, productVariantId, quantity }, { headers: this.headers() }));
   }
 
@@ -67,6 +70,8 @@ export class CartService {
   }
 
   remove(cartItemId: number): Observable<Cart> {
+    const pid = this.items().find((i) => i.cartItemId === cartItemId)?.productId;
+    if (pid) this.events.removeFromCart(pid);
     return this.mutate(this.http.delete<ApiResponse<Cart>>(`${this.base}/items/${cartItemId}`, { headers: this.headers() }));
   }
 

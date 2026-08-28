@@ -248,6 +248,8 @@ builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthBulkService, ecomm.a
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthCalendarService, ecomm.api.Features.Growth.GrowthCalendarService>();
 builder.Services.AddScoped<ecomm.api.Features.Blog.IArticleService, ecomm.api.Features.Blog.ArticleService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthSeoService, ecomm.api.Features.Growth.GrowthSeoService>();
+builder.Services.AddSingleton<ecomm.api.Features.Commerce.CustomerEventBuffer>();
+builder.Services.AddScoped<ecomm.api.Features.Commerce.ICustomerEventFlushService, ecomm.api.Features.Commerce.CustomerEventFlushService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.ICatalogImageService, ecomm.api.Features.Growth.CatalogImageService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();
@@ -546,5 +548,12 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Cart.IAbandonedCartService>(
     "abandoned-cart-recovery",
     svc => svc.RunRecoverySweepAsync(CancellationToken.None),
     $"0 */{cartSweepHours} * * *");
+
+// AI Commerce — flush buffered storefront behavioural events to the DB every minute (batched writes,
+// never on the storefront hot path). Feeds Trending, Personalization, and Dynamic Pricing's demand signal.
+RecurringJob.AddOrUpdate<ecomm.api.Features.Commerce.ICustomerEventFlushService>(
+    "customer-event-flush",
+    svc => svc.FlushAsync(CancellationToken.None),
+    "* * * * *");
 
 app.Run();

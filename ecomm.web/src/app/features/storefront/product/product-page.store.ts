@@ -6,6 +6,7 @@ import { BundleComponent, ProductDetail, ProductListItem } from '../../../core/m
 import { ProductReviews } from '../../../core/models/review.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
+import { EventService } from '../../../core/services/event.service';
 import { CatalogService, ShippingQuote } from '../../../core/services/catalog.service';
 import { RecentlyViewedService } from '../../../core/services/recently-viewed.service';
 import { ReviewService } from '../../../core/services/review.service';
@@ -25,6 +26,7 @@ export class ProductPageStore {
   private readonly cart = inject(CartService);
   private readonly router = inject(Router);
   private readonly reviewSvc = inject(ReviewService);
+  private readonly events = inject(EventService);
   private readonly auth = inject(AuthService);
   private readonly theme = inject(ThemeService);
   private readonly siteUrl = inject(SITE_URL);
@@ -114,6 +116,7 @@ export class ProductPageStore {
           return;
         }
         this.product.set(product);
+        this.events.view(product.productId);
         this.currentImage.set(0);
         this.qty.set(1);
         this.selected = {};
