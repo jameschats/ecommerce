@@ -8,10 +8,10 @@ namespace ecomm.api.Features.Settings;
 
 public sealed record StoreSettingsDto(
     string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled,
-    string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone);
+    string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone, bool AbandonedCartRecovery);
 public sealed record UpdateStoreSettingsRequest(
     string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled,
-    string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone);
+    string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone, bool AbandonedCartRecovery);
 
 public interface IStoreSettingsService
 {
@@ -25,7 +25,7 @@ public sealed class StoreSettingsService : IStoreSettingsService
     private static readonly string[] Keys =
     {
         "TaxMode", "StoreState", "StoreGstin", "StoreLegalName", "CodEnabled",
-        "StoreEmail", "StorePhone", "StoreAddress", "Timezone",
+        "StoreEmail", "StorePhone", "StoreAddress", "Timezone", "AbandonedCartRecoveryEnabled",
     };
     private static readonly string[] Modes = { TaxMode.Exclusive, TaxMode.Inclusive, TaxMode.None };
 
@@ -45,7 +45,8 @@ public sealed class StoreSettingsService : IStoreSettingsService
             s.GetValueOrDefault("StoreEmail"),
             s.GetValueOrDefault("StorePhone"),
             s.GetValueOrDefault("StoreAddress"),
-            s.GetValueOrDefault("Timezone"));
+            s.GetValueOrDefault("Timezone"),
+            string.Equals(s.GetValueOrDefault("AbandonedCartRecoveryEnabled"), "true", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<StoreSettingsDto> UpdateAsync(UpdateStoreSettingsRequest req, CancellationToken ct = default)
@@ -62,6 +63,7 @@ public sealed class StoreSettingsService : IStoreSettingsService
         await UpsertAsync("StorePhone", req.StorePhone?.Trim(), ct);
         await UpsertAsync("StoreAddress", req.StoreAddress?.Trim(), ct);
         await UpsertAsync("Timezone", req.Timezone?.Trim(), ct);
+        await UpsertAsync("AbandonedCartRecoveryEnabled", req.AbandonedCartRecovery ? "true" : "false", ct);
         await _db.SaveChangesAsync(ct);
         return await GetAsync(ct);
     }

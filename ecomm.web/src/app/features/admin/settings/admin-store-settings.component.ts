@@ -71,6 +71,16 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
             </label>
           </div>
 
+          <div>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="form.abandonedCartRecovery" name="abandonedCartRecovery" class="w-4 h-4" />
+              <span>
+                <span class="text-sm font-medium text-slate-800">Abandoned-cart recovery emails</span>
+                <span class="block text-xs text-slate-400">When on, shoppers who leave items in their cart get a reminder email (once per cart, after a few hours). Requires store email to be set up.</span>
+              </span>
+            </label>
+          </div>
+
           <div class="flex items-center gap-3 pt-1">
             <button type="submit" [disabled]="saving()" class="btn-primary px-5 py-2.5">{{ saving() ? 'Saving…' : 'Save settings' }}</button>
             @if (saved()) { <span class="text-sm text-green-600">✓ Saved</span> }
@@ -100,7 +110,7 @@ export class AdminStoreSettingsComponent implements OnInit {
   readonly error = signal<string | null>(null);
   form: StoreSettings = {
     taxMode: 'Exclusive', storeState: '', storeGstin: '', storeLegalName: '', codEnabled: false,
-    storeEmail: '', storePhone: '', storeAddress: '', timezone: '',
+    storeEmail: '', storePhone: '', storeAddress: '', timezone: '', abandonedCartRecovery: false,
   };
 
   ngOnInit(): void {

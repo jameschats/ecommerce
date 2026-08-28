@@ -145,6 +145,7 @@ export interface StoreSettings {
   storePhone: string | null;
   storeAddress: string | null;
   timezone: string | null;
+  abandonedCartRecovery: boolean;
 }
 
 export interface DashboardSummary {
