@@ -246,6 +246,7 @@ builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthImageService, ecomm.
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthCampaignSendService, ecomm.api.Features.Growth.GrowthCampaignSendService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthBulkService, ecomm.api.Features.Growth.GrowthBulkService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.IGrowthCalendarService, ecomm.api.Features.Growth.GrowthCalendarService>();
+builder.Services.AddScoped<ecomm.api.Features.Blog.IArticleService, ecomm.api.Features.Blog.ArticleService>();
 builder.Services.AddScoped<ecomm.api.Features.Growth.ICatalogImageService, ecomm.api.Features.Growth.CatalogImageService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.ICheckoutSettingsService, ecomm.api.Features.Settings.CheckoutSettingsService>();

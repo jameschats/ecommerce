@@ -89,6 +89,8 @@ export const routes: Routes = [
   { path: 'thread/:token', loadComponent: () => import('./features/pages/thread/thread.component').then((m) => m.ThreadComponent) },
   { path: 'track', loadComponent: () => import('./features/pages/track/track-order.component').then((m) => m.TrackOrderComponent) },
   { path: 'faq', loadComponent: () => import('./features/pages/faq/faq.component').then((m) => m.FaqComponent) },
+  { path: 'blog', loadComponent: () => import('./features/storefront/blog/blog-list.component').then((m) => m.BlogListComponent) },
+  { path: 'blog/:slug', loadComponent: () => import('./features/storefront/blog/blog-detail.component').then((m) => m.BlogDetailComponent) },
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then((m) => m.LoginComponent),
@@ -142,6 +144,8 @@ export const routes: Routes = [
       { path: 'growth/library', loadComponent: () => import('./features/admin/growth/admin-growth-library.component').then((m) => m.AdminGrowthLibraryComponent) },
       { path: 'growth/campaigns', loadComponent: () => import('./features/admin/growth/admin-campaigns.component').then((m) => m.AdminCampaignsComponent) },
       { path: 'growth/calendar', loadComponent: () => import('./features/admin/growth/admin-growth-calendar.component').then((m) => m.AdminGrowthCalendarComponent) },
+      { path: 'articles', loadComponent: () => import('./features/admin/blog/admin-articles.component').then((m) => m.AdminArticlesComponent) },
+      { path: 'articles/:id', loadComponent: () => import('./features/admin/blog/admin-article-edit.component').then((m) => m.AdminArticleEditComponent) },
       { path: 'growth/images', loadComponent: () => import('./features/admin/growth/admin-growth-images.component').then((m) => m.AdminGrowthImagesComponent) },
       { path: 'growth/brand-kit', loadComponent: () => import('./features/admin/growth/admin-brand-kit.component').then((m) => m.AdminBrandKitComponent) },
       { path: 'settings', loadComponent: () => import('./features/admin/settings/admin-settings.component').then((m) => m.AdminSettingsComponent) },

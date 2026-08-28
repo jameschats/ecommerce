@@ -61,6 +61,13 @@ public sealed class SitemapController : ControllerBase
             .Select(p => new { p.Slug, p.UpdatedAt, p.CreatedAt }).ToListAsync(ct);
         foreach (var p in products) Url($"/product/{p.Slug}", p.UpdatedAt ?? p.CreatedAt);
 
+        // Published blog articles (G5)
+        var articles = await _db.Articles.AsNoTracking()
+            .Where(a => a.TenantId == Tenant && a.Status == "Published")
+            .Select(a => new { a.Slug, a.UpdatedAt, a.PublishedAt }).ToListAsync(ct);
+        if (articles.Count > 0) Url("/blog", freq: "weekly");
+        foreach (var a in articles) Url($"/blog/{a.Slug}", a.UpdatedAt ?? a.PublishedAt);
+
         sb.Append("</urlset>");
         return Content(sb.ToString(), "application/xml", Encoding.UTF8);
     }
