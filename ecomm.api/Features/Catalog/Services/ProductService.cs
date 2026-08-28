@@ -23,6 +23,10 @@ public interface IProductService
     /// co-purchase frequency (real order history, not a manual/curated list). Empty for products with
     /// no qualifying order history yet.</summary>
     Task<List<ProductListItemDto>> GetFrequentlyBoughtTogetherAsync(long productId, int take, CancellationToken ct = default);
+    /// <summary>"Trending now": products ranked by recent demand velocity — weighted views + add-to-cart
+    /// (behavioural events) and purchases (order history) over a recent window. In-stock only. Empty when
+    /// there's not enough recent activity yet (the caller falls back to best-sellers/featured).</summary>
+    Task<List<ProductListItemDto>> GetTrendingAsync(int take, int windowDays, CancellationToken ct = default);
 }
 
 public sealed class ProductService : IProductService
@@ -329,6 +333,47 @@ public sealed class ProductService : IProductService
 
         var rank = rankedIds.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
         return items.OrderBy(i => rank[i.ProductId]).ToList();
+    }
+
+    public async Task<List<ProductListItemDto>> GetTrendingAsync(int take, int windowDays, CancellationToken ct = default)
+    {
+        take = Math.Clamp(take, 1, 24);
+        var since = DateTime.UtcNow.AddDays(-Math.Clamp(windowDays, 1, 90));
+
+        // Behavioural signal: weighted views + add-to-cart over the window (tenant-scoped by the filter).
+        var evStats = await _db.CustomerEvents
+            .Where(e => e.ProductId != null && e.CreatedAt >= since && (e.EventType == "view" || e.EventType == "add-to-cart"))
+            .GroupBy(e => new { e.ProductId, e.EventType })
+            .Select(g => new { g.Key.ProductId, g.Key.EventType, Count = g.Count() })
+            .ToListAsync(ct);
+
+        // Purchase signal: units sold over the window (strongest weight).
+        var purchases = await _db.OrderItems
+            .Where(oi => SoldStatuses.Contains(oi.Order!.Status) && oi.Order.PlacedAt != null && oi.Order.PlacedAt >= since)
+            .GroupBy(oi => oi.ProductId)
+            .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.Quantity) })
+            .ToListAsync(ct);
+
+        var score = new Dictionary<long, double>();
+        foreach (var e in evStats)
+            if (e.ProductId is { } pid)
+                score[pid] = score.GetValueOrDefault(pid) + e.Count * (e.EventType == "add-to-cart" ? 3.0 : 1.0);
+        foreach (var p in purchases)
+            score[p.ProductId] = score.GetValueOrDefault(p.ProductId) + p.Qty * 8.0;
+
+        if (score.Count == 0) return [];
+
+        // Over-fetch, then drop anything not live/in-stock, then take the top N (guardrail: never OOS).
+        var rankedIds = score.OrderByDescending(kv => kv.Value).Take(take * 3).Select(kv => kv.Key).ToList();
+        var items = await _db.Products
+            .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive && p.Status == "Active" && rankedIds.Contains(p.ProductId))
+            .Select(ListItemProjection())
+            .ToListAsync(ct);
+
+        return items.Where(i => i.InStock)
+            .OrderByDescending(i => score.GetValueOrDefault(i.ProductId))
+            .Take(take)
+            .ToList();
     }
 
     public Task<ProductDetailDto?> GetByIdAsync(long id, CancellationToken ct = default) =>

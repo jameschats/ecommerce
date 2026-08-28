@@ -5,6 +5,7 @@ import { StorefrontSectionComponent } from '../storefront-section.component';
 import { SectionSlot, slotsFrom } from '../section-slot';
 import { CartPageStore } from './cart-page.store';
 import { CartCrossSellComponent, CartItemsComponent, CartSummaryComponent } from './cart-sections.component';
+import { TrendingRailComponent } from '../../../shared/trending-rail/trending-rail.component';
 
 /** Default `cart` layout when the theme defines no cart template. Matches today's page. */
 const DEFAULT_CART_SECTIONS = ['CartItems', 'CartSummary'];
@@ -22,7 +23,7 @@ interface EmptyStateCfg { heading?: string; body?: string; buttonText?: string; 
  */
 @Component({
   selector: 'app-cart-page',
-  imports: [RouterLink, StorefrontSectionComponent, CartItemsComponent, CartSummaryComponent, CartCrossSellComponent],
+  imports: [RouterLink, StorefrontSectionComponent, CartItemsComponent, CartSummaryComponent, CartCrossSellComponent, TrendingRailComponent],
   providers: [CartPageStore],
   template: `
     <section class="page-container py-8">
@@ -48,6 +49,7 @@ interface EmptyStateCfg { heading?: string; body?: string; buttonText?: string; 
             }
           }
         </div>
+        <app-trending-rail heading="🔥 Popular right now" [limit]="5" />
       }
     </section>
   `,

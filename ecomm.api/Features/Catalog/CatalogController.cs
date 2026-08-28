@@ -129,4 +129,11 @@ public sealed class CatalogController : ControllerBase
     [HttpGet("products/{id:long}/frequently-bought-together")]
     public async Task<IActionResult> FrequentlyBoughtTogether(long id, [FromQuery] int take, CancellationToken ct)
         => Ok(ApiResponse<List<ProductListItemDto>>.Ok(await _products.GetFrequentlyBoughtTogetherAsync(id, take <= 0 ? 3 : take, ct)));
+
+    /// <summary>"Trending now": products ranked by recent demand velocity (views + add-to-cart + purchases).
+    /// Cached for anonymous reads; empty until a store has enough recent activity.</summary>
+    [HttpGet("trending")]
+    [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = "public")]
+    public async Task<IActionResult> Trending([FromQuery] int limit = 12, [FromQuery] int days = 7, CancellationToken ct = default)
+        => Ok(ApiResponse<List<ProductListItemDto>>.Ok(await _products.GetTrendingAsync(limit <= 0 ? 12 : limit, days <= 0 ? 7 : days, ct)));
 }

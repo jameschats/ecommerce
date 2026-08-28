@@ -189,6 +189,15 @@ export class CatalogService {
     );
   }
 
+  /** "Trending now": products ranked by recent demand velocity (views + add-to-cart + purchases).
+   *  Empty until a store has enough recent activity — callers fall back / hide the rail. */
+  getTrending(limit = 12): Observable<ProductListItem[]> {
+    return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/trending`, { params: { limit } }).pipe(
+      map((r) => r.data ?? []),
+      catchError(() => of([])),
+    );
+  }
+
   /** Products most often bought alongside this one, ranked by real co-purchase frequency. */
   getFrequentlyBoughtTogether(productId: number, take = 3): Observable<ProductListItem[]> {
     return this.http.get<ApiResponse<ProductListItem[]>>(`${this.base}/products/${productId}/frequently-bought-together`, { params: { take } }).pipe(
