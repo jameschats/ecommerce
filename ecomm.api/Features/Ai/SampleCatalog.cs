@@ -11,7 +11,7 @@ public static class SampleCatalogPresets
     public static readonly IReadOnlyList<SampleCatalogPreset> All = new[]
     {
         new SampleCatalogPreset("bazaar", "General store / bazaar", "a general online bazaar selling a broad mix of everyday products across several departments", new[] { "bazaar" }),
-        new SampleCatalogPreset("electronics", "Electronics", "an electronics and gadgets store (phones, audio, wearables, accessories, home tech)", new[] { "ignition" }),
+        new SampleCatalogPreset("electronics", "Electronics", "an electronics and gadgets store (phones, audio, wearables, accessories, home tech)", new[] { "ignition", "pulse" }),
         new SampleCatalogPreset("fashion", "Fashion & apparel", "a fashion and apparel store with men's, women's and kids' clothing", new[] { "boutique", "noir" }),
         new SampleCatalogPreset("footwear", "Footwear / shoes", "a footwear store (sneakers, formal shoes, sandals, sports shoes)", new[] { "boutique", "bazaar" }),
         new SampleCatalogPreset("food", "Food & gourmet", "a gourmet food and snacks store (packaged foods, beverages, treats)", new[] { "savor", "roast" }),

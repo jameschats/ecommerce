@@ -1,0 +1,200 @@
+{
+  "key": "pulse",
+  "sortOrder": 14,
+  "name": "Pulse",
+  "category": "Electronics",
+  "catalogFit": "Large",
+  "features": ["Bold violet accent", "Spec-forward layout", "Launch-ready hero", "Consumer-tech energy"],
+  "description": "A bold, modern electronics theme for phones, audio, wearables and smart home. Electric violet and cyan, a confident grotesque display over Inter, and spec-forward layouts built for launches and big catalogs.",
+  "settings": {
+    "PrimaryColor": "#6d28d9",
+    "SecondaryColor": "#1e1b2e",
+    "AccentColor": "#06b6d4",
+    "Font": "Inter",
+    "HeadingFont": "Archivo",
+    "HeadingWeight": "700",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.65",
+    "Radius": "soft",
+    "ButtonStyle": "rounded",
+    "CardStyle": "elevated",
+    "ContainerWidth": "1320px",
+    "Density": "cozy"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80", "heading": "Sound, reimagined", "subheading": "The latest audio, wearables and smart tech — with next-day delivery and a 2-year warranty.", "buttonText": "Shop new tech", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Multicolumn", "title": "Why us",
+          "settings": { "heading": "Buy with confidence" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free next-day delivery", "text": "Order by 9pm, get it tomorrow." },
+            { "icon": "🛡️", "heading": "2-year warranty", "text": "Every device covered, as standard." },
+            { "icon": "⚡", "heading": "Genuine stock", "text": "Authorised, brand-new, fully sealed." },
+            { "icon": "🎧", "heading": "Expert support", "text": "Real specialists, seven days a week." }
+          ]
+        },
+        {
+          "type": "EditorialSplit", "title": "Latest launch",
+          "settings": { "eyebrow": "Just landed", "heading": "The gear everyone's talking about", "body": "From flagship phones to noise-cancelling headphones, we stock the launches first — with hands-on reviews and honest specs so you buy the right thing, once.", "image": "https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "See what's new", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop by category",
+          "settings": { "heading": "Shop by category" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "New arrivals",
+          "settings": { "heading": "New arrivals", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Smart home",
+          "settings": { "image": "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "A smarter home, made simple", "body": "Lighting, speakers, security and more — everything works together, and our guides make setup a five-minute job, not a weekend project.", "buttonText": "Explore smart home", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Best sellers",
+          "settings": { "heading": "Best sellers", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "2-yr", "label": "Warranty on everything" },
+            { "value": "9pm", "label": "Cut-off for next-day" },
+            { "value": "100%", "label": "Genuine, sealed stock" },
+            { "value": "4.8★", "label": "Rated by 60k buyers" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "Ordered at 8pm, unboxing by lunch the next day. Genuine stock, faultless service.", "author": "Verified buyer", "rating": 5 },
+            { "quote": "The support team actually knew their stuff and helped me pick the right laptop.", "author": "Loyal customer", "rating": 5 },
+            { "quote": "Best prices I found on sealed, warrantied gear. My go-to now.", "author": "Repeat customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "Be first to the drops", "subtext": "Launch alerts, member pricing and restock notifications — straight to your inbox.", "buttonText": "Subscribe", "backgroundColor": "#1e1b2e" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Frequently bought with", "settings": { "heading": "Frequently bought with", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Pulse order" },
+          "blocks": [
+            { "icon": "🛡️", "heading": "2-year warranty", "text": "Covered against faults, no quibbles." },
+            { "icon": "🚚", "heading": "Free next-day delivery", "text": "Fast, tracked and insured." },
+            { "icon": "↩️", "heading": "30-day returns", "text": "Changed your mind? Send it back, free." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Free next-day delivery · 2-year warranty on everything", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Why Pulse", "slug": "pulse-why",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Genuine stock",
+          "settings": { "eyebrow": "No grey imports", "heading": "Sealed, genuine, guaranteed", "body": "Every product is sourced from authorised distributors — brand-new, fully sealed and covered by a manufacturer warranty. What you order is exactly what arrives.", "image": "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Support",
+          "settings": { "image": "https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Advice from real specialists", "body": "Not sure which model is right? Our team uses the gear they sell. Message or call seven days a week and get a straight, useful answer." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "The promise",
+          "settings": { "heading": "The promise" },
+          "blocks": [
+            { "value": "100%", "label": "Authorised stock" },
+            { "value": "2-yr", "label": "Standard warranty" },
+            { "value": "7 days", "label": "Expert support" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Delivery & FAQ", "slug": "pulse-delivery-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Delivery",
+          "settings": { "image": "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Fast, tracked, insured", "body": "Order by 9pm on a weekday for free next-day delivery, fully tracked and insured door to door. Choose a named-day slot at checkout if that suits you better." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "Is everything brand new and sealed?", "answer": "Yes. We only sell genuine, brand-new, factory-sealed products from authorised distributors — never grey imports or refurbished stock unless clearly labelled." },
+            { "question": "What warranty do I get?", "answer": "Every device comes with a minimum 2-year warranty covering manufacturing faults. Extended cover is available on selected products at checkout." },
+            { "question": "How fast is delivery?", "answer": "Order by 9pm on a weekday for free next-day delivery. Named-day and timed slots are available at checkout for a small fee." },
+            { "question": "Can I return a product?", "answer": "Yes — return any unopened item within 30 days for a full refund. Opened items can be returned if faulty, and we cover the postage." },
+            { "question": "Do you price match?", "answer": "If you find the same sealed, warrantied product cheaper at a UK authorised retailer, contact us and we'll do our best to match it." }
+          ]
+        }
+      ]
+    }
+  ]
+}
