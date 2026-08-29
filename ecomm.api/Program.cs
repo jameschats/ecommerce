@@ -123,6 +123,7 @@ builder.Services.AddScoped<ecomm.api.Features.Subscriptions.ISubscriptionService
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IPlatformInvoiceService, ecomm.api.Features.Subscriptions.PlatformInvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.IAppService, ecomm.api.Features.Apps.AppService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService, ecomm.api.Features.Apps.FirstParty.LowStockAlertService>();
+builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ISalesDigestService, ecomm.api.Features.Apps.FirstParty.SalesDigestService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IRazorpayWebhookService, ecomm.api.Features.Subscriptions.RazorpayWebhookService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.ISuperAdminService, ecomm.api.Features.SuperAdmin.SuperAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformStaffService, ecomm.api.Features.SuperAdmin.PlatformStaffService>();
@@ -557,6 +558,12 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Apps.FirstParty.ILowStockAlertServic
     "low-stock-alerts-sweep",
     svc => svc.RunSweepAsync(CancellationToken.None),
     "0 0,12 * * *");
+
+// First-party app "Sales Digest" — daily sweep; each store gets a daily/weekly summary when due.
+RecurringJob.AddOrUpdate<ecomm.api.Features.Apps.FirstParty.ISalesDigestService>(
+    "sales-digest-sweep",
+    svc => svc.RunSweepAsync(CancellationToken.None),
+    "0 7 * * *");
 
 // AI Commerce — flush buffered storefront behavioural events to the DB every minute (batched writes,
 // never on the storefront hot path). Feeds Trending, Personalization, and Dynamic Pricing's demand signal.

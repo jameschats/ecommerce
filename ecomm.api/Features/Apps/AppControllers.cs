@@ -103,3 +103,17 @@ public sealed class LowStockAlertController(ecomm.api.Features.Apps.FirstParty.I
             count > 0 ? $"Found {count} low-stock product(s) — an alert email was sent." : "No products are low right now."));
     }
 }
+
+/// <summary>First-party "Sales Digest" app — send the digest now (a "send test" action).</summary>
+[ApiController]
+[Authorize(Roles = "Admin")]
+[Route("api/admin/apps/sales-digest")]
+public sealed class SalesDigestController(ecomm.api.Features.Apps.FirstParty.ISalesDigestService svc) : ControllerBase
+{
+    [HttpPost("run")]
+    public async Task<IActionResult> Run(CancellationToken ct)
+    {
+        var count = await svc.RunForCurrentTenantAsync(ct);
+        return Ok(ApiResponse<object>.Ok(new { orderCount = count }, "Digest email sent."));
+    }
+}

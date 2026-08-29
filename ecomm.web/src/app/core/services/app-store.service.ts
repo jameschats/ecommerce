@@ -32,4 +32,8 @@ export class AppStoreService {
   runLowStock(): Observable<{ lowStockCount: number }> {
     return this.unwrap(this.http.post<ApiResponse<{ lowStockCount: number }>>(`${this.base}/low-stock-alerts/run`, {}));
   }
+  /** Sales Digest: send the digest now. */
+  runSalesDigest(): Observable<{ orderCount: number }> {
+    return this.unwrap(this.http.post<ApiResponse<{ orderCount: number }>>(`${this.base}/sales-digest/run`, {}));
+  }
 }
