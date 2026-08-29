@@ -1,6 +1,8 @@
 using ecomm.api.Common.Models;
+using ecomm.api.Data.Context;
 using ecomm.api.Features.Cms.SectionTypes;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.Storefront;
 
@@ -10,7 +12,7 @@ namespace ecomm.api.Features.Storefront;
 /// </summary>
 [ApiController]
 [Route("api/storefront")]
-public sealed class StorefrontThemeController(IStorefrontThemeService themes) : ControllerBase
+public sealed class StorefrontThemeController(IStorefrontThemeService themes, EcommerceDbContext db) : ControllerBase
 {
     [HttpGet("theme")]
     public async Task<IActionResult> Theme([FromQuery] string? preview, CancellationToken ct)
@@ -22,9 +24,19 @@ public sealed class StorefrontThemeController(IStorefrontThemeService themes) : 
 
     /// <summary>The platform's section-type catalog (kinds/scope/settings schema) — drives the builder + validation.</summary>
     [HttpGet("section-types")]
-    public IActionResult SectionTypes([FromQuery] string? template)
+    public async Task<IActionResult> SectionTypes([FromQuery] string? template, CancellationToken ct)
     {
         var list = string.IsNullOrWhiteSpace(template) ? SectionTypeRegistry.All : SectionTypeRegistry.ForTemplate(template);
+
+        // App-provided section types (S5) are only offered to stores that installed the owning app.
+        if (list.Any(s => s.AppSlug is not null))
+        {
+            var installed = (await (from i in db.AppInstallations
+                                    join a in db.Apps on i.AppId equals a.AppId
+                                    where i.Status == "installed"
+                                    select a.Slug).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            list = list.Where(s => s.AppSlug is null || installed.Contains(s.AppSlug)).ToList();
+        }
         return Ok(ApiResponse<object>.Ok(new { templateKeys = SectionTypeRegistry.TemplateKeys, sectionTypes = list }));
     }
 }

@@ -24,7 +24,10 @@ public sealed record SectionTypeSchema(
     IReadOnlyList<BlockTypeSchema> BlockTypes,
     int? MaxBlocks = null,
     string Kind = "static",
-    IReadOnlyList<string>? Scope = null);
+    IReadOnlyList<string>? Scope = null,
+    /// <summary>App-marketplace S5: when set, this section type is provided by an app and is only offered
+    /// to stores that have that app (by slug) installed. Null = core platform section.</summary>
+    string? AppSlug = null);
 
 /// <summary>
 /// The platform's catalog of storefront section types. This is the single source of
@@ -74,6 +77,17 @@ public static class SectionTypeRegistry
                 new("count", "How many", "number", 8),
                 new("columns", "Columns", "range", 4, Min: 1, Max: 6, Step: 1),
             ], BlockTypes: []),
+        // App-provided block (S5) — only offered to stores with the "Trust Badges" app installed.
+        new("TrustBadges", "Trust badges", "star",
+            "A row of trust signals (secure payment, easy returns…). From the Trust Badges app.",
+            Settings:
+            [
+                new("heading", "Heading", "text", ""),
+                new("badge1", "Badge 1", "text", "🔒 Secure payments"),
+                new("badge2", "Badge 2", "text", "↩️ Easy returns"),
+                new("badge3", "Badge 3", "text", "✅ Genuine products"),
+                new("badge4", "Badge 4", "text", "🚚 Fast delivery"),
+            ], BlockTypes: [], AppSlug: "trust-badges"),
         new("ProductRecommendations", "Product recommendations", "grid",
             "A smart rail: Trending (demand velocity), Recommended (personalized), or Recently viewed. Self-hides until there's data.",
             Settings:

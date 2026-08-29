@@ -526,6 +526,15 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
           </div>
         </section>
       }
+      @case ('TrustBadges') {
+        <!-- App-provided block (Trust Badges app, S5). -->
+        <section class="page-container py-6">
+          @if (s().heading) { <h2 class="text-lg font-semibold text-slate-800 text-center mb-4">{{ s().heading }}</h2> }
+          <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-600">
+            @for (b of trustBadges(); track b) { <span class="whitespace-nowrap">{{ b }}</span> }
+          </div>
+        </section>
+      }
       @case ('ProductRecommendations') {
         <!-- AI Commerce rail (trending / recommended / recently-viewed). Same markup as FeaturedProducts;
              self-hides when there's nothing to show (e.g. cold start, empty history). -->
@@ -744,6 +753,11 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly override = signal<{ settings: string | null; blocks: string | null } | null>(null);
   readonly s = computed<any>(() => this.parse<any>(this.override()?.settings ?? this.section().settings, {}));
   readonly blocks = computed<any[]>(() => this.parse<any[]>(this.override()?.blocks ?? this.section().blocks, []));
+  /** Trust Badges app block (S5): the non-empty badge labels. */
+  readonly trustBadges = computed<string[]>(() => {
+    const c: any = this.s();
+    return [c['badge1'], c['badge2'], c['badge3'], c['badge4']].filter((b) => b && String(b).trim().length > 0);
+  });
 
   /** CountdownBar: Dd/Hh/Mm/Ss remaining, or null once expired. Computed synchronously in ngOnInit
    *  (works identically server + browser) so SSR output already shows correct numbers; a browser-only
