@@ -32,3 +32,7 @@ secrets.json
 
 # Per-environment compose overrides (local dev, VPS) - never committed
 docker-compose.override.yml
+
+# GeoIP database (licensed MaxMind data — never commit; refreshed via geoipupdate)
+GeoLite2-City.mmdb
+*.mmdb
