@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
   Announcement, AnnouncementUpsert, AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult,
+  AppAdmin, RegisterAppReq, RegisteredApp,
   PackUpsert, PlanOption, PlanUpsert, PlatformAnalytics, PlatformBilling, PlatformEmail, PlatformEmailUpsert, PlatformPayment, PlatformPaymentUpsert,
   PlatformRevenue, PlatformStaff, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
 } from '../models/superadmin.model';
@@ -98,6 +99,13 @@ export class SuperAdminService {
   }
   savePlatformPayment(req: PlatformPaymentUpsert): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/payment-settings`, req);
+  }
+  apps(): Observable<AppAdmin[]> { return this.http.get<ApiResponse<AppAdmin[]>>(`${this.base}/apps`).pipe(map((r) => r.data ?? [])); }
+  registerApp(req: RegisterAppReq): Observable<RegisteredApp> {
+    return this.http.post<ApiResponse<RegisteredApp>>(`${this.base}/apps`, req).pipe(map((r) => r.data as RegisteredApp));
+  }
+  setAppStatus(id: number, status: string): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/apps/${id}/status`, { status });
   }
   refundCharge(billingHistoryId: number, amount: number, reason: string | null): Observable<unknown> {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/refund`, { billingHistoryId, amount, reason });

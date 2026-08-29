@@ -15,14 +15,21 @@ public sealed class SuperAdminController(ISuperAdminService svc, ecomm.api.Featu
     private long AdminUserId => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? User.FindFirstValue("sub"), out var id) ? id : 0;
 
-    // App marketplace — register/list first-party apps (S1).
+    // App marketplace — developer dashboard: register/list/manage first-party apps (S1/S6).
     [HttpGet("apps")]
     public async Task<IActionResult> Apps(CancellationToken ct)
-        => Ok(ApiResponse<IReadOnlyList<ecomm.api.Features.Apps.AppListingDto>>.Ok(await apps.ListAllForAdminAsync(ct)));
+        => Ok(ApiResponse<IReadOnlyList<ecomm.api.Features.Apps.AppAdminDto>>.Ok(await apps.ListAllForAdminAsync(ct)));
 
     [HttpPost("apps")]
     public async Task<IActionResult> RegisterApp([FromBody] ecomm.api.Features.Apps.RegisterAppRequest req, CancellationToken ct)
         => Ok(ApiResponse<ecomm.api.Features.Apps.RegisteredAppDto>.Ok(await apps.RegisterFirstPartyAppAsync(req, AdminUserId, ct), "App registered — copy the client secret now, it won't be shown again."));
+
+    [HttpPut("apps/{id:long}/status")]
+    public async Task<IActionResult> SetAppStatus(long id, [FromBody] SetAppStatusRequest req, CancellationToken ct)
+    {
+        await apps.SetAppStatusAsync(id, req.Status, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "App status updated."));
+    }
 
     [HttpGet("tenants")]
     public async Task<IActionResult> Tenants([FromQuery] string? search, CancellationToken ct)
@@ -244,3 +251,4 @@ public sealed record AddNoteRequest(string Note);
 public sealed record GrantCreditsRequest(int Amount, string? Reason);
 public sealed record RecordPaymentRequest(int PlanId, decimal Amount, string? Reference);
 public sealed record RefundChargeReq(long BillingHistoryId, decimal Amount, string? Reason);
+public sealed record SetAppStatusRequest(string Status);

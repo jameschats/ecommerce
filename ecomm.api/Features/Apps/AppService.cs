@@ -20,6 +20,8 @@ public sealed record RegisterAppRequest(string Name, string? Description, string
     IReadOnlyList<string> RedirectUris, IReadOnlyList<string> RequestedScopes, bool IsEmbedded, string? EmbedUrl, string PricingModel,
     decimal Price = 0, string BillingInterval = "once", decimal RevenueSharePercent = 0);
 public sealed record RegisteredAppDto(long Id, string Name, string Slug, string ClientId, string ClientSecret, IReadOnlyList<string> RequestedScopes);
+public sealed record AppAdminDto(long Id, string Name, string Slug, string ClientId, string Status, bool IsFirstParty,
+    string? Category, IReadOnlyList<string> RequestedScopes, decimal Price, string BillingInterval, decimal RevenueSharePercent, int Installs);
 
 public sealed record AuthorizeResult(string RedirectUrl);
 public sealed record AppTokenResult(string AccessToken, string TokenType, IReadOnlyList<string> Scopes);
@@ -28,7 +30,8 @@ public interface IAppService
 {
     // Developer / super-admin
     Task<RegisteredAppDto> RegisterFirstPartyAppAsync(RegisterAppRequest req, long? ownerUserId, CancellationToken ct = default);
-    Task<IReadOnlyList<AppListingDto>> ListAllForAdminAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<AppAdminDto>> ListAllForAdminAsync(CancellationToken ct = default);
+    Task SetAppStatusAsync(long appId, string status, CancellationToken ct = default);
     // Merchant App Store
     Task<IReadOnlyList<AppListingDto>> ListStoreAsync(CancellationToken ct = default);
     Task<AppConsentDto> GetConsentAsync(string clientId, string? scope, string redirectUri, CancellationToken ct = default);
@@ -89,10 +92,24 @@ public sealed class AppService(EcommerceDbContext db, ICurrentTenantService tena
         return new RegisteredAppDto(app.AppId, app.Name, app.Slug, clientId, rawSecret, scopes);
     }
 
-    public async Task<IReadOnlyList<AppListingDto>> ListAllForAdminAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<AppAdminDto>> ListAllForAdminAsync(CancellationToken ct = default)
     {
         var apps = await db.Apps.AsNoTracking().OrderByDescending(a => a.AppId).ToListAsync(ct);
-        return apps.Select(a => ToListing(a, installed: false)).ToList();
+        var installs = (await db.AppInstallations.IgnoreQueryFilters().Where(i => i.Status == "installed")
+            .GroupBy(i => i.AppId).Select(g => new { AppId = g.Key, Count = g.Count() }).ToListAsync(ct))
+            .ToDictionary(x => x.AppId, x => x.Count);
+        return apps.Select(a => new AppAdminDto(a.AppId, a.Name, a.Slug, a.ClientId, a.Status, a.IsFirstParty,
+            a.Category, Split(a.RequestedScopes), a.Price, a.BillingInterval, a.RevenueSharePercent, installs.GetValueOrDefault(a.AppId))).ToList();
+    }
+
+    public async Task SetAppStatusAsync(long appId, string status, CancellationToken ct = default)
+    {
+        var valid = new[] { "draft", "listed", "suspended" };
+        if (!valid.Contains(status)) throw new AppException("Invalid status.", StatusCodes.Status400BadRequest);
+        var app = await db.Apps.FirstOrDefaultAsync(a => a.AppId == appId, ct) ?? throw new AppException("App not found.", StatusCodes.Status404NotFound);
+        app.Status = status;
+        app.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
     }
 
     // ---- merchant App Store ----

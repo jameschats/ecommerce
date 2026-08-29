@@ -91,6 +91,17 @@ export interface TenantDetail {
 export interface TenantPaymentInfo { provider: string; razorpayKeyId: string | null; hasSecret: boolean; isEnabled: boolean; }
 export interface PlatformPayment { provider: string; razorpayKeyId: string | null; hasSecret: boolean; source: string; }
 export interface PlatformPaymentUpsert { provider: string; razorpayKeyId: string | null; razorpayKeySecret: string | null; }
+export interface AppAdmin {
+  id: number; name: string; slug: string; clientId: string; status: string; isFirstParty: boolean;
+  category: string | null; requestedScopes: string[]; price: number; billingInterval: string; revenueSharePercent: number; installs: number;
+}
+export interface RegisterAppReq {
+  name: string; description: string | null; iconUrl: string | null; category: string | null;
+  redirectUris: string[]; requestedScopes: string[]; isEmbedded: boolean; embedUrl: string | null;
+  pricingModel: string; price: number; billingInterval: string; revenueSharePercent: number;
+}
+export interface RegisteredApp { id: number; name: string; slug: string; clientId: string; clientSecret: string; requestedScopes: string[]; }
+
 export interface PlatformBilling {
   sellerLegalName: string | null; sellerGstin: string | null; sellerAddress: string | null;
   sellerState: string | null; gstRatePercent: number; invoicePrefix: string;
