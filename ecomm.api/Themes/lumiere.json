@@ -1,0 +1,205 @@
+{
+  "key": "lumiere",
+  "sortOrder": 11,
+  "name": "Lumière",
+  "category": "Beauty",
+  "catalogFit": "Small",
+  "features": ["Warm-neutral palette", "Ritual storytelling", "Ingredient callouts", "Elegant serif display"],
+  "description": "A luminous, warm-neutral beauty theme for skincare and cosmetics. Soft taupe and nude tones, an elegant Playfair display over rounded Nunito, and layouts built to tell an ingredient-and-ritual story.",
+  "settings": {
+    "PrimaryColor": "#6b5d54",
+    "SecondaryColor": "#2e2a26",
+    "AccentColor": "#c2a08a",
+    "Font": "Nunito",
+    "HeadingFont": "Playfair Display",
+    "HeadingWeight": "600",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.75",
+    "Radius": "round",
+    "ButtonStyle": "pill",
+    "CardStyle": "flat",
+    "ContainerWidth": "1240px",
+    "Density": "spacious"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1600&q=80", "heading": "Skin, in its best light", "subheading": "Gentle, effective formulas made from ingredients you can actually pronounce.", "buttonText": "Shop skincare", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "Clean formulas  ·  Cruelty-free  ·  Dermatologist-tested  ·  Free samples with every order", "backgroundColor": "#6b5d54" },
+          "blocks": []
+        },
+        {
+          "type": "Multicolumn", "title": "Why us",
+          "settings": { "heading": "The Lumière difference" },
+          "blocks": [
+            { "icon": "leaf", "heading": "Clean by default", "text": "No parabens, sulphates or needless fillers — ever." },
+            { "icon": "heart", "heading": "Cruelty-free", "text": "Never tested on animals, at any stage." },
+            { "icon": "shield", "heading": "Dermatologist-tested", "text": "Formulated and reviewed by skin specialists." },
+            { "icon": "gift", "heading": "Always a gift", "text": "Free deluxe samples tucked into every order." }
+          ]
+        },
+        {
+          "type": "EditorialSplit", "title": "The ritual",
+          "settings": { "eyebrow": "The ritual", "heading": "A few quiet minutes, morning and night", "body": "Good skin isn't a shelf full of products — it's a routine you'll actually keep. We design each formula to layer effortlessly, so your ritual feels like a pause, not a chore.", "image": "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Discover the ritual", "buttonLink": "/pages/lumiere-ritual" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop by concern",
+          "settings": { "heading": "Shop by concern" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1580870069867-74c57ee1bb07?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "New in",
+          "settings": { "heading": "New in", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Ingredients",
+          "settings": { "image": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Ingredients that earn their place", "body": "Hyaluronic acid that holds real moisture. Niacinamide that calms. Squalane that never feels heavy. Every ingredient is here for a reason — and we tell you exactly what it does.", "buttonText": "Explore ingredients", "buttonLink": "/pages/lumiere-ingredients" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Cult favourites",
+          "settings": { "heading": "Cult favourites", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Loved by many",
+          "settings": { "heading": "Loved by many" },
+          "blocks": [
+            { "value": "97%", "label": "Would repurchase" },
+            { "value": "50k+", "label": "Five-star reviews" },
+            { "value": "0", "label": "Nasties in the formula" },
+            { "value": "48h", "label": "Free next-day dispatch" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "My skin has never looked calmer. The serum alone changed my whole routine.", "author": "Verified review", "rating": 5 },
+            { "quote": "Finally, clean beauty that actually works — and the samples are so generous.", "author": "Loyal customer", "rating": 5 },
+            { "quote": "Gentle enough for my sensitive skin, effective enough that I noticed in a week.", "author": "First-time buyer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "10% off your first ritual", "subtext": "Skincare tips, early access and a welcome treat when you join the Lumière list.", "buttonText": "Subscribe", "backgroundColor": "#6b5d54" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Pairs well with", "settings": { "heading": "Pairs well with", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Lumière order" },
+          "blocks": [
+            { "icon": "gift", "heading": "Free samples", "text": "Two deluxe samples to try, in every order." },
+            { "icon": "truck", "heading": "Free delivery", "text": "Complimentary shipping over your first threshold." },
+            { "icon": "refresh", "heading": "Love-it guarantee", "text": "Not for you? Return within 30 days, no fuss." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Free deluxe samples with every order", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "centered" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "The Ritual", "slug": "lumiere-ritual",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Morning",
+          "settings": { "eyebrow": "Morning", "heading": "Wake, protect, glow", "body": "Cleanse away the night, layer a lightweight serum, seal with moisturiser and finish with SPF. Four steps, five minutes — and skin that's ready for the day.", "image": "https://images.unsplash.com/photo-1503236823255-94609f598e71?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Evening",
+          "settings": { "image": "https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Unwind and repair", "body": "Evenings are for renewal. Double-cleanse, treat with an active, and let a richer night cream do its work while you sleep." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Simple by design",
+          "settings": { "heading": "Simple by design" },
+          "blocks": [
+            { "value": "4", "label": "Steps, morning & night" },
+            { "value": "5 min", "label": "Start to finish" },
+            { "value": "1", "label": "Ritual you'll keep" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Ingredients & FAQ", "slug": "lumiere-ingredients",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Our promise",
+          "settings": { "image": "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Full transparency, always", "body": "Every full ingredient list is on the pack and the product page — including what each active does and why it's there. No mystery blends, no marketing filler." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "Are your products suitable for sensitive skin?", "answer": "Yes — our formulas are fragrance-conscious and dermatologist-tested. We recommend patch-testing any new active, and each product page notes its suitability by skin type." },
+            { "question": "Are you cruelty-free and vegan?", "answer": "We are certified cruelty-free and never test on animals. The majority of our range is vegan; any exceptions are clearly labelled on the product page." },
+            { "question": "How do I know which products to layer?", "answer": "As a rule, apply from thinnest to thickest texture: cleanse, tone, serum, moisturiser, then SPF in the morning. Each product page lists exactly where it sits in your routine." },
+            { "question": "What is your returns policy?", "answer": "If a product isn't right for you, return it within 30 days — even if opened — for a full refund. We'd rather you found your perfect match." },
+            { "question": "Do you offer free samples?", "answer": "Always. Two deluxe samples are added to every order so you can discover something new, on us." }
+          ]
+        }
+      ]
+    }
+  ]
+}

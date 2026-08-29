@@ -17,7 +17,7 @@ public static class SampleCatalogPresets
         new SampleCatalogPreset("food", "Food & gourmet", "a gourmet food and snacks store (packaged foods, beverages, treats)", new[] { "savor" }),
         new SampleCatalogPreset("burgers", "Burger joint / QSR", "a burger and fast-food outlet menu (burgers, sides, beverages, combos)", new[] { "savor" }),
         new SampleCatalogPreset("grocery", "Grocery & daily needs", "a daily grocery store (staples, snacks, beverages, household essentials)", new[] { "fresh" }),
-        new SampleCatalogPreset("beauty", "Beauty & personal care", "a beauty and personal-care store (skincare, makeup, haircare, fragrance)", new[] { "bloom" }),
+        new SampleCatalogPreset("beauty", "Beauty & personal care", "a beauty and personal-care store (skincare, makeup, haircare, fragrance)", new[] { "bloom", "lumiere" }),
         new SampleCatalogPreset("home", "Home & living", "a home and living store (decor, kitchen, storage, furnishings)", new[] { "haven" }),
         new SampleCatalogPreset("kids", "Kids & toys", "a kids and toys store (toys, games, learning, kids' essentials)", new[] { "sprout" }),
     };
