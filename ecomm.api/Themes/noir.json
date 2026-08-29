@@ -1,0 +1,190 @@
+{
+  "key": "noir",
+  "sortOrder": 10,
+  "name": "Noir",
+  "category": "Fashion",
+  "catalogFit": "Small",
+  "features": ["Editorial hero", "Lookbook collage", "Quiet-luxury palette", "Serif display type"],
+  "description": "A monochrome, quiet-luxury fashion theme. Full-bleed editorial imagery, a high-contrast serif display face and generous negative space — built for considered wardrobes and premium apparel labels.",
+  "settings": {
+    "PrimaryColor": "#141414",
+    "SecondaryColor": "#1f1f1f",
+    "AccentColor": "#b08d57",
+    "Font": "Inter",
+    "HeadingFont": "Cormorant Garamond",
+    "HeadingWeight": "600",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.7",
+    "Radius": "sharp",
+    "ButtonStyle": "square",
+    "CardStyle": "flat",
+    "ContainerWidth": "1280px",
+    "Density": "spacious"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1600&q=80", "heading": "The Autumn Edit", "subheading": "Considered pieces for a wardrobe built to last a lifetime, not a season.", "buttonText": "Explore the collection", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "Complimentary shipping & returns  ·  New arrivals weekly  ·  Atelier-crafted", "backgroundColor": "#141414" },
+          "blocks": []
+        },
+        {
+          "type": "EditorialSplit", "title": "The house",
+          "settings": { "eyebrow": "The house", "heading": "Quiet luxury, made to endure", "body": "We design in restraint — clean lines, natural fibres and a palette that never dates. Every piece is cut to be worn for years, not weeks.", "image": "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Inside the atelier", "buttonLink": "/pages/noir-atelier" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "The lookbook",
+          "settings": { "heading": "The lookbook" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "New arrivals",
+          "settings": { "heading": "New arrivals", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Craft",
+          "settings": { "image": "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Cut with intention", "body": "Patterns refined over dozens of fittings, seams finished by hand, fabrics chosen to soften — not fade — with wear. This is slow fashion, made deliberately.", "buttonText": "Discover the craft", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "The icons",
+          "settings": { "heading": "The icons", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "The house in numbers",
+          "settings": { "heading": "The house in numbers" },
+          "blocks": [
+            { "value": "12", "label": "Years of atelier craft" },
+            { "value": "100%", "label": "Natural-fibre fabrics" },
+            { "value": "48h", "label": "Made-to-order dispatch" },
+            { "value": "40+", "label": "Countries shipped" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "The finest tailoring I own. Understated, impeccable, and it only looks better with age.", "author": "Verified client", "rating": 5 },
+            { "quote": "Quiet luxury done right — nothing shouts, everything lasts.", "author": "Editorial feature", "rating": 5 },
+            { "quote": "Ordered a coat, kept everything. The fabric alone is worth it.", "author": "Loyal customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the atelier",
+          "settings": { "heading": "Join the atelier", "subtext": "Early access to new editions, private previews and the occasional letter from the studio.", "buttonText": "Subscribe", "backgroundColor": "#141414" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Complete the look", "settings": { "heading": "Complete the look", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "The Noir promise" },
+          "blocks": [
+            { "icon": "truck", "heading": "Complimentary shipping", "text": "Free insured delivery on every order, worldwide." },
+            { "icon": "refresh", "heading": "30-day returns", "text": "Changed your mind? Return within 30 days, on us." },
+            { "icon": "shield", "heading": "Lifetime repairs", "text": "We mend what we make. Bring it back and we'll restore it." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Complimentary shipping & returns worldwide", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "centered" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Inside the Atelier", "slug": "noir-atelier",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Our story",
+          "settings": { "eyebrow": "Est. 2014", "heading": "A studio, not a factory", "body": "Noir began in a single room with two cutting tables and a simple belief: that clothing should be made slowly, by people who care, from materials worth keeping. A decade on, little has changed but the scale.", "image": "https://images.unsplash.com/photo-1492707892479-7bc8d5a4ee93?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Materials",
+          "settings": { "image": "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Materials with a memory", "body": "We source natural fibres from mills we've worked with for years — wool that breathes, cotton that softens, linen that ages beautifully. No blends we can't explain, no shortcuts we can't stand behind." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Made by hand",
+          "settings": { "heading": "Made by hand" },
+          "blocks": [
+            { "value": "18", "label": "Artisans in the studio" },
+            { "value": "5", "label": "Fittings per pattern" },
+            { "value": "100%", "label": "Traceable fabric" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Sizing & FAQ", "slug": "noir-sizing-faq",
+      "sections": [
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "How do your pieces fit?", "answer": "Our cuts are true to size with a relaxed, tailored drape. If you're between sizes, size down for a sharper silhouette or up for ease. Each product page lists exact garment measurements." },
+            { "question": "How should I care for natural fibres?", "answer": "Cold hand-wash or dry-clean wool and linen; machine-wash cotton on a gentle cycle and lay flat to dry. Care details are printed on every label and on the product page." },
+            { "question": "What is your returns policy?", "answer": "Return any unworn piece within 30 days for a full refund — shipping both ways is on us. Made-to-order items can be exchanged for size within 14 days." },
+            { "question": "Do you ship internationally?", "answer": "Yes — we ship insured to over 40 countries with duties calculated at checkout, so there are no surprises on delivery." },
+            { "question": "Do you offer repairs?", "answer": "Always. Anything we've made can be brought back for repair or restoration for the life of the garment." }
+          ]
+        }
+      ]
+    }
+  ]
+}
