@@ -4,6 +4,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CatalogService } from '../../core/services/catalog.service';
+import { EventService } from '../../core/services/event.service';
 import { RecentlyViewedService } from '../../core/services/recently-viewed.service';
 import { BuilderSection } from '../../core/services/cms.service';
 import { Category, ProductListItem } from '../../core/models/catalog.model';
@@ -525,6 +526,30 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
           </div>
         </section>
       }
+      @case ('ProductRecommendations') {
+        <!-- AI Commerce rail (trending / recommended / recently-viewed). Same markup as FeaturedProducts;
+             self-hides when there's nothing to show (e.g. cold start, empty history). -->
+        @if (products().length) {
+          <section class="page-container py-10">
+            @if (s().heading || section().title) { <h2 class="text-2xl font-bold text-slate-900 mb-5" data-field="heading">{{ s().heading || section().title }}</h2> }
+            @if (s().layout === 'carousel') {
+              <div class="relative">
+                <div #prodCarousel class="flex gap-4 overflow-x-auto no-scrollbar snap-x pb-2 scroll-smooth">
+                  @for (p of products(); track p.productId) { <app-product-card [product]="p" [carouselItem]="true" /> }
+                </div>
+                @if (products().length > 4) {
+                  <button type="button" (click)="scrollProductCarousel(-1)" class="hidden sm:grid absolute left-0 top-[38%] -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white shadow place-items-center hover:bg-slate-50 text-slate-700" aria-label="Previous">‹</button>
+                  <button type="button" (click)="scrollProductCarousel(1)" class="hidden sm:grid absolute right-0 top-[38%] -translate-y-1/2 translate-x-1/2 w-9 h-9 rounded-full bg-white shadow place-items-center hover:bg-slate-50 text-slate-700" aria-label="Next">›</button>
+                }
+              </div>
+            } @else {
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                @for (p of products(); track p.productId) { <app-product-card [product]="p" /> }
+              </div>
+            }
+          </section>
+        }
+      }
       @case ('FeaturedProducts') {
         <!-- Was falling through to @default below, which uses a narrower max-w-6xl (1152px) container
              than every other section's shared page-container (1480px) — visibly narrower than its
@@ -662,6 +687,7 @@ import { ProductCardComponent } from '../../shared/product-card/product-card.com
 export class StorefrontSectionComponent implements OnInit, OnDestroy {
   private readonly catalog = inject(CatalogService);
   private readonly recentlyViewed = inject(RecentlyViewedService);
+  private readonly events = inject(EventService);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly sanitizer = inject(DomSanitizer);
@@ -891,6 +917,29 @@ export class StorefrontSectionComponent implements OnInit, OnDestroy {
           // Preserve most-recent-first order — the API doesn't guarantee result order for an id-list filter.
           const rank = new Map(wanted.map((id, i) => [id, i]));
           this.products.set([...r.items].sort((a, b) => (rank.get(a.productId) ?? 0) - (rank.get(b.productId) ?? 0)));
+        });
+      }
+    } else if (type === 'ProductRecommendations') {
+      // AI Commerce rail: trending / personalized (recommended) / recently-viewed.
+      const count = Number(this.s()['count']) || 8;
+      const src = this.s()['source'];
+      if (src === 'trending') {
+        this.catalog.getTrending(count).subscribe((p) => this.products.set(p));
+      } else if (src === 'recently-viewed') {
+        const ids = this.recentlyViewed.getIds().slice(0, count);
+        if (ids.length) {
+          this.catalog.getProducts({ ids }).subscribe((r) => {
+            const rank = new Map(ids.map((id, i) => [id, i]));
+            this.products.set([...r.items].sort((a, b) => (rank.get(a.productId) ?? 0) - (rank.get(b.productId) ?? 0)));
+          });
+        }
+      } else {
+        // "recommended": personalized to the visitor, falling back to store-wide trending.
+        const vid = this.events.getVisitorId();
+        const rec$ = vid ? this.catalog.getPersonalized(vid, count) : this.catalog.getTrending(count);
+        rec$.subscribe((p) => {
+          if (p.length) this.products.set(p);
+          else this.catalog.getTrending(count).subscribe((t) => this.products.set(t));
         });
       }
     } else if (type === 'TabbedProductGrid') {

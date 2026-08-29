@@ -74,6 +74,15 @@ public static class SectionTypeRegistry
                 new("count", "How many", "number", 8),
                 new("columns", "Columns", "range", 4, Min: 1, Max: 6, Step: 1),
             ], BlockTypes: []),
+        new("ProductRecommendations", "Product recommendations", "grid",
+            "A smart rail: Trending (demand velocity), Recommended (personalized), or Recently viewed. Self-hides until there's data.",
+            Settings:
+            [
+                new("heading", "Heading", "text", "Recommended for you"),
+                new("source", "Source", "select", "recommended", ["trending", "recommended", "recently-viewed"]),
+                new("layout", "Layout", "select", "grid", ["grid", "carousel"]),
+                new("count", "How many", "number", 8),
+            ], BlockTypes: [], Kind: "dynamic"),
         new("TabbedProductGrid", "Tabbed product grid", "grid",
             "Tabs that switch the product grid in place, no page navigation — e.g. \"All / Earbuds / Smartwatches\".",
             Settings: [ new("heading", "Heading", "text") ],
