@@ -122,6 +122,7 @@ builder.Services.AddScoped<ecomm.api.Features.Onboarding.IOnboardingService, eco
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.ISubscriptionService, ecomm.api.Features.Subscriptions.SubscriptionService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IPlatformInvoiceService, ecomm.api.Features.Subscriptions.PlatformInvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.IAppService, ecomm.api.Features.Apps.AppService>();
+builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService, ecomm.api.Features.Apps.FirstParty.LowStockAlertService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IRazorpayWebhookService, ecomm.api.Features.Subscriptions.RazorpayWebhookService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.ISuperAdminService, ecomm.api.Features.SuperAdmin.SuperAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformStaffService, ecomm.api.Features.SuperAdmin.PlatformStaffService>();
@@ -550,6 +551,12 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Cart.IAbandonedCartService>(
     "abandoned-cart-recovery",
     svc => svc.RunRecoverySweepAsync(CancellationToken.None),
     $"0 */{cartSweepHours} * * *");
+
+// First-party app "Low Stock Alerts" — twice-daily sweep emails merchants with the app installed.
+RecurringJob.AddOrUpdate<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService>(
+    "low-stock-alerts-sweep",
+    svc => svc.RunSweepAsync(CancellationToken.None),
+    "0 0,12 * * *");
 
 // AI Commerce — flush buffered storefront behavioural events to the DB every minute (batched writes,
 // never on the storefront hot path). Feeds Trending, Personalization, and Dynamic Pricing's demand signal.

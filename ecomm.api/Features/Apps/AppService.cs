@@ -33,6 +33,12 @@ public interface IAppService
     Task<AuthorizeResult> ApproveAsync(string clientId, string? scope, string redirectUri, string? state, long tenantId, long? userId, CancellationToken ct = default);
     Task<IReadOnlyList<InstalledAppDto>> ListInstalledAsync(CancellationToken ct = default);
     Task UninstallAsync(long installationId, CancellationToken ct = default);
+    /// <summary>One-click install of a first-party app for the current tenant (no external OAuth redirect).</summary>
+    Task<InstalledAppDto> InstallFirstPartyAsync(string slug, long? userId, CancellationToken ct = default);
+    /// <summary>The current tenant's installation of an app by slug, or null if not installed.</summary>
+    Task<InstalledAppDto?> GetInstalledBySlugAsync(string slug, CancellationToken ct = default);
+    Task<IReadOnlyDictionary<string, string?>> GetSettingsAsync(long installationId, CancellationToken ct = default);
+    Task SaveSettingsAsync(long installationId, IReadOnlyDictionary<string, string?> settings, CancellationToken ct = default);
     // App server (OAuth token exchange, anonymous)
     Task<AppTokenResult> ExchangeCodeAsync(string clientId, string clientSecret, string code, string redirectUri, CancellationToken ct = default);
 }
@@ -144,6 +150,64 @@ public sealed class AppService(EcommerceDbContext db, ICurrentTenantService tena
         inst.AccessTokenHash = "";   // revoke the token
         inst.UninstalledAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+    }
+
+    // ---- first-party one-click install + per-install settings ----
+
+    public async Task<InstalledAppDto> InstallFirstPartyAsync(string slug, long? userId, CancellationToken ct = default)
+    {
+        var app = await db.Apps.AsNoTracking().FirstOrDefaultAsync(a => a.Slug == slug && a.Status == "listed" && a.IsFirstParty, ct)
+                  ?? throw new AppException("App not found.", StatusCodes.Status404NotFound);
+
+        var inst = await db.AppInstallations.FirstOrDefaultAsync(i => i.AppId == app.AppId, ct);
+        if (inst is null)
+        {
+            inst = new AppInstallation { AppId = app.AppId, InstalledByUserId = userId, InstalledAt = DateTime.UtcNow };
+            db.AppInstallations.Add(inst);   // TenantId auto-stamped
+        }
+        inst.GrantedScopes = app.RequestedScopes;
+        inst.Status = "installed";
+        inst.UninstalledAt = null;
+        await db.SaveChangesAsync(ct);
+
+        return new InstalledAppDto(inst.AppInstallationId, app.AppId, app.Name, app.Slug, app.IconUrl,
+            Split(inst.GrantedScopes), app.IsEmbedded, app.EmbedUrl, inst.InstalledAt);
+    }
+
+    public async Task<InstalledAppDto?> GetInstalledBySlugAsync(string slug, CancellationToken ct = default)
+    {
+        var app = await db.Apps.AsNoTracking().FirstOrDefaultAsync(a => a.Slug == slug, ct);
+        if (app is null) return null;
+        var inst = await db.AppInstallations.AsNoTracking().FirstOrDefaultAsync(i => i.AppId == app.AppId && i.Status == "installed", ct);
+        return inst is null ? null : new InstalledAppDto(inst.AppInstallationId, app.AppId, app.Name, app.Slug, app.IconUrl,
+            Split(inst.GrantedScopes), app.IsEmbedded, app.EmbedUrl, inst.InstalledAt);
+    }
+
+    public async Task<IReadOnlyDictionary<string, string?>> GetSettingsAsync(long installationId, CancellationToken ct = default)
+    {
+        await EnsureInstallationAsync(installationId, ct);
+        return await db.AppSettings.AsNoTracking().Where(s => s.AppInstallationId == installationId)
+            .ToDictionaryAsync(s => s.Key, s => s.Value, ct);
+    }
+
+    public async Task SaveSettingsAsync(long installationId, IReadOnlyDictionary<string, string?> settings, CancellationToken ct = default)
+    {
+        await EnsureInstallationAsync(installationId, ct);
+        var existing = await db.AppSettings.Where(s => s.AppInstallationId == installationId).ToDictionaryAsync(s => s.Key, ct);
+        foreach (var (key, value) in settings)
+        {
+            var k = key.Trim();
+            if (k.Length == 0) continue;
+            if (existing.TryGetValue(k, out var row)) { row.Value = value; row.UpdatedAt = DateTime.UtcNow; }
+            else db.AppSettings.Add(new AppSetting { AppInstallationId = installationId, Key = k, Value = value, UpdatedAt = DateTime.UtcNow });
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task EnsureInstallationAsync(long installationId, CancellationToken ct)
+    {
+        if (!await db.AppInstallations.AnyAsync(i => i.AppInstallationId == installationId, ct))
+            throw new AppException("Installation not found.", StatusCodes.Status404NotFound);   // tenant-filtered
     }
 
     // ---- app server: OAuth token exchange (anonymous) ----

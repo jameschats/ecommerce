@@ -59,4 +59,47 @@ public sealed class AppStoreController(IAppService apps) : ControllerBase
         await apps.UninstallAsync(id, ct);
         return Ok(ApiResponse<object>.Ok(new { }, "App uninstalled."));
     }
+
+    private long? UserId => long.TryParse(User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier), out var id) ? id : null;
+
+    /// <summary>One-click install of a first-party app for this store.</summary>
+    [HttpPost("{slug}/install")]
+    public async Task<IActionResult> Install(string slug, CancellationToken ct)
+        => Ok(ApiResponse<InstalledAppDto>.Ok(await apps.InstallFirstPartyAsync(slug, UserId, ct), "App installed."));
+
+    /// <summary>An app's per-store config (installation + its key/value settings).</summary>
+    [HttpGet("{slug}/config")]
+    public async Task<IActionResult> GetConfig(string slug, CancellationToken ct)
+    {
+        var inst = await apps.GetInstalledBySlugAsync(slug, ct);
+        if (inst is null) return Ok(ApiResponse<AppConfigDto>.Ok(new AppConfigDto(false, null, new Dictionary<string, string?>())));
+        var settings = await apps.GetSettingsAsync(inst.InstallationId, ct);
+        return Ok(ApiResponse<AppConfigDto>.Ok(new AppConfigDto(true, inst.InstallationId, settings)));
+    }
+
+    [HttpPut("{slug}/config")]
+    public async Task<IActionResult> SaveConfig(string slug, [FromBody] Dictionary<string, string?> settings, CancellationToken ct)
+    {
+        var inst = await apps.GetInstalledBySlugAsync(slug, ct)
+                   ?? throw new ecomm.api.Common.Exceptions.AppException("Install the app first.", StatusCodes.Status400BadRequest);
+        await apps.SaveSettingsAsync(inst.InstallationId, settings, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Saved."));
+    }
+}
+
+public sealed record AppConfigDto(bool Installed, long? InstallationId, IReadOnlyDictionary<string, string?> Settings);
+
+/// <summary>First-party "Low Stock Alerts" app — run the check on demand (a "check now / send test" action).</summary>
+[ApiController]
+[Authorize(Roles = "Admin")]
+[Route("api/admin/apps/low-stock-alerts")]
+public sealed class LowStockAlertController(ecomm.api.Features.Apps.FirstParty.ILowStockAlertService svc) : ControllerBase
+{
+    [HttpPost("run")]
+    public async Task<IActionResult> Run(CancellationToken ct)
+    {
+        var count = await svc.RunForCurrentTenantAsync(ct);
+        return Ok(ApiResponse<object>.Ok(new { lowStockCount = count },
+            count > 0 ? $"Found {count} low-stock product(s) — an alert email was sent." : "No products are low right now."));
+    }
 }
