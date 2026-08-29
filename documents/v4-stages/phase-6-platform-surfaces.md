@@ -47,10 +47,19 @@
 ## Track C — Theme Store (pending item 9)
 
 ### Scope & checklist
-- [ ] Browse/preview/install UI as its own designed surface — not just a "Themes" nav item, per the doc's own framing
-- [ ] Free vs. paid theme distinction
-- [ ] Preview/demo before install
+- [x] Browse/preview/install UI — `/admin/themes` library with mini-preview cards (`PrebuiltThemeSummary` carries hero image/heading + tile imagery), install copies a bundle into the tenant library as a Draft to preview then publish (`ThemeLibraryController` `GET prebuilt` / `POST install`)
+- [ ] Free vs. paid theme distinction — **paid provision still pending** (mirror S4 app pricing: add Price/BillingInterval to the bundle + a purchase gate before install). User's instruction: build the *provision* before authoring any paid themes.
+- [x] Preview/demo before install — mini-preview material extracted from each bundle's index (`SectionPreviewExtractor`)
 - [ ] **The theme-customization-survives-update question** — flagged as unresolved in the source doc, still unresolved here, needs a real decision before this ships (see below)
+
+### Free catalog progress (theme authoring)
+Themes are **pure-data embedded bundles** (`ecomm.api/Themes/*.json`, auto-embedded via the csproj glob, auto-loaded by `PrebuiltThemeRegistry`; all rendering lives in the platform). Validated by `PrebuiltThemeCatalogTests` (a malformed bundle throws with its resource name at test time).
+
+Goal: **2 carefully-built free themes per store category (~20–24 total)** before paid themes. Progress:
+- Originally 9: minimal, bazaar, boutique (Fashion), ignition (Electronics), savor (Food), fresh (Grocery), bloom (Beauty), haven (Home), sprout (Kids).
+- **+6 authored 2026-08-29** (this round, one at a time, images all verified HTTP 200): **Noir** (Fashion — luxe monochrome), **Lumière** (Beauty — warm-neutral luxe), **Fjord** (Home — Scandinavian), **Roast** (Food — artisan roastery), **Pulse** (Electronics — bold consumer-tech), **Bubble** (Kids — bright toys). Each wired as the 2nd `SampleCatalogPresets` option for its category.
+- Now **15 themes**; 2-per-category done for Fashion, Beauty, Home, Food, Electronics, Kids. **Still 1 each: Grocery (fresh), General/bazaar, Footwear (shares boutique+bazaar)** → ~3 more themes to reach the 2-per-category target across all categories, then optional extras toward 24.
+- Bundle-authoring gotchas learned (documented so the next themes don't repeat them): `templates` is an **array** of `{templateKey, sections}` (not a dict); pages use `slug` (not key); Multicolumn `icon` renders as **literal text** so it must be an **emoji**, not a keyword; Header `layout` ∈ `{standard, centered, minimal}`; `catalogFit` ∈ `{Small, Medium, Large}` exactly; the catalog test hardcodes the theme count so bump it per theme.
 
 ### Design decisions
 - **Apply the same "first-party first" pattern App Marketplace just resolved, for consistency** — WavCommerce's own theme team builds and curates the initial Theme Store catalog before any third-party theme-designer submission process exists. Not explicitly asked as a separate question earlier, but the same reasoning applies identically here, and having two inconsistent answers to the same shaped question would be a real design smell worth avoiding.
