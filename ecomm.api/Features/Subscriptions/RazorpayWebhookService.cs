@@ -45,6 +45,11 @@ public sealed class RazorpayWebhookService(ISubscriptionService subscriptions, I
         {
             var root = doc.RootElement;
             var evt = root.TryGetProperty("event", out var e) ? e.GetString() : null;
+
+            // Recurring auto-debit (Razorpay Subscriptions) — P2.
+            if (evt is not null && evt.StartsWith("subscription.", StringComparison.Ordinal))
+                return await HandleSubscriptionEventAsync(evt, root, ct);
+
             if (evt != "order.paid") return new RazorpayWebhookOutcome(false, $"Ignored event '{evt}'.");
 
             if (!root.TryGetProperty("payload", out var payload)
@@ -74,6 +79,45 @@ public sealed class RazorpayWebhookService(ISubscriptionService subscriptions, I
                 tenantId, paymentId, recorded ? "recorded" : "duplicate-ignored");
             return new RazorpayWebhookOutcome(recorded, recorded ? "Charge recorded." : "Already processed.");
         }
+    }
+
+    /// <summary>
+    /// subscription.* events. The tenant is read from the subscription's <c>notes.tenantId</c> (set when we
+    /// created it); a charge carries the payment entity (amount in paise). Delegates to the idempotent
+    /// subscription-event handler.
+    /// </summary>
+    private async Task<RazorpayWebhookOutcome> HandleSubscriptionEventAsync(string evt, JsonElement root, CancellationToken ct)
+    {
+        if (!root.TryGetProperty("payload", out var payload)
+            || !payload.TryGetProperty("subscription", out var subWrap) || !subWrap.TryGetProperty("entity", out var sub))
+            return new RazorpayWebhookOutcome(false, "Missing subscription entity.");
+
+        var subscriptionId = sub.TryGetProperty("id", out var sid) ? sid.GetString() : null;
+        long tenantId = 0;
+        if (sub.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Object
+            && notes.TryGetProperty("tenantId", out var tid))
+        {
+            var raw = tid.ValueKind == JsonValueKind.String ? tid.GetString() : tid.GetRawText();
+            long.TryParse(raw, out tenantId);
+        }
+        if (tenantId <= 0)
+        {
+            logger.LogWarning("Razorpay {Event} with no tenantId note (sub {Sub}) — ignoring.", evt, subscriptionId);
+            return new RazorpayWebhookOutcome(false, "No tenant mapping on subscription.");
+        }
+
+        string? paymentId = null;
+        decimal amount = 0m;
+        if (payload.TryGetProperty("payment", out var payWrap) && payWrap.TryGetProperty("entity", out var payment))
+        {
+            paymentId = payment.TryGetProperty("id", out var pid) ? pid.GetString() : null;
+            var paise = payment.TryGetProperty("amount", out var a) && a.TryGetInt64(out var v) ? v : 0L;
+            amount = paise / 100m;
+        }
+
+        await subscriptions.HandleSubscriptionEventAsync(evt, tenantId, paymentId, amount, subscriptionId, ct);
+        logger.LogInformation("Razorpay {Event} tenant {TenantId} sub {Sub} handled.", evt, tenantId, subscriptionId);
+        return new RazorpayWebhookOutcome(true, "Subscription event handled.");
     }
 
     /// <summary>Receipts are minted as <c>sub-{tenantId}-{planId}</c> in SubscriptionService.StartCheckoutAsync.</summary>

@@ -44,6 +44,22 @@ public sealed class SubscriptionController(ISubscriptionService subscriptions) :
         await subscriptions.CancelAsync(ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Subscription cancelled."));
     }
+
+    /// <summary>Set up recurring auto-pay for a plan. Returns an auth URL (redirect to authorize the mandate)
+    /// or an already-active mandate (dev/Mock).</summary>
+    [HttpPost("autopay/setup")]
+    public async Task<IActionResult> SetupAutoPay([FromBody] SelectPlanRequest request, CancellationToken ct)
+    {
+        var result = await subscriptions.SetupAutoPayAsync(request.PlanId, ct);
+        return Ok(ApiResponse<AutoPaySetupDto>.Ok(result, result.Active ? "Auto-pay is on." : "Authorize the mandate to finish."));
+    }
+
+    [HttpPost("autopay/cancel")]
+    public async Task<IActionResult> CancelAutoPay(CancellationToken ct)
+    {
+        await subscriptions.CancelAutoPayAsync(ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Auto-pay will stop at the end of the current cycle."));
+    }
 }
 
 public sealed record SelectPlanRequest(int PlanId);

@@ -14,6 +14,18 @@ export interface Subscription {
   graceEndsAt: string | null;
   isActive: boolean;
   isInTrial: boolean;
+  mandateStatus: string;
+  nextChargeAt: string | null;
+  paymentMethodSummary: string | null;
+  cancelAtPeriodEnd: boolean;
+}
+
+export interface AutoPaySetup {
+  active: boolean;
+  authUrl: string | null;
+  mandateStatus: string;
+  nextChargeAt: string | null;
+  paymentMethodSummary: string | null;
 }
 
 export interface Plan {
@@ -69,4 +81,9 @@ export class BillingService {
   confirmCheckout(body: { planId: number; gatewayOrderId: string; paymentId: string; signature: string }): Observable<Subscription> {
     return this.unwrap(this.http.post<ApiResponse<Subscription>>(`${this.base}/subscription/checkout/confirm`, body));
   }
+  // P2 — recurring auto-pay
+  setupAutoPay(planId: number): Observable<AutoPaySetup> {
+    return this.unwrap(this.http.post<ApiResponse<AutoPaySetup>>(`${this.base}/subscription/autopay/setup`, { planId }));
+  }
+  cancelAutoPay(): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/subscription/autopay/cancel`, {}); }
 }

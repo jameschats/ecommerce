@@ -9,7 +9,12 @@ namespace ecomm.api.Features.Subscriptions;
 
 public sealed record SubscriptionDto(
     string Status, int PlanId, string PlanName, string PlanSlug, decimal MonthlyPrice,
-    DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt, bool IsActive, bool IsInTrial);
+    DateTime? CurrentPeriodEnd, DateTime? GraceEndsAt, bool IsActive, bool IsInTrial,
+    string MandateStatus, DateTime? NextChargeAt, string? PaymentMethodSummary, bool CancelAtPeriodEnd);
+
+/// <summary>Result of starting auto-pay setup. <see cref="AuthUrl"/> non-null (Razorpay) → redirect the
+/// merchant there to authorize the mandate; <see cref="Active"/> true (Mock) → auto-pay is already on.</summary>
+public sealed record AutoPaySetupDto(bool Active, string? AuthUrl, string MandateStatus, DateTime? NextChargeAt, string? PaymentMethodSummary);
 
 public sealed record BillingHistoryDto(
     long Id, decimal Amount, string Status, DateTime BilledAt, DateTime? PeriodStart, DateTime? PeriodEnd, string? Reference);
@@ -37,6 +42,10 @@ public interface ISubscriptionService
     Task<int> RunScheduledLifecycleSweepAsync(CancellationToken ct);
     Task<CheckoutSessionDto> StartCheckoutAsync(int planId, CancellationToken ct);            // pay one cycle
     Task<SubscriptionDto> ConfirmCheckoutAsync(ConfirmCheckoutCommand cmd, CancellationToken ct);
+    // P2 — recurring auto-debit
+    Task<AutoPaySetupDto> SetupAutoPayAsync(int planId, CancellationToken ct);
+    Task CancelAutoPayAsync(CancellationToken ct);
+    Task HandleSubscriptionEventAsync(string eventType, long tenantId, string? paymentId, decimal amount, string? subscriptionId, CancellationToken ct);
 }
 
 public sealed class SubscriptionService(
@@ -307,5 +316,110 @@ public sealed class SubscriptionService(
         s.Status, s.PlanId, s.Plan?.Name ?? "", s.Plan?.Slug ?? "", s.Plan?.MonthlyPrice ?? 0,
         s.CurrentPeriodEnd, s.GraceEndsAt,
         IsActive: s.Status is Active or Trial,
-        IsInTrial: s.Status == Trial);
+        IsInTrial: s.Status == Trial,
+        s.MandateStatus, s.NextChargeAt, s.PaymentMethodSummary, s.CancelAtPeriodEnd);
+
+    // ===== P2: recurring auto-debit (Razorpay Subscriptions) =====
+
+    /// <summary>
+    /// Start auto-pay for a plan. Ensures a Razorpay Plan (cached on <see cref="Plan.RazorpayPlanId"/>),
+    /// creates a subscription/mandate, and stores its state. Mock activates immediately (and records the
+    /// first charge so the plan goes live); Razorpay returns a hosted auth URL — the merchant authorizes the
+    /// e-mandate there, and activation/charges then arrive via <c>subscription.*</c> webhooks.
+    /// </summary>
+    public async Task<AutoPaySetupDto> SetupAutoPayAsync(int planId, CancellationToken ct)
+    {
+        var plan = await db.Plans.FirstOrDefaultAsync(p => p.PlanId == planId && p.IsActive, ct)
+                   ?? throw new AppException("Plan not found.", StatusCodes.Status404NotFound);
+        var price = await EffectivePriceAsync(plan, ct);
+        if (price <= 0) throw new AppException("That plan is free — just select it, no auto-pay needed.", StatusCodes.Status400BadRequest);
+
+        var gateway = gateways.CreateRecurring();
+        if (string.IsNullOrEmpty(plan.RazorpayPlanId))
+        {
+            plan.RazorpayPlanId = await gateway.EnsurePlanAsync(plan, price, ct);
+            await db.SaveChangesAsync(ct);
+        }
+
+        await SelectPlanAsync(planId, ct);   // ensure a subscription row pointing at this plan
+        var sub = await db.TenantSubscriptions.OrderByDescending(x => x.TenantSubscriptionId).FirstAsync(ct);
+
+        var setup = await gateway.CreateSubscriptionAsync(db.CurrentTenantId, planId, plan.RazorpayPlanId!, notifyEmail: null, ct);
+        sub.RazorpaySubscriptionId = setup.SubscriptionId;
+        sub.RazorpayCustomerId = setup.CustomerId;
+        sub.PaymentMethodSummary = setup.PaymentMethodSummary;
+        sub.NextChargeAt = setup.NextChargeAt;
+        sub.CancelAtPeriodEnd = false;
+        sub.MandateStatus = setup.Active ? "active" : "pending";
+        sub.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        // Mock: no webhook will arrive, so record the first cycle now to make the flow complete end-to-end.
+        if (setup.Active)
+        {
+            var now = DateTime.UtcNow;
+            await RecordChargeAsync(new RecordChargeCommand(db.CurrentTenantId, price, $"mockpay_{setup.SubscriptionId}", setup.SubscriptionId, now, now.AddMonths(1)), ct);
+        }
+
+        return new AutoPaySetupDto(setup.Active, setup.AuthUrl, sub.MandateStatus, sub.NextChargeAt, sub.PaymentMethodSummary);
+    }
+
+    /// <summary>Cancel auto-pay at the end of the current cycle. Access continues until then.</summary>
+    public async Task CancelAutoPayAsync(CancellationToken ct)
+    {
+        var sub = await db.TenantSubscriptions.OrderByDescending(x => x.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+        if (sub is null || string.IsNullOrEmpty(sub.RazorpaySubscriptionId)) return;
+        try { await gateways.CreateRecurring().CancelSubscriptionAsync(sub.RazorpaySubscriptionId!, atCycleEnd: true, ct); }
+        catch (Exception ex) { log.LogWarning(ex, "Auto-pay cancel at gateway failed for {Sub}; marking locally.", sub.RazorpaySubscriptionId); }
+        sub.CancelAtPeriodEnd = true;
+        sub.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Apply a Razorpay <c>subscription.*</c> webhook to the tenant's subscription. Cross-tenant (webhook
+    /// path), so it re-establishes the tenant scope. Charges reuse the idempotent <see cref="RecordChargeAsync"/>.
+    /// </summary>
+    public async Task HandleSubscriptionEventAsync(string eventType, long tenantId, string? paymentId, decimal amount, string? subscriptionId, CancellationToken ct)
+    {
+        if (eventType is "subscription.charged" && !string.IsNullOrWhiteSpace(paymentId))
+        {
+            var now = DateTime.UtcNow;
+            await RecordChargeAsync(new RecordChargeCommand(tenantId, amount, paymentId!, subscriptionId, now, now.AddMonths(1)), ct);
+            using (tenant.BeginScope(tenantId))
+            {
+                var sub = await db.TenantSubscriptions.IgnoreQueryFilters().Where(s => s.TenantId == tenantId)
+                    .OrderByDescending(s => s.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+                if (sub is not null) { sub.MandateStatus = "active"; sub.NextChargeAt = now.AddMonths(1); await db.SaveChangesAsync(ct); }
+            }
+            return;
+        }
+
+        using (tenant.BeginScope(tenantId))
+        {
+            var sub = await db.TenantSubscriptions.IgnoreQueryFilters().Where(s => s.TenantId == tenantId)
+                .OrderByDescending(s => s.TenantSubscriptionId).FirstOrDefaultAsync(ct);
+            if (sub is null) return;
+            var nowUtc = DateTime.UtcNow;
+            switch (eventType)
+            {
+                case "subscription.pending":   // a charge failed; Razorpay will retry
+                    if (sub.Status is Active or Trial) { sub.Status = PastDue; sub.GraceEndsAt = nowUtc.AddDays(configuration.GetValue("Billing:GraceDays", 3)); }
+                    break;
+                case "subscription.halted":    // retries exhausted
+                    sub.Status = Suspended;
+                    var t1 = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
+                    if (t1 is { SuspendedAt: null }) { t1.SuspendedAt = nowUtc; t1.UpdatedAt = nowUtc; }
+                    break;
+                case "subscription.cancelled":
+                    sub.MandateStatus = "cancelled";
+                    break;
+                case "subscription.activated":
+                    sub.MandateStatus = "active";
+                    break;
+            }
+            sub.UpdatedAt = nowUtc;
+            await db.SaveChangesAsync(ct);
+        }
+    }
 }

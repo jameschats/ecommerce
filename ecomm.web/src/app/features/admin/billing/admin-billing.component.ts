@@ -25,6 +25,23 @@ import { BillingHistory, BillingService, CheckoutSession, Plan, Subscription } f
                 </div>
                 <p class="text-slate-500 text-sm mt-1">{{ s.monthlyPrice | currency:'INR':'symbol':'1.0-0' }} / month</p>
                 @if (nextBillLabel(s); as n) { <p class="text-sm text-slate-600 mt-2">{{ n }}</p> }
+
+                @if (s.status !== 'Cancelled' && s.planId && s.monthlyPrice > 0) {
+                  @if (s.mandateStatus === 'active') {
+                    <p class="text-sm text-green-700 mt-2">🔁 Auto-pay on@if (s.paymentMethodSummary) { · {{ s.paymentMethodSummary }} }@if (s.nextChargeAt && !s.cancelAtPeriodEnd) { · next charge {{ s.nextChargeAt | date:'d MMM y' }} }</p>
+                    @if (s.cancelAtPeriodEnd) {
+                      <p class="text-xs text-amber-600 mt-1">Auto-pay will stop at the end of this cycle.</p>
+                    } @else {
+                      <button type="button" (click)="cancelAutoPay()" [disabled]="busy()" class="text-sm text-slate-500 hover:underline mt-1">Turn off auto-pay</button>
+                    }
+                  } @else if (s.mandateStatus === 'pending') {
+                    <p class="text-sm text-amber-600 mt-2">Auto-pay setup started — authorize the mandate to finish.</p>
+                    <button type="button" (click)="setupAutoPay(s.planId)" [disabled]="busy()" class="text-sm text-primary hover:underline mt-1">Resume setup</button>
+                  } @else {
+                    <button type="button" (click)="setupAutoPay(s.planId)" [disabled]="busy()" class="btn-primary text-sm mt-3">Set up auto-pay</button>
+                    <p class="text-xs text-slate-400 mt-1">Pay automatically each month — no manual renewals.</p>
+                  }
+                }
               </div>
               @if (s.status !== 'Cancelled' && s.planId) {
                 <button type="button" (click)="cancel()" [disabled]="busy()"
@@ -164,12 +181,31 @@ export class AdminBillingComponent implements OnInit {
       });
       return;
     }
-    this.api.startCheckout(p.planId).subscribe({
-      next: (s) => {
-        if (!s.keyId) { this.confirmPayment(s, `mock_pay_${s.gatewayOrderId}`, 'mock'); return; }   // dev Mock gateway
-        this.openRazorpay(s);
+    // Paid plans go through recurring auto-pay setup (card-after-trial model).
+    this.setupAutoPay(p.planId);
+  }
+
+  /** Set up recurring auto-pay for a plan. Redirects to the gateway's mandate page (Razorpay) or
+   *  activates immediately (dev Mock). */
+  setupAutoPay(planId: number): void {
+    this.busy.set(true); this.message.set(null);
+    this.api.setupAutoPay(planId).subscribe({
+      next: (r) => {
+        if (r.authUrl && typeof window !== 'undefined') { window.location.href = r.authUrl; return; }   // authorize mandate
+        this.busy.set(false);
+        this.toast(r.active ? 'Auto-pay is on — your plan is active.' : 'Almost there — authorize the mandate to finish.');
+        this.load();
       },
-      error: () => { this.busy.set(false); this.toast('Could not start checkout.'); },
+      error: (e) => { this.busy.set(false); this.message.set(e?.error?.message ?? 'Could not set up auto-pay.'); },
+    });
+  }
+
+  cancelAutoPay(): void {
+    if (typeof window !== 'undefined' && !window.confirm('Turn off auto-pay? Your plan stays active until the end of the current cycle.')) return;
+    this.busy.set(true);
+    this.api.cancelAutoPay().subscribe({
+      next: () => { this.busy.set(false); this.toast('Auto-pay will stop at the end of your current cycle.'); this.load(); },
+      error: () => this.busy.set(false),
     });
   }
 

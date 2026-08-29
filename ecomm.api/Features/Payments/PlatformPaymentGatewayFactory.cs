@@ -29,6 +29,16 @@ public sealed class PlatformPaymentGatewayFactory(
         return new MockPaymentGateway();
     }
 
+    /// <summary>The recurring (auto-debit) gateway, resolved from the same platform provider/keys as <see cref="Create"/>.</summary>
+    public IRecurringBillingGateway CreateRecurring()
+    {
+        var (provider, keyId, secret) = Resolve();
+        if (provider.Equals("Razorpay", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(keyId) && !string.IsNullOrWhiteSpace(secret))
+            return new RazorpaySubscriptionGateway(http.CreateClient("razorpay"), keyId!, secret!);
+        return new MockRecurringGateway();
+    }
+
     /// <summary>Which provider/key is actually in force, and whether it came from the console or env.</summary>
     public (string Provider, string? KeyId, bool HasSecret, string Source) Describe()
     {

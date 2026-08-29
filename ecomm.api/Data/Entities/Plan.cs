@@ -19,6 +19,8 @@ public class Plan
     public string? LiveChatLevel { get; set; }
     public string? HelpdeskLevel { get; set; }
     public bool IsActive { get; set; } = true;
+    /// <summary>Cached Razorpay Plan id for auto-debit (created once, reused for every subscription on this plan).</summary>
+    public string? RazorpayPlanId { get; set; }
     public int DisplayOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
