@@ -1,0 +1,195 @@
+{
+  "key": "fjord",
+  "sortOrder": 12,
+  "name": "Fjord",
+  "category": "Home",
+  "catalogFit": "Medium",
+  "features": ["Scandinavian minimalism", "Room-set collage", "Calm sage palette", "Clean grotesque type"],
+  "description": "A calm, Scandinavian home & living theme. Muted sage and warm stone tones, a clean grotesque display over Inter, and airy room-set layouts made for furniture, homeware and decor.",
+  "settings": {
+    "PrimaryColor": "#5f7061",
+    "SecondaryColor": "#2f3630",
+    "AccentColor": "#a8998a",
+    "Font": "Inter",
+    "HeadingFont": "Archivo",
+    "HeadingWeight": "600",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.7",
+    "Radius": "sharp",
+    "ButtonStyle": "square",
+    "CardStyle": "flat",
+    "ContainerWidth": "1280px",
+    "Density": "cozy"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1600&q=80", "heading": "A calmer home", "subheading": "Considered furniture and homeware, made from honest materials and built to last.", "buttonText": "Shop the home", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "Free delivery on furniture  ·  Natural materials  ·  Made to last  ·  5-year guarantee", "backgroundColor": "#2f3630" },
+          "blocks": []
+        },
+        {
+          "type": "EditorialSplit", "title": "Our approach",
+          "settings": { "eyebrow": "Our approach", "heading": "Design that disappears into daily life", "body": "The best pieces don't demand attention — they earn their place quietly. We design for calm: clean lines, natural textures and objects that feel right the moment they're home.", "image": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Our story", "buttonLink": "/pages/fjord-story" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop by room",
+          "settings": { "heading": "Shop by room" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1567016432779-094069958ea5?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1616627561950-9f746e330187?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "New arrivals",
+          "settings": { "heading": "New arrivals", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Materials",
+          "settings": { "image": "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Honest, natural materials", "body": "Solid oak and ash, full-grain leather, wool and stoneware — materials that wear in, not out. Everything we make is designed to be repaired, not replaced.", "buttonText": "Explore materials", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Best sellers",
+          "settings": { "heading": "Best sellers", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Made to last",
+          "settings": { "heading": "Made to last" },
+          "blocks": [
+            { "value": "5-yr", "label": "Guarantee on furniture" },
+            { "value": "100%", "label": "Responsibly sourced timber" },
+            { "value": "48h", "label": "Dispatch on homeware" },
+            { "value": "4.9★", "label": "Average customer rating" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "The oak table is a piece we'll pass on. Faultless quality and it arrived beautifully packed.", "author": "Verified buyer", "rating": 5 },
+            { "quote": "Everything feels calm and considered — exactly what our home needed.", "author": "Loyal customer", "rating": 5 },
+            { "quote": "Ordered a chair, ended up furnishing the whole living room. No regrets.", "author": "Repeat customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "Ideas for a calmer home", "subtext": "Room inspiration, new arrivals and members-only offers — a little letter, now and then.", "buttonText": "Subscribe", "backgroundColor": "#2f3630" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Style it with", "settings": { "heading": "Style it with", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Fjord order" },
+          "blocks": [
+            { "icon": "truck", "heading": "Free furniture delivery", "text": "Room-of-choice delivery on larger pieces, included." },
+            { "icon": "shield", "heading": "5-year guarantee", "text": "We stand behind everything we make." },
+            { "icon": "refresh", "heading": "100-day returns", "text": "Live with it. Not right? Return within 100 days." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Free room-of-choice delivery on furniture", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Story", "slug": "fjord-story",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Beginnings",
+          "settings": { "eyebrow": "Beginnings", "heading": "A workshop and a simple idea", "body": "Fjord started with the belief that a home should feel calm, not cluttered — and that good design shouldn't mean disposable design. We work with makers who share that patience.", "image": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Craft",
+          "settings": { "image": "https://images.unsplash.com/photo-1550581190-9c1c48d21d6c?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Built by people who care", "body": "Joints that are cut, not stapled. Finishes applied by hand. Every piece is made to be lived with for decades and repaired if it ever needs it." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "12", "label": "Independent makers" },
+            { "value": "100%", "label": "FSC-certified timber" },
+            { "value": "0", "label": "Single-use packaging" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Delivery & FAQ", "slug": "fjord-delivery-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Delivery",
+          "settings": { "image": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Delivered with care", "body": "Larger furniture is delivered to your room of choice by a two-person team, unpacked and ready to enjoy — with all packaging taken away." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "How long does furniture take to arrive?", "answer": "In-stock furniture is delivered within 1–2 weeks; made-to-order pieces take 4–6 weeks. Homeware and smaller items ship within 48 hours." },
+            { "question": "Do you deliver and assemble?", "answer": "Larger pieces come with room-of-choice delivery by a two-person team. Most items need little or no assembly; where they do, clear instructions and tools are included." },
+            { "question": "What is your returns policy?", "answer": "Live with a piece for up to 100 days. If it isn't right, arrange a collection for a full refund — we only ask that it's in re-saleable condition." },
+            { "question": "What does the 5-year guarantee cover?", "answer": "Every piece of furniture is guaranteed against manufacturing faults for five years. If something goes wrong, we'll repair or replace it." },
+            { "question": "Where do you source your materials?", "answer": "All our timber is FSC-certified and traceable, and we work only with makers who meet our standards for materials and working conditions." }
+          ]
+        }
+      ]
+    }
+  ]
+}

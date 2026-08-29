@@ -14,8 +14,8 @@ public class PrebuiltThemeCatalogTests
     [Fact]
     public void Loads_all_bundles_with_unique_keys_in_stable_order()
     {
-        Assert.Equal(11, PrebuiltThemeRegistry.All.Count);
-        Assert.Equal(11, PrebuiltThemeRegistry.All.Select(t => t.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(12, PrebuiltThemeRegistry.All.Count);
+        Assert.Equal(12, PrebuiltThemeRegistry.All.Select(t => t.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal("minimal", PrebuiltThemeRegistry.All[0].Key);   // picker order starts at the safe default
     }
 
