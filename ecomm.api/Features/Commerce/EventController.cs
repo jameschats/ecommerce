@@ -18,7 +18,7 @@ public sealed record RecordEventsRequest(string SessionId, List<EventItem> Event
 /// </summary>
 [ApiController]
 [Route("api/events")]
-public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantService tenant) : ControllerBase
+public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantService tenant, IGeoLookupService geo) : ControllerBase
 {
     private static readonly HashSet<string> AllowedTypes =
         new(new[] { "view", "search", "add-to-cart", "remove-from-cart", "page" }, StringComparer.OrdinalIgnoreCase);
@@ -39,10 +39,13 @@ public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantSe
 
         // Per-request context for traffic analytics (same for every event in the batch).
         var device = DeviceFromUserAgent(Request.Headers.UserAgent.ToString());
-        var country = Clean(Request.Headers["CF-IPCountry"].ToString(), 2)?.ToUpperInvariant();   // Cloudflare geo (free)
-        if (country is "XX" or "T1") country = null;
-        var region = Clean(Request.Headers["CF-Region"].ToString(), 80);
-        var city = Clean(Request.Headers["CF-IPCity"].ToString(), 80);
+        // Geo: MaxMind GeoLite2 (server-side IP lookup) when configured, else Cloudflare's visitor-location headers.
+        var (gCountry, gRegion, gCity) = geo.Lookup(ClientIp());
+        var cfCountry = Clean(Request.Headers["CF-IPCountry"].ToString(), 2)?.ToUpperInvariant();
+        if (cfCountry is "XX" or "T1") cfCountry = null;
+        var country = gCountry?.ToUpperInvariant() ?? cfCountry;
+        var region = Clean(gRegion, 80) ?? Clean(Request.Headers["CF-Region"].ToString(), 80);
+        var city = Clean(gCity, 80) ?? Clean(Request.Headers["CF-IPCity"].ToString(), 80);
 
         foreach (var e in req.Events.Take(MaxPerRequest))
         {
@@ -66,6 +69,16 @@ public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantSe
             });
         }
         return Ok(ApiResponse<object>.Ok(new { }));
+    }
+
+    /// <summary>Visitor IP behind Cloudflare/nginx: CF-Connecting-IP wins, then the first X-Forwarded-For hop, then the socket.</summary>
+    private string? ClientIp()
+    {
+        var cf = Request.Headers["CF-Connecting-IP"].ToString();
+        if (!string.IsNullOrWhiteSpace(cf)) return cf.Trim();
+        var xff = Request.Headers["X-Forwarded-For"].ToString();
+        if (!string.IsNullOrWhiteSpace(xff)) return xff.Split(',')[0].Trim();
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
     }
 
     private static string DeviceFromUserAgent(string ua)
