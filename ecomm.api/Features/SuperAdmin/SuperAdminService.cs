@@ -64,7 +64,8 @@ public sealed record TenantDetailDto(
 public sealed record PlanRevenueRow(string Plan, int ActiveCount, decimal Mrr);
 public sealed record PlatformRevenueDto(
     decimal Mrr, int TotalTenants, int Active, int Trial, int PastDue, int Suspended, int Cancelled,
-    IReadOnlyList<PlanRevenueRow> ByPlan);
+    IReadOnlyList<PlanRevenueRow> ByPlan,
+    decimal Arpu, int ChurnedLast30, decimal ChurnRatePercent, decimal CollectedLast30, decimal CollectedLast90);
 
 public sealed record StoreLeaderRow(long TenantId, string Name, string? Slug, decimal Gmv, int Orders);
 public sealed record PlatformGmvPoint(DateTime Date, decimal Gmv);
@@ -662,7 +663,20 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
             .Select(g => new PlanRevenueRow(g.Key, g.Count(), g.Sum(x => x.Plan?.MonthlyPrice ?? 0)))
             .OrderByDescending(r => r.Mrr).ToList();
         var total = await db.Tenants.CountAsync(ct);
-        return new PlatformRevenueDto(mrr, total, Count("Active"), Count("Trial"), Count("PastDue"), Count("Suspended"), Count("Cancelled"), byPlan);
+
+        var active = Count("Active");
+        var now = DateTime.UtcNow;
+        var arpu = active > 0 ? Math.Round(mrr / active, 0) : 0m;
+        // Churn: subscriptions cancelled in the last 30 days (UpdatedAt stamped on cancel).
+        var churned30 = subs.Count(s => s.Status == "Cancelled" && s.UpdatedAt != null && s.UpdatedAt >= now.AddDays(-30));
+        var churnRate = (active + churned30) > 0 ? Math.Round(churned30 * 100m / (active + churned30), 1) : 0m;
+        var collected30 = await db.TenantBillingHistory.IgnoreQueryFilters()
+            .Where(b => b.Status == "Paid" && b.BilledAt >= now.AddDays(-30)).SumAsync(b => (decimal?)b.Amount, ct) ?? 0m;
+        var collected90 = await db.TenantBillingHistory.IgnoreQueryFilters()
+            .Where(b => b.Status == "Paid" && b.BilledAt >= now.AddDays(-90)).SumAsync(b => (decimal?)b.Amount, ct) ?? 0m;
+
+        return new PlatformRevenueDto(mrr, total, active, Count("Trial"), Count("PastDue"), Count("Suspended"), Count("Cancelled"), byPlan,
+            arpu, churned30, churnRate, collected30, collected90);
     }
 
     public async Task<PlatformAnalyticsDto> PlatformAnalyticsAsync(DateTime from, DateTime to, CancellationToken ct)

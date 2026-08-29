@@ -135,6 +135,11 @@ export interface PlatformRevenue {
   suspended: number;
   cancelled: number;
   byPlan: PlanRevenueRow[];
+  arpu: number;
+  churnedLast30: number;
+  churnRatePercent: number;
+  collectedLast30: number;
+  collectedLast90: number;
 }
 
 export interface FailedNotification { id: number; channel: string; recipient: string; subject: string | null; error: string | null; createdAt: string; }

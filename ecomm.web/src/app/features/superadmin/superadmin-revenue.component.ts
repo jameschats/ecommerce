@@ -20,6 +20,14 @@ import { PlatformRevenue } from '../../core/models/superadmin.model';
         <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Cancelled</div><div class="text-xl font-bold text-slate-500">{{ r.cancelled }}</div></div>
       </div>
 
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">ARPU</div><div class="text-xl font-bold text-slate-900">₹{{ r.arpu | number:'1.0-0' }}</div></div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Churn (30d)</div><div class="text-xl font-bold text-slate-900">{{ r.churnRatePercent | number:'1.0-1' }}%</div><div class="text-[11px] text-slate-400">{{ r.churnedLast30 }} cancelled</div></div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Collected (30d)</div><div class="text-xl font-bold text-green-600">₹{{ r.collectedLast30 | number:'1.0-0' }}</div></div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Collected (90d)</div><div class="text-xl font-bold text-green-700">₹{{ r.collectedLast90 | number:'1.0-0' }}</div></div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Annualized (ARR)</div><div class="text-xl font-bold text-slate-900">₹{{ r.mrr * 12 | number:'1.0-0' }}</div></div>
+      </div>
+
       <div class="bg-white border border-slate-200 rounded-xl p-4 max-w-xl">
         <h2 class="font-semibold text-slate-800 mb-3">MRR by plan</h2>
         <table class="w-full text-sm">
