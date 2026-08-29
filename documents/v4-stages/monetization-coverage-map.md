@@ -12,8 +12,8 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 
 | # | Item | Status | Notes / approach |
 |---|---|---|---|
-| A1 | Trial → auto-debit (recurring) | 📝 | [billing plan](platform-billing-plan.md). Razorpay Subscriptions. |
-| A2 | Trial auto-expiry | ❗🟡 | **Latent gap** — sweep never reads `Tenant.TrialEndsAt`; fix P1 (set `CurrentPeriodEnd` at trial start). |
+| A1 | Trial → auto-debit (recurring) | ✅ | **Shipped P2** (commit 8a949d4). Razorpay Subscriptions via `IRecurringBillingGateway`; card-after-trial. Pending: enable Razorpay Subscriptions on the account + subscribe the webhook to `subscription.*`. |
+| A2 | Trial auto-expiry | ✅ | **Shipped P1** (commit 408c91d) — trials expire with 7/3/1-day reminder emails; signup path already set `CurrentPeriodEnd`. |
 | A3 | Plan change (upgrade/downgrade) + **proration** | ❗ | V1: switch at next cycle (no proration). Proration = v2 on `EffectivePriceAsync`. **Needs a plan.** |
 | A4 | **Add-on SKUs** (AI Text/Image/Video marketing as separate paid modules) | ❗ | `Plan.MarketingEngineLevel` etc. are decorative labels today. The pricing model sells add-ons separately → need multiple concurrent subscriptions per tenant (base + add-ons). **Needs a plan.** |
 | A5 | Annual vs monthly billing | ❗ | Monthly-only today (`MonthlyPrice`). Annual = better retention/cash-flow. **Decision + schema (interval).** |
@@ -48,9 +48,9 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 
 | # | Item | Status | Notes |
 |---|---|---|---|
-| D1 | **GST tax invoice for the SaaS fee** | ❗ | **Real gap.** `InvoiceService` is order/shopper-only. We charge merchants but issue no tax invoice. SaaS = 18% GST; we need platform GSTIN, sequential invoice numbering (per FY), place-of-supply logic (intra/inter-state), and downloadable invoices in `/admin/billing`. **Needs a plan.** |
-| D2 | Merchant GSTIN capture + (optional) validation | ❗ | For B2B invoicing / input-tax-credit + reverse charge. **Needs a plan.** |
-| D3 | Invoice numbering & sequencing (compliant, gap-free per FY) | ❗ | Ties to D1. |
+| D1 | **GST tax invoice for the SaaS fee** | ✅ | **Shipped** (commit d5177ba, migration 285). `PlatformInvoiceService` issues a GST invoice per charge (GST-inclusive back-calc, CGST/SGST vs IGST from seller-vs-merchant state), QuestPDF, downloadable in `/admin/billing`. Super-admin sets seller GSTIN. |
+| D2 | Merchant GSTIN capture + (optional) validation | 🟡 | Merchant GSTIN already captured (`StoreGstin`) and printed on the invoice as buyer. GSTIN format validation not added. |
+| D3 | Invoice numbering & sequencing (compliant, gap-free per FY) | ✅ | Done in D1 — per-FY global sequence, unique constraint on number. |
 | D4 | Non-India tax on SaaS fee (VAT/GST/sales-tax per country) | 📝 | Covered by the [i18n plan](internationalization-plan.md) tax-provider abstraction. |
 
 ## E. Countries / regions / currency / locale
