@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ecomm.api.Features.Commerce;
 
-public sealed record EventItem(string Type, long? ProductId, string? Metadata);
+public sealed record EventItem(string Type, long? ProductId, string? Metadata, string? Path, string? Referrer);
 public sealed record RecordEventsRequest(string SessionId, List<EventItem> Events);
 
 /// <summary>
@@ -21,7 +21,7 @@ public sealed record RecordEventsRequest(string SessionId, List<EventItem> Event
 public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantService tenant) : ControllerBase
 {
     private static readonly HashSet<string> AllowedTypes =
-        new(new[] { "view", "search", "add-to-cart", "remove-from-cart" }, StringComparer.OrdinalIgnoreCase);
+        new(new[] { "view", "search", "add-to-cart", "remove-from-cart", "page" }, StringComparer.OrdinalIgnoreCase);
     private const int MaxPerRequest = 50;
 
     [HttpPost]
@@ -37,9 +37,17 @@ public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantSe
         var tid = tenant.CurrentTenantId;
         var now = DateTime.UtcNow;
 
+        // Per-request context for traffic analytics (same for every event in the batch).
+        var device = DeviceFromUserAgent(Request.Headers.UserAgent.ToString());
+        var country = Clean(Request.Headers["CF-IPCountry"].ToString(), 2)?.ToUpperInvariant();   // Cloudflare geo (free)
+        if (country is "XX" or "T1") country = null;
+        var region = Clean(Request.Headers["CF-Region"].ToString(), 80);
+        var city = Clean(Request.Headers["CF-IPCity"].ToString(), 80);
+
         foreach (var e in req.Events.Take(MaxPerRequest))
         {
             if (e is null || string.IsNullOrEmpty(e.Type) || !AllowedTypes.Contains(e.Type)) continue;
+            var isPage = e.Type.Equals("page", StringComparison.OrdinalIgnoreCase);
             buffer.Add(new CustomerEvent
             {
                 TenantId = tid,
@@ -48,10 +56,24 @@ public sealed class EventController(CustomerEventBuffer buffer, ICurrentTenantSe
                 EventType = e.Type.ToLowerInvariant(),
                 ProductId = e.ProductId,
                 Metadata = Clean(e.Metadata, 500),
+                Path = isPage ? Clean(e.Path, 300) : null,
+                Referrer = isPage ? Clean(e.Referrer, 200) : null,
+                Device = isPage ? device : null,
+                Country = isPage ? country : null,
+                Region = isPage ? region : null,
+                City = isPage ? city : null,
                 CreatedAt = now,
             });
         }
         return Ok(ApiResponse<object>.Ok(new { }));
+    }
+
+    private static string DeviceFromUserAgent(string ua)
+    {
+        if (string.IsNullOrEmpty(ua)) return "desktop";
+        if (ua.Contains("iPad", StringComparison.OrdinalIgnoreCase) || ua.Contains("Tablet", StringComparison.OrdinalIgnoreCase)) return "tablet";
+        if (ua.Contains("Mobi", StringComparison.OrdinalIgnoreCase) || ua.Contains("Android", StringComparison.OrdinalIgnoreCase)) return "mobile";
+        return "desktop";
     }
 
     private static string? Clean(string? v, int max)

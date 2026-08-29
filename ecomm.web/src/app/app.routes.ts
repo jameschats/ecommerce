@@ -129,6 +129,7 @@ export const routes: Routes = [
       { path: 'reviews', loadComponent: () => import('./features/admin/reviews/admin-reviews.component').then((m) => m.AdminReviewsComponent) },
       { path: 'coupons', loadComponent: () => import('./features/admin/coupons/admin-coupons.component').then((m) => m.AdminCouponsComponent) },
       { path: 'analytics', loadComponent: () => import('./features/admin/analytics/admin-analytics.component').then((m) => m.AdminAnalyticsComponent) },
+      { path: 'analytics/storefront', loadComponent: () => import('./features/admin/analytics/admin-storefront-analytics.component').then((m) => m.AdminStorefrontAnalyticsComponent) },
       { path: 'suppliers', loadComponent: () => import('./features/admin/suppliers/admin-suppliers.component').then((m) => m.AdminSuppliersComponent) },
       { path: 'color-swatches', loadComponent: () => import('./features/admin/color-swatches/admin-color-swatches.component').then((m) => m.AdminColorSwatchesComponent) },
       { path: 'customers', loadComponent: () => import('./features/admin/customers/admin-customers.component').then((m) => m.AdminCustomersComponent) },

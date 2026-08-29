@@ -122,6 +122,7 @@ builder.Services.AddScoped<ecomm.api.Features.Onboarding.IOnboardingService, eco
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.ISubscriptionService, ecomm.api.Features.Subscriptions.SubscriptionService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IPlatformInvoiceService, ecomm.api.Features.Subscriptions.PlatformInvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.IAppService, ecomm.api.Features.Apps.AppService>();
+builder.Services.AddScoped<ecomm.api.Features.Commerce.IStorefrontAnalyticsService, ecomm.api.Features.Commerce.StorefrontAnalyticsService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService, ecomm.api.Features.Apps.FirstParty.LowStockAlertService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ISalesDigestService, ecomm.api.Features.Apps.FirstParty.SalesDigestService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IRazorpayWebhookService, ecomm.api.Features.Subscriptions.RazorpayWebhookService>();

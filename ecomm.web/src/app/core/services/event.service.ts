@@ -1,9 +1,11 @@
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, NgZone, PLATFORM_ID, inject } from '@angular/core';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 
-interface QueuedEvent { type: string; productId?: number | null; metadata?: string | null; }
+interface QueuedEvent { type: string; productId?: number | null; metadata?: string | null; path?: string | null; referrer?: string | null; }
 
 /**
  * Storefront behavioural-event capture (AI Commerce data layer). Buffers events client-side and flushes
@@ -15,6 +17,7 @@ interface QueuedEvent { type: string; productId?: number | null; metadata?: stri
 export class EventService {
   private readonly http = inject(HttpClient);
   private readonly zone = inject(NgZone);
+  private readonly router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly url = `${API_BASE_URL}/events`;
 
@@ -31,6 +34,22 @@ export class EventService {
       window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.flush(true); });
       window.addEventListener('pagehide', () => this.flush(true));
     });
+    // Track storefront page views for native traffic analytics (skip admin/superadmin).
+    this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => this.page(e.urlAfterRedirects));
+  }
+
+  /** Records a storefront page view (path + external referrer host) — powers the traffic tab. */
+  page(url: string): void {
+    if (!this.isBrowser) return;
+    const path = (url || '/').split('?')[0].split('#')[0];
+    if (/^\/(admin|superadmin)(\/|$)/.test(path)) return;   // storefront traffic only
+    let referrer: string | null = null;
+    try {
+      const ref = document.referrer;
+      if (ref && new URL(ref).host !== location.host) referrer = new URL(ref).host;
+    } catch { /* ignore */ }
+    this.push({ type: 'page', path, referrer });
   }
 
   /** The first-party visitor id, for per-visitor recommendation calls. Empty when storage is unavailable. */

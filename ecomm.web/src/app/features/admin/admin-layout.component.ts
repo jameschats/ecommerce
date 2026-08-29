@@ -324,6 +324,7 @@ export class AdminLayoutComponent implements OnInit {
     ] },
     { title: 'Analytics', color: '#7c3aed', links: [
       { path: '/admin/analytics', label: 'Analytics', icon: 'chart' },
+      { path: '/admin/analytics/storefront', label: 'Traffic & funnel', icon: 'chart' },
       { path: '/admin/notifications', label: 'Notifications', icon: 'bell' },
     ] },
     // Settings lives in its own landing page (/admin/settings) reached from the pinned bottom link,
