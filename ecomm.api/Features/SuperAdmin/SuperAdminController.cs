@@ -180,6 +180,13 @@ public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBas
     public async Task<IActionResult> SavePlatformPayment([FromBody] PlatformPaymentUpsert req, CancellationToken ct)
         => Ok(ApiResponse<PlatformPaymentDto>.Ok(await svc.SavePlatformPaymentAsync(req, AdminUserId, ct), "Payment settings saved."));
 
+    [HttpPost("refund")]
+    public async Task<IActionResult> RefundCharge([FromBody] RefundChargeReq req, CancellationToken ct)
+    {
+        await svc.RefundSubscriptionChargeAsync(req.BillingHistoryId, req.Amount, req.Reason, AdminUserId, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Refund issued and credit note created."));
+    }
+
     [HttpGet("billing-settings")]
     public async Task<IActionResult> PlatformBilling(CancellationToken ct)
         => Ok(ApiResponse<PlatformBillingDto>.Ok(await svc.GetPlatformBillingAsync(ct)));
@@ -227,3 +234,4 @@ public sealed record SetTagsRequest(string? Tags);
 public sealed record AddNoteRequest(string Note);
 public sealed record GrantCreditsRequest(int Amount, string? Reason);
 public sealed record RecordPaymentRequest(int PlanId, decimal Amount, string? Reference);
+public sealed record RefundChargeReq(long BillingHistoryId, decimal Amount, string? Reason);

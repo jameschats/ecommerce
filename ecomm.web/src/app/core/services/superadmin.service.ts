@@ -99,6 +99,9 @@ export class SuperAdminService {
   savePlatformPayment(req: PlatformPaymentUpsert): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/payment-settings`, req);
   }
+  refundCharge(billingHistoryId: number, amount: number, reason: string | null): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(`${this.base}/refund`, { billingHistoryId, amount, reason });
+  }
   platformBilling(): Observable<PlatformBilling> {
     return this.http.get<ApiResponse<PlatformBilling>>(`${this.base}/billing-settings`).pipe(map((r) => r.data as PlatformBilling));
   }

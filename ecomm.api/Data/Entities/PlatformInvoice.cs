@@ -11,6 +11,11 @@ public class PlatformInvoice
     public long PlatformInvoiceId { get; set; }
     public long TenantId { get; set; }
     public long TenantBillingHistoryId { get; set; }
+    /// <summary>Invoice | CreditNote (C2/C3). A credit note reverses (part of) an invoice on refund.</summary>
+    public string DocumentType { get; set; } = "Invoice";
+    /// <summary>For a credit note: the invoice it reverses.</summary>
+    public long? OriginalInvoiceId { get; set; }
+    public string? Notes { get; set; }
 
     /// <summary>Indian financial year, e.g. "2026-27".</summary>
     public string FinancialYear { get; set; } = string.Empty;

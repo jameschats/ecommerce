@@ -24,6 +24,7 @@ public class SubscriptionLifecycleTests
     private sealed class NoopInvoices : IPlatformInvoiceService
     {
         public Task GenerateForChargeAsync(long tenantId, long billingHistoryId, decimal grossAmount, CancellationToken ct = default) => Task.CompletedTask;
+        public Task GenerateCreditNoteAsync(long originalChargeBillingHistoryId, long refundBillingHistoryId, decimal refundAmount, string? reason, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<PlatformInvoiceDto>> ListForTenantAsync(long tenantId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<PlatformInvoiceDto>>(new List<PlatformInvoiceDto>());
         public Task<PlatformInvoicePdf?> RenderPdfAsync(long tenantId, long invoiceId, CancellationToken ct = default) => Task.FromResult<PlatformInvoicePdf?>(null);
     }

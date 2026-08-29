@@ -195,9 +195,14 @@ import { healthClass, standingClass } from './superadmin-ui';
           @if (d.billing.length) {
             <div class="mt-3">
               @for (b of d.billing; track b.id) {
-                <div class="flex justify-between text-sm border-t border-slate-100 py-1.5">
-                  <span class="text-slate-600">{{ b.billedAt | date:'mediumDate' }} <span class="text-xs text-green-600">{{ b.status }}</span></span>
-                  <span class="font-medium text-slate-800">{{ b.amount | currency:'INR':'symbol':'1.0-0' }}</span>
+                <div class="flex justify-between items-center text-sm border-t border-slate-100 py-1.5">
+                  <span class="text-slate-600">{{ b.billedAt | date:'mediumDate' }} <span class="text-xs" [class]="b.amount < 0 ? 'text-amber-600' : 'text-green-600'">{{ b.status }}</span></span>
+                  <span class="flex items-center gap-3">
+                    <span class="font-medium text-slate-800">{{ b.amount | currency:'INR':'symbol':'1.0-0' }}</span>
+                    @if (b.status === 'Paid' && b.amount > 0) {
+                      <button type="button" (click)="refund(b.id, b.amount)" class="text-xs text-red-600 hover:underline">Refund</button>
+                    }
+                  </span>
                 </div>
               }
             </div>
@@ -312,6 +317,17 @@ export class SuperAdminTenantDetailComponent implements OnInit {
     if (this.paymentPlanId == null || !this.paymentAmount) return;
     this.svc.recordPayment(id, this.paymentPlanId, this.paymentAmount, this.paymentRef.trim() || null).subscribe(() => {
       this.paymentAmount = null; this.paymentRef = ''; this.after('Payment recorded.');
+    });
+  }
+
+  refund(billingHistoryId: number, amount: number): void {
+    const reason = typeof window !== 'undefined'
+      ? window.prompt(`Refund ₹${amount}? Enter a reason (a GST credit note will be issued):`, 'Customer request')
+      : 'Customer request';
+    if (reason === null) return;   // cancelled
+    this.svc.refundCharge(billingHistoryId, amount, reason).subscribe({
+      next: () => this.after('Refund issued and credit note created.'),
+      error: (e: { error?: { message?: string } }) => this.message.set(e?.error?.message ?? 'Refund failed.'),
     });
   }
 

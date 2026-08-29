@@ -8,13 +8,15 @@ using QuestPDF.Helpers;
 
 namespace ecomm.api.Features.Subscriptions;
 
-public sealed record PlatformInvoiceDto(long Id, string InvoiceNumber, DateTime InvoiceDate, decimal TotalAmount, long BillingHistoryId);
+public sealed record PlatformInvoiceDto(long Id, string InvoiceNumber, DateTime InvoiceDate, decimal TotalAmount, long BillingHistoryId, string DocumentType);
 public sealed record PlatformInvoicePdf(byte[] Bytes, string FileName);
 
 public interface IPlatformInvoiceService
 {
     /// <summary>Issue a GST tax invoice for one subscription charge. Idempotent per billing-history row.</summary>
     Task GenerateForChargeAsync(long tenantId, long billingHistoryId, decimal grossAmount, CancellationToken ct = default);
+    /// <summary>Issue a GST credit note reversing (part of) the invoice for a refunded charge.</summary>
+    Task GenerateCreditNoteAsync(long originalChargeBillingHistoryId, long refundBillingHistoryId, decimal refundAmount, string? reason, CancellationToken ct = default);
     Task<IReadOnlyList<PlatformInvoiceDto>> ListForTenantAsync(long tenantId, CancellationToken ct = default);
     Task<PlatformInvoicePdf?> RenderPdfAsync(long tenantId, long invoiceId, CancellationToken ct = default);
 }
@@ -56,14 +58,13 @@ public sealed class PlatformInvoiceService(EcommerceDbContext db, ILogger<Platfo
 
         var now = DateTime.UtcNow;
         var fy = FinancialYear(now);
-        var lastSeq = await db.PlatformInvoices.Where(i => i.FinancialYear == fy).MaxAsync(i => (int?)i.SequenceNumber, ct) ?? 0;
-        var seq = lastSeq + 1;
         var prefix = string.IsNullOrWhiteSpace(settings.InvoicePrefix) ? "INV" : settings.InvoicePrefix.Trim();
+        var (seq, number) = await NextNumberAsync(fy, "Invoice", prefix, ct);
 
         db.PlatformInvoices.Add(new PlatformInvoice
         {
-            TenantId = tenantId, TenantBillingHistoryId = billingHistoryId,
-            FinancialYear = fy, SequenceNumber = seq, InvoiceNumber = $"{prefix}/{fy}/{seq:0000}", InvoiceDate = now,
+            TenantId = tenantId, TenantBillingHistoryId = billingHistoryId, DocumentType = "Invoice",
+            FinancialYear = fy, SequenceNumber = seq, InvoiceNumber = number, InvoiceDate = now,
             SellerName = settings.SellerLegalName, SellerGstin = settings.SellerGstin, SellerState = sellerState,
             BuyerName = buyerName, BuyerGstin = buyerGstin, BuyerState = buyerState,
             PlaceOfSupply = buyerState ?? "", IsInterState = interState, GstRatePercent = rate,
@@ -78,10 +79,56 @@ public sealed class PlatformInvoiceService(EcommerceDbContext db, ILogger<Platfo
         }
     }
 
+    public async Task GenerateCreditNoteAsync(long originalChargeBillingHistoryId, long refundBillingHistoryId, decimal refundAmount, string? reason, CancellationToken ct = default)
+    {
+        if (refundAmount <= 0) return;
+        if (await db.PlatformInvoices.AnyAsync(i => i.TenantBillingHistoryId == refundBillingHistoryId && i.DocumentType == "CreditNote", ct)) return;
+
+        var orig = await db.PlatformInvoices
+            .FirstOrDefaultAsync(i => i.TenantBillingHistoryId == originalChargeBillingHistoryId && i.DocumentType == "Invoice", ct);
+        if (orig is null) return;   // no original invoice to reverse (e.g. charge predates invoicing)
+
+        var rate = orig.GstRatePercent <= 0 ? 18m : orig.GstRatePercent;
+        var taxable = Math.Round(refundAmount / (1 + rate / 100m), 2, MidpointRounding.AwayFromZero);
+        var gst = refundAmount - taxable;
+        decimal cgst = 0, sgst = 0, igst = 0;
+        if (orig.IsInterState) igst = gst;
+        else { cgst = Math.Round(gst / 2m, 2, MidpointRounding.AwayFromZero); sgst = gst - cgst; }
+
+        var settings = await db.PlatformBillingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+        var prefix = (string.IsNullOrWhiteSpace(settings?.InvoicePrefix) ? "INV" : settings!.InvoicePrefix.Trim()) + "-CN";
+        var now = DateTime.UtcNow;
+        var fy = FinancialYear(now);
+        var (seq, number) = await NextNumberAsync(fy, "CreditNote", prefix, ct);
+
+        db.PlatformInvoices.Add(new PlatformInvoice
+        {
+            TenantId = orig.TenantId, TenantBillingHistoryId = refundBillingHistoryId,
+            DocumentType = "CreditNote", OriginalInvoiceId = orig.PlatformInvoiceId, Notes = reason,
+            FinancialYear = fy, SequenceNumber = seq, InvoiceNumber = number, InvoiceDate = now,
+            SellerName = orig.SellerName, SellerGstin = orig.SellerGstin, SellerState = orig.SellerState,
+            BuyerName = orig.BuyerName, BuyerGstin = orig.BuyerGstin, BuyerState = orig.BuyerState,
+            PlaceOfSupply = orig.PlaceOfSupply, IsInterState = orig.IsInterState, GstRatePercent = rate,
+            TaxableValue = taxable, CgstAmount = cgst, SgstAmount = sgst, IgstAmount = igst, TotalAmount = refundAmount,
+            CreatedAt = now,
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException ex) { log.LogWarning(ex, "Credit note for refund {Refund} not written (numbering race).", refundBillingHistoryId); }
+    }
+
+    /// <summary>Next gap-free sequence + formatted number for a document type in a financial year.</summary>
+    private async Task<(int seq, string number)> NextNumberAsync(string fy, string docType, string prefix, CancellationToken ct)
+    {
+        var last = await db.PlatformInvoices.Where(i => i.FinancialYear == fy && i.DocumentType == docType)
+            .MaxAsync(i => (int?)i.SequenceNumber, ct) ?? 0;
+        var seq = last + 1;
+        return (seq, $"{prefix}/{fy}/{seq:0000}");
+    }
+
     public async Task<IReadOnlyList<PlatformInvoiceDto>> ListForTenantAsync(long tenantId, CancellationToken ct = default) =>
         await db.PlatformInvoices.AsNoTracking().Where(i => i.TenantId == tenantId)
             .OrderByDescending(i => i.PlatformInvoiceId)
-            .Select(i => new PlatformInvoiceDto(i.PlatformInvoiceId, i.InvoiceNumber, i.InvoiceDate, i.TotalAmount, i.TenantBillingHistoryId))
+            .Select(i => new PlatformInvoiceDto(i.PlatformInvoiceId, i.InvoiceNumber, i.InvoiceDate, i.TotalAmount, i.TenantBillingHistoryId, i.DocumentType))
             .ToListAsync(ct);
 
     public async Task<PlatformInvoicePdf?> RenderPdfAsync(long tenantId, long invoiceId, CancellationToken ct = default)
@@ -120,9 +167,10 @@ public sealed class PlatformInvoiceService(EcommerceDbContext db, ILogger<Platfo
                         });
                         row.ConstantItem(190).Column(c =>
                         {
-                            c.Item().AlignRight().Text("TAX INVOICE").FontSize(13).Bold().FontColor(Colors.Black);
+                            c.Item().AlignRight().Text(inv.DocumentType == "CreditNote" ? "CREDIT NOTE" : "TAX INVOICE").FontSize(13).Bold().FontColor(Colors.Black);
                             c.Item().AlignRight().Text($"No: {inv.InvoiceNumber}");
                             c.Item().AlignRight().Text($"Date: {inv.InvoiceDate:dd MMM yyyy}");
+                            if (inv.DocumentType == "CreditNote" && !string.IsNullOrEmpty(inv.Notes)) c.Item().AlignRight().Text($"Reason: {inv.Notes}").FontSize(8);
                         });
                     });
                     col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);

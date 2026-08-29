@@ -31,6 +31,13 @@ public class SuperAdminTenantAdminTests
     {
         public Task SendAsync(string phoneNumber, string message, CancellationToken ct = default) => Task.CompletedTask;
     }
+    private sealed class NoopInvoices : ecomm.api.Features.Subscriptions.IPlatformInvoiceService
+    {
+        public Task GenerateForChargeAsync(long tenantId, long billingHistoryId, decimal grossAmount, CancellationToken ct = default) => Task.CompletedTask;
+        public Task GenerateCreditNoteAsync(long originalChargeBillingHistoryId, long refundBillingHistoryId, decimal refundAmount, string? reason, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<ecomm.api.Features.Subscriptions.PlatformInvoiceDto>> ListForTenantAsync(long tenantId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ecomm.api.Features.Subscriptions.PlatformInvoiceDto>>(new List<ecomm.api.Features.Subscriptions.PlatformInvoiceDto>());
+        public Task<ecomm.api.Features.Subscriptions.PlatformInvoicePdf?> RenderPdfAsync(long tenantId, long invoiceId, CancellationToken ct = default) => Task.FromResult<ecomm.api.Features.Subscriptions.PlatformInvoicePdf?>(null);
+    }
     private sealed class StubHttpFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => throw new NotImplementedException();
@@ -48,7 +55,7 @@ public class SuperAdminTenantAdminTests
             Options.Create(new ecomm.api.Features.Notifications.EmailOptions()), db, dp,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ecomm.api.Features.Notifications.LoggingEmailSender>.Instance);
         var svc = new SuperAdminService(db, new StubJwt(), Options.Create(new TenancyOptions { BaseDomain = "wavcommerce.online" }), tenant,
-            new NoopEmail(), new NoopSms(), gateways, emailFactory, dp);
+            new NoopEmail(), new NoopSms(), gateways, emailFactory, new NoopInvoices(), dp);
         return (db, svc);
     }
 

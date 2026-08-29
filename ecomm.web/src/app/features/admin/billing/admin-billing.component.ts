@@ -123,6 +123,7 @@ import { BillingHistory, BillingService, CheckoutSession, Plan, PlatformInvoice,
               <div class="flex items-center justify-between px-4 py-3 text-sm">
                 <div>
                   <span class="font-medium text-slate-800">{{ inv.invoiceNumber }}</span>
+                  @if (inv.documentType === 'CreditNote') { <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Credit note</span> }
                   <span class="text-slate-400"> · {{ inv.invoiceDate | date:'d MMM y' }} · {{ inv.totalAmount | currency:'INR':'symbol':'1.0-0' }}</span>
                 </div>
                 <button type="button" (click)="downloadInvoice(inv)" class="text-primary hover:underline">Download PDF</button>

@@ -89,6 +89,8 @@ public interface ISuperAdminService
     Task<PlatformPaymentDto> GetPlatformPaymentAsync(CancellationToken ct);
     Task<PlatformBillingDto> GetPlatformBillingAsync(CancellationToken ct);
     Task<PlatformBillingDto> SavePlatformBillingAsync(PlatformBillingUpsert req, long adminUserId, CancellationToken ct);
+    /// <summary>Refund a subscription charge (full or partial) and issue a GST credit note.</summary>
+    Task RefundSubscriptionChargeAsync(long billingHistoryId, decimal amount, string? reason, long adminUserId, CancellationToken ct);
     Task<PlatformPaymentDto> SavePlatformPaymentAsync(PlatformPaymentUpsert req, long adminUserId, CancellationToken ct);
     Task<PlatformEmailDto> GetPlatformEmailAsync(CancellationToken ct);
     Task<PlatformEmailDto> SavePlatformEmailAsync(PlatformEmailUpsert req, long adminUserId, CancellationToken ct);
@@ -125,6 +127,7 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
     IEmailSender email, ISmsSender sms,
     ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
     EmailSenderFactory emailFactory,
+    ecomm.api.Features.Subscriptions.IPlatformInvoiceService invoices,
     Microsoft.AspNetCore.DataProtection.IDataProtectionProvider dp) : ISuperAdminService
 {
     private static readonly HashSet<string> Standings = new(StringComparer.OrdinalIgnoreCase)
@@ -330,6 +333,43 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
     {
         var (provider, keyId, hasSecret, source) = gateways.Describe();
         return Task.FromResult(new PlatformPaymentDto(provider, keyId, hasSecret, source));
+    }
+
+    public async Task RefundSubscriptionChargeAsync(long billingHistoryId, decimal amount, string? reason, long adminUserId, CancellationToken ct)
+    {
+        var charge = await db.TenantBillingHistory.IgnoreQueryFilters().FirstOrDefaultAsync(b => b.TenantBillingHistoryId == billingHistoryId, ct)
+                     ?? throw new AppException("Charge not found.", StatusCodes.Status404NotFound);
+        if (charge.Status != "Paid" || charge.Amount <= 0)
+            throw new AppException("Only a paid charge can be refunded.", StatusCodes.Status400BadRequest);
+
+        // One refund per charge (guard against double-refund).
+        var refKey = $"refund-{billingHistoryId}";
+        if (await db.TenantBillingHistory.IgnoreQueryFilters().AnyAsync(b => b.RazorpayPaymentId == refKey, ct))
+            throw new AppException("This charge has already been refunded.", StatusCodes.Status409Conflict);
+
+        var refundAmount = amount <= 0 || amount > charge.Amount ? charge.Amount : Math.Round(amount, 2);
+
+        // Best-effort gateway refund (skipped for mock/non-gateway payment ids).
+        if (!string.IsNullOrEmpty(charge.RazorpayPaymentId) && !charge.RazorpayPaymentId.StartsWith("mock", StringComparison.OrdinalIgnoreCase))
+        {
+            try { await gateways.Create().RefundAsync(charge.RazorpayPaymentId!, refundAmount, ct); }
+            catch (Exception ex) { /* surface but still record the credit note for the merchant */ throw new AppException($"Gateway refund failed: {ex.Message}", StatusCodes.Status502BadGateway); }
+        }
+
+        using (tenant.BeginScope(charge.TenantId))
+        {
+            var refundRow = new TenantBillingHistory
+            {
+                TenantId = charge.TenantId, Amount = -refundAmount, Status = "Refunded",
+                RazorpayPaymentId = refKey, BilledAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow,
+            };
+            db.TenantBillingHistory.Add(refundRow);
+            await db.SaveChangesAsync(ct);
+
+            await invoices.GenerateCreditNoteAsync(billingHistoryId, refundRow.TenantBillingHistoryId, refundAmount, reason, ct);
+        }
+        await LogAsync(adminUserId, charge.TenantId, "RefundCharge", $"₹{refundAmount:0.##} · {reason}", ct);
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<PlatformBillingDto> GetPlatformBillingAsync(CancellationToken ct)

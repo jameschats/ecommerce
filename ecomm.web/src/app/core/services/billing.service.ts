@@ -26,6 +26,7 @@ export interface PlatformInvoice {
   invoiceDate: string;
   totalAmount: number;
   billingHistoryId: number;
+  documentType: string;
 }
 
 export interface AutoPaySetup {
