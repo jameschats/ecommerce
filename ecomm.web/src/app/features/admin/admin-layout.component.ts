@@ -32,6 +32,7 @@ const NAV_ICONS: Record<string, string> = {
   sparkles: '<path d="M9 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z"/><path d="M15 11l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6.6-1.8Z"/>',
   megaphone: '<path d="M3 8v4h2l7 3V5L5 8H3Z"/><path d="M12 7.5a3 3 0 0 1 0 5"/>',
   calendar: '<rect x="3" y="4.5" width="14" height="12" rx="1.5"/><path d="M3 8h14M6.5 2.5v3M13.5 2.5v3"/>',
+  puzzle: '<path d="M8 3.5a1.5 1.5 0 0 1 3 0c0 .6.5 1 1 1h2.5v2.5c0 .5.4 1 1 1a1.5 1.5 0 0 1 0 3c-.6 0-1 .5-1 1V17H12c-.5 0-1-.4-1-1a1.5 1.5 0 0 0-3 0c0 .6-.5 1-1 1H4.5v-2.5c0-.6-.4-1-1-1a1.5 1.5 0 0 1 0-3c.6 0 1-.4 1-1V4.5H7c.5 0 1-.4 1-1Z"/>',
   photo: '<rect x="3" y="4" width="14" height="12" rx="1.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M4 15l4-4 3 3 3.5-4.5L17 13"/>',
   chat: '<path d="M3 4.5h14v9H8l-3 3v-3H3v-9Z"/>',
   paint: '<path d="M14 3 8 9l-1 1 3 3 1-1 6-6-3-3Z"/><path d="M7 10l-3 6 6-3"/>',
@@ -319,6 +320,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/files', label: 'Files', icon: 'folder' },
       { path: '/admin/preferences', label: 'Preferences', icon: 'sliders' },
       { path: '/admin/faq', label: 'FAQs', icon: 'help' },
+      { path: '/admin/apps', label: 'App store', icon: 'puzzle' },
     ] },
     { title: 'Analytics', color: '#7c3aed', links: [
       { path: '/admin/analytics', label: 'Analytics', icon: 'chart' },
