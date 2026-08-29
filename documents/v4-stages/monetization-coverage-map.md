@@ -14,10 +14,10 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 |---|---|---|---|
 | A1 | Trial → auto-debit (recurring) | ✅ | **Shipped P2** (commit 8a949d4). Razorpay Subscriptions via `IRecurringBillingGateway`; card-after-trial. Pending: enable Razorpay Subscriptions on the account + subscribe the webhook to `subscription.*`. |
 | A2 | Trial auto-expiry | ✅ | **Shipped P1** (commit 408c91d) — trials expire with 7/3/1-day reminder emails; signup path already set `CurrentPeriodEnd`. |
-| A3 | Plan change (upgrade/downgrade) + **proration** | ❗ | V1: switch at next cycle (no proration). Proration = v2 on `EffectivePriceAsync`. **Needs a plan.** |
-| A4 | **Add-on SKUs** (AI Text/Image/Video marketing as separate paid modules) | ❗ | `Plan.MarketingEngineLevel` etc. are decorative labels today. The pricing model sells add-ons separately → need multiple concurrent subscriptions per tenant (base + add-ons). **Needs a plan.** |
-| A5 | Annual vs monthly billing | ❗ | Monthly-only today (`MonthlyPrice`). Annual = better retention/cash-flow. **Decision + schema (interval).** |
-| A6 | **Coupons/discounts for subscriptions** | ❗ | No merchant-facing promo codes for the SaaS fee (shopper coupons are unrelated). **Needs a plan.** |
+| A3 | Plan change (upgrade/downgrade) + **proration** | 📝 | Planned — [billing-v2-pending.md](billing-v2-pending.md). Lowest value; defer until A4/A5. |
+| A4 | **Add-on SKUs** (AI Text/Image/Video marketing as separate paid modules) | 📝 | Planned — [billing-v2-pending.md](billing-v2-pending.md). Largest (multi-subscription refactor). |
+| A5 | Annual vs monthly billing | 📝 | Planned — [billing-v2-pending.md](billing-v2-pending.md). |
+| A6 | **Coupons/discounts for subscriptions** | 📝 | Planned — [billing-v2-pending.md](billing-v2-pending.md). |
 | A7 | Metered/usage overage (AI credit top-ups beyond grant; video always-metered) | 🟡 | Credit top-ups exist (one-time). No auto-overage billing. **Plan if we allow overage vs hard-cap.** |
 | A8 | Pause / reactivate subscription | 🟡 | Reactivation on charge works; explicit pause not modelled. |
 | A9 | Grandfathering (price change for existing subscribers) | ❗ | No plan-version pinning. **Needs a policy.** |
@@ -40,8 +40,8 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 | # | Item | Status | Notes |
 |---|---|---|---|
 | C1 | Merchant → shopper order refunds | ✅ | `Refund` entity + `RefundAsync` (storefront orders). |
-| C2 | **Platform → merchant subscription refunds** | ❗ | None. Policy + flow: pro-rated on downgrade? no-refund? goodwill? **Needs a plan.** |
-| C3 | **Credit notes** (for refunds/adjustments on platform invoices) | ❗ | GST requires a credit note against a tax invoice. **Needs a plan** (pairs with D1). |
+| C2 | **Platform → merchant subscription refunds** | ✅ | **Shipped** (commit 7c2f188). Super-admin refunds a charge (best-effort gateway refund + negative billing row, double-refund guarded). |
+| C3 | **Credit notes** (for refunds/adjustments on platform invoices) | ✅ | **Shipped** (migration 286). GST credit note against the original invoice, own per-FY series, downloadable by the merchant. |
 | C4 | Chargebacks / disputes | ❗ | Handling + accounting for shopper disputes and merchant-vs-platform disputes. **Needs a plan.** |
 
 ## D. Invoicing & tax (platform → merchant)
@@ -86,7 +86,7 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 | # | Item | Status | Notes |
 |---|---|---|---|
 | H1 | Billing emails (receipt, renewal reminder, payment failed, card expiring, trial ending) | 🟡 | Notification engine exists; templates + triggers to add (billing plan §4). |
-| H2 | Revenue analytics (MRR, churn, LTV, trial-conversion) in super-admin | ❗ | No SaaS-metrics dashboard. **Needs a plan.** |
+| H2 | Revenue analytics (MRR, churn, LTV, trial-conversion) in super-admin | ✅ | **Shipped** (commit eff3789). Super-admin Revenue page: MRR, ARPU, 30-day churn, collected 30/90d, ARR, status breakdown, MRR by plan. |
 | H3 | Reconciliation (gateway settlements vs our records) | ❗ | Finance-ops. **Needs a plan** before scale. |
 | H4 | Fraud / trial abuse (repeat trials, disposable emails) | ❗ | **Needs a plan.** |
 
