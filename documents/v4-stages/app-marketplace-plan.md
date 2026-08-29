@@ -151,4 +151,118 @@ themes. Plan it as a sibling track after S1–S4.
   exists, embedded is S3).
 - **Decision:** revenue-share % for third-party apps (Shopify: 0% then 15%).
 
-**Status:** planned. Foundation (Public API Track A) shipped. Next primitive: S1 OAuth app-install.
+---
+
+# Part 2 — Complete implementation spec (build-ready)
+
+Grounded in the shipped Track A: scheme `ApiKeyAuthDefaults.Scheme = "ApiKey"`, tokens read from
+`Authorization: Bearer …` or `X-Api-Key`, principal carries a `tenant` claim + `scope` claims,
+`RequiresScopeAttribute` gates endpoints, and `TenantResolutionMiddleware` cross-checks the `tenant` claim
+against the Host. Existing scopes: `products:read, orders:read, inventory:read, inventory:write`
+(`ApiKeyService.ValidScopes`). App tokens reuse all of this.
+
+## 2.1 Data model (migrations 287–289)
+
+**`App`** (global — an app is platform-wide, installed into many tenants; NOT `ITenantScoped`):
+`AppId, OwnerUserId (developer), Name, Slug, ClientId (public), ClientSecretHash (one-way), Handle,
+Description, IconUrl, Category, RedirectUris (csv), RequestedScopes (csv), IsEmbedded (bool),
+PricingModel (free|recurring|usage|onetime), Status (draft|in_review|listed|suspended), IsFirstParty (bool),
+CreatedAt, UpdatedAt`. Client secret shown once at creation (same one-time-reveal pattern as `ApiKey`).
+
+**`AppInstallation`** (`ITenantScoped` — one per (app, tenant)):
+`AppInstallationId, TenantId, AppId, GrantedScopes (csv), AccessTokenHash (offline token, hashed like
+ApiKey), TokenPrefix, Status (installed|uninstalled), InstalledByUserId, InstalledAt, UninstalledAt`.
+Unique (TenantId, AppId).
+
+**`AppOAuthCode`** (short-lived authorization codes): `Code (hash), AppId, TenantId, Scopes, UserId,
+ExpiresAt, RedeemedAt`. TTL ~5 min, single-use.
+
+**`AppCharge`** (billing): `AppChargeId, AppInstallationId, TenantId, Type (recurring|onetime|usage),
+Amount, Interval, Status (pending|active|cancelled), CreatedAt`. Reuses `RecordChargeAsync`/Razorpay/D1.
+
+Reuse `WebhookSubscription` with a new nullable `AppInstallationId` column (app-scoped subscriptions);
+today's merchant-created subscriptions leave it null.
+
+## 2.2 Scopes
+Reuse `ApiKeyService.ValidScopes` and add app-oriented ones as endpoints grow:
+`products:write, orders:write, content:write` (blog/CMS), `themes:write`, and a **separately-gated**
+`customers:read` (PII — off by default, explicit consent, DPDP posture). Central `ValidScopes` list stays
+the single source of truth for both API keys and apps.
+
+## 2.3 Auth — extend the existing handler (no new scheme)
+In `ApiKeyAuthenticationHandler.HandleAuthenticateAsync`, after the `ApiKey` hash lookup misses, try an
+`AppInstallation` by `AccessTokenHash`. On hit, emit the same claims plus `app_installation_id` and
+`app_id`; scopes come from `AppInstallation.GrantedScopes`. Everything downstream (`RequiresScope`,
+tenant cross-check, public controllers) works unchanged. Distinguish token kinds by key prefix
+(`ApiKeyService.KeyPrefixLiteral` for keys; a new `apptok_` prefix for app tokens).
+
+## 2.4 OAuth 2.0 install flow (endpoints)
+1. `GET /admin/apps/{slug}` (App Store listing) → **Install** button.
+2. `GET /oauth/authorize?client_id&scope&redirect_uri&state` → renders the **consent screen** in the admin
+   (must be an authenticated admin of the tenant). Shows requested scopes in plain language.
+3. `POST /oauth/authorize` (merchant approves) → issue an `AppOAuthCode`, redirect to the app's
+   `redirect_uri?code&state`.
+4. App server calls `POST /oauth/token` `{client_id, client_secret, code, redirect_uri}` → validate →
+   create/refresh `AppInstallation`, return `{access_token, scope, token_type:"bearer"}` (offline token).
+5. App calls the public API with `Authorization: Bearer apptok_…`.
+   Uninstall: `DELETE /admin/apps/installed/{id}` → mark uninstalled, revoke token, fire `app/uninstalled`.
+
+## 2.5 App Store + install UI (Angular)
+- Merchant: `/admin/apps` (browse listed apps), `/admin/apps/{slug}` (detail + Install), `/admin/apps/installed`
+  (manage/uninstall), and the consent screen. New `AppStoreService`.
+- Embedded host: `/admin/apps/{slug}/app` renders the app in a sandboxed iframe (see 2.6).
+
+## 2.6 Embedded apps (App Bridge-lite)
+- The admin host page loads the app's URL in an `<iframe sandbox="allow-scripts allow-forms allow-same-origin">`
+  with CSP `frame-ancestors 'self'` on the admin origin only.
+- A tiny bridge (`postMessage`): host mints a short-lived **session JWT** (claims: tenant, app_installation_id,
+  scopes, exp ~2 min, signed by the platform) and posts it to the iframe on request; the app exchanges it for
+  a fresh offline call or uses it directly as a bearer for the public API. Bridge also exposes
+  `navigate`/`toast`/`resize`. Standalone (non-embedded) apps skip all of this.
+
+## 2.7 App billing + revenue share
+- App declares a `PricingModel`; on install (or upgrade) the platform creates an `AppCharge` and bills the
+  merchant via the **existing subscription/Razorpay flow** → `RecordChargeAsync` → **GST invoice (D1)**.
+- Platform retains a **revenue share** (config: 0% first-party, X% third-party); the developer's share is
+  paid out via **Razorpay Route** to the developer's linked account (same primitive as SaaS/marketplace).
+- Usage billing: app reports usage via an authenticated endpoint; aggregated into the cycle charge.
+
+## 2.8 Extension points
+- **Storefront app blocks:** an installed app registers app-owned section types through `SectionTypeRegistry`
+  (tag them with the owning `AppId`); the merchant drops them into the theme via the existing editor —
+  Shopify's "theme app extensions" using the section engine already built for AI Commerce rails.
+- **Admin UI slots (later):** declared slots where an installed app can add a panel/action.
+
+## 2.9 Review queue (shared primitive)
+One generic `SubmissionReview` queue (submitter, type: app|theme|seller-kyc, payloadRef, status
+submitted|approved|rejected, reviewer, notes, history) — used by App review, Theme review, and seller KYC.
+First-party apps skip review (`IsFirstParty`); third parties go through it.
+
+## 2.10 Phase task checklists + acceptance
+- **S1 — App identity + OAuth install:** entities/migrations (2.1); `oauth/authorize` + `oauth/token`;
+  extend auth handler (2.3); consent screen. *Accept: a test app completes install → gets `apptok_…` →
+  reads products within scope; a scope it wasn't granted returns 403.*
+- **S2 — App Store UI + 1–2 first-party apps:** browse/install/uninstall UI; build first-party apps against
+  the public API only. *Accept: install/uninstall round-trips; first-party app works with no internal-API
+  access.*
+- **S3 — Embedded surface:** iframe host + session-token bridge + CSP. *Accept: an embedded app renders in
+  the admin and calls the API via a session token; CSP blocks other origins.*
+- **S4 — App billing + revenue share:** `AppCharge` + subscription/Route/D1 wire-up. *Accept: installing a
+  paid app bills the merchant, produces a GST invoice, and records the dev's payable share.*
+- **S5 — Extension points:** app-owned theme section types. *Accept: an installed app's block appears in the
+  theme editor and renders on the storefront; uninstalling removes it.*
+- **S6 — Developer dashboard + review queue → third parties.** *Accept: a developer submits an app, staff
+  approves via the queue, it lists in the App Store.*
+
+## 2.11 Decisions to lock before S1
+1. **First-party-only at launch** (recommended) vs open third-party from day one.
+2. **Embedded + standalone both** (recommended) vs one.
+3. **Revenue-share %** for third-party apps (e.g. 0% first-party, 15% third-party).
+4. **Token model:** offline-only (recommended v1) vs offline + online (user-context) tokens.
+5. **PII scope (`customers:read`)** — include at launch (gated) or defer (recommended defer, DPDP).
+
+---
+
+**Status:** planned & build-ready. Foundation (Public API Track A) shipped. **Start point: S1** — `App` /
+`AppInstallation` entities + the `oauth/authorize` + `oauth/token` flow + auth-handler extension.
+Prerequisite for S4 payouts: Razorpay Route (shared with SaaS billing + V3 marketplace).
