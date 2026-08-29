@@ -40,10 +40,10 @@
           "type": "Multicolumn", "title": "Why us",
           "settings": { "heading": "The Lumière difference" },
           "blocks": [
-            { "icon": "leaf", "heading": "Clean by default", "text": "No parabens, sulphates or needless fillers — ever." },
-            { "icon": "heart", "heading": "Cruelty-free", "text": "Never tested on animals, at any stage." },
-            { "icon": "shield", "heading": "Dermatologist-tested", "text": "Formulated and reviewed by skin specialists." },
-            { "icon": "gift", "heading": "Always a gift", "text": "Free deluxe samples tucked into every order." }
+            { "icon": "🌿", "heading": "Clean by default", "text": "No parabens, sulphates or needless fillers — ever." },
+            { "icon": "🤍", "heading": "Cruelty-free", "text": "Never tested on animals, at any stage." },
+            { "icon": "🛡️", "heading": "Dermatologist-tested", "text": "Formulated and reviewed by skin specialists." },
+            { "icon": "🎁", "heading": "Always a gift", "text": "Free deluxe samples tucked into every order." }
           ]
         },
         {
@@ -129,9 +129,9 @@
           "type": "Multicolumn", "title": "Reassurance",
           "settings": { "heading": "Every Lumière order" },
           "blocks": [
-            { "icon": "gift", "heading": "Free samples", "text": "Two deluxe samples to try, in every order." },
-            { "icon": "truck", "heading": "Free delivery", "text": "Complimentary shipping over your first threshold." },
-            { "icon": "refresh", "heading": "Love-it guarantee", "text": "Not for you? Return within 30 days, no fuss." }
+            { "icon": "🎁", "heading": "Free samples", "text": "Two deluxe samples to try, in every order." },
+            { "icon": "🚚", "heading": "Free delivery", "text": "Complimentary shipping over your first threshold." },
+            { "icon": "↩️", "heading": "Love-it guarantee", "text": "Not for you? Return within 30 days, no fuss." }
           ]
         }
       ]

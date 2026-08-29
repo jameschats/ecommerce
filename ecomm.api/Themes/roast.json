@@ -1,0 +1,195 @@
+{
+  "key": "roast",
+  "sortOrder": 13,
+  "name": "Roast",
+  "category": "Food",
+  "catalogFit": "Small",
+  "features": ["Artisan warmth", "Provenance storytelling", "Subscription-friendly", "Warm serif display"],
+  "description": "A warm, artisanal food theme for coffee roasters, bakeries and gourmet provisions. Rich coffee-brown and caramel tones, a friendly serif display over rounded Nunito, and layouts built to tell a provenance-and-craft story.",
+  "settings": {
+    "PrimaryColor": "#6f4e37",
+    "SecondaryColor": "#2b211a",
+    "AccentColor": "#c08457",
+    "Font": "Nunito",
+    "HeadingFont": "Lora",
+    "HeadingWeight": "600",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.7",
+    "Radius": "round",
+    "ButtonStyle": "pill",
+    "CardStyle": "bordered",
+    "ContainerWidth": "1200px",
+    "Density": "cozy"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=80", "heading": "Roasted this week", "subheading": "Small-batch coffee and fresh-baked provisions, delivered at their peak.", "buttonText": "Shop the roastery", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "Roasted to order  ·  Free delivery over your first threshold  ·  Subscribe & save 15%  ·  Ethically sourced", "backgroundColor": "#2b211a" },
+          "blocks": []
+        },
+        {
+          "type": "EditorialSplit", "title": "Our craft",
+          "settings": { "eyebrow": "Our craft", "heading": "Roasted in small batches, never rushed", "body": "We roast in small drums, by hand, tasting as we go. Every bag is stamped with its roast date because coffee is at its best in the days just after — and we want you to taste it then.", "image": "https://images.unsplash.com/photo-1447279506476-3faec8071eee?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Our story", "buttonLink": "/pages/roast-story" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Explore the range",
+          "settings": { "heading": "Explore the range" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1470124182917-cc6e71b22ecc?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1481931098730-318b6f776db0?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "This week's roast",
+          "settings": { "heading": "This week's roast", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Sourcing",
+          "settings": { "image": "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Sourced with a handshake", "body": "We buy directly from growers we know by name, paying well above the market so the people who grow our coffee can keep growing it well. Provenance you can taste, and trace.", "buttonText": "Meet our growers", "buttonLink": "/pages/roast-story" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "House favourites",
+          "settings": { "heading": "House favourites", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "Fresh by the numbers",
+          "settings": { "heading": "Fresh by the numbers" },
+          "blocks": [
+            { "value": "48h", "label": "From roast to dispatch" },
+            { "value": "100%", "label": "Directly traded beans" },
+            { "value": "15%", "label": "Off when you subscribe" },
+            { "value": "4.9★", "label": "Average cup rating" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "The freshest coffee I've had delivered — you can smell the roast date on the bag.", "author": "Subscriber", "rating": 5 },
+            { "quote": "Switched our whole office to the weekly subscription. Nobody's going back.", "author": "Loyal customer", "rating": 5 },
+            { "quote": "The pastries arrived next morning and tasted straight-from-the-oven fresh.", "author": "Verified buyer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "Brew better, every week", "subtext": "Roast notes, brew guides and first dibs on limited micro-lots — straight to your inbox.", "buttonText": "Subscribe", "backgroundColor": "#2b211a" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Goes well with", "settings": { "heading": "Goes well with", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Roast order" },
+          "blocks": [
+            { "icon": "⏱️", "heading": "Roasted to order", "text": "We roast after you buy, then ship within 48 hours." },
+            { "icon": "🚚", "heading": "Fast, tracked delivery", "text": "So it reaches you at its freshest." },
+            { "icon": "↩️", "heading": "Subscribe & save", "text": "15% off and free delivery on every recurring order." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Subscribe & save 15% on every delivery", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Story", "slug": "roast-story",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Beginnings",
+          "settings": { "eyebrow": "Since day one", "heading": "From one small drum roaster", "body": "We began with a second-hand roaster in the back of a bakery and a stubborn belief that fresh should mean days, not months. Word spread one cup at a time — and here we are.", "image": "https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Growers",
+          "settings": { "image": "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Relationships, not transactions", "body": "We visit the farms we buy from, pay prices that let them invest in quality, and come back season after season. Good coffee starts long before the roaster." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "How we work",
+          "settings": { "heading": "How we work" },
+          "blocks": [
+            { "value": "9", "label": "Partner farms" },
+            { "value": "48h", "label": "Roast to dispatch" },
+            { "value": "100%", "label": "Directly traded" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Brewing & FAQ", "slug": "roast-brewing-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Brewing",
+          "settings": { "image": "https://images.unsplash.com/photo-1466637574441-749b8f19452f?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Get the best from every bag", "body": "Grind just before you brew, use good water, and weigh your dose. Small habits, big difference — and every bag carries our suggested recipe to get you started." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "How fresh is the coffee?", "answer": "We roast to order and dispatch within 48 hours, so your coffee arrives days — not months — from the roast date, which is stamped on every bag." },
+            { "question": "Whole bean or ground?", "answer": "Both. Choose whole bean for maximum freshness, or select your brew method at checkout and we'll grind to match." },
+            { "question": "How does the subscription work?", "answer": "Pick your coffee and frequency and we'll roast and ship on schedule — 15% off and free delivery every time. Pause, skip or cancel whenever you like." },
+            { "question": "Do you ship perishable baked goods?", "answer": "Yes — baked provisions are made fresh and dispatched with next-day delivery so they arrive at their best. Availability is shown on each product." },
+            { "question": "What if something arrives damaged?", "answer": "Let us know within 48 hours with a photo and we'll replace it or refund you, no questions asked." }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -119,9 +119,9 @@
           "type": "Multicolumn", "title": "Reassurance",
           "settings": { "heading": "The Noir promise" },
           "blocks": [
-            { "icon": "truck", "heading": "Complimentary shipping", "text": "Free insured delivery on every order, worldwide." },
-            { "icon": "refresh", "heading": "30-day returns", "text": "Changed your mind? Return within 30 days, on us." },
-            { "icon": "shield", "heading": "Lifetime repairs", "text": "We mend what we make. Bring it back and we'll restore it." }
+            { "icon": "🚚", "heading": "Complimentary shipping", "text": "Free insured delivery on every order, worldwide." },
+            { "icon": "↩️", "heading": "30-day returns", "text": "Changed your mind? Return within 30 days, on us." },
+            { "icon": "🛡️", "heading": "Lifetime repairs", "text": "We mend what we make. Bring it back and we'll restore it." }
           ]
         }
       ]

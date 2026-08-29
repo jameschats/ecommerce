@@ -119,9 +119,9 @@
           "type": "Multicolumn", "title": "Reassurance",
           "settings": { "heading": "Every Fjord order" },
           "blocks": [
-            { "icon": "truck", "heading": "Free furniture delivery", "text": "Room-of-choice delivery on larger pieces, included." },
-            { "icon": "shield", "heading": "5-year guarantee", "text": "We stand behind everything we make." },
-            { "icon": "refresh", "heading": "100-day returns", "text": "Live with it. Not right? Return within 100 days." }
+            { "icon": "🚚", "heading": "Free furniture delivery", "text": "Room-of-choice delivery on larger pieces, included." },
+            { "icon": "🛡️", "heading": "5-year guarantee", "text": "We stand behind everything we make." },
+            { "icon": "↩️", "heading": "100-day returns", "text": "Live with it. Not right? Return within 100 days." }
           ]
         }
       ]
