@@ -43,6 +43,9 @@ public sealed class SubscriptionService(
     EcommerceDbContext db,
     ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
     ecomm.api.Common.Tenancy.ICurrentTenantService tenant,
+    ecomm.api.Features.Notifications.IEmailSender email,
+    Microsoft.Extensions.Options.IOptions<ecomm.api.Common.Tenancy.TenancyOptions> tenancy,
+    ILogger<SubscriptionService> log,
     IConfiguration configuration) : ISubscriptionService
 {
     public const string Trial = "Trial", Active = "Active", PastDue = "PastDue", Suspended = "Suspended", Cancelled = "Cancelled";
@@ -69,7 +72,12 @@ public sealed class SubscriptionService(
         var sub = await db.TenantSubscriptions.OrderByDescending(x => x.TenantSubscriptionId).FirstOrDefaultAsync(ct);
         if (sub is null)
         {
-            sub = new TenantSubscription { PlanId = plan.PlanId, Status = Trial, CreatedAt = DateTime.UtcNow };
+            // Anchor the trial's period end to the tenant's TrialEndsAt so the lifecycle sweep can expire
+            // it (the sweep keys off CurrentPeriodEnd). Fallback to a default trial length if unset.
+            var trialEnds = await db.Tenants.Where(t => t.TenantId == db.CurrentTenantId)
+                .Select(t => t.TrialEndsAt).FirstOrDefaultAsync(ct)
+                ?? DateTime.UtcNow.AddDays(configuration.GetValue("Billing:TrialDays", 14));
+            sub = new TenantSubscription { PlanId = plan.PlanId, Status = Trial, CurrentPeriodEnd = trialEnds, CreatedAt = DateTime.UtcNow };
             db.TenantSubscriptions.Add(sub);   // TenantId auto-stamped
         }
         else
@@ -205,6 +213,8 @@ public sealed class SubscriptionService(
     {
         var changed = 0;
 
+        changed += await SendTrialRemindersAsync(nowUtc, ct);
+
         var toGrace = await db.TenantSubscriptions.IgnoreQueryFilters()
             .Where(s => (s.Status == Trial || s.Status == Active)
                         && s.CurrentPeriodEnd != null && s.CurrentPeriodEnd < nowUtc && s.GraceEndsAt == null)
@@ -231,6 +241,66 @@ public sealed class SubscriptionService(
 
         if (changed > 0) await db.SaveChangesAsync(ct);
         return changed;
+    }
+
+    /// <summary>
+    /// Emails a trial's admin as it approaches expiry — one reminder each at 7 / 3 / 1 days before
+    /// <c>CurrentPeriodEnd</c> (tracked by <c>TrialReminderStage</c> so none repeats). Best-effort: a send
+    /// failure is logged and retried next sweep (the stage is only advanced on success). Returns the number
+    /// of reminders sent (folded into the sweep's change count so it saves once).
+    /// </summary>
+    private async Task<int> SendTrialRemindersAsync(DateTime nowUtc, CancellationToken ct)
+    {
+        var endingSoon = await db.TenantSubscriptions.IgnoreQueryFilters()
+            .Where(s => s.Status == Trial && s.CurrentPeriodEnd != null
+                        && s.CurrentPeriodEnd > nowUtc && s.CurrentPeriodEnd <= nowUtc.AddDays(7))
+            .ToListAsync(ct);
+        if (endingSoon.Count == 0) return 0;
+
+        var tenantIds = endingSoon.Select(s => s.TenantId).Distinct().ToList();
+        var contactByTenant = (await (
+                from u in db.Users.IgnoreQueryFilters()
+                join ur in db.UserRoles on u.UserId equals ur.UserId
+                join r in db.Roles on ur.RoleId equals r.RoleId
+                where tenantIds.Contains(u.TenantId) && !u.IsDeleted && r.NormalizedName == "ADMIN" && u.Email != null
+                select new { u.TenantId, u.Email, u.FullName }).ToListAsync(ct))
+            .GroupBy(c => c.TenantId).ToDictionary(g => g.Key, g => g.First());
+        var stores = (await db.Tenants.IgnoreQueryFilters().Where(t => tenantIds.Contains(t.TenantId))
+                .Select(t => new { t.TenantId, t.Name, t.Slug, t.CustomDomain, t.CustomDomainVerified }).ToListAsync(ct))
+            .ToDictionary(x => x.TenantId);
+        var baseDomain = (tenancy.Value.BaseDomain ?? "").Trim();
+
+        var sent = 0;
+        foreach (var s in endingSoon)
+        {
+            var daysLeft = Math.Max(1, (int)Math.Ceiling((s.CurrentPeriodEnd!.Value - nowUtc).TotalDays));
+            var stage = daysLeft <= 1 ? 1 : daysLeft <= 3 ? 3 : 7;
+            if (s.TrialReminderStage is { } prev && stage >= prev) continue;   // already reminded at this-or-more-urgent stage
+            if (!contactByTenant.TryGetValue(s.TenantId, out var c) || string.IsNullOrWhiteSpace(c.Email)) continue;
+            if (!stores.TryGetValue(s.TenantId, out var store)) continue;
+
+            var host = store.CustomDomainVerified && !string.IsNullOrEmpty(store.CustomDomain) ? store.CustomDomain
+                     : !string.IsNullOrEmpty(baseDomain) && !string.IsNullOrEmpty(store.Slug) ? $"{store.Slug}.{baseDomain}" : null;
+            var billingUrl = host is null ? null : $"https://{host}/admin/billing";
+            var greeting = string.IsNullOrWhiteSpace(c.FullName) ? "Hi" : $"Hi {System.Net.WebUtility.HtmlEncode(c.FullName)}";
+            var subject = daysLeft <= 1 ? $"Your {store.Name} trial ends tomorrow" : $"Your {store.Name} trial ends in {daysLeft} days";
+            var body = $"<p>{greeting},</p>"
+                     + $"<p>Your free trial for <strong>{System.Net.WebUtility.HtmlEncode(store.Name)}</strong> ends in {daysLeft} day(s). "
+                     + "To keep your store online, choose a plan and pay before it ends.</p>"
+                     + (billingUrl is null ? "" : $"<p><a href=\"{billingUrl}\">Go to billing &rarr;</a></p>");
+            try
+            {
+                await email.SendAsync(c.Email!, subject, body, ct);
+                s.TrialReminderStage = stage;
+                s.UpdatedAt = nowUtc;
+                sent++;
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "Trial reminder email to {Email} (tenant {Tenant}) failed.", c.Email, s.TenantId);
+            }
+        }
+        return sent;
     }
 
     private static SubscriptionDto ToDto(TenantSubscription s) => new(

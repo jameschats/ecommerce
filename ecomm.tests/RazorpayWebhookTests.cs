@@ -20,6 +20,11 @@ public class RazorpayWebhookTests
         public HttpClient CreateClient(string name) => throw new NotImplementedException();
     }
 
+    private sealed class NoopEmailSender : ecomm.api.Features.Notifications.IEmailSender
+    {
+        public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default, string? fromName = null, string? replyTo = null) => Task.CompletedTask;
+    }
+
     private static string Sign(string body)
     {
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(Secret));
@@ -47,7 +52,9 @@ public class RazorpayWebhookTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Billing:WebhookSecret"] = Secret }).Build();
         var subs = new SubscriptionService(db,
             new PlatformPaymentGatewayFactory(new StubHttpFactory(), Options.Create(new PaymentOptions()), db,
-                Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests")), tenant, config);
+                Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests")), tenant,
+            new NoopEmailSender(), Options.Create(new ecomm.api.Common.Tenancy.TenancyOptions()),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SubscriptionService>.Instance, config);
 
         db.Tenants.Add(new Tenant { TenantId = 3, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow });
         db.Plans.Add(new Plan { PlanId = 1, Name = "Pro", Slug = "pro", MonthlyPrice = 999, IsActive = true });

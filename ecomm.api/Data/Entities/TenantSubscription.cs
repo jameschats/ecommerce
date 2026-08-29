@@ -10,6 +10,8 @@ public class TenantSubscription : ITenantScoped
     public DateTime? CurrentPeriodStart { get; set; }
     public DateTime? CurrentPeriodEnd { get; set; }
     public DateTime? GraceEndsAt { get; set; }
+    /// <summary>Which "trial ends in N days" reminder was last sent (7 | 3 | 1), so each fires once. Null = none yet.</summary>
+    public int? TrialReminderStage { get; set; }
     public string? RazorpaySubscriptionId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
