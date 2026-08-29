@@ -7,6 +7,7 @@ import { ApiResponse } from '../models/api-response.model';
 export interface AppListing {
   id: number; name: string; slug: string; description: string | null; iconUrl: string | null;
   category: string | null; requestedScopes: string[]; isEmbedded: boolean; pricingModel: string; installed: boolean;
+  price: number; billingInterval: string;
 }
 export interface InstalledApp {
   installationId: number; appId: number; name: string; slug: string; iconUrl: string | null;

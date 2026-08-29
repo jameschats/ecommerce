@@ -153,6 +153,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<AppInstallation> AppInstallations => Set<AppInstallation>();
     public DbSet<AppOAuthCode> AppOAuthCodes => Set<AppOAuthCode>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<AppCharge> AppCharges => Set<AppCharge>();
 
     // --- V2: AI credits (AI-0) ---
     public DbSet<TenantAiCredit> TenantAiCredits => Set<TenantAiCredit>();
@@ -532,6 +533,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<AppInstallation>(e => { e.ToTable("AppInstallations"); e.HasKey(x => x.AppInstallationId); });
         b.Entity<AppOAuthCode>(e => { e.ToTable("AppOAuthCodes"); e.HasKey(x => x.AppOAuthCodeId); });
         b.Entity<AppSetting>(e => { e.ToTable("AppSettings"); e.HasKey(x => x.AppSettingId); });
+        b.Entity<AppCharge>(e => { e.ToTable("AppCharges"); e.HasKey(x => x.AppChargeId); });
         b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
         b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
         b.Entity<AiCreditPack>(e => { e.ToTable("AiCreditPacks"); e.HasKey(x => x.AiCreditPackId); e.Property(x => x.PriceInr).HasPrecision(10, 2); });

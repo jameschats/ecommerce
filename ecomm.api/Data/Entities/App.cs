@@ -24,7 +24,12 @@ public class App
     public bool IsEmbedded { get; set; }
     /// <summary>For embedded apps: the URL rendered inside the admin iframe.</summary>
     public string? EmbedUrl { get; set; }
-    public string PricingModel { get; set; } = "free";         // free | recurring | usage | onetime
+    public string PricingModel { get; set; } = "free";         // free | onetime | recurring | usage
+    /// <summary>Price charged to the merchant (GST-inclusive). 0 = free.</summary>
+    public decimal Price { get; set; }
+    public string BillingInterval { get; set; } = "once";      // once | monthly
+    /// <summary>Platform's cut of the app fee (%). 0 for first-party (we keep it all anyway); e.g. 15 for third-party.</summary>
+    public decimal RevenueSharePercent { get; set; }
     public string Status { get; set; } = "draft";              // draft | in_review | listed | suspended
     public bool IsFirstParty { get; set; }
     public DateTime CreatedAt { get; set; }

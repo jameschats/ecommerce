@@ -31,7 +31,10 @@ import { AppListing, AppStoreService } from '../../../core/services/app-store.se
               </div>
             </div>
             @if (a.description) { <p class="text-sm text-slate-600 mt-3 flex-1">{{ a.description }}</p> }
-            <div class="text-[11px] text-slate-400 mt-2">Permissions: {{ a.requestedScopes.join(', ') || 'none' }}</div>
+            <div class="text-xs font-medium mt-2" [class]="a.price > 0 ? 'text-slate-700' : 'text-green-600'">
+              {{ a.price > 0 ? ('₹' + a.price + (a.billingInterval === 'monthly' ? '/mo' : ' one-time')) : 'Free' }}
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">Permissions: {{ a.requestedScopes.join(', ') || 'none' }}</div>
             <div class="flex items-center gap-2 mt-4">
               @if (a.installed) {
                 <a [routerLink]="['/admin/apps', a.slug]" class="btn-primary text-sm">Open</a>

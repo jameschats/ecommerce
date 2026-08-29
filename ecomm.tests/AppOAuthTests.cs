@@ -84,5 +84,24 @@ public class AppOAuthTests
         await Assert.ThrowsAsync<AppException>(() => svc.GetConsentAsync(app.ClientId, null, "https://evil.test/cb"));
     }
 
+    [Fact]
+    public async Task Paid_app_install_records_a_revenue_shared_charge()
+    {
+        var (svc, _, db) = New();
+        await svc.RegisterFirstPartyAppAsync(
+            new RegisterAppRequest("Paid App", "d", null, "Utilities", System.Array.Empty<string>(), ["products:read"], true, "https://app.test/embed", "onetime", 300m, "once", 15m), 5);
+        await svc.InstallFirstPartyAsync("paid-app", 5);
+
+        var charge = await db.AppCharges.SingleAsync();
+        Assert.Equal("paid", charge.Status);
+        Assert.Equal(300m, charge.Amount);
+        Assert.Equal(45m, charge.PlatformFee);        // 15% of 300
+        Assert.Equal(255m, charge.DeveloperShare);
+
+        // Re-install must not double-charge a one-time app.
+        await svc.InstallFirstPartyAsync("paid-app", 5);
+        Assert.Equal(1, await db.AppCharges.CountAsync());
+    }
+
     private static string ApiKeyHash(string raw) => ecomm.api.Features.PublicApi.ApiKeyService.Hash(raw);
 }

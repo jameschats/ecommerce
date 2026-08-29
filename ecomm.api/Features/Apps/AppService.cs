@@ -10,13 +10,15 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.Apps;
 
 public sealed record AppListingDto(long Id, string Name, string Slug, string? Description, string? IconUrl,
-    string? Category, IReadOnlyList<string> RequestedScopes, bool IsEmbedded, string PricingModel, bool Installed);
+    string? Category, IReadOnlyList<string> RequestedScopes, bool IsEmbedded, string PricingModel, bool Installed,
+    decimal Price, string BillingInterval);
 public sealed record AppConsentDto(string Name, string Slug, string? IconUrl, IReadOnlyList<string> Scopes, string RedirectUri, string ClientId);
 public sealed record InstalledAppDto(long InstallationId, long AppId, string Name, string Slug, string? IconUrl,
     IReadOnlyList<string> GrantedScopes, bool IsEmbedded, string? EmbedUrl, DateTime InstalledAt);
 
 public sealed record RegisterAppRequest(string Name, string? Description, string? IconUrl, string? Category,
-    IReadOnlyList<string> RedirectUris, IReadOnlyList<string> RequestedScopes, bool IsEmbedded, string? EmbedUrl, string PricingModel);
+    IReadOnlyList<string> RedirectUris, IReadOnlyList<string> RequestedScopes, bool IsEmbedded, string? EmbedUrl, string PricingModel,
+    decimal Price = 0, string BillingInterval = "once", decimal RevenueSharePercent = 0);
 public sealed record RegisteredAppDto(long Id, string Name, string Slug, string ClientId, string ClientSecret, IReadOnlyList<string> RequestedScopes);
 
 public sealed record AuthorizeResult(string RedirectUrl);
@@ -77,6 +79,9 @@ public sealed class AppService(EcommerceDbContext db, ICurrentTenantService tena
             RedirectUris = string.Join(",", redirects), RequestedScopes = string.Join(",", scopes),
             IsEmbedded = req.IsEmbedded, EmbedUrl = Clean(req.EmbedUrl, 500),
             PricingModel = string.IsNullOrWhiteSpace(req.PricingModel) ? "free" : req.PricingModel.Trim(),
+            Price = Math.Max(0, req.Price),
+            BillingInterval = req.BillingInterval == "monthly" ? "monthly" : "once",
+            RevenueSharePercent = Math.Clamp(req.RevenueSharePercent, 0, 100),
             Status = "listed", IsFirstParty = true, CreatedAt = DateTime.UtcNow,
         };
         db.Apps.Add(app);
@@ -170,8 +175,33 @@ public sealed class AppService(EcommerceDbContext db, ICurrentTenantService tena
         inst.UninstalledAt = null;
         await db.SaveChangesAsync(ct);
 
+        if (app.Price > 0) await CreateInstallChargeAsync(app, inst, ct);
+
         return new InstalledAppDto(inst.AppInstallationId, app.AppId, app.Name, app.Slug, app.IconUrl,
             Split(inst.GrantedScopes), app.IsEmbedded, app.EmbedUrl, inst.InstalledAt);
+    }
+
+    /// <summary>Record the charge for a paid app at install, split by revenue share. One-time is marked paid
+    /// immediately in dev/mock; real Razorpay collection + developer payout (Route) are deferred to when
+    /// those rails are live (same posture as platform P2 billing).</summary>
+    private async Task CreateInstallChargeAsync(App app, AppInstallation inst, CancellationToken ct)
+    {
+        if (app.BillingInterval == "once" && await db.AppCharges.AnyAsync(c => c.AppInstallationId == inst.AppInstallationId && c.Status == "paid", ct))
+            return;   // don't double-charge a re-install of a one-time app
+        var platformFee = Math.Round(app.Price * app.RevenueSharePercent / 100m, 2);
+        var charge = new AppCharge
+        {
+            AppId = app.AppId, AppInstallationId = inst.AppInstallationId,
+            Type = app.BillingInterval == "monthly" ? "recurring" : "onetime",
+            Amount = app.Price, PlatformFee = platformFee, DeveloperShare = app.Price - platformFee,
+            Status = "pending", CreatedAt = DateTime.UtcNow,
+        };
+        if (app.BillingInterval == "once")
+        {
+            charge.Status = "paid"; charge.PaidAt = DateTime.UtcNow; charge.PaymentReference = $"mock-app-{inst.AppInstallationId}";
+        }
+        db.AppCharges.Add(charge);   // TenantId auto-stamped
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<InstalledAppDto?> GetInstalledBySlugAsync(string slug, CancellationToken ct = default)
@@ -291,7 +321,7 @@ public sealed class AppService(EcommerceDbContext db, ICurrentTenantService tena
     }
 
     private static AppListingDto ToListing(App a, bool installed) =>
-        new(a.AppId, a.Name, a.Slug, a.Description, a.IconUrl, a.Category, Split(a.RequestedScopes), a.IsEmbedded, a.PricingModel, installed);
+        new(a.AppId, a.Name, a.Slug, a.Description, a.IconUrl, a.Category, Split(a.RequestedScopes), a.IsEmbedded, a.PricingModel, installed, a.Price, a.BillingInterval);
 
     private static IReadOnlyList<string> Split(string csv) => csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     private static string? Clean(string? v, int max) => string.IsNullOrWhiteSpace(v) ? null : (v.Trim().Length <= max ? v.Trim() : v.Trim()[..max]);
