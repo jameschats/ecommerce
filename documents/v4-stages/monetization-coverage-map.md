@@ -30,7 +30,7 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 |---|---|---|---|
 | B1 | **Card/mandate "verification"** | 📝 | Not a separate step — the Razorpay **mandate registration is the verification** (auth txn + AFA/3DS). No PAN stored (gateway-tokenized). |
 | B2 | Payment-method management (update card, expiry notice, multiple methods) | ❗ | Card-expiry → notify + re-auth mandate. **Needs a plan.** |
-| B3 | **Merchant business KYC** (to accept storefront payments) | ❗ | Today merchants **bring their own Razorpay keys** (`TenantPaymentAccount`, BYO). Decision: keep BYO vs platform-managed **connected accounts (Razorpay Route / Stripe Connect)** with KYC we orchestrate. Big architectural fork. **Needs a plan.** |
+| B3 | **Merchant business KYC** (to accept storefront payments) | 📝 | Today merchants **bring their own Razorpay keys** (`TenantPaymentAccount`, BYO) — with BYO, KYC is Razorpay's problem, not ours. Platform-managed path planned via **Razorpay Route** (rides Razorpay's PA license; coexists with BYO): [razorpay-route-plan.md](razorpay-route-plan.md). Recommended to build **after** subscription billing. |
 | B4 | PCI-DSS scope | 📝 | Stays SAQ-A (gateway-hosted fields, no PAN touches our servers). Document, don't build. |
 | B5 | RBI recurring-payment compliance (e-mandate, pre-debit notice, ₹15k AFA cap) | 📝 | Delegated to Razorpay Subscriptions (billing plan §2). |
 | B6 | Webhook reliability (idempotency, signature verify, retries) | 🟡 | `RecordChargeAsync` idempotent; HMAC verify exists. Extend to `subscription.*` events. |
@@ -70,7 +70,7 @@ domain, so nothing falls through. Cross-references the two deep-dive plans:
 | # | Item | Status | Notes |
 |---|---|---|---|
 | F1 | Shopper→merchant settlement | ✅ (implicit) | BYO-keys → merchant is paid directly by their own gateway; **no platform payout today.** |
-| F2 | Platform-managed payouts (only if B3 chooses connected-accounts) | ❗ | Marketplace model needs payouts, reserves, settlement reports. **Only if we go Route/Connect.** |
+| F2 | Platform-managed payouts (only if B3 chooses connected-accounts) | 📝 | With Route, **Razorpay settles to the merchant's bank directly** — we don't run payouts (that's what keeps us out of PA scope). See [razorpay-route-plan.md](razorpay-route-plan.md) §6. |
 
 ## G. Compliance & legal
 
