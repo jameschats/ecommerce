@@ -91,6 +91,10 @@ export interface TenantDetail {
 export interface TenantPaymentInfo { provider: string; razorpayKeyId: string | null; hasSecret: boolean; isEnabled: boolean; }
 export interface PlatformPayment { provider: string; razorpayKeyId: string | null; hasSecret: boolean; source: string; }
 export interface PlatformPaymentUpsert { provider: string; razorpayKeyId: string | null; razorpayKeySecret: string | null; }
+export interface PlatformBilling {
+  sellerLegalName: string | null; sellerGstin: string | null; sellerAddress: string | null;
+  sellerState: string | null; gstRatePercent: number; invoicePrefix: string;
+}
 
 export interface PlatformEmail {
   provider: string; host: string | null; port: number; username: string | null;

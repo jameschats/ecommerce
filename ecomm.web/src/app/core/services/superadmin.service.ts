@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import { ApiResponse } from '../models/api-response.model';
 import {
   Announcement, AnnouncementUpsert, AuditEntry, BillingCharge, BlocklistEntry, CreditPack, ImpersonationResult,
-  PackUpsert, PlanOption, PlanUpsert, PlatformAnalytics, PlatformEmail, PlatformEmailUpsert, PlatformPayment, PlatformPaymentUpsert,
+  PackUpsert, PlanOption, PlanUpsert, PlatformAnalytics, PlatformBilling, PlatformEmail, PlatformEmailUpsert, PlatformPayment, PlatformPaymentUpsert,
   PlatformRevenue, PlatformStaff, SubStatusRow, TenantDetail, TenantDiagnostics, TenantSummary,
 } from '../models/superadmin.model';
 
@@ -98,6 +98,12 @@ export class SuperAdminService {
   }
   savePlatformPayment(req: PlatformPaymentUpsert): Observable<unknown> {
     return this.http.put<ApiResponse<unknown>>(`${this.base}/payment-settings`, req);
+  }
+  platformBilling(): Observable<PlatformBilling> {
+    return this.http.get<ApiResponse<PlatformBilling>>(`${this.base}/billing-settings`).pipe(map((r) => r.data as PlatformBilling));
+  }
+  savePlatformBilling(req: PlatformBilling): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.base}/billing-settings`, req);
   }
   platformEmail(): Observable<PlatformEmail> {
     return this.http.get<ApiResponse<PlatformEmail>>(`${this.base}/email-settings`).pipe(map((r) => r.data as PlatformEmail));

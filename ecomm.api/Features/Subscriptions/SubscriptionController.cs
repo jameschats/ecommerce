@@ -8,7 +8,10 @@ namespace ecomm.api.Features.Subscriptions;
 [ApiController]
 [Route("api/subscription")]
 [Authorize(Roles = "Admin")]
-public sealed class SubscriptionController(ISubscriptionService subscriptions) : ControllerBase
+public sealed class SubscriptionController(
+    ISubscriptionService subscriptions,
+    IPlatformInvoiceService invoices,
+    ecomm.api.Common.Tenancy.ICurrentTenantService tenant) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Current(CancellationToken ct)
@@ -59,6 +62,18 @@ public sealed class SubscriptionController(ISubscriptionService subscriptions) :
     {
         await subscriptions.CancelAutoPayAsync(ct);
         return Ok(ApiResponse<object>.Ok(new { }, "Auto-pay will stop at the end of the current cycle."));
+    }
+
+    /// <summary>The GST tax invoices issued to this store for its subscription charges.</summary>
+    [HttpGet("invoices")]
+    public async Task<IActionResult> Invoices(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<PlatformInvoiceDto>>.Ok(await invoices.ListForTenantAsync(tenant.CurrentTenantId, ct)));
+
+    [HttpGet("invoices/{id:long}/pdf")]
+    public async Task<IActionResult> InvoicePdf(long id, CancellationToken ct)
+    {
+        var pdf = await invoices.RenderPdfAsync(tenant.CurrentTenantId, id, ct);
+        return pdf is null ? NotFound(ApiResponse<object>.Fail("Invoice not found.")) : File(pdf.Bytes, "application/pdf", pdf.FileName);
     }
 }
 

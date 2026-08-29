@@ -25,6 +25,13 @@ public class RazorpayWebhookTests
         public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default, string? fromName = null, string? replyTo = null) => Task.CompletedTask;
     }
 
+    private sealed class NoopInvoices : IPlatformInvoiceService
+    {
+        public Task GenerateForChargeAsync(long tenantId, long billingHistoryId, decimal grossAmount, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<PlatformInvoiceDto>> ListForTenantAsync(long tenantId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<PlatformInvoiceDto>>(new List<PlatformInvoiceDto>());
+        public Task<PlatformInvoicePdf?> RenderPdfAsync(long tenantId, long invoiceId, CancellationToken ct = default) => Task.FromResult<PlatformInvoicePdf?>(null);
+    }
+
     private static string Sign(string body)
     {
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(Secret));
@@ -53,7 +60,7 @@ public class RazorpayWebhookTests
         var subs = new SubscriptionService(db,
             new PlatformPaymentGatewayFactory(new StubHttpFactory(), Options.Create(new PaymentOptions()), db,
                 Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests")), tenant,
-            new NoopEmailSender(), Options.Create(new ecomm.api.Common.Tenancy.TenancyOptions()),
+            new NoopEmailSender(), new NoopInvoices(), Options.Create(new ecomm.api.Common.Tenancy.TenancyOptions()),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<SubscriptionService>.Instance, config);
 
         db.Tenants.Add(new Tenant { TenantId = 3, Name = "Acme", Code = "acme", IsActive = true, CreatedAt = DateTime.UtcNow });

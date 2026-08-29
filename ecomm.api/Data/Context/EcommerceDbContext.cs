@@ -147,6 +147,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<GrowthFestival> GrowthFestivals => Set<GrowthFestival>();
     public DbSet<Article> Articles => Set<Article>();
     public DbSet<CustomerEvent> CustomerEvents => Set<CustomerEvent>();
+    public DbSet<PlatformBillingSettings> PlatformBillingSettings => Set<PlatformBillingSettings>();
+    public DbSet<PlatformInvoice> PlatformInvoices => Set<PlatformInvoice>();
 
     // --- V2: AI credits (AI-0) ---
     public DbSet<TenantAiCredit> TenantAiCredits => Set<TenantAiCredit>();
@@ -518,6 +520,9 @@ public class EcommerceDbContext : DbContext
         b.Entity<GrowthFestival>(e => { e.ToTable("GrowthFestivals"); e.HasKey(x => x.GrowthFestivalId); e.Property(x => x.Date).HasColumnType("date"); });
         b.Entity<Article>(e => { e.ToTable("Articles"); e.HasKey(x => x.ArticleId); });
         b.Entity<CustomerEvent>(e => { e.ToTable("CustomerEvents"); e.HasKey(x => x.CustomerEventId); });
+        // Global (not tenant-scoped): platform-issued GST invoices numbered per the platform's GSTIN.
+        b.Entity<PlatformBillingSettings>(e => { e.ToTable("PlatformBillingSettings"); e.HasKey(x => x.PlatformBillingSettingsId); });
+        b.Entity<PlatformInvoice>(e => { e.ToTable("PlatformInvoices"); e.HasKey(x => x.PlatformInvoiceId); });
         b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
         b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
         b.Entity<AiCreditPack>(e => { e.ToTable("AiCreditPacks"); e.HasKey(x => x.AiCreditPackId); e.Property(x => x.PriceInr).HasPrecision(10, 2); });

@@ -53,6 +53,7 @@ public sealed class SubscriptionService(
     ecomm.api.Features.Payments.PlatformPaymentGatewayFactory gateways,
     ecomm.api.Common.Tenancy.ICurrentTenantService tenant,
     ecomm.api.Features.Notifications.IEmailSender email,
+    IPlatformInvoiceService invoices,
     Microsoft.Extensions.Options.IOptions<ecomm.api.Common.Tenancy.TenancyOptions> tenancy,
     ILogger<SubscriptionService> log,
     IConfiguration configuration) : ISubscriptionService
@@ -182,12 +183,13 @@ public sealed class SubscriptionService(
         // scope the auto-stamp would file another store's payment under tenant 1.
         using (tenant.BeginScope(cmd.TenantId))
         {
-            db.TenantBillingHistory.Add(new TenantBillingHistory
+            var history = new TenantBillingHistory
             {
                 TenantId = cmd.TenantId, Amount = cmd.Amount, Status = "Paid",
                 RazorpayPaymentId = cmd.RazorpayPaymentId, BilledAt = DateTime.UtcNow,
                 PeriodStart = cmd.PeriodStart, PeriodEnd = cmd.PeriodEnd, CreatedAt = DateTime.UtcNow,
-            });
+            };
+            db.TenantBillingHistory.Add(history);
 
             var sub = await db.TenantSubscriptions.IgnoreQueryFilters()
                 .Where(s => s.TenantId == cmd.TenantId)
@@ -207,6 +209,10 @@ public sealed class SubscriptionService(
             if (store?.SuspendedAt is not null) { store.SuspendedAt = null; store.UpdatedAt = DateTime.UtcNow; }
 
             await db.SaveChangesAsync(ct);
+
+            // Issue the GST tax invoice for this charge (best-effort — the charge itself must not fail on it).
+            try { await invoices.GenerateForChargeAsync(cmd.TenantId, history.TenantBillingHistoryId, cmd.Amount, ct); }
+            catch (Exception ex) { log.LogWarning(ex, "Platform invoice generation failed for charge {Charge}.", history.TenantBillingHistoryId); }
         }
         return true;
     }

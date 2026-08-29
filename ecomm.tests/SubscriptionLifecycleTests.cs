@@ -21,6 +21,13 @@ public class SubscriptionLifecycleTests
         public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default, string? fromName = null, string? replyTo = null) => Task.CompletedTask;
     }
 
+    private sealed class NoopInvoices : IPlatformInvoiceService
+    {
+        public Task GenerateForChargeAsync(long tenantId, long billingHistoryId, decimal grossAmount, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<PlatformInvoiceDto>> ListForTenantAsync(long tenantId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<PlatformInvoiceDto>>(new List<PlatformInvoiceDto>());
+        public Task<PlatformInvoicePdf?> RenderPdfAsync(long tenantId, long invoiceId, CancellationToken ct = default) => Task.FromResult<PlatformInvoicePdf?>(null);
+    }
+
     private static PlatformPaymentGatewayFactory Gateways(ecomm.api.Data.Context.EcommerceDbContext db) =>
         new(new StubHttpFactory(), Options.Create(new PaymentOptions()), db,
             Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("ecomm.tests"));
@@ -31,7 +38,7 @@ public class SubscriptionLifecycleTests
         // Service + context share the tenant instance so RecordCharge's BeginScope drives the auto-stamp.
         var tenant = new FixedTenant(tenantId);
         var db = TestDb.ForDatabase(Guid.NewGuid().ToString(), tenant);
-        return (db, new SubscriptionService(db, Gateways(db), tenant, new NoopEmail(),
+        return (db, new SubscriptionService(db, Gateways(db), tenant, new NoopEmail(), new NoopInvoices(),
             Options.Create(new ecomm.api.Common.Tenancy.TenancyOptions()),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<SubscriptionService>.Instance,
             config ?? new ConfigurationBuilder().Build()));

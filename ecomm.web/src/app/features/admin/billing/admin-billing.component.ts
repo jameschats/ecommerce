@@ -1,7 +1,7 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, NgZone, OnInit, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { BillingHistory, BillingService, CheckoutSession, Plan, Subscription } from '../../../core/services/billing.service';
+import { BillingHistory, BillingService, CheckoutSession, Plan, PlatformInvoice, Subscription } from '../../../core/services/billing.service';
 
 @Component({
   selector: 'app-admin-billing',
@@ -114,6 +114,22 @@ import { BillingHistory, BillingService, CheckoutSession, Plan, Subscription } f
             </div>
           }
         </div>
+
+        <!-- Tax invoices -->
+        @if (invoices().length > 0) {
+          <h2 class="font-semibold text-slate-800 mb-3 mt-8">Tax invoices</h2>
+          <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+            @for (inv of invoices(); track inv.id) {
+              <div class="flex items-center justify-between px-4 py-3 text-sm">
+                <div>
+                  <span class="font-medium text-slate-800">{{ inv.invoiceNumber }}</span>
+                  <span class="text-slate-400"> · {{ inv.invoiceDate | date:'d MMM y' }} · {{ inv.totalAmount | currency:'INR':'symbol':'1.0-0' }}</span>
+                </div>
+                <button type="button" (click)="downloadInvoice(inv)" class="text-primary hover:underline">Download PDF</button>
+              </div>
+            }
+          </div>
+        }
       }
     </div>
   `,
@@ -127,14 +143,27 @@ export class AdminBillingComponent implements OnInit {
   readonly sub = signal<Subscription | null>(null);
   readonly plans = signal<Plan[]>([]);
   readonly history = signal<BillingHistory[]>([]);
+  readonly invoices = signal<PlatformInvoice[]>([]);
 
   ngOnInit(): void { this.load(); }
 
   private load(): void {
     this.loading.set(true);
-    forkJoin({ sub: this.api.current(), plans: this.api.plans(), history: this.api.history() }).subscribe({
-      next: ({ sub, plans, history }) => { this.sub.set(sub); this.plans.set(plans); this.history.set(history); this.loading.set(false); },
+    forkJoin({ sub: this.api.current(), plans: this.api.plans(), history: this.api.history(), invoices: this.api.invoices() }).subscribe({
+      next: ({ sub, plans, history, invoices }) => {
+        this.sub.set(sub); this.plans.set(plans); this.history.set(history); this.invoices.set(invoices); this.loading.set(false);
+      },
       error: () => this.loading.set(false),
+    });
+  }
+
+  downloadInvoice(inv: PlatformInvoice): void {
+    this.api.invoicePdf(inv.id).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `invoice-${inv.invoiceNumber.replace(/\//g, '-')}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
     });
   }
 

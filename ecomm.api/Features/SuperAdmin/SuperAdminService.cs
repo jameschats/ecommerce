@@ -45,6 +45,9 @@ public sealed record PlatformPaymentUpsert(string Provider, string? RazorpayKeyI
 /// <summary>Platform transactional-email (SMTP) config. Provider = Logging (mock) | Smtp (live).
 /// Password never returned — only <c>HasSecret</c>. Source = console | env.</summary>
 public sealed record PlatformEmailDto(string Provider, string? Host, int Port, string? Username, string? FromAddress, string? FromName, bool UseSsl, bool HasSecret, string Source);
+
+public sealed record PlatformBillingDto(string? SellerLegalName, string? SellerGstin, string? SellerAddress, string? SellerState, decimal GstRatePercent, string InvoicePrefix);
+public sealed record PlatformBillingUpsert(string? SellerLegalName, string? SellerGstin, string? SellerAddress, string? SellerState, decimal? GstRatePercent, string? InvoicePrefix);
 public sealed record PlatformEmailUpsert(string Provider, string? Host, int Port, string? Username, string? Password, string? FromAddress, string? FromName, bool UseSsl);
 public sealed record TestEmailReq(string To);
 
@@ -83,6 +86,8 @@ public interface ISuperAdminService
     Task<IReadOnlyList<BillingChargeDto>> RecentChargesAsync(int limit, CancellationToken ct);
     Task RecordManualPaymentAsync(long tenantId, int planId, decimal amount, string? reference, long adminUserId, CancellationToken ct);
     Task<PlatformPaymentDto> GetPlatformPaymentAsync(CancellationToken ct);
+    Task<PlatformBillingDto> GetPlatformBillingAsync(CancellationToken ct);
+    Task<PlatformBillingDto> SavePlatformBillingAsync(PlatformBillingUpsert req, long adminUserId, CancellationToken ct);
     Task<PlatformPaymentDto> SavePlatformPaymentAsync(PlatformPaymentUpsert req, long adminUserId, CancellationToken ct);
     Task<PlatformEmailDto> GetPlatformEmailAsync(CancellationToken ct);
     Task<PlatformEmailDto> SavePlatformEmailAsync(PlatformEmailUpsert req, long adminUserId, CancellationToken ct);
@@ -324,6 +329,30 @@ public sealed class SuperAdminService(EcommerceDbContext db, IJwtTokenService jw
     {
         var (provider, keyId, hasSecret, source) = gateways.Describe();
         return Task.FromResult(new PlatformPaymentDto(provider, keyId, hasSecret, source));
+    }
+
+    public async Task<PlatformBillingDto> GetPlatformBillingAsync(CancellationToken ct)
+    {
+        var row = await db.PlatformBillingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+        return new PlatformBillingDto(row?.SellerLegalName, row?.SellerGstin, row?.SellerAddress, row?.SellerState,
+            row?.GstRatePercent ?? 18m, row?.InvoicePrefix ?? "INV");
+    }
+
+    /// <summary>Set the platform's seller/GSTIN details used on the GST tax invoices issued to merchants.</summary>
+    public async Task<PlatformBillingDto> SavePlatformBillingAsync(PlatformBillingUpsert req, long adminUserId, CancellationToken ct)
+    {
+        var row = await db.PlatformBillingSettings.FirstOrDefaultAsync(ct);
+        if (row is null) { row = new PlatformBillingSettings(); db.PlatformBillingSettings.Add(row); }
+        row.SellerLegalName = req.SellerLegalName?.Trim();
+        row.SellerGstin = req.SellerGstin?.Trim();
+        row.SellerAddress = req.SellerAddress?.Trim();
+        row.SellerState = req.SellerState?.Trim();
+        if (req.GstRatePercent is { } r && r > 0) row.GstRatePercent = r;
+        if (!string.IsNullOrWhiteSpace(req.InvoicePrefix)) row.InvoicePrefix = req.InvoicePrefix!.Trim();
+        row.UpdatedAt = DateTime.UtcNow;
+        await LogAsync(adminUserId, null, "PlatformBillingSettings", "updated seller/GSTIN details", ct);
+        await db.SaveChangesAsync(ct);
+        return await GetPlatformBillingAsync(ct);
     }
 
     /// <summary>

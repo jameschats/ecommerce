@@ -20,6 +20,14 @@ export interface Subscription {
   cancelAtPeriodEnd: boolean;
 }
 
+export interface PlatformInvoice {
+  id: number;
+  invoiceNumber: string;
+  invoiceDate: string;
+  totalAmount: number;
+  billingHistoryId: number;
+}
+
 export interface AutoPaySetup {
   active: boolean;
   authUrl: string | null;
@@ -86,4 +94,7 @@ export class BillingService {
     return this.unwrap(this.http.post<ApiResponse<AutoPaySetup>>(`${this.base}/subscription/autopay/setup`, { planId }));
   }
   cancelAutoPay(): Observable<unknown> { return this.http.post<ApiResponse<unknown>>(`${this.base}/subscription/autopay/cancel`, {}); }
+  // GST tax invoices for the SaaS fee
+  invoices(): Observable<PlatformInvoice[]> { return this.unwrap(this.http.get<ApiResponse<PlatformInvoice[]>>(`${this.base}/subscription/invoices`)); }
+  invoicePdf(id: number): Observable<Blob> { return this.http.get(`${this.base}/subscription/invoices/${id}/pdf`, { responseType: 'blob' }); }
 }

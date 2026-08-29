@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SuperAdminService } from '../../core/services/superadmin.service';
-import { PlatformPayment } from '../../core/models/superadmin.model';
+import { PlatformBilling, PlatformPayment } from '../../core/models/superadmin.model';
 
 /** The PLATFORM's own gateway — how merchants pay us (subscriptions, AI credits). */
 @Component({
@@ -40,6 +40,23 @@ import { PlatformPayment } from '../../core/models/superadmin.model';
         </div>
       </div>
     }
+
+    <!-- GST tax-invoice settings (platform → merchant SaaS invoices) -->
+    @if (billing(); as b) {
+      <div class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mt-6">
+        <h2 class="font-semibold text-slate-800 mb-1">GST invoice details</h2>
+        <p class="text-xs text-slate-500 mb-3">Seller details printed on the tax invoices issued to merchants for their subscription fees. Set the real GSTIN before go-live.</p>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <label class="block"><span class="lbl">Legal name</span><input [(ngModel)]="b.sellerLegalName" class="input" /></label>
+          <label class="block"><span class="lbl">GSTIN</span><input [(ngModel)]="b.sellerGstin" placeholder="e.g. 29ABCDE1234F1Z5" class="input" /></label>
+          <label class="block"><span class="lbl">State (place of supply origin)</span><input [(ngModel)]="b.sellerState" placeholder="e.g. Karnataka" class="input" /></label>
+          <label class="block"><span class="lbl">Invoice prefix</span><input [(ngModel)]="b.invoicePrefix" placeholder="WAV" class="input" /></label>
+          <label class="block sm:col-span-2"><span class="lbl">Address</span><input [(ngModel)]="b.sellerAddress" class="input" /></label>
+          <label class="block"><span class="lbl">GST rate %</span><input [(ngModel)]="b.gstRatePercent" type="number" class="input" /></label>
+        </div>
+        <button type="button" (click)="saveBilling()" [disabled]="savingBilling()" class="btn-primary text-xs mt-3">{{ savingBilling() ? 'Saving…' : 'Save invoice details' }}</button>
+      </div>
+    }
   `,
 })
 export class SuperAdminPaymentsComponent implements OnInit {
@@ -52,6 +69,9 @@ export class SuperAdminPaymentsComponent implements OnInit {
   keyId = '';
   secret = '';
 
+  readonly billing = signal<PlatformBilling | null>(null);
+  readonly savingBilling = signal(false);
+
   ngOnInit(): void { this.load(); }
 
   private load(): void {
@@ -60,6 +80,18 @@ export class SuperAdminPaymentsComponent implements OnInit {
       this.provider = c.provider;
       this.keyId = c.razorpayKeyId ?? '';
       this.secret = '';
+    });
+    this.svc.platformBilling().subscribe((b) => this.billing.set(b));
+  }
+
+  saveBilling(): void {
+    const b = this.billing();
+    if (!b) return;
+    this.savingBilling.set(true);
+    this.error.set(null);
+    this.svc.savePlatformBilling(b).subscribe({
+      next: () => { this.savingBilling.set(false); this.message.set('Invoice details saved.'); setTimeout(() => this.message.set(null), 3000); },
+      error: (e) => { this.savingBilling.set(false); this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'Could not save.'); },
     });
   }
 

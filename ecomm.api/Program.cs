@@ -120,6 +120,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ecomm.api.Features.Auth.Services.ITwoFactorService, ecomm.api.Features.Auth.Services.TwoFactorService>();
 builder.Services.AddScoped<ecomm.api.Features.Onboarding.IOnboardingService, ecomm.api.Features.Onboarding.OnboardingService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.ISubscriptionService, ecomm.api.Features.Subscriptions.SubscriptionService>();
+builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IPlatformInvoiceService, ecomm.api.Features.Subscriptions.PlatformInvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Subscriptions.IRazorpayWebhookService, ecomm.api.Features.Subscriptions.RazorpayWebhookService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.ISuperAdminService, ecomm.api.Features.SuperAdmin.SuperAdminService>();
 builder.Services.AddScoped<ecomm.api.Features.SuperAdmin.IPlatformStaffService, ecomm.api.Features.SuperAdmin.PlatformStaffService>();
