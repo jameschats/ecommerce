@@ -10,10 +10,19 @@ namespace ecomm.api.Features.SuperAdmin;
 [ApiController]
 [Route("api/superadmin")]
 [Authorize(Roles = "SuperAdmin")]
-public sealed class SuperAdminController(ISuperAdminService svc) : ControllerBase
+public sealed class SuperAdminController(ISuperAdminService svc, ecomm.api.Features.Apps.IAppService apps) : ControllerBase
 {
     private long AdminUserId => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? User.FindFirstValue("sub"), out var id) ? id : 0;
+
+    // App marketplace — register/list first-party apps (S1).
+    [HttpGet("apps")]
+    public async Task<IActionResult> Apps(CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<ecomm.api.Features.Apps.AppListingDto>>.Ok(await apps.ListAllForAdminAsync(ct)));
+
+    [HttpPost("apps")]
+    public async Task<IActionResult> RegisterApp([FromBody] ecomm.api.Features.Apps.RegisterAppRequest req, CancellationToken ct)
+        => Ok(ApiResponse<ecomm.api.Features.Apps.RegisteredAppDto>.Ok(await apps.RegisterFirstPartyAppAsync(req, AdminUserId, ct), "App registered — copy the client secret now, it won't be shown again."));
 
     [HttpGet("tenants")]
     public async Task<IActionResult> Tenants([FromQuery] string? search, CancellationToken ct)

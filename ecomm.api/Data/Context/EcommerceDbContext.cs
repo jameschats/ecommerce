@@ -149,6 +149,9 @@ public class EcommerceDbContext : DbContext
     public DbSet<CustomerEvent> CustomerEvents => Set<CustomerEvent>();
     public DbSet<PlatformBillingSettings> PlatformBillingSettings => Set<PlatformBillingSettings>();
     public DbSet<PlatformInvoice> PlatformInvoices => Set<PlatformInvoice>();
+    public DbSet<App> Apps => Set<App>();
+    public DbSet<AppInstallation> AppInstallations => Set<AppInstallation>();
+    public DbSet<AppOAuthCode> AppOAuthCodes => Set<AppOAuthCode>();
 
     // --- V2: AI credits (AI-0) ---
     public DbSet<TenantAiCredit> TenantAiCredits => Set<TenantAiCredit>();
@@ -523,6 +526,10 @@ public class EcommerceDbContext : DbContext
         // Global (not tenant-scoped): platform-issued GST invoices numbered per the platform's GSTIN.
         b.Entity<PlatformBillingSettings>(e => { e.ToTable("PlatformBillingSettings"); e.HasKey(x => x.PlatformBillingSettingsId); });
         b.Entity<PlatformInvoice>(e => { e.ToTable("PlatformInvoices"); e.HasKey(x => x.PlatformInvoiceId); });
+        // App marketplace: App + AppOAuthCode are global; AppInstallation is tenant-scoped (auto-filtered).
+        b.Entity<App>(e => { e.ToTable("Apps"); e.HasKey(x => x.AppId); });
+        b.Entity<AppInstallation>(e => { e.ToTable("AppInstallations"); e.HasKey(x => x.AppInstallationId); });
+        b.Entity<AppOAuthCode>(e => { e.ToTable("AppOAuthCodes"); e.HasKey(x => x.AppOAuthCodeId); });
         b.Entity<TenantAiCredit>(e => { e.ToTable("TenantAiCredits"); e.HasKey(x => x.TenantAiCreditId); });
         b.Entity<AiUsageLog>(e => { e.ToTable("AiUsageLogs"); e.HasKey(x => x.AiUsageLogId); });
         b.Entity<AiCreditPack>(e => { e.ToTable("AiCreditPacks"); e.HasKey(x => x.AiCreditPackId); e.Property(x => x.PriceInr).HasPrecision(10, 2); });

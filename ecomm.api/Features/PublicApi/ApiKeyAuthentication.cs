@@ -38,6 +38,30 @@ public sealed class ApiKeyAuthenticationHandler(
     {
         var rawKey = ExtractKey(Request);
         if (rawKey is null) return AuthenticateResult.NoResult();
+
+        // App-marketplace access token (apptok_…) — an installed app calling the public API. Resolves to the
+        // same claim shape (tenant + scopes) as a merchant API key, so all public controllers work unchanged.
+        if (rawKey.StartsWith(ecomm.api.Features.Apps.AppService.TokenPrefixLiteral, StringComparison.Ordinal))
+        {
+            var tokenHash = ApiKeyService.Hash(rawKey);
+            var inst = await db.AppInstallations.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(i => i.AccessTokenHash == tokenHash && i.Status == "installed");
+            if (inst is null) return AuthenticateResult.Fail("Invalid or uninstalled app token.");
+            inst.LastUsedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            var appClaims = new List<Claim>
+            {
+                new("tenant", inst.TenantId.ToString()),
+                new("app_installation_id", inst.AppInstallationId.ToString()),
+                new("app_id", inst.AppId.ToString()),
+            };
+            appClaims.AddRange(inst.GrantedScopes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => new Claim("scope", s)));
+            var appIdentity = new ClaimsIdentity(appClaims, ApiKeyAuthDefaults.Scheme);
+            return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(appIdentity), ApiKeyAuthDefaults.Scheme));
+        }
+
         if (!rawKey.StartsWith(ApiKeyService.KeyPrefixLiteral, StringComparison.Ordinal))
             return AuthenticateResult.Fail("Invalid API key format.");
 
