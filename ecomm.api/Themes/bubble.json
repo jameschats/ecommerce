@@ -1,0 +1,200 @@
+{
+  "key": "bubble",
+  "sortOrder": 15,
+  "name": "Bubble",
+  "category": "Kids",
+  "catalogFit": "Medium",
+  "features": ["Bright, playful palette", "Shop-by-age layout", "Parent-reassuring USPs", "Rounded friendly type"],
+  "description": "A bright, joyful theme for kids, toys and learning stores. Sunny coral and teal, big rounded Poppins headings and playful shop-by-age layouts — cheerful for children, reassuring for the grown-ups paying.",
+  "settings": {
+    "PrimaryColor": "#f97316",
+    "SecondaryColor": "#0f766e",
+    "AccentColor": "#06b6d4",
+    "Font": "Nunito",
+    "HeadingFont": "Poppins",
+    "HeadingWeight": "700",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.7",
+    "Radius": "round",
+    "ButtonStyle": "pill",
+    "CardStyle": "elevated",
+    "ContainerWidth": "1280px",
+    "Density": "spacious"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=1600&q=80", "heading": "Playtime, sorted", "subheading": "Toys, games and learning kits kids love — and grown-ups feel good about.", "buttonText": "Shop toys", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Multicolumn", "title": "Why us",
+          "settings": { "heading": "Made for happy homes" },
+          "blocks": [
+            { "icon": "🛡️", "heading": "Safety-tested", "text": "Every toy meets strict safety standards." },
+            { "icon": "🌈", "heading": "Screen-free fun", "text": "Play that sparks imagination, not batteries." },
+            { "icon": "♻️", "heading": "Built to last", "text": "Durable, hand-me-down-worthy quality." },
+            { "icon": "🚚", "heading": "Fast delivery", "text": "Next-day dispatch so playtime can't wait." }
+          ]
+        },
+        {
+          "type": "EditorialSplit", "title": "Our promise",
+          "settings": { "eyebrow": "Our promise", "heading": "Toys that grow little minds", "body": "We hand-pick every toy for play value, not just packaging — things that build curiosity, patience and giggles. If we wouldn't give it to our own kids, it's not on the shelf.", "image": "https://images.unsplash.com/photo-1503457574462-bd27054394c1?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "How we choose", "buttonLink": "/pages/bubble-promise" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop by age",
+          "settings": { "heading": "Shop by age" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1560859251-d563a49c5e4a?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1545558014-8692077e9b5c?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1524230572899-a752b3835840?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "New arrivals",
+          "settings": { "heading": "Fresh off the shelf", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Learning",
+          "settings": { "image": "https://images.unsplash.com/photo-1607083206968-13611e3d76db?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Learning that feels like play", "body": "STEM kits, puzzles and craft sets that sneak a little learning into every giggle. Sorted by age and skill, so it's easy to find the perfect next challenge.", "buttonText": "Shop learning", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Best sellers",
+          "settings": { "heading": "Most-loved toys", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "Parents love us" },
+          "blocks": [
+            { "value": "100%", "label": "Safety-tested toys" },
+            { "value": "48h", "label": "Next-day dispatch" },
+            { "value": "10k+", "label": "Five-star reviews" },
+            { "value": "30-day", "label": "Easy returns" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "From happy families" },
+          "blocks": [
+            { "quote": "The wooden train set has survived two kids and still looks new. Worth every penny.", "author": "Parent of two", "rating": 5 },
+            { "quote": "Finally a toy shop that sorts by age — birthday shopping took five minutes.", "author": "Verified buyer", "rating": 5 },
+            { "quote": "Arrived the next day, beautifully packed. My daughter hasn't put it down since.", "author": "Loyal customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "Get 10% off your first order", "subtext": "Play ideas, new arrivals and members-only treats — plus a welcome discount when you join.", "buttonText": "Subscribe", "backgroundColor": "#0f766e" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Kids also loved", "settings": { "heading": "Kids also loved", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Bubble order" },
+          "blocks": [
+            { "icon": "🛡️", "heading": "Safety-tested", "text": "Meets strict toy-safety standards." },
+            { "icon": "🚚", "heading": "Fast delivery", "text": "Next-day dispatch, tracked to your door." },
+            { "icon": "↩️", "heading": "30-day returns", "text": "Not a hit? Send it back, no fuss." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Free next-day delivery on orders over your first threshold", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Promise", "slug": "bubble-promise",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "How we choose",
+          "settings": { "eyebrow": "How we choose", "heading": "Play value comes first", "body": "Before a toy makes the shelf, we ask one question: will a child come back to it? We look for open-ended play, sturdy build and real imagination — not just a shiny box.", "image": "https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Safety",
+          "settings": { "image": "https://images.unsplash.com/photo-1533450718592-29d45635f0a9?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Safe hands, happy play", "body": "Every product is age-graded and independently safety-tested. Non-toxic materials, no sharp edges, and clear age guidance on every listing so you can shop with total confidence." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "The promise",
+          "settings": { "heading": "The promise" },
+          "blocks": [
+            { "value": "100%", "label": "Safety-tested" },
+            { "value": "0", "label": "Toxic materials" },
+            { "value": "Every", "label": "Toy age-graded" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Delivery & FAQ", "slug": "bubble-delivery-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Delivery",
+          "settings": { "image": "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Here before the big day", "body": "Order by 9pm on a weekday for next-day delivery, fully tracked. Need it gift-wrapped? Add a wrap at checkout and we'll send it ready to give." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "How do I know a toy is right for my child's age?", "answer": "Every product lists a recommended age range and skill focus. When in doubt, use the shop-by-age filter or message us — we're happy to help you pick." },
+            { "question": "Are your toys safety-tested?", "answer": "Yes. Everything we sell is independently safety-tested and made from non-toxic materials, with clear age guidance and any small-parts warnings on the listing." },
+            { "question": "Do you offer gift wrapping?", "answer": "We do. Add gift wrap at checkout and we'll wrap your order and include a message card — ready to hand straight over." },
+            { "question": "How fast is delivery?", "answer": "Order by 9pm on a weekday for next-day delivery, fully tracked. Standard delivery is free over your store's threshold." },
+            { "question": "What if my child doesn't love it?", "answer": "Return any unopened toy within 30 days for a full refund. If something arrives faulty, we'll replace it and cover the postage." }
+          ]
+        }
+      ]
+    }
+  ]
+}
