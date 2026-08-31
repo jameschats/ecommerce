@@ -154,6 +154,54 @@ Rules that keep the cut cheap:
 
 Net: extraction later = stand up a new service hosting `Features/MarketingStudio/*`, flip the six ports from in-process to HTTP clients, point the lazy Angular area at the new API, move the `Mkt*` tables to their own DB. No rewrite of core commerce.
 
+## 4. Feasibility & cost review (2026-08-29)
+
+### 4.1 Feasibility, component by component
+- 🟢 **Brand kit, connections UI, text gen, poster (template), weekly plan, scheduler, Video V1 (FFmpeg photo-reel)** — standard engineering, high confidence. Reuses existing Growth gen, Hangfire, IMediaStorage, AiCreditPricing.
+- 🟡 **Social connectors** — technically routine, but **gated by platform approval, not code**: Meta needs business verification + App Review (weeks) for content-publish; LinkedIn/Pinterest/YouTube are lighter. Mitigation: ship the studio + scheduler with the easy channels first; Meta lands when review clears.
+- 🟡 **Render worker at scale** — FFmpeg is reliable, but video render is CPU/RAM heavy; needs a bounded queue and likely a dedicated render box as volume grows.
+- 🟡 **Video V2/V3 (AI image→video / generated scenes)** — the models exist, but **product-appearance consistency is genuinely hard**: AI video/scene models drift the product's exact look (pattern, logo, proportions). Honest expectation: great for *mood/lifestyle b-roll*, not for a faithful product hero shot. Keep V1 (real product photos in motion) as the dependable core; treat V2/V3 as accents.
+- 🟢 **Music** — feasible with a proper multi-client commercial license (the real dependency is legal, not technical).
+
+### 4.2 Will it actually help merchants?
+**Yes — mainly by removing the effort barrier.** Most small merchants market inconsistently or not at all; a system that proposes a week of on-brand posts and publishes them is real value (consistency + speed + professional look). Honest caveats:
+- **Organic social reach is limited and declining** — posting alone rarely explodes a business. The compounding wins come from pairing this with **paid ads + retention email** (the [marketing-engine-v2-plan.md](marketing-engine-v2-plan.md) deliverability/attribution work).
+- **Quality depends on the merchant's own product photos** and catalog. Garbage in → mediocre out.
+- **Without attribution, merchants can't see ROI** and will churn on perceived value — so campaign→click→order attribution (marketing-v2 D) is a near-term must, not optional.
+- Net: a strong **differentiator and retention/upsell driver**, not a guaranteed growth machine. Frame it honestly to merchants.
+
+### 4.3 Cost to the merchant (approximate, current market — providers change pricing; treat as ballpark)
+Per-generation raw provider cost:
+| Item | Raw cost |
+|---|---|
+| Text / caption | < $0.01 |
+| Blog article | ~$0.02–0.05 |
+| Poster (existing product photos) | ~$0.01 |
+| Poster (AI-generated background) | ~$0.04–0.08 |
+| Video V1 — 30s photo-reel (LLM plan + TTS + FFmpeg) | ~$0.10–0.25 |
+| Video V2 — 30s with AI footage | ~$1.50–5 |
+| Video V3 — 30s generated scenes | ~$2–8 |
+| Organic social posting (FB/IG/LinkedIn/Pinterest/YouTube) | $0 (APIs are free; Google Ads = merchant's own ad budget) |
+
+**Typical active merchant, one week** (AI-proposed mix: ~10 text posts, ~5 posters incl. 2 AI-bg, ~3 V1 videos, 1 blog):
+- **Raw provider cost ≈ $1/week (~$4/month).**
+- **Merchant-facing (credits, ~2.5–3× margin) ≈ $3–6/week (~$12–25/month).**
+
+**Same merchant leaning on AI video (2 V2 reels/week):**
+- Raw ≈ $5–9/week (~$20–36/month).
+- **Merchant-facing ≈ $15–30/week (~$60–120/month).**
+
+So: **V1-era is a coffee or two a month; AI-video-heavy is a modest subscription-sized add-on.** The credit gate + pre-generation estimate keeps merchants in control.
+
+### 4.4 Platform fixed costs (not per-merchant)
+- Aggregator (fal.ai/Replicate), image/video, TTS = **pay-as-you-go, no floor** (passed through as credits).
+- **Music license** — the one real fixed cost: a commercial multi-client catalog (~few hundred to low-thousands $/yr) — must be legit.
+- **Render infra** — a dedicated render box (~$20–80/mo) once video volume is real.
+- Social APIs = free.
+
+### 4.5 Bottom line
+Feasible and worth building. **V1 is cheap, reliable, and high-value; V2/V3 are where cost and quality risk concentrate — gate them behind credits and set honest expectations.** The plan's real success condition isn't the creative gen (that's the easy, cheap part) — it's **deliverability + attribution + consistent publishing**, so pair this with the marketing-v2 foundation.
+
 ### 3.9 Key risks / dependencies
 - **Meta App Review + business verification takes weeks** — build the connector, gate publishing behind approval; LinkedIn/Pinterest/YouTube give earlier wins.
 - **Render worker is CPU/RAM heavy** — dedicated container, bounded concurrency, a queue; may need a larger VPS or a separate render box as volume grows.
