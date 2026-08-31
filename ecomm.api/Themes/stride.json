@@ -1,0 +1,195 @@
+{
+  "key": "stride",
+  "sortOrder": 18,
+  "name": "Stride",
+  "category": "Footwear",
+  "catalogFit": "Medium",
+  "features": ["Sneaker-drop energy", "Bold volt accent", "Grid lookbook", "Street-ready type"],
+  "description": "A bold, high-energy footwear theme for sneakers and athletic shoes. Blacked-out base with an electric volt accent, a confident grotesque display, and drop-style layouts built to hype launches and move stock.",
+  "settings": {
+    "PrimaryColor": "#111111",
+    "SecondaryColor": "#1a1a1a",
+    "AccentColor": "#b8f500",
+    "Font": "Inter",
+    "HeadingFont": "Space Grotesk",
+    "HeadingWeight": "700",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.6",
+    "Radius": "sharp",
+    "ButtonStyle": "square",
+    "CardStyle": "flat",
+    "ContainerWidth": "1320px",
+    "Density": "cozy"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=80", "heading": "Drop 07 is live", "subheading": "The latest silhouettes, limited pairs. Lace up before they're gone.", "buttonText": "Shop the drop", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Marquee", "title": "Scrolling strip",
+          "settings": { "text": "NEW DROP EVERY FRIDAY  ·  FREE 3-DAY SHIPPING  ·  FREE RETURNS  ·  AUTHENTICITY GUARANTEED", "backgroundColor": "#111111" },
+          "blocks": []
+        },
+        {
+          "type": "EditorialSplit", "title": "The drop",
+          "settings": { "eyebrow": "This week", "heading": "Built for the street, made to move", "body": "Every pair is chosen for how it looks on foot and how it holds up on pavement. Limited runs, honest sizing, and the hype styles you actually want — without the resale markup.", "image": "https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Our story", "buttonLink": "/pages/stride-story" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop by style",
+          "settings": { "heading": "Shop by style" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "Just dropped",
+          "settings": { "heading": "Just dropped", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Authenticity",
+          "settings": { "image": "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "100% authentic, guaranteed", "body": "Every pair is sourced and verified — real product, real boxes, no fakes. If it ships from Stride, it's the genuine article, or your money back.", "buttonText": "How we verify", "buttonLink": "/pages/stride-story" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Most wanted",
+          "settings": { "heading": "Most wanted", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "100%", "label": "Verified authentic" },
+            { "value": "3-day", "label": "Free shipping" },
+            { "value": "Fri", "label": "New drop, weekly" },
+            { "value": "4.9★", "label": "Rated by sneakerheads" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "Copped the drop, shipped in two days, 100% legit. My go-to now.", "author": "Verified buyer", "rating": 5 },
+            { "quote": "Sizing guide was spot on and returns were free. No stress.", "author": "Loyal customer", "rating": 5 },
+            { "quote": "Got the pair everyone was after without paying resale. Unreal.", "author": "Repeat customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "Never miss a drop", "subtext": "Early access, restock alerts and members-only pairs — straight to your inbox every Friday.", "buttonText": "Subscribe", "backgroundColor": "#111111" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Complete the fit", "settings": { "heading": "Complete the fit", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Stride order" },
+          "blocks": [
+            { "icon": "🛡️", "heading": "Verified authentic", "text": "Every pair checked — real, or refunded." },
+            { "icon": "🚚", "heading": "Free 3-day shipping", "text": "Fast, tracked delivery on every order." },
+            { "icon": "↩️", "heading": "Free returns", "text": "Wrong size? Send it back on us." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "New drop every Friday · Free 3-day shipping & returns", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Our Story", "slug": "stride-story",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Beginnings",
+          "settings": { "eyebrow": "How it started", "heading": "By sneakerheads, for sneakerheads", "body": "We got tired of fakes, inflated resale and bots hoovering up every pair. So we built the shop we wanted — verified product, fair prices and a fresh drop every week that real people can actually get.", "image": "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Verified",
+          "settings": { "image": "https://images.unsplash.com/photo-1512374382149-233c42b6a83b?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Every pair, verified", "body": "Our team inspects each pair against the details that matter — stitching, materials, box and tags — before it ever ships. If it's not perfect and genuine, it doesn't leave the building." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "The promise",
+          "settings": { "heading": "The promise" },
+          "blocks": [
+            { "value": "100%", "label": "Verified authentic" },
+            { "value": "0", "label": "Bots, ever" },
+            { "value": "Weekly", "label": "Fresh drops" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Sizing & FAQ", "slug": "stride-sizing-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Sizing",
+          "settings": { "image": "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Nail your size, first time", "body": "Every product page shows the true-to-size guidance and a brand-by-brand conversion chart. Between sizes? We tell you which way to go — and returns are free if we get it wrong." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "Are your sneakers authentic?", "answer": "100%. Every pair is sourced through trusted channels and inspected by our team before shipping. If anything's ever off, you're refunded in full — no questions." },
+            { "question": "How does the weekly drop work?", "answer": "New pairs go live every Friday in limited quantities. Subscribe for early access and restock alerts so you don't miss the styles you're after." },
+            { "question": "How do I get my size right?", "answer": "Check the true-to-size note and conversion chart on each product page. If you're between sizes we recommend which way to go — and returns are free if it's not right." },
+            { "question": "What are shipping and returns like?", "answer": "Free 3-day tracked shipping on every order, and free returns within 30 days on unworn pairs in the original box." },
+            { "question": "Can I track my order?", "answer": "Yes — you'll get tracking by email and SMS as soon as your pair ships, and you can follow it from your account any time." }
+          ]
+        }
+      ]
+    }
+  ]
+}

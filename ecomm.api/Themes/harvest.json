@@ -1,0 +1,200 @@
+{
+  "key": "harvest",
+  "sortOrder": 16,
+  "name": "Harvest",
+  "category": "Grocery",
+  "catalogFit": "Large",
+  "features": ["Farmers-market feel", "Seasonal storytelling", "Local & organic focus", "Warm earthy palette"],
+  "description": "A warm, organic grocery theme with a farmers-market soul. Olive and harvest-orange tones, an elegant serif display over Inter, and layouts built for seasonal produce, local sourcing and whole-food storytelling.",
+  "settings": {
+    "PrimaryColor": "#6b7a3f",
+    "SecondaryColor": "#3d3320",
+    "AccentColor": "#d98736",
+    "Font": "Inter",
+    "HeadingFont": "Cormorant Garamond",
+    "HeadingWeight": "600",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.7",
+    "Radius": "soft",
+    "ButtonStyle": "rounded",
+    "CardStyle": "bordered",
+    "ContainerWidth": "1320px",
+    "Density": "spacious"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1600&q=80", "heading": "Fresh from the fields", "subheading": "Seasonal produce, local growers and whole foods — delivered to your door at their peak.", "buttonText": "Shop this week", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Multicolumn", "title": "Why us",
+          "settings": { "heading": "Grocery, the good way" },
+          "blocks": [
+            { "icon": "🌱", "heading": "Locally grown", "text": "Sourced from farms and makers near you." },
+            { "icon": "🧺", "heading": "Picked at peak", "text": "Harvested for flavour, not shelf life." },
+            { "icon": "♻️", "heading": "Low-waste", "text": "Plastic-free packing and imperfect-veg boxes." },
+            { "icon": "🚚", "heading": "Next-day delivery", "text": "Order today, unpack it fresh tomorrow." }
+          ]
+        },
+        {
+          "type": "EditorialSplit", "title": "Our sourcing",
+          "settings": { "eyebrow": "Our sourcing", "heading": "Straight from grower to doorstep", "body": "We skip the middlemen and buy direct from local farms and small producers. Shorter journeys mean fresher food, fairer prices for growers, and a lot less waste along the way.", "image": "https://images.unsplash.com/photo-1506484381205-f7945653044d?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "Meet the growers", "buttonLink": "/pages/harvest-growers" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop the aisles",
+          "settings": { "heading": "Shop the aisles" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1518843875459-f738682238a6?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "In season now",
+          "settings": { "heading": "In season now", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Boxes",
+          "settings": { "image": "https://images.unsplash.com/photo-1524594152303-9fd13543fe6e?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Weekly boxes, zero fuss", "body": "Let us do the planning. Pick a fruit-and-veg box, set your frequency, and we'll fill it with the best of the season — flexible, pausable, and always good value.", "buttonText": "Explore boxes", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Pantry staples",
+          "settings": { "heading": "Pantry staples", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "Fresh, by the numbers" },
+          "blocks": [
+            { "value": "80+", "label": "Local growers" },
+            { "value": "24h", "label": "Farm to doorstep" },
+            { "value": "0", "label": "Single-use plastic" },
+            { "value": "4.9★", "label": "Rated by shoppers" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "The veg actually tastes of something again. We've cancelled the supermarket shop.", "author": "Weekly-box member", "rating": 5 },
+            { "quote": "Knowing which farm my food came from makes all the difference. Lovely service.", "author": "Verified buyer", "rating": 5 },
+            { "quote": "Fresher, less waste, and my kids finally eat their fruit. Worth every penny.", "author": "Loyal customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "What's good this week", "subtext": "Seasonal recipes, grower stories and members-only offers — a fresh note every week.", "buttonText": "Subscribe", "backgroundColor": "#3d3320" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "Goes well with", "settings": { "heading": "Goes well with", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Harvest order" },
+          "blocks": [
+            { "icon": "🧺", "heading": "Picked at peak", "text": "Packed the morning it's dispatched." },
+            { "icon": "🚚", "heading": "Next-day delivery", "text": "Chilled and carefully packed to your door." },
+            { "icon": "♻️", "heading": "Plastic-free", "text": "Recyclable, compostable packing throughout." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Free next-day delivery on your first box", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "Meet the Growers", "slug": "harvest-growers",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Local first",
+          "settings": { "eyebrow": "Local first", "heading": "Real farms, real people", "body": "Every grower we work with is chosen for how they farm — with care for the soil, the seasons and the flavour. We visit, we taste, and we pay fairly so good food keeps being grown.", "image": "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Seasonal",
+          "settings": { "image": "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "In tune with the seasons", "body": "We stock what's actually in season, so it's fresher, cheaper and better for the planet. Our weekly boxes change as the harvest does — a little surprise every week." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "The promise",
+          "settings": { "heading": "The promise" },
+          "blocks": [
+            { "value": "80+", "label": "Partner farms" },
+            { "value": "24h", "label": "Farm to doorstep" },
+            { "value": "100%", "label": "Seasonal sourcing" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Delivery & FAQ", "slug": "harvest-delivery-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Delivery",
+          "settings": { "image": "https://images.unsplash.com/photo-1543168256-418811576931?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "Chilled, careful, on time", "body": "Fresh and chilled items travel in insulated, recyclable packaging and arrive next day. Choose your delivery slot at checkout, and reschedule any box in a tap." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "How fresh is the produce?", "answer": "Most fruit and veg is picked or delivered to us within 24 hours of dispatch, so it reaches you days fresher than a typical supermarket shop." },
+            { "question": "How do the weekly boxes work?", "answer": "Choose a box and a frequency, and we'll fill it with the best of the season and deliver on schedule. Pause, skip, swap items or cancel any time before your cut-off." },
+            { "question": "Is your packaging really plastic-free?", "answer": "Our aim is zero single-use plastic. We use paper, compostable film and returnable insulation, and we're transparent about the few items still in transition." },
+            { "question": "What if something arrives not up to scratch?", "answer": "Fresh food should be perfect. If anything isn't, tell us within 48 hours with a photo and we'll refund or replace it, no fuss." },
+            { "question": "Do you deliver to my area?", "answer": "Enter your postcode at checkout to see available delivery days. We're adding new areas all the time as we sign up more local growers." }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "key": "emporium",
+  "sortOrder": 17,
+  "name": "Emporium",
+  "category": "General",
+  "catalogFit": "Large",
+  "features": ["Department-store feel", "Multi-category strip", "Trust-forward USPs", "Refined navy & gold"],
+  "description": "A polished, trustworthy general store theme with a department-store feel. Deep navy and warm gold, an elegant serif display over Inter, and a broad multi-category layout built for big, varied catalogs.",
+  "settings": {
+    "PrimaryColor": "#1e3a5f",
+    "SecondaryColor": "#14273d",
+    "AccentColor": "#c99a3f",
+    "Font": "Inter",
+    "HeadingFont": "Playfair Display",
+    "HeadingWeight": "600",
+    "HeadingTransform": "none",
+    "BaseFontSize": "16px",
+    "LineHeight": "1.65",
+    "Radius": "soft",
+    "ButtonStyle": "rounded",
+    "CardStyle": "elevated",
+    "ContainerWidth": "1320px",
+    "Density": "cozy"
+  },
+  "templates": [
+    {
+      "templateKey": "index",
+      "sections": [
+        {
+          "type": "Hero", "title": "Hero",
+          "settings": { "style": "banner", "autoplay": false },
+          "blocks": [ { "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80", "heading": "Everything you need, in one place", "subheading": "From home to tech to everyday essentials — quality picks across every department, at fair prices.", "buttonText": "Start shopping", "buttonLink": "/products" } ]
+        },
+        {
+          "type": "Multicolumn", "title": "Why us",
+          "settings": { "heading": "Shop with confidence" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Free delivery", "text": "On everyday orders over your first threshold." },
+            { "icon": "↩️", "heading": "Easy 30-day returns", "text": "Changed your mind? Send it back, simply." },
+            { "icon": "🔒", "heading": "Secure checkout", "text": "Encrypted payments, cards, UPI and COD." },
+            { "icon": "💬", "heading": "Real support", "text": "Helpful humans, seven days a week." }
+          ]
+        },
+        {
+          "type": "EditorialSplit", "title": "Our promise",
+          "settings": { "eyebrow": "Our promise", "heading": "A store you can actually trust", "body": "We curate every department so you don't have to wade through junk — only products we'd buy ourselves, checked for quality and priced fairly. One cart, one checkout, everything you need.", "image": "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "buttonText": "About us", "buttonLink": "/pages/emporium-about" },
+          "blocks": []
+        },
+        {
+          "type": "Collage", "title": "Shop by department",
+          "settings": { "heading": "Shop by department" },
+          "blocks": [
+            { "image": "https://images.unsplash.com/photo-1481437156560-3205f6a55735?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "large" },
+            { "image": "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" },
+            { "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=800&q=80", "link": "/products", "span": "small" }
+          ]
+        },
+        {
+          "type": "FeaturedProducts", "title": "New this week",
+          "settings": { "heading": "New this week", "layout": "carousel", "source": "newest", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Value",
+          "settings": { "image": "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Big-store range, fair prices", "body": "Buying across every department means we pass on the savings — genuine value on the things you actually use, without the endless fake-discount games.", "buttonText": "Today's deals", "buttonLink": "/products" },
+          "blocks": []
+        },
+        {
+          "type": "FeaturedProducts", "title": "Best sellers",
+          "settings": { "heading": "Best sellers", "layout": "grid", "source": "bestsellers", "count": 8, "columns": 4 },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "By the numbers",
+          "settings": { "heading": "By the numbers" },
+          "blocks": [
+            { "value": "20k+", "label": "Products in stock" },
+            { "value": "48h", "label": "Fast dispatch" },
+            { "value": "30-day", "label": "Easy returns" },
+            { "value": "4.7★", "label": "Rated by shoppers" }
+          ]
+        },
+        {
+          "type": "Testimonials", "title": "In their words",
+          "settings": { "heading": "In their words" },
+          "blocks": [
+            { "quote": "One order covered the kitchen, the kids and my gadgets. Everything turned up next day.", "author": "Verified buyer", "rating": 5 },
+            { "quote": "Prices are honest and the range is huge. It's become our default shop.", "author": "Loyal customer", "rating": 5 },
+            { "quote": "Return was painless — printed the label, dropped it off, refunded in two days.", "author": "Repeat customer", "rating": 5 }
+          ]
+        },
+        {
+          "type": "CtaNewsletter", "title": "Join the list",
+          "settings": { "heading": "Deals worth knowing about", "subtext": "New arrivals, seasonal offers and members-only prices — without flooding your inbox.", "buttonText": "Subscribe", "backgroundColor": "#14273d" },
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "templateKey": "product",
+      "sections": [
+        { "type": "Breadcrumbs", "title": "Breadcrumbs", "settings": {}, "blocks": [] },
+        { "type": "ProductInfo", "title": "Product info", "settings": {}, "blocks": [] },
+        { "type": "ProductDescription", "title": "Description", "settings": {}, "blocks": [] },
+        { "type": "ProductReviews", "title": "Reviews", "settings": {}, "blocks": [] },
+        { "type": "FeaturedProducts", "title": "You might also like", "settings": { "heading": "You might also like", "layout": "carousel", "source": "featured", "count": 8, "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "collection",
+      "sections": [
+        { "type": "CollectionHeader", "title": "Collection header", "settings": {}, "blocks": [] },
+        { "type": "CollectionGrid", "title": "Collection grid", "settings": { "columns": 4 }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "cart",
+      "sections": [
+        { "type": "CartItems", "title": "Cart items", "settings": {}, "blocks": [] },
+        { "type": "CartSummary", "title": "Cart summary", "settings": {}, "blocks": [] },
+        {
+          "type": "Multicolumn", "title": "Reassurance",
+          "settings": { "heading": "Every Emporium order" },
+          "blocks": [
+            { "icon": "🚚", "heading": "Fast delivery", "text": "Dispatched within 48 hours, fully tracked." },
+            { "icon": "🔒", "heading": "Secure checkout", "text": "Encrypted payments you can trust." },
+            { "icon": "↩️", "heading": "30-day returns", "text": "No-quibble returns on everything." }
+          ]
+        }
+      ]
+    },
+    {
+      "templateKey": "announcement",
+      "sections": [
+        { "type": "AnnouncementBar", "title": "Announcement", "settings": { "text": "Free delivery over your first threshold · 30-day returns", "link": "/products" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "header",
+      "sections": [
+        { "type": "Header", "title": "Header", "settings": { "layout": "standard" }, "blocks": [] }
+      ]
+    },
+    {
+      "templateKey": "footer",
+      "sections": [
+        { "type": "Footer", "title": "Footer", "settings": {}, "blocks": [] }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "title": "About Us", "slug": "emporium-about",
+      "sections": [
+        {
+          "type": "EditorialSplit", "title": "Our story",
+          "settings": { "eyebrow": "Our story", "heading": "One trusted store for everything", "body": "We started Emporium because shopping shouldn't mean ten tabs and ten checkouts. We bring quality picks from every department under one roof — curated, fairly priced and backed by real service.", "image": "https://images.unsplash.com/photo-1513116476489-7635e79feb27?auto=format&fit=crop&w=800&q=80", "imageSide": "right" },
+          "blocks": []
+        },
+        {
+          "type": "ImageWithText", "title": "Curation",
+          "settings": { "image": "https://images.unsplash.com/photo-1520006403909-838d6b92c22e?auto=format&fit=crop&w=800&q=80", "imageSide": "left", "heading": "Curated, not cluttered", "body": "Every product earns its place. We test, compare and only stock things worth your money — so a big catalog still feels easy to shop." },
+          "blocks": []
+        },
+        {
+          "type": "Stats", "title": "The promise",
+          "settings": { "heading": "The promise" },
+          "blocks": [
+            { "value": "20k+", "label": "Curated products" },
+            { "value": "48h", "label": "Fast dispatch" },
+            { "value": "7 days", "label": "Real support" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Delivery & FAQ", "slug": "emporium-delivery-faq",
+      "sections": [
+        {
+          "type": "ImageWithText", "title": "Delivery",
+          "settings": { "image": "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?auto=format&fit=crop&w=800&q=80", "imageSide": "right", "heading": "One cart, one delivery", "body": "Whatever mix of departments you order from, it ships together where we can — tracked door to door, with free delivery over your store's threshold." },
+          "blocks": []
+        },
+        {
+          "type": "FaqAccordion", "title": "FAQ",
+          "settings": { "heading": "Frequently asked" },
+          "blocks": [
+            { "question": "How fast is delivery?", "answer": "In-stock orders are dispatched within 48 hours and delivered tracked. Delivery is free over your store's threshold, with express options at checkout." },
+            { "question": "What payment methods do you accept?", "answer": "All major cards, UPI, net banking and cash on delivery where available — all through an encrypted, secure checkout." },
+            { "question": "What is your returns policy?", "answer": "Return most items within 30 days for a full refund. Print the prepaid label, drop it off, and we'll refund you as soon as it reaches us." },
+            { "question": "Can I track my order?", "answer": "Yes — you'll get tracking by email and SMS the moment your order ships, and you can follow it from your account at any time." },
+            { "question": "Do you have a customer support team?", "answer": "We do — real people, seven days a week, by chat and email. If anything's not right, we'll make it right." }
+          ]
+        }
+      ]
+    }
+  ]
+}
