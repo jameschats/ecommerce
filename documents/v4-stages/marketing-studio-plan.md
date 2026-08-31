@@ -141,6 +141,29 @@ New `AiCreditPricing` SKUs, each deducted on use with a pre-generation estimate 
 - **MS4 — Video V2:** image→video via aggregator.
 - **MS5 — Video V3 + Google Ads + attribution:** generated scenes; ads/product-feed; tie post→click→order attribution into [marketing-engine-v2-plan.md](marketing-engine-v2-plan.md).
 
+### 3.11 Multi-tenant social auth — one platform app, many merchant connections
+**The model (standard SaaS, like Buffer/Hootsuite/Later):** WavCommerce registers **ONE developer app per network** (a Meta app, a LinkedIn app, a Pinterest app, one Google Cloud project for YouTube). That app is the *platform's* identity — it holds the client id/secret and is what goes through **business verification + App Review once, centrally.** Each **merchant connects their own account** under that app via an OAuth "Connect" click; we store a **per-merchant access token** in the tenant-scoped `SocialConnection`. Merchants never create developer apps — they just log into their own page and grant access.
+
+```
+WavCommerce (one app per platform: Meta / LinkedIn / Pinterest / Google)
+   │  ← business verification + App Review done ONCE, by us
+   ├── Merchant A → OAuth connect → token for A's FB Page / IG / LinkedIn Co. Page   (SocialConnection, tenant A)
+   ├── Merchant B → OAuth connect → token for B's accounts                           (SocialConnection, tenant B)
+   └── …
+```
+
+**Per-platform merchant prerequisites (the studio must guide the merchant through these):**
+- **Meta:** merchant needs a **Facebook Page** + an **Instagram Business/Creator account linked to that Page** (IG content-publish only works this way). Our app requests `pages_manage_posts`, `instagram_content_publish`, `business_management`. Until App Review is approved, only accounts with a role on our app can connect (fine for testing).
+- **LinkedIn:** merchant must be an **admin of the Company Page**; we request `w_organization_social`. Personal-profile posting is restricted.
+- **Pinterest:** merchant connects a business account; our app needs Pinterest's standard-access review for production.
+- **YouTube:** merchant connects their channel (Google login); `youtube.upload` is a sensitive scope needing Google OAuth verification.
+
+**Two real multi-tenant gotchas to design for:**
+1. **Shared per-app / per-project rate limits & quotas.** Some limits are counted against *our* app across *all* merchants — most sharply **YouTube: the Data API upload quota (~10k units/day ≈ ~6 uploads/day) is per our Google project, shared platform-wide.** Mitigation: request quota increases as we scale, and **queue/throttle uploads** so one merchant can't exhaust the shared budget. Meta/LinkedIn are mostly per-user-token limited, easier.
+2. **Token lifecycle.** Tokens are per-merchant, encrypted at rest, auto-refreshed via Hangfire (Meta long-lived ~60d, LinkedIn ~60d, Google refresh tokens long-lived), and revoked on disconnect. The connections page reflects `Connected / Expired / Not connected` from this.
+
+**At scale (later):** Meta's **Tech-Provider / System-User** model lets a SaaS manage many client Pages centrally — worth adopting once merchant count is high; not needed for V1.
+
 ### 3.10 Extraction seam — "in the monolith now, a separate web app later" (user requirement)
 Build the studio as a **self-contained module inside `ecomm.api` today**, but behind seams so it can be lifted into its own service/web app with minimal surgery. Same intent as ADR-001 (super-admin platform-context seam) — don't prematurely split, but don't weld it in either.
 
