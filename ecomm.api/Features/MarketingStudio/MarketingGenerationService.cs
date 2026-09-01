@@ -1,5 +1,7 @@
+using System.Text;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
+using ecomm.api.Features.Media;
 using Microsoft.EntityFrameworkCore;
 
 namespace ecomm.api.Features.MarketingStudio;
@@ -23,8 +25,9 @@ public interface IMarketingGenerationService
 /// sub-step 4). Poster/video items are left for sub-step 3b/MS3. Robust per item: one failure is
 /// recorded and the batch continues.
 /// </summary>
-public sealed class MarketingGenerationService(EcommerceDbContext db, IMarketingCopywriter copywriter)
-    : IMarketingGenerationService
+public sealed class MarketingGenerationService(
+    EcommerceDbContext db, IMarketingCopywriter copywriter, IMarketingBrandService brandService,
+    ICatalogReader catalog, IPosterRenderer poster, IMediaStorage media) : IMarketingGenerationService
 {
     public async Task<GenerationResult> GenerateForPlanAsync(long planId, long? userId, CancellationToken ct = default)
     {
@@ -35,27 +38,38 @@ public sealed class MarketingGenerationService(EcommerceDbContext db, IMarketing
 
         int creatives = 0, posts = 0, skipped = 0, failed = 0;
         var now = DateTime.UtcNow;
+        MarketingBrandDto? brand = null;   // loaded once, lazily
 
         foreach (var item in items)
         {
             var channels = Split(item.Channels);
-
-            // Only text is generated in 3a; posters/videos wait for their renderer.
-            if (item.Type != "text") { skipped++; continue; }
-            if (channels.Count == 0) { skipped++; continue; }   // nowhere to post → don't spend credits
+            if (item.Type is not ("text" or "poster")) { skipped++; continue; }   // video → MS3
+            if (channels.Count == 0) { skipped++; continue; }                      // nowhere to post → don't spend credits
 
             try
             {
+                // Every post carries a caption (credit-metered copy).
                 var kind = KindFor(channels[0]);
                 var brief = string.IsNullOrWhiteSpace(item.Angle) ? item.Topic : $"{item.Topic} — {item.Angle}";
-                var body = await copywriter.WriteAsync(kind, item.ProductId, brief, userId, ct);
+                var caption = await copywriter.WriteAsync(kind, item.ProductId, brief, userId, ct);
+
+                string? mediaUrl = null;
+                if (item.Type == "poster")
+                {
+                    brand ??= await brandService.GetAsync(ct);
+                    var svg = await poster.RenderSvgAsync(await BuildPosterSpecAsync(item, brand, ct), ct);
+                    var bytes = Encoding.UTF8.GetBytes(svg);
+                    var stored = await media.SaveAsync(new MemoryStream(bytes), $"poster-{item.MarketingPlanItemId}.svg", "image/svg+xml", ct);
+                    mediaUrl = stored.Url;
+                }
 
                 var creative = new MarketingCreative
                 {
                     MarketingPlanItemId = item.MarketingPlanItemId,
-                    Type = "text",
+                    Type = item.Type,
                     Status = "generated",
-                    Body = body,
+                    Body = caption,
+                    OutputMediaUrl = mediaUrl,
                     ProductId = item.ProductId,
                     CreatedAt = now,
                 };
@@ -89,6 +103,17 @@ public sealed class MarketingGenerationService(EcommerceDbContext db, IMarketing
         }
 
         return new GenerationResult(creatives, posts, skipped, failed);
+    }
+
+    private async Task<PosterSpec> BuildPosterSpecAsync(MarketingPlanItem item, MarketingBrandDto brand, CancellationToken ct)
+    {
+        CatalogProduct? product = item.ProductId is { } pid ? await catalog.GetAsync(pid, ct) : null;
+        var kind = product is not null ? "product" : "org";
+        var headline = product?.Name ?? item.Topic;
+        return new PosterSpec(
+            kind, headline, product?.Price, "Shop Now",
+            brand.CompanyName, item.IncludeName, item.IncludeLogo, brand.LogoUrl, product?.ImageUrl,
+            brand.PrimaryColor, brand.SecondaryColor, brand.AccentColor, brand.Font);
     }
 
     /// <summary>Map a platform to the closest Growth content-type key for copy generation.</summary>

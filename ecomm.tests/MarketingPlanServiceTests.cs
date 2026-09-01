@@ -22,10 +22,11 @@ public class MarketingPlanServiceTests
         public Task<IReadOnlyList<CatalogProduct>> TopProductsAsync(int count, CancellationToken ct = default)
         {
             IReadOnlyList<CatalogProduct> list = Enumerable.Range(1, n)
-                .Select(i => new CatalogProduct(i, $"Product {i}", 100m * i)).ToList();
+                .Select(i => new CatalogProduct(i, $"Product {i}", 100m * i, null)).ToList();
             return Task.FromResult(list);
         }
         public Task<string?> ProductNameAsync(long productId, CancellationToken ct = default) => Task.FromResult<string?>($"Product {productId}");
+        public Task<CatalogProduct?> GetAsync(long productId, CancellationToken ct = default) => Task.FromResult<CatalogProduct?>(new CatalogProduct(productId, $"Product {productId}", 100m * productId, null));
     }
 
     private static MarketingPlanService New(EcommerceDbContext db, int text = 2, int posters = 2, params string[] channels) =>

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.MarketingStudio;
 
 /// <summary>A product as the Marketing Studio needs it — just enough to plan and headline a creative.</summary>
-public sealed record CatalogProduct(long ProductId, string Name, decimal Price);
+public sealed record CatalogProduct(long ProductId, string Name, decimal Price, string? ImageUrl);
 
 /// <summary>
 /// The Marketing Studio's read-only window into the commerce catalog. A thin port so the module never
@@ -18,6 +18,9 @@ public interface ICatalogReader
 
     /// <summary>Resolve a product's display name (null if missing/deleted).</summary>
     Task<string?> ProductNameAsync(long productId, CancellationToken ct = default);
+
+    /// <summary>One product with its price + primary image (null if missing/deleted).</summary>
+    Task<CatalogProduct?> GetAsync(long productId, CancellationToken ct = default);
 }
 
 public sealed class CatalogReader(EcommerceDbContext db) : ICatalogReader
@@ -30,7 +33,8 @@ public sealed class CatalogReader(EcommerceDbContext db) : ICatalogReader
             .Where(p => !p.IsDeleted && p.IsActive)
             .OrderByDescending(p => p.CreatedAt)
             .Take(count)
-            .Select(p => new CatalogProduct(p.ProductId, p.Name, p.Price))
+            .Select(p => new CatalogProduct(p.ProductId, p.Name, p.Price,
+                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault()))
             .ToListAsync(ct);
     }
 
@@ -38,5 +42,12 @@ public sealed class CatalogReader(EcommerceDbContext db) : ICatalogReader
         await db.Products.AsNoTracking()
             .Where(p => p.ProductId == productId && !p.IsDeleted)
             .Select(p => p.Name)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task<CatalogProduct?> GetAsync(long productId, CancellationToken ct = default) =>
+        await db.Products.AsNoTracking()
+            .Where(p => p.ProductId == productId && !p.IsDeleted)
+            .Select(p => new CatalogProduct(p.ProductId, p.Name, p.Price,
+                p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault()))
             .FirstOrDefaultAsync(ct);
 }

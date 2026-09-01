@@ -10,7 +10,7 @@ namespace ecomm.api.Features.MarketingStudio;
 /// <summary>One row on the scheduler / history screen: a scheduled post plus its creative preview.</summary>
 public sealed record ScheduledPostDto(
     long Id, long PlanItemId, string Platform, DateTime ScheduledAt, string Status,
-    string Type, string Topic, string? Preview, string? ExternalPostId, string? Error, DateTime? PublishedAt);
+    string Type, string Topic, string? Preview, string? MediaUrl, string? ExternalPostId, string? Error, DateTime? PublishedAt);
 
 public interface IMarketingSchedulerService
 {
@@ -49,15 +49,15 @@ public sealed class MarketingSchedulerService(
         var creativeIds = posts.Select(p => p.MarketingCreativeId).Distinct().ToList();
         var topics = await db.MarketingPlanItems.AsNoTracking().Where(i => itemIds.Contains(i.MarketingPlanItemId))
             .ToDictionaryAsync(i => i.MarketingPlanItemId, i => new { i.Topic, i.Type }, ct);
-        var bodies = await db.MarketingCreatives.AsNoTracking().Where(c => creativeIds.Contains(c.MarketingCreativeId))
-            .ToDictionaryAsync(c => c.MarketingCreativeId, c => c.Body, ct);
+        var creatives = await db.MarketingCreatives.AsNoTracking().Where(c => creativeIds.Contains(c.MarketingCreativeId))
+            .ToDictionaryAsync(c => c.MarketingCreativeId, c => new { c.Body, c.OutputMediaUrl }, ct);
 
         return posts.Select(p =>
         {
             topics.TryGetValue(p.MarketingPlanItemId, out var t);
-            bodies.TryGetValue(p.MarketingCreativeId, out var body);
+            creatives.TryGetValue(p.MarketingCreativeId, out var cr);
             return new ScheduledPostDto(p.ScheduledPostId, p.MarketingPlanItemId, p.Platform, p.ScheduledAt, p.Status,
-                t?.Type ?? "text", t?.Topic ?? "", Preview(body), p.ExternalPostId, p.Error, p.PublishedAt);
+                t?.Type ?? "text", t?.Topic ?? "", Preview(cr?.Body), cr?.OutputMediaUrl, p.ExternalPostId, p.Error, p.PublishedAt);
         }).ToList();
     }
 
@@ -177,9 +177,10 @@ public sealed class MarketingSchedulerService(
     private async Task<ScheduledPostDto> MapOne(Data.Entities.ScheduledPost p, CancellationToken ct)
     {
         var item = await db.MarketingPlanItems.AsNoTracking().FirstOrDefaultAsync(i => i.MarketingPlanItemId == p.MarketingPlanItemId, ct);
-        var body = await db.MarketingCreatives.AsNoTracking().Where(c => c.MarketingCreativeId == p.MarketingCreativeId).Select(c => c.Body).FirstOrDefaultAsync(ct);
+        var cr = await db.MarketingCreatives.AsNoTracking().Where(c => c.MarketingCreativeId == p.MarketingCreativeId)
+            .Select(c => new { c.Body, c.OutputMediaUrl }).FirstOrDefaultAsync(ct);
         return new ScheduledPostDto(p.ScheduledPostId, p.MarketingPlanItemId, p.Platform, p.ScheduledAt, p.Status,
-            item?.Type ?? "text", item?.Topic ?? "", Preview(body), p.ExternalPostId, p.Error, p.PublishedAt);
+            item?.Type ?? "text", item?.Topic ?? "", Preview(cr?.Body), cr?.OutputMediaUrl, p.ExternalPostId, p.Error, p.PublishedAt);
     }
 
     private static string? Preview(string? body) =>

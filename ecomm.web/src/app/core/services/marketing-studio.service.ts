@@ -114,6 +114,7 @@ export interface ScheduledPost {
   type: string;
   topic: string;
   preview: string | null;
+  mediaUrl: string | null;
   externalPostId: string | null;
   error: string | null;
   publishedAt: string | null;

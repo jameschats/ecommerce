@@ -53,8 +53,15 @@ import { ScheduledPost, MarketingStudioService } from '../../../core/services/ma
                   <span class="text-xs px-2 py-0.5 rounded-full" [class]="statusClass(p.status)">{{ statusLabel(p.status) }}</span>
                   <span class="text-xs text-slate-400 ml-auto">{{ time(p.scheduledAt) }}</span>
                 </div>
-                <div class="text-sm font-medium text-slate-800">{{ p.topic }}</div>
-                @if (p.preview) { <div class="text-sm text-slate-500 mt-0.5 line-clamp-2">{{ p.preview }}</div> }
+                <div class="flex gap-3">
+                  @if (p.mediaUrl && p.type === 'poster') {
+                    <img [src]="p.mediaUrl" alt="poster" class="w-20 h-20 rounded-lg border border-slate-200 object-cover shrink-0" />
+                  }
+                  <div class="min-w-0">
+                    <div class="text-sm font-medium text-slate-800">{{ p.topic }}</div>
+                    @if (p.preview) { <div class="text-sm text-slate-500 mt-0.5 line-clamp-2">{{ p.preview }}</div> }
+                  </div>
+                </div>
                 @if (p.status === 'failed' && p.error) { <div class="text-xs text-red-600 mt-1">{{ p.error }}</div> }
 
                 <div class="flex items-center gap-3 mt-3 text-sm">

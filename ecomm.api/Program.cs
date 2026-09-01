@@ -130,6 +130,7 @@ builder.Services.Configure<ecomm.api.Features.MarketingStudio.SocialOptions>(bui
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ISocialConnectionService, ecomm.api.Features.MarketingStudio.SocialConnectionService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanSettingsService, ecomm.api.Features.MarketingStudio.MarketingPlanSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ICatalogReader, ecomm.api.Features.MarketingStudio.CatalogReader>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IPosterRenderer, ecomm.api.Features.MarketingStudio.SvgPosterRenderer>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanService, ecomm.api.Features.MarketingStudio.MarketingPlanService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingCopywriter, ecomm.api.Features.MarketingStudio.GrowthCopywriter>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingGenerationService, ecomm.api.Features.MarketingStudio.MarketingGenerationService>();
