@@ -284,7 +284,7 @@ Refined with the user 2026-09-01. Today's calendar is read-only (festivals + sch
 ### 5.6 Build sub-steps (ship incrementally, test each)
 1. `MarketingPlanSettings` + `MarketingChannelPref` + Preferences UI (counts + per-channel×type matrix from connected channels).
 2. `MarketingPlan`/`MarketingPlanItem` + AI **outline** proposer + review UI (edit/remove/add/toggle) + **confirm**.
-3. Generation on confirm (text + posters reuse MS0 brand kit; credits) → `MarketingCreative` + fan-out `ScheduledPost`.
+3. Generation on confirm (text + posters reuse MS0 brand kit; credits) → `MarketingCreative` + fan-out `ScheduledPost`. ✅ **3a text + 3b posters shipped 2026-09-01** (commits 0fd5afe, 1625ded) — posters render as brand-themed SVG (`SvgPosterRenderer`); PNG raster for real social upload is a later render-worker step.
 4. Scheduler screen (reschedule/approve/skip/regenerate) + Hangfire publish sweep (auto-publish vs approval). ✅ **shipped 2026-09-01** (commit 8036081) — `/admin/marketing/scheduler`, MarketingSchedulerService + ISocialPublisher (LoggingSocialPublisher default; real per-platform publishers when keys land), `marketing-publish-sweep` every 5 min; a due post with no live connection fails with a clear "connect it" message. Per-channel auto-publish opt-in (vs the current approval-for-all) is a later refinement.
 5. History tab + `AutoRecur` weekly drafting.
 6. (MS3 later) videos become a plan type once the video pipeline exists.
