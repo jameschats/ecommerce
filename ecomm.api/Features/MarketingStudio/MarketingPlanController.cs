@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ecomm.api.Common.Models;
 using ecomm.api.Features.Plans;
 using Microsoft.AspNetCore.Authorization;
@@ -14,8 +15,11 @@ namespace ecomm.api.Features.MarketingStudio;
 [Authorize(Roles = "Admin")]
 [RequiresFeature("marketing_studio")]
 [Route("api/marketing/plan")]
-public sealed class MarketingPlanController(IMarketingPlanService plan) : ControllerBase
+public sealed class MarketingPlanController(IMarketingPlanService plan, IMarketingGenerationService generation) : ControllerBase
 {
+    private long? UserId =>
+        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
+
     [HttpPost("propose")]
     public async Task<IActionResult> Propose([FromBody] ProposePlanRequest? req, CancellationToken ct)
         => Ok(ApiResponse<PlanDto>.Ok(await plan.ProposeAsync(req ?? new ProposePlanRequest(null), ct), "Here's your proposed week — review and confirm."));
@@ -41,7 +45,14 @@ public sealed class MarketingPlanController(IMarketingPlanService plan) : Contro
 
     [HttpPost("{planId:long}/confirm")]
     public async Task<IActionResult> Confirm(long planId, CancellationToken ct)
-        => Ok(ApiResponse<PlanDto>.Ok(await plan.ConfirmAsync(planId, ct), "Plan confirmed."));
+    {
+        var confirmed = await plan.ConfirmAsync(planId, ct);
+        var gen = await generation.GenerateForPlanAsync(planId, UserId, ct);
+        var msg = gen.PostsScheduled > 0
+            ? $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval."
+            : "Plan confirmed.";
+        return Ok(ApiResponse<PlanDto>.Ok(confirmed, msg));
+    }
 
     [HttpDelete("{planId:long}")]
     public async Task<IActionResult> Discard(long planId, CancellationToken ct)

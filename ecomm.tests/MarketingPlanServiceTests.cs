@@ -96,7 +96,7 @@ public class MarketingPlanServiceTests
         Assert.Equal(2, (await svc.GetCurrentAsync())!.Items.Count);
 
         await svc.RemoveItemAsync(added.Id);
-        Assert.Equal(1, (await svc.GetCurrentAsync())!.Items.Count);
+        Assert.Single((await svc.GetCurrentAsync())!.Items);
     }
 
     [Fact]

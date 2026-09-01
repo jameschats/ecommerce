@@ -40,7 +40,7 @@ import { PlanItem, WeekPlan, MarketingStudioService } from '../../../core/servic
       } @else if (plan()!.status === 'confirmed') {
         <div class="rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800">
           <p class="font-medium">This week's plan is confirmed. ✓</p>
-          <p class="mt-1">Generating the creatives and scheduling them is the next step we're building — it'll appear on the scheduler.</p>
+          <p class="mt-1">Your text posts have been generated and are scheduled — waiting for your approval before they go live. The scheduler screen (to review, approve and reschedule them) is the next piece we're building.</p>
         </div>
       } @else {
         <div class="space-y-3">
