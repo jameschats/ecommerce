@@ -9,10 +9,11 @@ public class MarketingPlanServiceTests
 {
     private sealed class FakeSettings(int text, int posters, params string[] channels) : IMarketingPlanSettingsService
     {
+        public bool AutoRecur { get; init; }
         public Task<MarketingPlanSettingsDto> GetAsync(CancellationToken ct = default)
         {
             var chans = channels.Select(p => new ChannelPrefDto(p, p, true, true, true, true, true)).ToList();
-            return Task.FromResult(new MarketingPlanSettingsDto(text, posters, 0, 1, 10, false, chans));
+            return Task.FromResult(new MarketingPlanSettingsDto(text, posters, 0, 1, 10, AutoRecur, chans));
         }
         public Task<MarketingPlanSettingsDto> SaveAsync(MarketingPlanSettingsDto req, CancellationToken ct = default) => throw new NotImplementedException();
     }
@@ -30,7 +31,11 @@ public class MarketingPlanServiceTests
     }
 
     private static MarketingPlanService New(EcommerceDbContext db, int text = 2, int posters = 2, params string[] channels) =>
-        new(db, new FakeSettings(text, posters, channels.Length == 0 ? new[] { "linkedin" } : channels), new FakeCatalog(5));
+        new(db, new FakeSettings(text, posters, channels.Length == 0 ? new[] { "linkedin" } : channels), new FakeCatalog(5),
+            scopeFactory: null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<MarketingPlanService>.Instance);
+
+    private static MarketingPlanService New(EcommerceDbContext db, FakeSettings settings) =>
+        new(db, settings, new FakeCatalog(5), scopeFactory: null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<MarketingPlanService>.Instance);
 
     [Fact]
     public async Task Propose_creates_a_draft_with_the_configured_counts_and_channels()
@@ -125,5 +130,34 @@ public class MarketingPlanServiceTests
         await svc.DiscardAsync(plan.Id);
         Assert.Empty(db.MarketingPlans);
         Assert.Empty(db.MarketingPlanItems);
+    }
+
+    [Fact]
+    public async Task Auto_draft_creates_a_draft_when_autorecur_is_on()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var drafted = await New(db, new FakeSettings(2, 1, "linkedin") { AutoRecur = true }).AutoDraftForCurrentTenantAsync();
+        Assert.True(drafted);
+        Assert.Single(db.MarketingPlans);
+        Assert.Equal("draft", db.MarketingPlans.First().Status);
+    }
+
+    [Fact]
+    public async Task Auto_draft_is_a_noop_when_autorecur_is_off()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var drafted = await New(db, new FakeSettings(2, 1, "linkedin") { AutoRecur = false }).AutoDraftForCurrentTenantAsync();
+        Assert.False(drafted);
+        Assert.Empty(db.MarketingPlans);
+    }
+
+    [Fact]
+    public async Task Auto_draft_does_not_clobber_an_existing_plan_for_the_week()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var svc = New(db, new FakeSettings(2, 1, "linkedin") { AutoRecur = true });
+        Assert.True(await svc.AutoDraftForCurrentTenantAsync());     // first draft
+        Assert.False(await svc.AutoDraftForCurrentTenantAsync());    // week already has a plan → skip
+        Assert.Single(db.MarketingPlans);
     }
 }

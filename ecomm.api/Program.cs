@@ -588,6 +588,13 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.MarketingStudio.IMarketingSchedulerS
     svc => svc.RunPublishSweepAsync(CancellationToken.None),
     "*/5 * * * *");
 
+// Marketing Studio (MS2 sub-step 5) — auto-draft the upcoming week for AutoRecur tenants (daily; the
+// per-week guard means it drafts once, and only ever leaves a Draft for the merchant to confirm).
+RecurringJob.AddOrUpdate<ecomm.api.Features.MarketingStudio.IMarketingPlanService>(
+    "marketing-auto-draft-sweep",
+    svc => svc.RunAutoDraftSweepAsync(CancellationToken.None),
+    "0 6 * * *");
+
 // AI Commerce — flush buffered storefront behavioural events to the DB every minute (batched writes,
 // never on the storefront hot path). Feeds Trending, Personalization, and Dynamic Pricing's demand signal.
 RecurringJob.AddOrUpdate<ecomm.api.Features.Commerce.ICustomerEventFlushService>(

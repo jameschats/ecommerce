@@ -1,8 +1,11 @@
 using ecomm.api.Common.Exceptions;
+using ecomm.api.Common.Tenancy;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ecomm.api.Features.MarketingStudio;
 
@@ -26,6 +29,11 @@ public interface IMarketingPlanService
     Task RemoveItemAsync(long itemId, CancellationToken ct = default);
     Task<PlanDto> ConfirmAsync(long planId, CancellationToken ct = default);
     Task DiscardAsync(long planId, CancellationToken ct = default);
+    /// <summary>If AutoRecur is on and no plan exists yet for the upcoming week, draft one (left at
+    /// Draft for the merchant to confirm — never auto-generates or publishes). Returns true if drafted.</summary>
+    Task<bool> AutoDraftForCurrentTenantAsync(CancellationToken ct = default);
+    /// <summary>Cross-tenant weekly Hangfire sweep: auto-draft the upcoming week for every AutoRecur tenant.</summary>
+    Task<int> RunAutoDraftSweepAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -36,7 +44,8 @@ public interface IMarketingPlanService
 /// Reads the catalog only through <see cref="ICatalogReader"/> (extraction seam).
 /// </summary>
 public sealed class MarketingPlanService(
-    EcommerceDbContext db, IMarketingPlanSettingsService settingsService, ICatalogReader catalog)
+    EcommerceDbContext db, IMarketingPlanSettingsService settingsService, ICatalogReader catalog,
+    IServiceScopeFactory scopeFactory, ILogger<MarketingPlanService> log)
     : IMarketingPlanService
 {
     private static readonly string[] TextIdeas =
@@ -64,6 +73,49 @@ public sealed class MarketingPlanService(
             db.MarketingPlans.RemoveRange(oldDrafts);
         }
 
+        var plan = await BuildPlanAsync(settings, weekStart, now, ct);
+        await db.SaveChangesAsync(ct);
+        return await LoadAsync(plan.MarketingPlanId, ct) ?? throw new AppException("Failed to create plan.", StatusCodes.Status500InternalServerError);
+    }
+
+    public async Task<bool> AutoDraftForCurrentTenantAsync(CancellationToken ct = default)
+    {
+        var settings = await settingsService.GetAsync(ct);
+        if (!settings.AutoRecur) return false;
+
+        var weekStart = ResolveWeekStart(null, settings.WeekStartDay);
+        // Don't clobber a plan the merchant already has for that week (draft, confirmed or otherwise).
+        if (await db.MarketingPlans.AnyAsync(p => p.WeekStart == weekStart, ct)) return false;
+
+        await BuildPlanAsync(settings, weekStart, DateTime.UtcNow, ct);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<int> RunAutoDraftSweepAsync(CancellationToken ct = default)
+    {
+        var tenants = await db.MarketingPlanSettings.IgnoreQueryFilters()
+            .Where(s => s.AutoRecur).Select(s => s.TenantId).ToListAsync(ct);
+
+        var drafted = 0;
+        foreach (var tenantId in tenants)
+        {
+            using var scope = scopeFactory.CreateScope();
+            var svc = scope.ServiceProvider.GetRequiredService<IMarketingPlanService>();
+            var scopedTenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantService>();
+            using (scopedTenant.BeginScope(tenantId))
+            {
+                try { if (await svc.AutoDraftForCurrentTenantAsync(ct)) drafted++; }
+                catch (Exception ex) { log.LogWarning(ex, "Auto-draft failed for tenant {Tenant}.", tenantId); }
+            }
+        }
+        return drafted;
+    }
+
+    /// <summary>Create a Draft plan for <paramref name="weekStart"/> and populate its proposed items
+    /// from preferences + festivals + catalog. Does NOT delete other plans or save.</summary>
+    private async Task<MarketingPlan> BuildPlanAsync(MarketingPlanSettingsDto settings, DateTime weekStart, DateTime now, CancellationToken ct)
+    {
         var plan = new MarketingPlan { WeekStart = weekStart, Status = "draft", CreatedAt = now };
         db.MarketingPlans.Add(plan);
 
@@ -88,7 +140,7 @@ public sealed class MarketingPlanService(
             drafts.Add(new MarketingPlanItem { Type = "text", Topic = topic, Angle = angle, ProductId = productId, Channels = string.Join(",", textChannels) });
         }
 
-        // Spread across the 7 days at the default hour; stamp tenant + status + order.
+        // Spread across the 7 days at the default hour; stamp status + order.
         for (var k = 0; k < drafts.Count; k++)
         {
             var day = drafts.Count <= 1 ? 0 : (int)Math.Floor(k * 7.0 / drafts.Count);
@@ -100,9 +152,7 @@ public sealed class MarketingPlanService(
             item.Plan = plan;
             db.MarketingPlanItems.Add(item);
         }
-
-        await db.SaveChangesAsync(ct);
-        return await LoadAsync(plan.MarketingPlanId, ct) ?? throw new AppException("Failed to create plan.", StatusCodes.Status500InternalServerError);
+        return plan;
     }
 
     public async Task<PlanDto?> GetCurrentAsync(CancellationToken ct = default)
