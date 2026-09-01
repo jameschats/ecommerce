@@ -126,6 +126,8 @@ builder.Services.AddScoped<ecomm.api.Features.Commerce.IStorefrontAnalyticsServi
 // Marketing Studio (MS0) — bounded module; commerce accessed only via ports (extraction seam).
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingBrandService, ecomm.api.Features.MarketingStudio.MarketingBrandService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IBrandThemeDefaults, ecomm.api.Features.MarketingStudio.BrandThemeDefaults>();
+builder.Services.Configure<ecomm.api.Features.MarketingStudio.SocialOptions>(builder.Configuration.GetSection(ecomm.api.Features.MarketingStudio.SocialOptions.SectionName));
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ISocialConnectionService, ecomm.api.Features.MarketingStudio.SocialConnectionService>();
 builder.Services.AddSingleton<ecomm.api.Features.Commerce.IGeoLookupService, ecomm.api.Features.Commerce.GeoLookupService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService, ecomm.api.Features.Apps.FirstParty.LowStockAlertService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ISalesDigestService, ecomm.api.Features.Apps.FirstParty.SalesDigestService>();

@@ -38,4 +38,29 @@ export class MarketingStudioService {
   saveBrand(brand: MarketingBrand): Observable<MarketingBrand> {
     return this.http.put<ApiResponse<MarketingBrand>>(`${this.base}/brand`, brand).pipe(map((r) => r.data as MarketingBrand));
   }
+
+  // --- MS1: social connections ---
+  listConnections(): Observable<SocialConnection[]> {
+    return this.http.get<ApiResponse<SocialConnection[]>>(`${this.base}/connections`).pipe(map((r) => r.data as SocialConnection[]));
+  }
+
+  startConnect(platform: string): Observable<{ authorizeUrl: string }> {
+    return this.http.post<ApiResponse<{ authorizeUrl: string }>>(`${this.base}/connections/${platform}/start`, {})
+      .pipe(map((r) => r.data as { authorizeUrl: string }));
+  }
+
+  disconnect(platform: string): Observable<unknown> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.base}/connections/${platform}`);
+  }
+}
+
+/** A social platform card on the connections page. Mirrors SocialConnectionDto on the API. */
+export interface SocialConnection {
+  platform: string;
+  displayName: string;
+  status: 'connected' | 'expired' | 'not_connected' | 'not_configured';
+  accountName: string | null;
+  configured: boolean;
+  connectedAt: string | null;
+  expiresAt: string | null;
 }
