@@ -133,6 +133,10 @@ builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ICatalogReader, ec
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanService, ecomm.api.Features.MarketingStudio.MarketingPlanService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingCopywriter, ecomm.api.Features.MarketingStudio.GrowthCopywriter>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingGenerationService, ecomm.api.Features.MarketingStudio.MarketingGenerationService>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingSchedulerService, ecomm.api.Features.MarketingStudio.MarketingSchedulerService>();
+// Default social publisher = logging (no live API) until real per-platform publishers are wired —
+// same dev-provider convention as Email/SMS/WhatsApp.
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ISocialPublisher, ecomm.api.Features.MarketingStudio.LoggingSocialPublisher>();
 builder.Services.AddSingleton<ecomm.api.Features.Commerce.IGeoLookupService, ecomm.api.Features.Commerce.GeoLookupService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService, ecomm.api.Features.Apps.FirstParty.LowStockAlertService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ISalesDigestService, ecomm.api.Features.Apps.FirstParty.SalesDigestService>();
@@ -576,6 +580,12 @@ RecurringJob.AddOrUpdate<ecomm.api.Features.Apps.FirstParty.ISalesDigestService>
     "sales-digest-sweep",
     svc => svc.RunSweepAsync(CancellationToken.None),
     "0 7 * * *");
+
+// Marketing Studio (MS2 sub-step 4) — publish due scheduled posts every 5 minutes (per-tenant scope).
+RecurringJob.AddOrUpdate<ecomm.api.Features.MarketingStudio.IMarketingSchedulerService>(
+    "marketing-publish-sweep",
+    svc => svc.RunPublishSweepAsync(CancellationToken.None),
+    "*/5 * * * *");
 
 // AI Commerce — flush buffered storefront behavioural events to the DB every minute (batched writes,
 // never on the storefront hot path). Feeds Trending, Personalization, and Dynamic Pricing's demand signal.

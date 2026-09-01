@@ -81,6 +81,42 @@ export class MarketingStudioService {
   discardPlan(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/plan/${id}`);
   }
+
+  // --- MS2 sub-step 4: scheduler ---
+  listScheduled(status?: string): Observable<ScheduledPost[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.http.get<ApiResponse<ScheduledPost[]>>(`${this.base}/scheduler${q}`).pipe(map((r) => r.data as ScheduledPost[]));
+  }
+  approvePost(id: number): Observable<ScheduledPost> {
+    return this.http.post<ApiResponse<ScheduledPost>>(`${this.base}/scheduler/${id}/approve`, {}).pipe(map((r) => r.data as ScheduledPost));
+  }
+  approveAllPosts(): Observable<{ approved: number }> {
+    return this.http.post<ApiResponse<{ approved: number }>>(`${this.base}/scheduler/approve-all`, {}).pipe(map((r) => r.data as { approved: number }));
+  }
+  reschedulePost(id: number, scheduledAt: string): Observable<ScheduledPost> {
+    return this.http.put<ApiResponse<ScheduledPost>>(`${this.base}/scheduler/${id}/reschedule`, { scheduledAt }).pipe(map((r) => r.data as ScheduledPost));
+  }
+  skipPost(id: number): Observable<ScheduledPost> {
+    return this.http.post<ApiResponse<ScheduledPost>>(`${this.base}/scheduler/${id}/skip`, {}).pipe(map((r) => r.data as ScheduledPost));
+  }
+  deletePost(id: number): Observable<unknown> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.base}/scheduler/${id}`);
+  }
+}
+
+/** A per-channel scheduled post (also a job-history row). Mirrors ScheduledPostDto on the API. */
+export interface ScheduledPost {
+  id: number;
+  planItemId: number;
+  platform: string;
+  scheduledAt: string;
+  status: 'pending_approval' | 'scheduled' | 'published' | 'failed' | 'skipped';
+  type: string;
+  topic: string;
+  preview: string | null;
+  externalPostId: string | null;
+  error: string | null;
+  publishedAt: string | null;
 }
 
 /** One proposed creative in the weekly plan. Mirrors PlanItemDto on the API. */
