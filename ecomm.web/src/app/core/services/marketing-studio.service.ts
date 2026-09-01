@@ -111,7 +111,20 @@ export class MarketingStudioService {
     return this.http.post<ApiResponse<{ audioUrl: string }>>(`${this.base}/voice/preview`, { text, languageCode, speaker })
       .pipe(map((r) => r.data as { audioUrl: string }));
   }
+
+  // --- MS3b: video reel plan ---
+  videoOptions(): Observable<VideoOptions> {
+    return this.http.get<ApiResponse<VideoOptions>>(`${this.base}/video/options`).pipe(map((r) => r.data as VideoOptions));
+  }
+  videoPlan(productId: number | null, goal: string, platform: string): Observable<VideoPlan> {
+    return this.http.post<ApiResponse<VideoPlan>>(`${this.base}/video/plan`, { productId, goal, platform }).pipe(map((r) => r.data as VideoPlan));
+  }
 }
+
+export interface NamedProduct { id: number; name: string; }
+export interface VideoOptions { goals: NamedCode[]; platforms: NamedCode[]; products: NamedProduct[]; }
+export interface VideoScene { durationSeconds: number; visual: string; text: string; }
+export interface VideoPlan { hook: string; durationSeconds: number; aspect: string; musicVertical: string; narration: string; scenes: VideoScene[]; }
 
 export interface NamedCode { code: string; name: string; }
 export interface VoiceOptions { enabled: boolean; languages: NamedCode[]; speakers: NamedCode[]; }

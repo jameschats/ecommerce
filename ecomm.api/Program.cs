@@ -139,6 +139,7 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration[$"{ecomm.api.Features.Marke
 else
     builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ITextToSpeech, ecomm.api.Features.MarketingStudio.NullTextToSpeech>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingVoiceService, ecomm.api.Features.MarketingStudio.MarketingVoiceService>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IVideoPlanService, ecomm.api.Features.MarketingStudio.VideoPlanService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanService, ecomm.api.Features.MarketingStudio.MarketingPlanService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingCopywriter, ecomm.api.Features.MarketingStudio.GrowthCopywriter>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingGenerationService, ecomm.api.Features.MarketingStudio.MarketingGenerationService>();
