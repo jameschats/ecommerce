@@ -21,7 +21,7 @@ public sealed class SarvamOptions
 {
     public const string SectionName = "Sarvam";
     public string ApiKey { get; set; } = "";
-    public string Model { get; set; } = "bulbul:v2";
+    public string Model { get; set; } = "bulbul:v3";
     public string BaseUrl { get; set; } = "https://api.sarvam.ai";
 }
 

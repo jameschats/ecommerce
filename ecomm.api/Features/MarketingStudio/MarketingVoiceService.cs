@@ -31,10 +31,14 @@ public sealed class MarketingVoiceService(ITextToSpeech tts, IMediaStorage media
         new NamedCode("mr-IN", "Marathi"), new NamedCode("bn-IN", "Bengali"), new NamedCode("gu-IN", "Gujarati"),
         new NamedCode("pa-IN", "Punjabi"), new NamedCode("od-IN", "Odia"),
     };
-    // Kept minimal + safe: "Auto" (API default) always works; named voices are refined as we validate them.
+    // bulbul:v3 speakers (validated against Sarvam). "Auto" omits the field → the model default.
     private static readonly IReadOnlyList<NamedCode> Speakers = new[]
     {
-        new NamedCode("", "Auto (recommended)"), new NamedCode("anushka", "Anushka (female)"), new NamedCode("abhilash", "Abhilash (male)"),
+        new NamedCode("", "Auto (recommended)"),
+        new NamedCode("priya", "Priya (female)"), new NamedCode("neha", "Neha (female)"), new NamedCode("ritu", "Ritu (female)"),
+        new NamedCode("pooja", "Pooja (female)"), new NamedCode("kavya", "Kavya (female)"),
+        new NamedCode("rahul", "Rahul (male)"), new NamedCode("aditya", "Aditya (male)"),
+        new NamedCode("rohan", "Rohan (male)"), new NamedCode("ashutosh", "Ashutosh (male)"),
     };
 
     public VoiceOptionsDto Options() => new(tts.Enabled, Langs, Speakers);
