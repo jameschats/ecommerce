@@ -140,6 +140,8 @@ else
     builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ITextToSpeech, ecomm.api.Features.MarketingStudio.NullTextToSpeech>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingVoiceService, ecomm.api.Features.MarketingStudio.MarketingVoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IVideoPlanService, ecomm.api.Features.MarketingStudio.VideoPlanService>();
+// Reel music — local seed pack (music optional); an AI-music/stock API can swap in behind IMusicProvider.
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMusicProvider, ecomm.api.Features.MarketingStudio.LocalMusicProvider>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanService, ecomm.api.Features.MarketingStudio.MarketingPlanService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingCopywriter, ecomm.api.Features.MarketingStudio.GrowthCopywriter>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingGenerationService, ecomm.api.Features.MarketingStudio.MarketingGenerationService>();
