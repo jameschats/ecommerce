@@ -303,7 +303,8 @@ export class AdminLayoutComponent implements OnInit {
     { title: 'Marketing', color: '#0d9488', links: [
       { path: '/admin/marketing/brand', label: 'Studio brand kit', icon: 'swatch' },
       { path: '/admin/marketing/connections', label: 'Connections', icon: 'puzzle' },
-      { path: '/admin/marketing/plan', label: 'Weekly plan', icon: 'calendar' },
+      { path: '/admin/marketing/plan', label: 'Weekly plan', exact: true, icon: 'calendar' },
+      { path: '/admin/marketing/plan/review', label: 'This week', icon: 'sparkles' },
       { path: '/admin/growth', label: 'Generate', exact: true, icon: 'sparkles' },
       { path: '/admin/growth/campaigns', label: 'Campaigns', icon: 'megaphone' },
       { path: '/admin/growth/calendar', label: 'Calendar', icon: 'calendar' },

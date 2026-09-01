@@ -61,6 +61,48 @@ export class MarketingStudioService {
   savePlanSettings(settings: MarketingPlanSettings): Observable<MarketingPlanSettings> {
     return this.http.put<ApiResponse<MarketingPlanSettings>>(`${this.base}/plan/settings`, settings).pipe(map((r) => r.data as MarketingPlanSettings));
   }
+
+  // --- MS2 sub-step 2: weekly plan (propose / review / confirm) ---
+  proposePlan(weekStart?: string): Observable<WeekPlan> {
+    return this.http.post<ApiResponse<WeekPlan>>(`${this.base}/plan/propose`, { weekStart: weekStart ?? null }).pipe(map((r) => r.data as WeekPlan));
+  }
+  getCurrentPlan(): Observable<WeekPlan | null> {
+    return this.http.get<ApiResponse<WeekPlan | null>>(`${this.base}/plan/current`).pipe(map((r) => r.data ?? null));
+  }
+  updatePlanItem(id: number, patch: Partial<PlanItem>): Observable<PlanItem> {
+    return this.http.put<ApiResponse<PlanItem>>(`${this.base}/plan/items/${id}`, patch).pipe(map((r) => r.data as PlanItem));
+  }
+  removePlanItem(id: number): Observable<unknown> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.base}/plan/items/${id}`);
+  }
+  confirmPlan(id: number): Observable<WeekPlan> {
+    return this.http.post<ApiResponse<WeekPlan>>(`${this.base}/plan/${id}/confirm`, {}).pipe(map((r) => r.data as WeekPlan));
+  }
+  discardPlan(id: number): Observable<unknown> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.base}/plan/${id}`);
+  }
+}
+
+/** One proposed creative in the weekly plan. Mirrors PlanItemDto on the API. */
+export interface PlanItem {
+  id: number;
+  scheduledAt: string;
+  type: 'text' | 'poster';
+  productId: number | null;
+  topic: string;
+  angle: string | null;
+  channels: string[];
+  includeLogo: boolean;
+  includeName: boolean;
+  status: string;
+}
+
+/** A week's proposed plan. Mirrors PlanDto on the API. */
+export interface WeekPlan {
+  id: number;
+  weekStart: string;
+  status: string;
+  items: PlanItem[];
 }
 
 /** Per-channel row in the weekly-plan matrix. Mirrors ChannelPrefDto on the API. */

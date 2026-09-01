@@ -129,6 +129,8 @@ builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IBrandThemeDefault
 builder.Services.Configure<ecomm.api.Features.MarketingStudio.SocialOptions>(builder.Configuration.GetSection(ecomm.api.Features.MarketingStudio.SocialOptions.SectionName));
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ISocialConnectionService, ecomm.api.Features.MarketingStudio.SocialConnectionService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanSettingsService, ecomm.api.Features.MarketingStudio.MarketingPlanSettingsService>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ICatalogReader, ecomm.api.Features.MarketingStudio.CatalogReader>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanService, ecomm.api.Features.MarketingStudio.MarketingPlanService>();
 builder.Services.AddSingleton<ecomm.api.Features.Commerce.IGeoLookupService, ecomm.api.Features.Commerce.GeoLookupService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ILowStockAlertService, ecomm.api.Features.Apps.FirstParty.LowStockAlertService>();
 builder.Services.AddScoped<ecomm.api.Features.Apps.FirstParty.ISalesDigestService, ecomm.api.Features.Apps.FirstParty.SalesDigestService>();
