@@ -288,3 +288,41 @@ Refined with the user 2026-09-01. Today's calendar is read-only (festivals + sch
 4. Scheduler screen (reschedule/approve/skip/regenerate) + Hangfire publish sweep (auto-publish vs approval).
 5. History tab + `AutoRecur` weekly drafting.
 6. (MS3 later) videos become a plan type once the video pipeline exists.
+
+---
+
+## 6. Marketing menu IA — consolidation plan (DEFERRED — do NOT execute yet)
+
+The Marketing nav now holds two eras of tooling (older "Growth" M1–M4 + the new Studio), which reads as cluttered/overlapping. **Decision (2026-09-01): keep this as a recorded plan and execute it in ONE safe pass only after the Studio (MS2) works end-to-end — nothing is reorganized now, to avoid spoiling working screens.**
+
+### Every current Marketing item (12) — what it is
+| Item | Route | Era | Purpose | Verdict |
+|---|---|---|---|---|
+| Studio brand kit | /admin/marketing/brand | New | Visual identity (logo/colours/handles) | merge w/ Brand voice |
+| Connections | /admin/marketing/connections | New | Social OAuth accounts | keep (Studio) |
+| Weekly plan | /admin/marketing/plan | New | Cadence preferences | keep; relabel "Plan settings" |
+| This week | /admin/marketing/plan/review | New | AI plan → review → confirm | keep (Studio) |
+| Generate | /admin/growth | Old | Ad-hoc single-piece content | keep; relabel "Quick create" |
+| Campaigns | /admin/growth/campaigns | Old | One goal → copy per channel (+ email send) | keep; relabel "Email campaigns" |
+| Calendar | /admin/growth/calendar | Old | Festivals + scheduled campaigns (read-only) | **converge into new Scheduler** |
+| SEO ideas | /admin/growth/seo | Old | Keyword ideas + briefs | keep (Content) |
+| Blog | /admin/articles | Old | Blog CMS + AI writer | keep (Content) |
+| Product images | /admin/growth/images | Old | AI product **catalog** image gen (≠ posters) | keep (Content) |
+| Content library | /admin/growth/library | Old | Saved Growth outputs | keep; later unify w/ MarketingCreative |
+| Brand voice | /admin/growth/brand-kit | Old | Tone/language for text gen | merge w/ Studio brand kit |
+
+### Target IA (two lanes, when executed later)
+- **Marketing Studio** (guided AI flow): Brand (Visual+Voice tabs) · Connections · This week · Plan settings · **Scheduler** (new, sub-step 4) · History
+- **Create & content** (standalone toolbox): Quick create (Generate) · Email campaigns · Blog · SEO · Product images · Content library
+
+### Safe execution steps (LATER, in one pass)
+1. **Merge brand:** one Brand page at /admin/marketing/brand with Visual + Voice tabs (wrapper embeds the existing `admin-marketing-brand` + `admin-brand-kit` components — no logic rewrite). Redirect /admin/growth/brand-kit → /admin/marketing/brand. Keep old routes alive so bookmarks don't break.
+2. **Relabels only (pure display strings, zero risk):** Generate→"Quick create", Campaigns→"Email campaigns", Weekly plan→"Plan settings", Calendar→"Festival calendar" (until it's replaced).
+3. **Split the one "Marketing" nav group into two** ("Marketing Studio" teal, "Create & content" a distinct shade) — nav-config only.
+4. **Converge Calendar → Scheduler:** when sub-step 4's scheduler exists, fold festival nudges + scheduled-campaign rows into it and retire the old Calendar item — so there's ever only ONE calendar.
+5. **Later:** consider unifying the old "Content library" (Growth content) with the Studio's `MarketingCreative` list so there's one place for generated assets.
+
+### Guardrails
+- Routes stay working (add redirects, don't delete) so no deep link breaks.
+- Brand merge reuses existing components as tab children — no form logic rewritten.
+- Do this only when MS2 is functionally complete and verified, as a single reviewable change.
