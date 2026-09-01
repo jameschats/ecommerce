@@ -231,3 +231,60 @@ Feasible and worth building. **V1 is cheap, reliable, and high-value; V2/V3 are 
 - **Music licensing must be legitimate** — curated licensed pack, tracked via `MusicTrack.LicenseRef`.
 - **Cost control** — hard credit gate + estimate before every paid generation; cache/reuse assets.
 - **Token security** — social tokens encrypted at rest; refresh jobs; revoke on disconnect.
+
+---
+
+## 5. MS2 design — weekly plan & scheduler (customization + review + history)
+
+Refined with the user 2026-09-01. Today's calendar is read-only (festivals + scheduled campaigns) — none of the below exists yet; MS2 adds it. Core principle the user set: **nothing is generated one-shot; the merchant customizes, then confirms, then we generate — and they can always see and change the schedule.**
+
+### 5.1 Two gates, never a black box
+```
+① PLAN PREFERENCES        ② AI PROPOSES (cheap outline, no creatives yet)      ③ CONFIRM → GENERATE
+  posts/week per type   →   a draft week: day · type · channel(s) · topic   →   user edits/removes/adds,
+  per-channel × type        (just the plan, ~no credits)                         toggles channels, then
+  matrix, week start                                                             CONFIRMS → creatives are
+                                                                                 generated (credits spent here)
+                                                                                        │
+                                                                                        ▼
+                          ④ SCHEDULER (per-channel posts)     ⑤ PUBLISH per schedule
+                            reschedule · approve · skip   →     auto-publish channels go live at time;
+                            regenerate · change cadence         others wait for approval (D5 gate)
+                                                                        │
+                                                                        ▼
+                                                              ⑥ JOB HISTORY (runs log)
+                                                                published / failed + when + link/error
+```
+- **Gate 1 (confirm before generate):** the AI first proposes only an *outline* (day/type/channel/topic) — near-zero cost. The merchant reviews, edits, removes, adds, and flips channels, then **confirms**. Only then do we spend credits generating the actual copy/posters. This directly honours "ask before generation."
+- **Gate 2 (approval before publish):** per the locked D5 decision — each channel is either auto-publish (goes live at its slot) or waits as "needs approval" in the scheduler.
+
+### 5.2 Customization surfaces (the merchant's controls)
+- **Plan Preferences** (`MarketingPlanSettings`, per tenant): how many of each per week — `TextPerWeek`, `PostersPerWeek`, `VideosPerWeek`; `WeekStartDay`; default posting times; `AutoRecur` (auto-draft next week) on/off.
+- **Per-channel × per-type matrix** (`MarketingChannelPref`, one row per connected platform): `Enabled` (include this channel at all) + `AllowText` / `AllowPoster` / `AllowVideo` checkboxes. This is the user's "after connecting, uncheck if we don't want a poster for a particular social media." Only *connected* channels appear.
+- **Per-item toggles** at review time: include logo / include name (defaults from the Brand Kit), pick/replace the product or topic, change the day/time, choose which of the allowed channels this specific item goes to, remove it, or add an extra item.
+
+### 5.3 Data model (new, all Marketing* cluster, no core FKs)
+- `MarketingPlanSettings` (per tenant) — the cadence prefs above.
+- `MarketingChannelPref` (per tenant × platform) — the enable + type checkboxes.
+- `MarketingPlan` (per week) — `WeekStart`, `Status` (Draft→Confirmed→Active→Done).
+- `MarketingPlanItem` — one intended creative: `Day/ScheduledAt`, `Type`, `Topic/ProductId`, `Angle`, include-toggles, `Status` (Proposed→Approved→Generated→Scheduled→Done/Skipped), `CreativeId` once generated.
+- `MarketingCreative` — the generated asset (text/poster; video later), reusable across channels.
+- `ScheduledPost` — **fan-out: one row per (item × channel)** with `ScheduledAt`, `Status` (PendingApproval | Scheduled | Published | Failed | Skipped), `ExternalPostId`, `Error`. This is both the schedule **and** the job history (query by time). Per-channel rows are what make per-channel toggles, approval, and history clean.
+- Publishing is driven by a **Hangfire sweep** that picks up due `Scheduled` posts and calls the channel's publisher (reuses the MS1 `SocialConnection` tokens).
+
+### 5.4 Scheduler screen (`/admin/marketing/calendar`)
+- Week/month/list view of `ScheduledPost` grouped by day: each shows type + channel chip + status + time.
+- Actions: **reschedule** (change date/time), **approve** (for PendingApproval), **skip**, **regenerate** creative, **edit caption**, open the published post.
+- A **cadence panel**: change per-week counts, flip `AutoRecur` (weekly), "generate next week now."
+- A **History tab**: chronological runs — published/failed, timestamp, channel, external link or error. (Same `ScheduledPost` data, past + terminal states.)
+
+### 5.5 Recurring / "change to weekly, etc."
+`AutoRecur` on → a weekly Hangfire job drafts next week's plan from the saved preferences and leaves it at **Draft** for the merchant to confirm (never auto-generates+publishes unattended — respects Gate 1). Off → the merchant starts each week manually. Cadence/counts are editable any time and apply to the next draft.
+
+### 5.6 Build sub-steps (ship incrementally, test each)
+1. `MarketingPlanSettings` + `MarketingChannelPref` + Preferences UI (counts + per-channel×type matrix from connected channels).
+2. `MarketingPlan`/`MarketingPlanItem` + AI **outline** proposer + review UI (edit/remove/add/toggle) + **confirm**.
+3. Generation on confirm (text + posters reuse MS0 brand kit; credits) → `MarketingCreative` + fan-out `ScheduledPost`.
+4. Scheduler screen (reschedule/approve/skip/regenerate) + Hangfire publish sweep (auto-publish vs approval).
+5. History tab + `AutoRecur` weekly drafting.
+6. (MS3 later) videos become a plan type once the video pipeline exists.
