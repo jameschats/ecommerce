@@ -102,7 +102,19 @@ export class MarketingStudioService {
   deletePost(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/scheduler/${id}`);
   }
+
+  // --- MS3a: voiceover (Sarvam TTS) ---
+  voiceOptions(): Observable<VoiceOptions> {
+    return this.http.get<ApiResponse<VoiceOptions>>(`${this.base}/voice/options`).pipe(map((r) => r.data as VoiceOptions));
+  }
+  voicePreview(text: string, languageCode: string, speaker: string | null): Observable<{ audioUrl: string }> {
+    return this.http.post<ApiResponse<{ audioUrl: string }>>(`${this.base}/voice/preview`, { text, languageCode, speaker })
+      .pipe(map((r) => r.data as { audioUrl: string }));
+  }
 }
+
+export interface NamedCode { code: string; name: string; }
+export interface VoiceOptions { enabled: boolean; languages: NamedCode[]; speakers: NamedCode[]; }
 
 /** A per-channel scheduled post (also a job-history row). Mirrors ScheduledPostDto on the API. */
 export interface ScheduledPost {

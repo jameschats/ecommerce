@@ -131,6 +131,14 @@ builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ISocialConnectionS
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanSettingsService, ecomm.api.Features.MarketingStudio.MarketingPlanSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ICatalogReader, ecomm.api.Features.MarketingStudio.CatalogReader>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IPosterRenderer, ecomm.api.Features.MarketingStudio.SvgPosterRenderer>();
+// MS3·a voiceover — Sarvam TTS when a key is configured (Sarvam:ApiKey via env/user-secrets), else a
+// no-op Null provider (same dev-provider convention as Email/SMS/WhatsApp).
+builder.Services.Configure<ecomm.api.Features.MarketingStudio.SarvamOptions>(builder.Configuration.GetSection(ecomm.api.Features.MarketingStudio.SarvamOptions.SectionName));
+if (!string.IsNullOrWhiteSpace(builder.Configuration[$"{ecomm.api.Features.MarketingStudio.SarvamOptions.SectionName}:ApiKey"]))
+    builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ITextToSpeech, ecomm.api.Features.MarketingStudio.SarvamTextToSpeech>();
+else
+    builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ITextToSpeech, ecomm.api.Features.MarketingStudio.NullTextToSpeech>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingVoiceService, ecomm.api.Features.MarketingStudio.MarketingVoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanService, ecomm.api.Features.MarketingStudio.MarketingPlanService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingCopywriter, ecomm.api.Features.MarketingStudio.GrowthCopywriter>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingGenerationService, ecomm.api.Features.MarketingStudio.MarketingGenerationService>();
