@@ -149,6 +149,7 @@ export const routes: Routes = [
       { path: 'growth/seo', loadComponent: () => import('./features/admin/growth/admin-growth-seo.component').then((m) => m.AdminGrowthSeoComponent) },
       { path: 'marketing/brand', loadComponent: () => import('./features/admin/marketing/admin-marketing-brand.component').then((m) => m.AdminMarketingBrandComponent) },
       { path: 'marketing/connections', loadComponent: () => import('./features/admin/marketing/admin-marketing-connections.component').then((m) => m.AdminMarketingConnectionsComponent) },
+      { path: 'marketing/plan', loadComponent: () => import('./features/admin/marketing/admin-marketing-plan.component').then((m) => m.AdminMarketingPlanComponent) },
       { path: 'apps', loadComponent: () => import('./features/admin/apps/admin-app-store.component').then((m) => m.AdminAppStoreComponent) },
       { path: 'apps/low-stock-alerts', loadComponent: () => import('./features/admin/apps/admin-low-stock-app.component').then((m) => m.AdminLowStockAppComponent) },
       { path: 'apps/sales-digest', loadComponent: () => import('./features/admin/apps/admin-sales-digest-app.component').then((m) => m.AdminSalesDigestAppComponent) },

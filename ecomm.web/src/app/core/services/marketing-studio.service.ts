@@ -52,6 +52,37 @@ export class MarketingStudioService {
   disconnect(platform: string): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/connections/${platform}`);
   }
+
+  // --- MS2 sub-step 1: weekly-plan preferences ---
+  getPlanSettings(): Observable<MarketingPlanSettings> {
+    return this.http.get<ApiResponse<MarketingPlanSettings>>(`${this.base}/plan/settings`).pipe(map((r) => r.data as MarketingPlanSettings));
+  }
+
+  savePlanSettings(settings: MarketingPlanSettings): Observable<MarketingPlanSettings> {
+    return this.http.put<ApiResponse<MarketingPlanSettings>>(`${this.base}/plan/settings`, settings).pipe(map((r) => r.data as MarketingPlanSettings));
+  }
+}
+
+/** Per-channel row in the weekly-plan matrix. Mirrors ChannelPrefDto on the API. */
+export interface ChannelPref {
+  platform: string;
+  displayName: string;
+  connected: boolean;
+  enabled: boolean;
+  allowText: boolean;
+  allowPoster: boolean;
+  allowVideo: boolean;
+}
+
+/** Weekly-plan cadence + channel matrix. Mirrors MarketingPlanSettingsDto on the API. */
+export interface MarketingPlanSettings {
+  textPerWeek: number;
+  postersPerWeek: number;
+  videosPerWeek: number;
+  weekStartDay: number;
+  defaultPostHour: number;
+  autoRecur: boolean;
+  channels: ChannelPref[];
 }
 
 /** A social platform card on the connections page. Mirrors SocialConnectionDto on the API. */
