@@ -150,6 +150,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<MarketingPlanItem> MarketingPlanItems => Set<MarketingPlanItem>();
     public DbSet<MarketingCreative> MarketingCreatives => Set<MarketingCreative>();
     public DbSet<ScheduledPost> ScheduledPosts => Set<ScheduledPost>();
+    public DbSet<MarketingVideoRender> MarketingVideoRenders => Set<MarketingVideoRender>();
     public DbSet<GrowthContent> GrowthContents => Set<GrowthContent>();
     public DbSet<GrowthCampaign> GrowthCampaigns => Set<GrowthCampaign>();
     public DbSet<GrowthFestival> GrowthFestivals => Set<GrowthFestival>();
@@ -539,6 +540,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<MarketingPlanItem>(e => { e.ToTable("MarketingPlanItems"); e.HasKey(x => x.MarketingPlanItemId); });
         b.Entity<MarketingCreative>(e => { e.ToTable("MarketingCreatives"); e.HasKey(x => x.MarketingCreativeId); });
         b.Entity<ScheduledPost>(e => { e.ToTable("ScheduledPosts"); e.HasKey(x => x.ScheduledPostId); });
+        b.Entity<MarketingVideoRender>(e => { e.ToTable("MarketingVideoRenders"); e.HasKey(x => x.MarketingVideoRenderId); });
         b.Entity<GrowthContent>(e => { e.ToTable("GrowthContents"); e.HasKey(x => x.GrowthContentId); });
         b.Entity<GrowthCampaign>(e => { e.ToTable("GrowthCampaigns"); e.HasKey(x => x.GrowthCampaignId); });
         // Global (not tenant-scoped): the festival calendar is shared across all stores.

@@ -9,6 +9,11 @@ RUN dotnet publish ./ecomm.api/ecomm.api.csproj -c Release -o /app/publish --no-
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
+# ffmpeg powers Marketing Studio reel rendering (MS3·c). Standard apt package; fonts for burned-in
+# captions (drawtext). Kept lean with --no-install-recommends + apt cache cleanup.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
 
 # dp-keys and uploads are bind-mounted by docker-compose.yml onto host directories that must survive

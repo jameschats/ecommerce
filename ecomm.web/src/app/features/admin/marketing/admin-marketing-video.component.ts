@@ -1,11 +1,12 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { VideoOptions, VideoPlan, VoiceOptions, MarketingStudioService } from '../../../core/services/marketing-studio.service';
+import { RenderStatus, VideoOptions, VideoPlan, VoiceOptions, MarketingStudioService } from '../../../core/services/marketing-studio.service';
 
 /**
- * MS3·b — reel planner. Product → Goal → Platform → a ready-to-voice, ready-to-render scene plan (AI
- * narration + deterministic scenes/captions). The narration can be voiced right here via Sarvam TTS.
- * Final MP4 assembly comes from the render worker (next slice).
+ * MS3·b/c — reel planner + render. Product → Goal → Platform → a ready-to-voice scene plan (AI
+ * narration + deterministic scenes/captions), previewable as audio via Sarvam TTS, then "Create video"
+ * renders the finished MP4 (Ken Burns + captions + voiceover + optional music) in the background —
+ * polled here until done.
  */
 @Component({
   selector: 'app-admin-marketing-video',
@@ -85,9 +86,23 @@ import { VideoOptions, VideoPlan, VoiceOptions, MarketingStudioService } from '.
               <p class="text-xs text-slate-400">Voiceover turns on once the voice provider key is set.</p>
             }
 
-            <p class="text-xs text-slate-400 border-t border-slate-100 pt-3">
-              Rendering this into a finished MP4 (Ken Burns motion + captions + music) is the render-worker step we're building next.
-            </p>
+            <div class="border-t border-slate-100 pt-4">
+              @if (voice()?.enabled) {
+                <label class="flex items-center gap-2 text-sm text-slate-600 mb-3">
+                  <input type="checkbox" [(ngModel)]="includeMusic" name="includeMusic" /> Add background music (optional — a curated track, or silent if none is set up)
+                </label>
+              }
+              <button type="button" (click)="createVideo()" [disabled]="rendering() || !narration.trim()" class="btn-primary disabled:opacity-60">
+                {{ renderButtonLabel() }}
+              </button>
+              @if (renderError()) { <span class="text-sm text-red-600 ml-3">{{ renderError() }}</span> }
+
+              @if (videoUrl(); as v) {
+                <div class="mt-4">
+                  <video [src]="v" controls class="w-full rounded-lg border border-slate-200" style="max-height: 480px"></video>
+                </div>
+              }
+            </div>
           </section>
         }
       } @else {
@@ -96,8 +111,9 @@ import { VideoOptions, VideoPlan, VoiceOptions, MarketingStudioService } from '.
     </div>
   `,
 })
-export class AdminMarketingVideoComponent implements OnInit {
+export class AdminMarketingVideoComponent implements OnInit, OnDestroy {
   private readonly api = inject(MarketingStudioService);
+  private pollHandle: ReturnType<typeof setInterval> | null = null;
 
   readonly opts = signal<VideoOptions | null>(null);
   readonly voice = signal<VoiceOptions | null>(null);
@@ -107,20 +123,33 @@ export class AdminMarketingVideoComponent implements OnInit {
   readonly audioUrl = signal<string | null>(null);
   readonly voiceErr = signal<string | null>(null);
 
+  readonly renderStatus = signal<RenderStatus | null>(null);
+  readonly rendering = signal(false);
+  readonly renderError = signal<string | null>(null);
+  readonly videoUrl = signal<string | null>(null);
+
   productId: number | null = null;
   goal = 'product-promo';
   platform = 'instagram';
   narration = '';
   language = 'en-IN';
+  includeMusic = false;
 
   ngOnInit(): void {
     this.api.videoOptions().subscribe((o) => this.opts.set(o));
     this.api.voiceOptions().subscribe((v) => this.voice.set(v));
   }
 
+  ngOnDestroy(): void {
+    this.stopPolling();
+  }
+
   generate(): void {
     this.busy.set(true);
     this.audioUrl.set(null);
+    this.videoUrl.set(null);
+    this.renderStatus.set(null);
+    this.stopPolling();
     this.api.videoPlan(this.productId, this.goal, this.platform).subscribe({
       next: (p) => { this.plan.set(p); this.narration = p.narration; this.busy.set(false); },
       error: () => this.busy.set(false),
@@ -135,6 +164,42 @@ export class AdminMarketingVideoComponent implements OnInit {
       next: (r) => { this.audioUrl.set(r.audioUrl); this.voicing.set(false); },
       error: () => { this.voiceErr.set('Could not generate audio.'); this.voicing.set(false); },
     });
+  }
+
+  createVideo(): void {
+    this.rendering.set(true);
+    this.renderError.set(null);
+    this.videoUrl.set(null);
+    this.api.renderReel(this.productId, this.goal, this.platform, this.language, this.includeMusic).subscribe({
+      next: (r) => this.pollUntilDone(r.jobId),
+      error: () => { this.rendering.set(false); this.renderError.set('Could not start the render.'); },
+    });
+  }
+
+  private pollUntilDone(jobId: number): void {
+    this.stopPolling();
+    const tick = () => {
+      this.api.renderStatus(jobId).subscribe({
+        next: (s) => {
+          this.renderStatus.set(s);
+          if (s.status === 'done') { this.videoUrl.set(s.outputMediaUrl); this.rendering.set(false); this.stopPolling(); }
+          else if (s.status === 'failed') { this.renderError.set(s.error || 'The render failed.'); this.rendering.set(false); this.stopPolling(); }
+        },
+        error: () => { this.rendering.set(false); this.renderError.set('Lost track of the render.'); this.stopPolling(); },
+      });
+    };
+    tick();
+    this.pollHandle = setInterval(tick, 3000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollHandle) { clearInterval(this.pollHandle); this.pollHandle = null; }
+  }
+
+  renderButtonLabel(): string {
+    if (!this.rendering()) return 'Create video';
+    const s = this.renderStatus()?.status;
+    return s === 'rendering' ? 'Rendering…' : 'Starting…';
   }
 
   visualLabel(v: string): string {

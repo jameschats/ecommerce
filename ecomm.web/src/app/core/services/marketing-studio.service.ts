@@ -119,7 +119,18 @@ export class MarketingStudioService {
   videoPlan(productId: number | null, goal: string, platform: string): Observable<VideoPlan> {
     return this.http.post<ApiResponse<VideoPlan>>(`${this.base}/video/plan`, { productId, goal, platform }).pipe(map((r) => r.data as VideoPlan));
   }
+
+  // --- MS3c: reel rendering ---
+  renderReel(productId: number | null, goal: string, platform: string, languageCode: string, includeMusic: boolean): Observable<{ jobId: number }> {
+    return this.http.post<ApiResponse<{ jobId: number }>>(`${this.base}/video/render`, { productId, goal, platform, languageCode, includeMusic })
+      .pipe(map((r) => r.data as { jobId: number }));
+  }
+  renderStatus(jobId: number): Observable<RenderStatus> {
+    return this.http.get<ApiResponse<RenderStatus>>(`${this.base}/video/render/${jobId}`).pipe(map((r) => r.data as RenderStatus));
+  }
 }
+
+export interface RenderStatus { id: number; status: 'queued' | 'rendering' | 'done' | 'failed'; outputMediaUrl: string | null; error: string | null; }
 
 export interface NamedProduct { id: number; name: string; }
 export interface VideoOptions { goals: NamedCode[]; platforms: NamedCode[]; products: NamedProduct[]; }

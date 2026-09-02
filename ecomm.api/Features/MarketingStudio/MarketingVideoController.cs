@@ -16,7 +16,7 @@ namespace ecomm.api.Features.MarketingStudio;
 [Authorize(Roles = "Admin")]
 [RequiresFeature("marketing_studio")]
 [Route("api/marketing/video")]
-public sealed class MarketingVideoController(IVideoPlanService svc) : ControllerBase
+public sealed class MarketingVideoController(IVideoPlanService svc, IReelRenderService render) : ControllerBase
 {
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
@@ -28,4 +28,15 @@ public sealed class MarketingVideoController(IVideoPlanService svc) : Controller
     [HttpPost("plan")]
     public async Task<IActionResult> Plan(VideoPlanRequest req, CancellationToken ct)
         => Ok(ApiResponse<VideoPlan>.Ok(await svc.BuildAsync(req, UserId, ct), "Here's your reel plan."));
+
+    [HttpPost("render")]
+    public async Task<IActionResult> Render(RenderReelRequest req, CancellationToken ct)
+        => Ok(ApiResponse<object>.Ok(new { jobId = await render.EnqueueAsync(req, UserId, ct) }, "Your reel is rendering — this takes a minute."));
+
+    [HttpGet("render/{jobId:long}")]
+    public async Task<IActionResult> RenderStatus(long jobId, CancellationToken ct)
+    {
+        var status = await render.StatusAsync(jobId, ct);
+        return status is null ? NotFound(ApiResponse<object>.Fail("Not found.")) : Ok(ApiResponse<RenderStatusDto>.Ok(status));
+    }
 }
