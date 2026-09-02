@@ -3,17 +3,34 @@ using ecomm.api.Features.Media;
 
 namespace ecomm.api.Features.MarketingStudio;
 
-/// <summary>Everything the renderer needs to lay out one poster from the brand kit + subject.
+/// <summary>Everything a template needs to lay out one poster from the brand kit + subject.
+/// <paramref name="TemplateId"/> selects which hand-authored layout renders it (see
+/// <see cref="IPosterRenderer.AvailableTemplates"/>) — a merchant picks a template the way they'd pick
+/// one in Canva; the same data just flows into a different, deliberately-designed composition.
+/// <paramref name="Format"/> selects the canvas size (see <see cref="IPosterRenderer.AvailableFormats"/>)
+/// — every template must hold up at every format, not just the square default.
 /// <paramref name="BackgroundImageUrl"/> is an AI-generated scene (optional, credit-metered, from
-/// <see cref="PosterStudioService.GenerateBackgroundAsync"/>) that fills the whole frame behind the
-/// text, for a far more creative result than the plain gradient; <paramref name="ProductImageUrl"/> is
-/// the merchant's own product photo, used as a lighter-weight top-band fallback when there's no AI
-/// background. The renderer, not the model, draws the headline/price/CTA — so they're always crisp and
-/// accurate, which text-in-image generation is unreliable at.</summary>
+/// <see cref="PosterStudioService.GenerateBackgroundAsync"/>); <paramref name="ProductImageUrl"/> is the
+/// merchant's own product photo — templates that use a photo treat either the same way. The renderer,
+/// not the model, draws the headline/price/CTA — so they're always crisp and accurate, which
+/// text-in-image generation is unreliable at.</summary>
 public sealed record PosterSpec(
     string Kind, string Headline, decimal? Price, string Cta,
     string? CompanyName, bool IncludeName, bool IncludeLogo, string? LogoUrl, string? ProductImageUrl,
-    string Primary, string Secondary, string Accent, string? Font, string? BackgroundImageUrl = null);
+    string Primary, string Secondary, string Accent, string? Font, string? BackgroundImageUrl = null,
+    string? HeadlineFont = null, string HeadlineScale = "medium", string TemplateId = "bold-medallion",
+    string Format = "square");
+
+/// <summary>One selectable poster layout — an id/name/description for the picker plus whether it makes
+/// use of a photo (so the UI can hint "add a photo for this one" vs. "this one is photo-optional") and
+/// which category it's grouped under in a Canva-style browse grid (<see cref="PrebuiltThemeRegistry"/>'s
+/// storefront-theme catalog uses the same category-tag pattern).</summary>
+public sealed record PosterTemplateInfo(string Id, string Name, string Description, bool UsesPhoto, string Category);
+
+/// <summary>One selectable canvas size. Both formats currently ship at a fixed 1080 width — matching
+/// Instagram/Facebook's own convention of a constant feed width with the height varying by placement —
+/// so templates only need to adapt their vertical layout, not re-flow horizontally, per format.</summary>
+public sealed record PosterFormatInfo(string Id, string Label, int Width, int Height);
 
 /// <summary>Renders a poster to markup. Today: self-contained SVG (no browser, no infra) — renders as a
 /// real image in the admin and downloads cleanly. Rasterisation to PNG for social upload swaps in later
@@ -21,93 +38,192 @@ public sealed record PosterSpec(
 public interface IPosterRenderer
 {
     Task<string> RenderSvgAsync(PosterSpec spec, CancellationToken ct = default);
+    IReadOnlyList<string> AvailableFonts { get; }
+
+    /// <summary>The template library — hand-authored layouts a merchant picks from, Canva-style,
+    /// grown one at a time (mirrors PrebuiltThemeRegistry's storefront-theme catalog pattern).</summary>
+    IReadOnlyList<PosterTemplateInfo> AvailableTemplates { get; }
+
+    /// <summary>The canvas sizes a poster can render at — every template must hold up at every one.</summary>
+    IReadOnlyList<PosterFormatInfo> AvailableFormats { get; }
 }
 
 /// <summary>
-/// Brand-themed SVG poster (1080×1080). A gradient ground from the brand colours, the product/brand
-/// image when it lives in our own media store (embedded as a data URI so it renders even as an
-/// &lt;img&gt; source), a wrapped headline, an optional price badge, a CTA pill, the logo and company
-/// name — all driven by the merchant's brand kit. Images that aren't ours (or fail to load) are simply
-/// skipped, so a poster always renders.
+/// A small poster TEMPLATE REGISTRY (not one generative algorithm trying to be infinitely flexible) —
+/// each template is a hand-composed SVG layout sharing common building blocks (flat colour ground,
+/// embedded Google-Font import, wrapped bold headline, logo, price badge, CTA pill). Google Fonts are
+/// imported INSIDE the SVG's own &lt;style&gt; (page-level &lt;link&gt; stylesheets don't apply to SVG
+/// rendered via &lt;img src&gt; — it's an isolated rendering context), so the chosen font actually
+/// renders wherever this SVG is shown. Images that aren't ours (or fail to load) are simply skipped, so
+/// a poster always renders.
+///
+/// Layout math: canvas width is a constant 1080 across every format we ship (Instagram/Facebook keep
+/// feed width fixed and vary height by placement), so only Y-axis positions need to adapt per format.
+/// Elements anchored to the top (logo, headline start) use fixed offsets — they look identical at the
+/// square baseline regardless of extra height below. Elements anchored to the bottom (the CTA pill) are
+/// computed from the actual canvas height so they never end up stranded mid-canvas on a tall format. The
+/// photo medallion grows modestly into whatever extra height a taller format provides, rather than
+/// staying pinned at its square-format size and leaving the story format looking sparse.
 /// </summary>
 public sealed class SvgPosterRenderer(IMediaStorage media) : IPosterRenderer
 {
+    // Mirrors theme.service.ts KNOWN_FONTS, narrowed to faces that hold up as a big bold poster
+    // headline (a thin/light body face reads weak at 80px+, even requested at weight 900).
+    public IReadOnlyList<string> AvailableFonts { get; } =
+        new[] { "Poppins", "Montserrat", "Archivo", "Oswald", "Bebas Neue", "Space Grotesk", "DM Sans" };
+
+    public IReadOnlyList<PosterTemplateInfo> AvailableTemplates { get; } = new[]
+    {
+        new PosterTemplateInfo("bold-medallion", "Bold Medallion",
+            "A flat brand-colour ground with your product/scene in a bold circular medallion bleeding off the frame — confident, editorial.",
+            UsesPhoto: true, Category: "Product Spotlight"),
+        new PosterTemplateInfo("minimal-type", "Minimal Type",
+            "A two-tone colour-block poster built entirely from typography — no photo needed. Great for sales, offers and announcements.",
+            UsesPhoto: false, Category: "Sale & Offer"),
+    };
+
+    public IReadOnlyList<PosterFormatInfo> AvailableFormats { get; } = new[]
+    {
+        new PosterFormatInfo("square", "Square · Instagram & Facebook feed", 1080, 1080),
+        new PosterFormatInfo("story", "Story · Instagram & Facebook stories", 1080, 1920),
+    };
+
+    /// <summary>Shared, precomputed pieces every template composes with — the async I/O (font choice,
+    /// embedded logo/photo data-URIs) happens once here regardless of which template renders.</summary>
+    private sealed record Ctx(string Font, string Primary, string Secondary, string Accent, string Darker, string? Logo, string? Photo, int W, int H);
+
     public async Task<string> RenderSvgAsync(PosterSpec spec, CancellationToken ct = default)
     {
-        const int W = 1080, H = 1080;
-        var font = XmlEscape(string.IsNullOrWhiteSpace(spec.Font) ? "Arial" : spec.Font!) + ", Arial, sans-serif";
+        var displayFont = string.IsNullOrWhiteSpace(spec.HeadlineFont)
+            ? (string.IsNullOrWhiteSpace(spec.Font) ? "Poppins" : spec.Font!) : spec.HeadlineFont!;
+        if (!AvailableFonts.Contains(displayFont, StringComparer.OrdinalIgnoreCase)) displayFont = "Poppins";
+
+        var format = AvailableFormats.FirstOrDefault(f => f.Id.Equals(spec.Format, StringComparison.OrdinalIgnoreCase)) ?? AvailableFormats[0];
+
         var primary = SafeColor(spec.Primary, "#111827");
+        var secondary = SafeColor(spec.Secondary, "#374151");
         var accent = SafeColor(spec.Accent, "#2563eb");
-        var darker = Darken(primary, 0.45);
+        var darker = Darken(primary, 0.35);
 
         var logo = spec.IncludeLogo ? await DataUriAsync(spec.LogoUrl, ct) : null;
         var background = await DataUriAsync(spec.BackgroundImageUrl, ct);
-        var photo = background is null ? await DataUriAsync(spec.ProductImageUrl, ct) : null;
+        var photo = background ?? await DataUriAsync(spec.ProductImageUrl, ct);
+
+        var ctx = new Ctx(displayFont, primary, secondary, accent, darker, logo, photo, format.Width, format.Height);
+        var body = (spec.TemplateId ?? "").ToLowerInvariant() switch
+        {
+            "minimal-type" => ComposeMinimalType(spec, ctx),
+            _ => ComposeBoldMedallion(spec, ctx),
+        };
 
         var sb = new StringBuilder();
-        sb.Append($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{W}\" height=\"{H}\" viewBox=\"0 0 {W} {H}\">");
-        sb.Append("<defs>");
-        sb.Append($"<linearGradient id=\"bg\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"{primary}\"/><stop offset=\"1\" stop-color=\"{darker}\"/></linearGradient>");
-        sb.Append($"<linearGradient id=\"scrim\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"{darker}\" stop-opacity=\"0\"/><stop offset=\"1\" stop-color=\"{darker}\" stop-opacity=\"0.92\"/></linearGradient>");
-        sb.Append($"<linearGradient id=\"topScrim\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"{darker}\" stop-opacity=\"0.75\"/><stop offset=\"1\" stop-color=\"{darker}\" stop-opacity=\"0\"/></linearGradient>");
-        sb.Append("<clipPath id=\"photo\"><rect x=\"0\" y=\"0\" width=\"1080\" height=\"600\"/></clipPath>");
-        sb.Append("</defs>");
-        sb.Append("<rect width=\"1080\" height=\"1080\" fill=\"url(#bg)\"/>");
-
-        if (background is not null)
-        {
-            // AI-generated scene fills the whole frame; a bottom scrim keeps the headline/CTA legible
-            // over any content, so the model never has to (unreliably) render the text itself.
-            sb.Append($"<image href=\"{background}\" x=\"0\" y=\"0\" width=\"1080\" height=\"1080\" preserveAspectRatio=\"xMidYMid slice\"/>");
-            sb.Append("<rect x=\"0\" y=\"520\" width=\"1080\" height=\"560\" fill=\"url(#scrim)\"/>");
-            if (logo is not null || (spec.IncludeName && !string.IsNullOrWhiteSpace(spec.CompanyName)))
-                sb.Append("<rect x=\"0\" y=\"0\" width=\"1080\" height=\"260\" fill=\"url(#topScrim)\"/>");
-        }
-        else if (photo is not null)
-        {
-            // Merchant's own product photo across the top when available; else a soft accent band.
-            sb.Append($"<image href=\"{photo}\" x=\"0\" y=\"0\" width=\"1080\" height=\"600\" clip-path=\"url(#photo)\" preserveAspectRatio=\"xMidYMid slice\"/>");
-            sb.Append("<rect x=\"0\" y=\"420\" width=\"1080\" height=\"180\" fill=\"url(#bg)\" opacity=\"0.55\"/>");
-        }
-        else
-        {
-            sb.Append($"<rect x=\"0\" y=\"0\" width=\"1080\" height=\"12\" fill=\"{accent}\"/>");
-        }
-
-        // Logo (embedded) top-left.
-        if (logo is not null)
-            sb.Append($"<image href=\"{logo}\" x=\"80\" y=\"72\" width=\"260\" height=\"120\" preserveAspectRatio=\"xMinYMid meet\"/>");
-        else if (spec.IncludeName && !string.IsNullOrWhiteSpace(spec.CompanyName))
-            sb.Append($"<text x=\"80\" y=\"140\" font-family=\"{font}\" font-size=\"42\" font-weight=\"700\" fill=\"#ffffff\">{XmlEscape(spec.CompanyName!)}</text>");
-
-        // Headline — wrapped, bottom third.
-        var lines = Wrap(spec.Headline, 18, 3);
-        var startY = 720;
-        for (var i = 0; i < lines.Count; i++)
-            sb.Append($"<text x=\"80\" y=\"{startY + i * 92}\" font-family=\"{font}\" font-size=\"78\" font-weight=\"800\" fill=\"#ffffff\">{XmlEscape(lines[i])}</text>");
-
-        var afterHeadline = startY + lines.Count * 92 + 20;
-
-        // Price badge.
-        if (spec.Price is { } price && price > 0)
-        {
-            sb.Append($"<rect x=\"80\" y=\"{afterHeadline}\" width=\"260\" height=\"84\" rx=\"14\" fill=\"{accent}\"/>");
-            sb.Append($"<text x=\"210\" y=\"{afterHeadline + 56}\" font-family=\"{font}\" font-size=\"46\" font-weight=\"800\" fill=\"#ffffff\" text-anchor=\"middle\">₹{price:0}</text>");
-            afterHeadline += 108;
-        }
-
-        // CTA pill bottom.
-        var cta = XmlEscape(string.IsNullOrWhiteSpace(spec.Cta) ? "Shop Now" : spec.Cta);
-        sb.Append($"<rect x=\"80\" y=\"940\" width=\"320\" height=\"92\" rx=\"46\" fill=\"{accent}\"/>");
-        sb.Append($"<text x=\"240\" y=\"999\" font-family=\"{font}\" font-size=\"40\" font-weight=\"700\" fill=\"#ffffff\" text-anchor=\"middle\">{cta}</text>");
-
-        // Company name bottom-right when the logo already used the name slot.
-        if (spec.IncludeName && logo is not null && !string.IsNullOrWhiteSpace(spec.CompanyName))
-            sb.Append($"<text x=\"1000\" y=\"999\" font-family=\"{font}\" font-size=\"34\" font-weight=\"600\" fill=\"#ffffff\" opacity=\"0.85\" text-anchor=\"end\">{XmlEscape(spec.CompanyName!)}</text>");
-
+        sb.Append($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{ctx.W}\" height=\"{ctx.H}\" viewBox=\"0 0 {ctx.W} {ctx.H}\">");
+        sb.Append($"<defs><style>@import url('https://fonts.googleapis.com/css2?family={Uri.EscapeDataString(ctx.Font)}:wght@700;800;900&amp;display=swap');</style></defs>");
+        sb.Append(body);
         sb.Append("</svg>");
         return sb.ToString();
     }
+
+    // ---- Template: Bold Medallion — flat ground, ambient corner circles, a big circular photo
+    //      "stage" bleeding off the bottom-right edge, full-width caps headline across the top. At the
+    //      square baseline (H=1080) every number below matches the original hand-tuned layout exactly;
+    //      a taller format only changes where the CTA anchors and how large the medallion grows. ----
+    private string ComposeBoldMedallion(PosterSpec spec, Ctx c)
+    {
+        var font = XmlEscape(c.Font) + ", Arial, sans-serif";
+        var (headlineSize, lineHeight, maxLines) = SizeFor(spec.HeadlineScale);
+        var extra = Math.Max(0, c.H - 1080);   // vertical room beyond the square baseline
+
+        var sb = new StringBuilder();
+        sb.Append($"<rect width=\"{c.W}\" height=\"{c.H}\" fill=\"{c.Primary}\"/>");
+        sb.Append($"<circle cx=\"-60\" cy=\"{c.H + 40}\" r=\"260\" fill=\"{c.Darker}\" opacity=\"0.5\"/>");
+        sb.Append($"<circle cx=\"1040\" cy=\"-40\" r=\"170\" fill=\"{c.Accent}\" opacity=\"0.18\"/>");
+
+        if (c.Photo is not null)
+        {
+            // Grows into extra height rather than staying pinned at its square-format size, so a story
+            // poster doesn't read as a square poster floating in a tall empty frame.
+            var r = 400 + extra * 0.15;
+            var cy = c.H - 220 - extra * 0.06;
+            sb.Append($"<clipPath id=\"medallion\"><circle cx=\"780\" cy=\"{cy:0}\" r=\"{r:0}\"/></clipPath>");
+            sb.Append($"<circle cx=\"780\" cy=\"{cy:0}\" r=\"{r:0}\" fill=\"{c.Accent}\"/>");
+            sb.Append($"<image href=\"{c.Photo}\" x=\"{780 - r:0}\" y=\"{cy - r:0}\" width=\"{r * 2:0}\" height=\"{r * 2:0}\" clip-path=\"url(#medallion)\" preserveAspectRatio=\"xMidYMid slice\"/>");
+        }
+
+        if (c.Logo is not null)
+            sb.Append($"<image href=\"{c.Logo}\" x=\"72\" y=\"60\" width=\"220\" height=\"96\" preserveAspectRatio=\"xMinYMid meet\"/>");
+        else if (spec.IncludeName && !string.IsNullOrWhiteSpace(spec.CompanyName))
+            sb.Append($"<text x=\"72\" y=\"126\" font-family=\"{font}\" font-size=\"38\" font-weight=\"700\" fill=\"#ffffff\">{XmlEscape(spec.CompanyName!)}</text>");
+
+        var lines = Wrap(spec.Headline.ToUpperInvariant(), c.Photo is not null ? 17 : 20, maxLines);
+        var startY = 260;
+        for (var i = 0; i < lines.Count; i++)
+            sb.Append($"<text x=\"72\" y=\"{startY + i * lineHeight}\" font-family=\"{font}\" font-size=\"{headlineSize}\" font-weight=\"900\" fill=\"#ffffff\">{XmlEscape(lines[i])}</text>");
+        var afterHeadline = startY + lines.Count * lineHeight + 40;
+
+        if (spec.Price is { } price && price > 0)
+        {
+            sb.Append($"<rect x=\"72\" y=\"{afterHeadline}\" width=\"250\" height=\"78\" rx=\"12\" fill=\"{c.Accent}\"/>");
+            sb.Append($"<text x=\"197\" y=\"{afterHeadline + 52}\" font-family=\"{font}\" font-size=\"42\" font-weight=\"800\" fill=\"#ffffff\" text-anchor=\"middle\">₹{price:0}</text>");
+        }
+
+        var ctaTop = c.H - 140;                // baseline (H=1080) gives 940, matching the original fixed value
+        var cta = XmlEscape(string.IsNullOrWhiteSpace(spec.Cta) ? "Shop Now" : spec.Cta);
+        sb.Append($"<rect x=\"72\" y=\"{ctaTop}\" width=\"300\" height=\"88\" rx=\"44\" fill=\"#ffffff\"/>");
+        sb.Append($"<text x=\"222\" y=\"{ctaTop + 56}\" font-family=\"{font}\" font-size=\"38\" font-weight=\"800\" fill=\"{c.Primary}\" text-anchor=\"middle\">{cta}</text>");
+        return sb.ToString();
+    }
+
+    // ---- Template: Minimal Type — a bold horizontal two-tone colour block, no photo, headline free
+    //      to run large across the whole upper zone, price treated as a big standalone number in the
+    //      lower accent band rather than a small badge. Reads strong for sales/offers/announcements.
+    //      The split between the two colour bands stays at the same 63/37 ratio at every format, so a
+    //      taller canvas gets proportionally more of both, not a stretched-out bottom band. ----
+    private string ComposeMinimalType(PosterSpec spec, Ctx c)
+    {
+        var font = XmlEscape(c.Font) + ", Arial, sans-serif";
+        var splitY = (int)(c.H * 0.63);   // baseline (H=1080) gives 680, matching the original fixed value
+
+        var sb = new StringBuilder();
+        sb.Append($"<rect x=\"0\" y=\"0\" width=\"{c.W}\" height=\"{splitY}\" fill=\"{c.Primary}\"/>");
+        sb.Append($"<rect x=\"0\" y=\"{splitY}\" width=\"{c.W}\" height=\"{c.H - splitY}\" fill=\"{c.Accent}\"/>");
+        sb.Append($"<circle cx=\"1020\" cy=\"60\" r=\"140\" fill=\"{c.Darker}\" opacity=\"0.35\"/>");
+
+        if (c.Logo is not null)
+            sb.Append($"<image href=\"{c.Logo}\" x=\"72\" y=\"56\" width=\"220\" height=\"90\" preserveAspectRatio=\"xMinYMid meet\"/>");
+        else if (spec.IncludeName && !string.IsNullOrWhiteSpace(spec.CompanyName))
+            sb.Append($"<text x=\"72\" y=\"118\" font-family=\"{font}\" font-size=\"36\" font-weight=\"700\" fill=\"#ffffff\">{XmlEscape(spec.CompanyName!)}</text>");
+
+        // Larger canvas for type since there's no photo competing for space.
+        var lines = Wrap(spec.Headline.ToUpperInvariant(), 16, 5);
+        var lineHeight = lines.Count <= 3 ? 104 : 84;
+        var fontSize = lines.Count <= 3 ? 92 : 74;
+        var startY = 260;
+        for (var i = 0; i < lines.Count; i++)
+            sb.Append($"<text x=\"72\" y=\"{startY + i * lineHeight}\" font-family=\"{font}\" font-size=\"{fontSize}\" font-weight=\"900\" fill=\"#ffffff\">{XmlEscape(lines[i])}</text>");
+
+        // Thin rule under the headline as a graphic accent.
+        var ruleY = startY + lines.Count * lineHeight - (lines.Count <= 3 ? 60 : 48);
+        sb.Append($"<rect x=\"72\" y=\"{Math.Min(ruleY, splitY - 60)}\" width=\"140\" height=\"6\" fill=\"#ffffff\" opacity=\"0.85\"/>");
+
+        // Price as a big standalone figure, vertically centred in the accent band (a design element,
+        // not a small badge) — clamped so it never crowds the CTA pill on a tall format.
+        var bandCenterY = Math.Min(splitY + (c.H - splitY) / 2, c.H - 220);
+        if (spec.Price is { } price && price > 0)
+            sb.Append($"<text x=\"72\" y=\"{bandCenterY + 20}\" font-family=\"{font}\" font-size=\"96\" font-weight=\"900\" fill=\"{c.Primary}\">₹{price:0}</text>");
+
+        var cta = XmlEscape(string.IsNullOrWhiteSpace(spec.Cta) ? "Shop Now" : spec.Cta);
+        sb.Append($"<rect x=\"72\" y=\"{c.H - 130}\" width=\"300\" height=\"88\" rx=\"44\" fill=\"{c.Primary}\"/>");
+        sb.Append($"<text x=\"222\" y=\"{c.H - 76}\" font-family=\"{font}\" font-size=\"38\" font-weight=\"800\" fill=\"#ffffff\" text-anchor=\"middle\">{cta}</text>");
+        return sb.ToString();
+    }
+
+    private static (int size, int lineHeight, int maxLines) SizeFor(string? scale) => scale?.ToLowerInvariant() switch
+    {
+        "small" => (64, 74, 4),
+        "large" => (96, 106, 3),
+        _ => (80, 90, 4),
+    };
 
     /// <summary>Read one of our own media files and return a data: URI; null for remote/missing/unreadable.</summary>
     private async Task<string?> DataUriAsync(string? url, CancellationToken ct)

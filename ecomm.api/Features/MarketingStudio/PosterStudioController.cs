@@ -24,6 +24,9 @@ public sealed class PosterStudioController(IPosterStudioService svc) : Controlle
     private long? UserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
 
+    [HttpGet("options")]
+    public IActionResult Options() => Ok(ApiResponse<PosterEditorOptionsDto>.Ok(svc.Options()));
+
     [HttpPost("preview")]
     public async Task<IActionResult> Preview(PosterStudioRequest req, CancellationToken ct)
         => Ok(ApiResponse<PosterPreviewResult>.Ok(await svc.PreviewAsync(req, ct)));

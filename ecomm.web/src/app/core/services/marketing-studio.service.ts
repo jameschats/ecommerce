@@ -136,6 +136,9 @@ export class MarketingStudioService {
   }
 
   // --- Poster Studio: standalone poster editor ---
+  posterOptions(): Observable<PosterEditorOptions> {
+    return this.http.get<ApiResponse<PosterEditorOptions>>(`${this.base}/poster/options`).pipe(map((r) => r.data as PosterEditorOptions));
+  }
   previewPoster(req: PosterStudioRequest): Observable<{ svg: string }> {
     return this.http.post<ApiResponse<{ svg: string }>>(`${this.base}/poster/preview`, req).pipe(map((r) => r.data as { svg: string }));
   }
@@ -170,8 +173,13 @@ export interface PosterStudioRequest {
   includeLogo: boolean;
   includeName: boolean;
   backgroundImageUrl?: string | null;
+  templateId?: string | null;
+  font?: string | null;
+  headlineScale?: string | null;
 }
 export interface PosterCreatedResult { itemId: number; creativeId: number; mediaUrl: string; caption: string; }
+export interface PosterTemplateInfo { id: string; name: string; description: string; usesPhoto: boolean; }
+export interface PosterEditorOptions { templates: PosterTemplateInfo[]; fonts: string[]; backgroundStyles: NamedDescribedCode[]; }
 export interface NamedDescribedCode { key: string; label: string; description: string; }
 export interface PosterBackgroundResult { url: string; creditsSpent: number; }
 

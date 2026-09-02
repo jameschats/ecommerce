@@ -17,6 +17,16 @@ public class PosterStudioServiceTests
         public PosterSpec? LastSpec;
         public Task<string> RenderSvgAsync(PosterSpec spec, CancellationToken ct = default)
         { Calls++; LastSpec = spec; return Task.FromResult($"<svg data-headline=\"{spec.Headline}\" data-cta=\"{spec.Cta}\"/>"); }
+        public IReadOnlyList<string> AvailableFonts { get; } = new[] { "Poppins", "Oswald" };
+        public IReadOnlyList<PosterTemplateInfo> AvailableTemplates { get; } = new[]
+        {
+            new PosterTemplateInfo("bold-medallion", "Bold Medallion", "d", true, "Product Spotlight"),
+            new PosterTemplateInfo("minimal-type", "Minimal Type", "d", false, "Sale & Offer"),
+        };
+        public IReadOnlyList<PosterFormatInfo> AvailableFormats { get; } = new[]
+        {
+            new PosterFormatInfo("square", "Square", 1080, 1080), new PosterFormatInfo("story", "Story", 1080, 1920),
+        };
     }
 
     private sealed class FakeBrand : IMarketingBrandService
@@ -247,5 +257,90 @@ public class PosterStudioServiceTests
         await New(db, renderer).PreviewAsync(new PosterStudioRequest(
             "org", null, "Big Sale", null, "Shop Now", true, true, BackgroundImageUrl: "https://cdn.test/bg.png"));
         Assert.Equal("https://cdn.test/bg.png", renderer.LastSpec!.BackgroundImageUrl);
+    }
+
+    [Fact]
+    public async Task Preview_passes_through_the_chosen_template_font_and_scale()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest(
+            "org", null, "Big Sale", null, "Shop Now", true, true,
+            TemplateId: "minimal-type", Font: "Oswald", HeadlineScale: "large"));
+
+        Assert.Equal("minimal-type", renderer.LastSpec!.TemplateId);
+        Assert.Equal("Oswald", renderer.LastSpec.HeadlineFont);
+        Assert.Equal("large", renderer.LastSpec.HeadlineScale);
+    }
+
+    [Fact]
+    public async Task Preview_defaults_template_and_scale_when_not_specified()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest("org", null, "Big Sale", null, "Shop Now", true, true));
+
+        Assert.Equal("bold-medallion", renderer.LastSpec!.TemplateId);
+        Assert.Equal("medium", renderer.LastSpec.HeadlineScale);
+        Assert.Null(renderer.LastSpec.HeadlineFont);   // falls back to the brand kit's font inside the renderer
+    }
+
+    [Fact]
+    public void Options_surfaces_templates_fonts_and_background_styles()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var opts = New(db, new FakeRenderer()).Options();
+        Assert.Equal(2, opts.Templates.Count);
+        Assert.Contains("Poppins", opts.Fonts);
+        Assert.NotEmpty(opts.BackgroundStyles);
+        Assert.Equal(2, opts.Formats.Count);
+        Assert.Contains(opts.Formats, f => f.Id == "story");
+    }
+
+    [Fact]
+    public async Task Preview_passes_through_the_chosen_format()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest(
+            "org", null, "Big Sale", null, "Shop Now", true, true, Format: "story"));
+
+        Assert.Equal("story", renderer.LastSpec!.Format);
+    }
+
+    [Fact]
+    public async Task Preview_defaults_to_square_when_format_not_specified()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest("org", null, "Big Sale", null, "Shop Now", true, true));
+
+        Assert.Equal("square", renderer.LastSpec!.Format);
+    }
+
+    [Fact]
+    public async Task Preview_lets_a_poster_override_brand_colours()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest(
+            "org", null, "Big Sale", null, "Shop Now", true, true,
+            PrimaryColor: "#ff0000", SecondaryColor: "#00ff00", AccentColor: "#0000ff"));
+
+        Assert.Equal("#ff0000", renderer.LastSpec!.Primary);
+        Assert.Equal("#00ff00", renderer.LastSpec.Secondary);
+        Assert.Equal("#0000ff", renderer.LastSpec.Accent);
+    }
+
+    [Fact]
+    public async Task Preview_falls_back_to_brand_colours_when_no_override_given()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest("org", null, "Big Sale", null, "Shop Now", true, true));
+
+        Assert.Equal("#111827", renderer.LastSpec!.Primary);    // from FakeBrand
+        Assert.Equal("#6b7280", renderer.LastSpec.Secondary);
+        Assert.Equal("#2563eb", renderer.LastSpec.Accent);
     }
 }

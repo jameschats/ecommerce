@@ -22,16 +22,29 @@ public sealed record PosterStudioRequest(
     string Cta,
     bool IncludeLogo,
     bool IncludeName,
-    string? BackgroundImageUrl = null);
+    string? BackgroundImageUrl = null,
+    string? TemplateId = null,   // null = the renderer's default template
+    string? Font = null,         // null = the brand kit's font
+    string? HeadlineScale = null,    // "small" | "medium" | "large"; null = medium
+    string? Format = null,           // null = square; see IPosterRenderer.AvailableFormats
+    string? PrimaryColor = null,     // null = the brand kit's colour; a per-poster override otherwise
+    string? SecondaryColor = null,
+    string? AccentColor = null);
 
 public sealed record PosterPreviewResult(string Svg);
 public sealed record PosterCreatedResult(long ItemId, long CreativeId, string MediaUrl, string Caption);
 public sealed record SuggestHeadlineResult(string Headline);
 public sealed record PosterBackgroundStyleDto(string Key, string Label, string Description);
 public sealed record PosterBackgroundResult(string Url, int CreditsSpent);
+public sealed record PosterEditorOptionsDto(
+    IReadOnlyList<PosterTemplateInfo> Templates, IReadOnlyList<string> Fonts,
+    IReadOnlyList<PosterBackgroundStyleDto> BackgroundStyles, IReadOnlyList<PosterFormatInfo> Formats);
 
 public interface IPosterStudioService
 {
+    /// <summary>Templates, fonts and background styles the Poster Studio editor offers.</summary>
+    PosterEditorOptionsDto Options();
+
     /// <summary>Renders a poster from the given inputs and returns raw SVG markup — no persistence, no
     /// credit spend. For live-editing: call this on every "Preview"/"Regenerate" click.</summary>
     Task<PosterPreviewResult> PreviewAsync(PosterStudioRequest req, CancellationToken ct = default);
@@ -89,6 +102,9 @@ public sealed class PosterStudioService(
 
     public IReadOnlyList<PosterBackgroundStyleDto> BackgroundStyles() =>
         OrgStyles.Select(kv => new PosterBackgroundStyleDto(kv.Key, kv.Value.Label, kv.Value.Description)).ToList();
+
+    public PosterEditorOptionsDto Options() =>
+        new(renderer.AvailableTemplates, renderer.AvailableFonts, BackgroundStyles(), renderer.AvailableFormats);
 
     public async Task<PosterPreviewResult> PreviewAsync(PosterStudioRequest req, CancellationToken ct = default)
     {
@@ -201,7 +217,14 @@ public sealed class PosterStudioService(
         return new PosterSpec(
             req.Kind == "product" ? "product" : "org", headline, req.Price, cta,
             brand.CompanyName, req.IncludeName, req.IncludeLogo, brand.LogoUrl, product?.ImageUrl,
-            brand.PrimaryColor, brand.SecondaryColor, brand.AccentColor, brand.Font, req.BackgroundImageUrl);
+            string.IsNullOrWhiteSpace(req.PrimaryColor) ? brand.PrimaryColor : req.PrimaryColor,
+            string.IsNullOrWhiteSpace(req.SecondaryColor) ? brand.SecondaryColor : req.SecondaryColor,
+            string.IsNullOrWhiteSpace(req.AccentColor) ? brand.AccentColor : req.AccentColor,
+            brand.Font, req.BackgroundImageUrl,
+            string.IsNullOrWhiteSpace(req.Font) ? null : req.Font,
+            string.IsNullOrWhiteSpace(req.HeadlineScale) ? "medium" : req.HeadlineScale,
+            string.IsNullOrWhiteSpace(req.TemplateId) ? "bold-medallion" : req.TemplateId,
+            string.IsNullOrWhiteSpace(req.Format) ? "square" : req.Format);
     }
 
     private async Task<long> GetOrCreateAdHocPlanAsync(CancellationToken ct)

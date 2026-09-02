@@ -42,6 +42,11 @@ public class MarketingGenerationServiceTests
             Calls++;
             return Task.FromResult($"<svg data-headline=\"{spec.Headline}\"/>");
         }
+        public IReadOnlyList<string> AvailableFonts { get; } = new[] { "Poppins" };
+        public IReadOnlyList<PosterTemplateInfo> AvailableTemplates { get; } =
+            new[] { new PosterTemplateInfo("bold-medallion", "Bold Medallion", "d", true, "Product Spotlight") };
+        public IReadOnlyList<PosterFormatInfo> AvailableFormats { get; } =
+            new[] { new PosterFormatInfo("square", "Square", 1080, 1080) };
     }
 
     private sealed class FakeMedia : IMediaStorage
