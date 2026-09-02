@@ -148,6 +148,7 @@ builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanServ
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingCopywriter, ecomm.api.Features.MarketingStudio.GrowthCopywriter>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingGenerationService, ecomm.api.Features.MarketingStudio.MarketingGenerationService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IPosterStudioService, ecomm.api.Features.MarketingStudio.PosterStudioService>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingLibraryService, ecomm.api.Features.MarketingStudio.MarketingLibraryService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingSchedulerService, ecomm.api.Features.MarketingStudio.MarketingSchedulerService>();
 // Default social publisher = logging (no live API) until real per-platform publishers are wired —
 // same dev-provider convention as Email/SMS/WhatsApp.

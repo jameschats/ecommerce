@@ -152,6 +152,7 @@ export const routes: Routes = [
       { path: 'marketing/plan', loadComponent: () => import('./features/admin/marketing/admin-marketing-plan.component').then((m) => m.AdminMarketingPlanComponent) },
       { path: 'marketing/plan/review', loadComponent: () => import('./features/admin/marketing/admin-marketing-review.component').then((m) => m.AdminMarketingReviewComponent) },
       { path: 'marketing/poster', loadComponent: () => import('./features/admin/marketing/admin-marketing-poster.component').then((m) => m.AdminMarketingPosterComponent) },
+      { path: 'marketing/library', loadComponent: () => import('./features/admin/marketing/admin-marketing-library.component').then((m) => m.AdminMarketingLibraryComponent) },
       { path: 'marketing/scheduler', loadComponent: () => import('./features/admin/marketing/admin-marketing-scheduler.component').then((m) => m.AdminMarketingSchedulerComponent) },
       { path: 'marketing/voice', loadComponent: () => import('./features/admin/marketing/admin-marketing-voice.component').then((m) => m.AdminMarketingVoiceComponent) },
       { path: 'marketing/video', loadComponent: () => import('./features/admin/marketing/admin-marketing-video.component').then((m) => m.AdminMarketingVideoComponent) },

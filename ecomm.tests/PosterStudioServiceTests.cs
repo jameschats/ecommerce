@@ -1,5 +1,7 @@
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
+using ecomm.api.Features.Ai;
+using ecomm.api.Features.Growth;
 using ecomm.api.Features.Media;
 using ecomm.api.Features.MarketingStudio;
 using Microsoft.EntityFrameworkCore;
@@ -48,8 +50,45 @@ public class PosterStudioServiceTests
         public Task<Stream?> OpenReadAsync(string url, CancellationToken ct = default) => Task.FromResult<Stream?>(null);
     }
 
-    private static PosterStudioService New(EcommerceDbContext db, FakeRenderer? renderer = null, FakeCopywriter? copy = null) =>
-        new(db, renderer ?? new FakeRenderer(), new FakeBrand(), new FakeCatalog(), copy ?? new FakeCopywriter(), new FakeMedia());
+    private sealed class FakeGrowthImages : IGrowthImageService
+    {
+        public int Calls;
+        public GenerateImageRequest? LastRequest;
+        public IReadOnlyList<ImageStyleDto> Styles() => throw new NotImplementedException();
+        public IReadOnlyList<ImageFormatDto> Formats() => throw new NotImplementedException();
+        public Task<GeneratedImageDto> GenerateAsync(GenerateImageRequest req, long? userId, CancellationToken ct = default)
+        { Calls++; LastRequest = req; return Task.FromResult(new GeneratedImageDto(1, "https://cdn.test/product-bg.png", 4.5m, DateTime.UtcNow)); }
+        public Task<IReadOnlyList<GeneratedImageDto>> RecentAsync(CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private sealed class FakeCreditService : IAiCreditService
+    {
+        public int Calls;
+        public Task<AiBalanceDto> GetBalanceAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<AiUsageDto>> GetUsageAsync(int take = 50, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<ecomm.api.Data.Entities.AiCreditPack?> GetPackAsync(int packId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<int> TopUpAsync(int packId, string reference, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<T> MeterAsync<T>(string feature, Func<IAiService, Task<(T Result, AiCompletion Usage)>> action, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<T> MeterImageAsync<T>(string feature, Func<IImageAiService, Task<(T Result, ImageResult Usage)>> action, CancellationToken ct = default)
+        {
+            Calls++;
+            var (result, _) = await action(new FakeImageAi());
+            return result;
+        }
+    }
+
+    private sealed class FakeImageAi : IImageAiService
+    {
+        public bool Enabled => true;
+        public Task<ImageResult> GenerateAsync(ImagePrompt prompt, CancellationToken ct = default) =>
+            Task.FromResult(new ImageResult(new byte[] { 1, 2, 3 }, "image/png", 4_500_000, "gpt-image-1"));
+    }
+
+    private static PosterStudioService New(
+        EcommerceDbContext db, FakeRenderer? renderer = null, FakeCopywriter? copy = null,
+        FakeGrowthImages? growthImages = null, FakeCreditService? credits = null) =>
+        new(db, renderer ?? new FakeRenderer(), new FakeBrand(), new FakeCatalog(), copy ?? new FakeCopywriter(), new FakeMedia(),
+            growthImages ?? new FakeGrowthImages(), credits ?? new FakeCreditService());
 
     [Fact]
     public async Task Preview_renders_without_touching_the_database_or_spending_credits()
@@ -148,5 +187,65 @@ public class PosterStudioServiceTests
         var result = await New(db, copy: copy).SuggestHeadlineAsync(null, "festival sale", CancellationToken.None);
         Assert.Equal(1, copy.Calls);
         Assert.Equal("Elegance for every celebration", result.Headline);
+    }
+
+    [Fact]
+    public void Background_styles_are_exposed_for_the_picker()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var styles = New(db).BackgroundStyles();
+        Assert.Contains(styles, s => s.Key == "festive");
+        Assert.Contains(styles, s => s.Key == "lifestyle");
+    }
+
+    [Fact]
+    public async Task Generate_background_for_a_product_rides_the_existing_product_image_pipeline()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var growthImages = new FakeGrowthImages();
+        var credits = new FakeCreditService();
+
+        var result = await New(db, growthImages: growthImages, credits: credits).GenerateBackgroundAsync(
+            new PosterStudioRequest("product", 3, "Spotlight", null, "Buy Now", true, true), "festive", userId: 9);
+
+        Assert.Equal("https://cdn.test/product-bg.png", result.Url);
+        Assert.Equal(1, growthImages.Calls);
+        Assert.Equal(0, credits.Calls);                    // product path never touches the org-level metering
+        Assert.Equal(3, growthImages.LastRequest!.ProductId);
+        Assert.Equal("festive", growthImages.LastRequest.Style);
+    }
+
+    [Fact]
+    public async Task Generate_background_for_an_organization_meters_a_direct_image_call()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var growthImages = new FakeGrowthImages();
+        var credits = new FakeCreditService();
+
+        var result = await New(db, growthImages: growthImages, credits: credits).GenerateBackgroundAsync(
+            new PosterStudioRequest("org", null, "Big Sale", null, "Shop Now", true, true), "studio", null);
+
+        Assert.NotEmpty(result.Url);
+        Assert.Equal(0, growthImages.Calls);                // no product to delegate to
+        Assert.Equal(1, credits.Calls);
+    }
+
+    [Fact]
+    public async Task Generate_background_rejects_an_unknown_style()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            New(db).GenerateBackgroundAsync(new PosterStudioRequest("org", null, "X", null, "Shop Now", true, true), "not-a-style", null));
+        Assert.Equal(400, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Preview_composites_over_a_generated_background_when_one_is_set()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        await New(db, renderer).PreviewAsync(new PosterStudioRequest(
+            "org", null, "Big Sale", null, "Shop Now", true, true, BackgroundImageUrl: "https://cdn.test/bg.png"));
+        Assert.Equal("https://cdn.test/bg.png", renderer.LastSpec!.BackgroundImageUrl);
     }
 }

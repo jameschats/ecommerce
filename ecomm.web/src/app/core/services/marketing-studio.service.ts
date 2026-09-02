@@ -146,6 +146,19 @@ export class MarketingStudioService {
   createPoster(req: PosterStudioRequest): Observable<PosterCreatedResult> {
     return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster`, req).pipe(map((r) => r.data as PosterCreatedResult));
   }
+  posterBackgroundStyles(): Observable<NamedDescribedCode[]> {
+    return this.http.get<ApiResponse<NamedDescribedCode[]>>(`${this.base}/poster/background-styles`).pipe(map((r) => r.data as NamedDescribedCode[]));
+  }
+  generatePosterBackground(poster: PosterStudioRequest, style: string): Observable<PosterBackgroundResult> {
+    return this.http.post<ApiResponse<PosterBackgroundResult>>(`${this.base}/poster/background`, { poster, style })
+      .pipe(map((r) => r.data as PosterBackgroundResult));
+  }
+
+  // --- Creative Library ---
+  listLibrary(type?: 'text' | 'poster'): Observable<LibraryItem[]> {
+    const q = type ? `?type=${type}` : '';
+    return this.http.get<ApiResponse<LibraryItem[]>>(`${this.base}/library${q}`).pipe(map((r) => r.data as LibraryItem[]));
+  }
 }
 
 export interface PosterStudioRequest {
@@ -156,8 +169,22 @@ export interface PosterStudioRequest {
   cta: string;
   includeLogo: boolean;
   includeName: boolean;
+  backgroundImageUrl?: string | null;
 }
 export interface PosterCreatedResult { itemId: number; creativeId: number; mediaUrl: string; caption: string; }
+export interface NamedDescribedCode { key: string; label: string; description: string; }
+export interface PosterBackgroundResult { url: string; creditsSpent: number; }
+
+export interface LibraryItem {
+  creativeId: number;
+  itemId: number;
+  type: string;
+  body: string | null;
+  mediaUrl: string | null;
+  productId: number | null;
+  createdAt: string;
+  channels: string[];
+}
 
 export interface RenderStatus { id: number; status: 'queued' | 'rendering' | 'done' | 'failed'; outputMediaUrl: string | null; error: string | null; }
 

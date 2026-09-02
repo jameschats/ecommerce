@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { ChannelPref, MarketingPlanSettings, NamedProduct, PosterStudioRequest, MarketingStudioService } from '../../../core/services/marketing-studio.service';
+import { ChannelPref, MarketingPlanSettings, NamedDescribedCode, NamedProduct, PosterStudioRequest, MarketingStudioService } from '../../../core/services/marketing-studio.service';
 
 /**
  * Poster Studio — a standalone poster editor, separate from the weekly-plan batch flow (per the
@@ -76,6 +76,30 @@ import { ChannelPref, MarketingPlanSettings, NamedProduct, PosterStudioRequest, 
             </button>
           </section>
 
+          <section class="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-800">AI background</h2>
+              <p class="text-xs text-slate-500">Swap the plain colour background for a real AI-generated scene — the same engine as Product images. Your headline/price/CTA are still drawn crisply on top by us, not the model, so they always read correctly.</p>
+            </div>
+            @if (backgroundUrl()) {
+              <div class="flex items-center gap-3">
+                <img [src]="backgroundUrl()" alt="Generated background" class="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+                <div class="text-xs text-slate-500 flex-1">AI background applied.</div>
+                <button type="button" (click)="removeBackground()" class="text-xs text-red-600 hover:underline shrink-0">Remove</button>
+              </div>
+            }
+            <div class="flex gap-2">
+              <select [(ngModel)]="backgroundStyle" name="bgStyle" class="input flex-1">
+                @for (s of backgroundStyles(); track s.key) { <option [ngValue]="s.key">{{ s.label }}</option> }
+              </select>
+              <button type="button" (click)="generateBackground()" [disabled]="generatingBg() || !canGenerateBackground()"
+                      class="text-sm px-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 shrink-0 disabled:opacity-50">
+                {{ generatingBg() ? 'Generating…' : '✨ Generate (20 credits)' }}
+              </button>
+            </div>
+            @if (bgError()) { <p class="text-xs text-red-600">{{ bgError() }}</p> }
+          </section>
+
           @if (!created()) {
             <button type="button" (click)="create()" [disabled]="creating() || !canCreate()" class="btn-primary w-full disabled:opacity-60">
               {{ creating() ? 'Creating…' : 'Create this poster' }}
@@ -133,6 +157,11 @@ export class AdminMarketingPosterComponent implements OnInit {
 
   readonly products = signal<NamedProduct[]>([]);
   readonly settings = signal<MarketingPlanSettings | null>(null);
+  readonly backgroundStyles = signal<NamedDescribedCode[]>([]);
+  readonly backgroundUrl = signal<string | null>(null);
+  readonly generatingBg = signal(false);
+  readonly bgError = signal<string | null>(null);
+  backgroundStyle = 'lifestyle';
   // SVG data URIs aren't on Angular's default image-src allowlist (only base64 raster formats are) —
   // bypassSecurityTrustUrl is safe here: this is our own server-rendered SVG, and a browser never
   // executes scripts embedded in an SVG loaded via <img src>, unlike inline/object/iframe embedding.
@@ -157,6 +186,7 @@ export class AdminMarketingPosterComponent implements OnInit {
   ngOnInit(): void {
     this.api.videoOptions().subscribe((o) => this.products.set(o.products));
     this.api.getPlanSettings().subscribe((s) => this.settings.set(s));
+    this.api.posterBackgroundStyles().subscribe((s) => this.backgroundStyles.set(s));
     this.preview();
   }
 
@@ -187,11 +217,29 @@ export class AdminMarketingPosterComponent implements OnInit {
       headline: this.headline || (this.kind === 'product' ? 'Spotlight' : 'Your store'),
       price: this.showPrice ? this.price : null, cta: this.cta || 'Shop Now',
       includeLogo: this.includeLogo, includeName: this.includeName,
+      backgroundImageUrl: this.backgroundUrl(),
     };
   }
 
   canCreate(): boolean {
     return this.headline.trim().length > 0 && (this.kind === 'org' || this.productId !== null);
+  }
+  canGenerateBackground(): boolean {
+    return this.kind === 'org' || this.productId !== null;
+  }
+
+  generateBackground(): void {
+    this.generatingBg.set(true);
+    this.bgError.set(null);
+    this.api.generatePosterBackground(this.request(), this.backgroundStyle).subscribe({
+      next: (r) => { this.backgroundUrl.set(r.url); this.generatingBg.set(false); this.preview(); },
+      error: () => { this.generatingBg.set(false); this.bgError.set('Could not generate a background. Please try again.'); },
+    });
+  }
+
+  removeBackground(): void {
+    this.backgroundUrl.set(null);
+    this.preview();
   }
 
   preview(): void {
@@ -240,6 +288,7 @@ export class AdminMarketingPosterComponent implements OnInit {
     this.headline = '';
     this.productId = null;
     this.showPrice = false;
+    this.backgroundUrl.set(null);
     this.preview();
   }
 }

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ecomm.api.Features.MarketingStudio;
 
 public sealed record SuggestHeadlineRequest(long? ProductId, string? Topic);
+public sealed record GenerateBackgroundRequest(PosterStudioRequest Poster, string Style);
 
 /// <summary>
 /// The standalone Poster Studio — an editor for crafting one poster deliberately (org or product-led,
@@ -30,6 +31,13 @@ public sealed class PosterStudioController(IPosterStudioService svc) : Controlle
     [HttpPost("suggest-headline")]
     public async Task<IActionResult> SuggestHeadline(SuggestHeadlineRequest req, CancellationToken ct)
         => Ok(ApiResponse<SuggestHeadlineResult>.Ok(await svc.SuggestHeadlineAsync(req.ProductId, req.Topic, ct)));
+
+    [HttpGet("background-styles")]
+    public IActionResult BackgroundStyles() => Ok(ApiResponse<IReadOnlyList<PosterBackgroundStyleDto>>.Ok(svc.BackgroundStyles()));
+
+    [HttpPost("background")]
+    public async Task<IActionResult> GenerateBackground(GenerateBackgroundRequest req, CancellationToken ct)
+        => Ok(ApiResponse<PosterBackgroundResult>.Ok(await svc.GenerateBackgroundAsync(req.Poster, req.Style, UserId, ct), "Background generated."));
 
     [HttpPost]
     public async Task<IActionResult> Create(PosterStudioRequest req, CancellationToken ct)

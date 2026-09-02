@@ -3,11 +3,17 @@ using ecomm.api.Features.Media;
 
 namespace ecomm.api.Features.MarketingStudio;
 
-/// <summary>Everything the renderer needs to lay out one poster from the brand kit + subject.</summary>
+/// <summary>Everything the renderer needs to lay out one poster from the brand kit + subject.
+/// <paramref name="BackgroundImageUrl"/> is an AI-generated scene (optional, credit-metered, from
+/// <see cref="PosterStudioService.GenerateBackgroundAsync"/>) that fills the whole frame behind the
+/// text, for a far more creative result than the plain gradient; <paramref name="ProductImageUrl"/> is
+/// the merchant's own product photo, used as a lighter-weight top-band fallback when there's no AI
+/// background. The renderer, not the model, draws the headline/price/CTA — so they're always crisp and
+/// accurate, which text-in-image generation is unreliable at.</summary>
 public sealed record PosterSpec(
     string Kind, string Headline, decimal? Price, string Cta,
     string? CompanyName, bool IncludeName, bool IncludeLogo, string? LogoUrl, string? ProductImageUrl,
-    string Primary, string Secondary, string Accent, string? Font);
+    string Primary, string Secondary, string Accent, string? Font, string? BackgroundImageUrl = null);
 
 /// <summary>Renders a poster to markup. Today: self-contained SVG (no browser, no infra) — renders as a
 /// real image in the admin and downloads cleanly. Rasterisation to PNG for social upload swaps in later
@@ -35,19 +41,31 @@ public sealed class SvgPosterRenderer(IMediaStorage media) : IPosterRenderer
         var darker = Darken(primary, 0.45);
 
         var logo = spec.IncludeLogo ? await DataUriAsync(spec.LogoUrl, ct) : null;
-        var photo = await DataUriAsync(spec.ProductImageUrl, ct);
+        var background = await DataUriAsync(spec.BackgroundImageUrl, ct);
+        var photo = background is null ? await DataUriAsync(spec.ProductImageUrl, ct) : null;
 
         var sb = new StringBuilder();
         sb.Append($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{W}\" height=\"{H}\" viewBox=\"0 0 {W} {H}\">");
         sb.Append("<defs>");
         sb.Append($"<linearGradient id=\"bg\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"{primary}\"/><stop offset=\"1\" stop-color=\"{darker}\"/></linearGradient>");
+        sb.Append($"<linearGradient id=\"scrim\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"{darker}\" stop-opacity=\"0\"/><stop offset=\"1\" stop-color=\"{darker}\" stop-opacity=\"0.92\"/></linearGradient>");
+        sb.Append($"<linearGradient id=\"topScrim\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"{darker}\" stop-opacity=\"0.75\"/><stop offset=\"1\" stop-color=\"{darker}\" stop-opacity=\"0\"/></linearGradient>");
         sb.Append("<clipPath id=\"photo\"><rect x=\"0\" y=\"0\" width=\"1080\" height=\"600\"/></clipPath>");
         sb.Append("</defs>");
         sb.Append("<rect width=\"1080\" height=\"1080\" fill=\"url(#bg)\"/>");
 
-        // Product/brand photo across the top when available; else a soft accent band.
-        if (photo is not null)
+        if (background is not null)
         {
+            // AI-generated scene fills the whole frame; a bottom scrim keeps the headline/CTA legible
+            // over any content, so the model never has to (unreliably) render the text itself.
+            sb.Append($"<image href=\"{background}\" x=\"0\" y=\"0\" width=\"1080\" height=\"1080\" preserveAspectRatio=\"xMidYMid slice\"/>");
+            sb.Append("<rect x=\"0\" y=\"520\" width=\"1080\" height=\"560\" fill=\"url(#scrim)\"/>");
+            if (logo is not null || (spec.IncludeName && !string.IsNullOrWhiteSpace(spec.CompanyName)))
+                sb.Append("<rect x=\"0\" y=\"0\" width=\"1080\" height=\"260\" fill=\"url(#topScrim)\"/>");
+        }
+        else if (photo is not null)
+        {
+            // Merchant's own product photo across the top when available; else a soft accent band.
             sb.Append($"<image href=\"{photo}\" x=\"0\" y=\"0\" width=\"1080\" height=\"600\" clip-path=\"url(#photo)\" preserveAspectRatio=\"xMidYMid slice\"/>");
             sb.Append("<rect x=\"0\" y=\"420\" width=\"1080\" height=\"180\" fill=\"url(#bg)\" opacity=\"0.55\"/>");
         }
