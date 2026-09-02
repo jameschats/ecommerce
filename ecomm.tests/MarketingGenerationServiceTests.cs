@@ -101,17 +101,67 @@ public class MarketingGenerationServiceTests
     }
 
     [Fact]
-    public async Task Skips_items_with_no_channel_without_spending_a_call()
+    public async Task Generates_content_with_no_channel_but_leaves_it_unscheduled()
     {
+        // The merchant should be able to see what the AI made before connecting any channel — only the
+        // ScheduledPost fan-out (nowhere to post to) is skipped, not the generation itself.
         using var db = TestDb.New(tenantId: 1);
         var planId = await SeedPlanAsync(db, TextItem(""));
         var copy = new FakeCopywriter();
 
         var result = await New(db, copy).GenerateForPlanAsync(planId, null);
 
-        Assert.Equal(0, result.CreativesGenerated);
-        Assert.Equal(1, result.Skipped);
-        Assert.Equal(0, copy.Calls);
+        Assert.Equal(1, result.CreativesGenerated);
+        Assert.Equal(1, result.Unscheduled);
+        Assert.Equal(0, result.PostsScheduled);
+        Assert.Equal(1, copy.Calls);                       // still spends a credit — content was made
+        Assert.Empty(db.ScheduledPosts);
+        Assert.Equal("approved", (await db.MarketingPlanItems.FirstAsync()).Status);
+    }
+
+    [Fact]
+    public async Task Schedule_existing_assigns_channels_to_an_already_generated_item_without_regenerating()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var planId = await SeedPlanAsync(db, TextItem(""));
+        var copy = new FakeCopywriter();
+        var svc = New(db, copy);
+        await svc.GenerateForPlanAsync(planId, null);
+        var itemId = (await db.MarketingPlanItems.FirstAsync()).MarketingPlanItemId;
+
+        var result = await svc.ScheduleExistingAsync(itemId, new[] { "linkedin", "instagram" });
+
+        Assert.Equal(2, result.PostsScheduled);
+        Assert.Equal(1, copy.Calls);                        // no re-generation, no extra credit spend
+        Assert.Equal(2, db.ScheduledPosts.Count());
+        Assert.All(db.ScheduledPosts, p => Assert.Equal("pending_approval", p.Status));
+    }
+
+    [Fact]
+    public async Task Schedule_existing_is_idempotent_for_channels_already_scheduled()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var planId = await SeedPlanAsync(db, TextItem("linkedin"));
+        var svc = New(db, new FakeCopywriter());
+        await svc.GenerateForPlanAsync(planId, null);
+        var itemId = (await db.MarketingPlanItems.FirstAsync()).MarketingPlanItemId;
+
+        var result = await svc.ScheduleExistingAsync(itemId, new[] { "linkedin", "pinterest" });
+
+        Assert.Equal(1, result.PostsScheduled);             // linkedin already scheduled; only pinterest added
+        Assert.Equal(2, db.ScheduledPosts.Count());
+    }
+
+    [Fact]
+    public async Task Schedule_existing_requires_the_item_to_have_been_generated()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var planId = await SeedPlanAsync(db, TextItem(""));   // never generated
+        var itemId = (await db.MarketingPlanItems.FirstAsync()).MarketingPlanItemId;
+
+        var ex = await Assert.ThrowsAsync<ecomm.api.Common.Exceptions.AppException>(
+            () => New(db, new FakeCopywriter()).ScheduleExistingAsync(itemId, new[] { "linkedin" }));
+        Assert.Equal(409, ex.StatusCode);
     }
 
     [Fact]

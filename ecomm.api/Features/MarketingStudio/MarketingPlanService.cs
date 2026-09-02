@@ -11,7 +11,8 @@ namespace ecomm.api.Features.MarketingStudio;
 
 public sealed record PlanItemDto(
     long Id, DateTime ScheduledAt, string Type, long? ProductId, string Topic, string? Angle,
-    IReadOnlyList<string> Channels, bool IncludeLogo, bool IncludeName, string Status);
+    IReadOnlyList<string> Channels, bool IncludeLogo, bool IncludeName, string Status,
+    string? CreativeBody, string? CreativeMediaUrl);
 
 public sealed record PlanDto(long Id, DateTime WeekStart, string Status, IReadOnlyList<PlanItemDto> Items);
 
@@ -157,8 +158,10 @@ public sealed class MarketingPlanService(
 
     public async Task<PlanDto?> GetCurrentAsync(CancellationToken ct = default)
     {
+        // Explicit allow-list (not "!= done") so the ad-hoc bucket the Poster Studio uses for
+        // standalone creatives (Status "adhoc") never gets mistaken for "this week's plan".
         var plan = await db.MarketingPlans.AsNoTracking()
-            .Where(p => p.Status != "done")
+            .Where(p => p.Status == "draft" || p.Status == "confirmed" || p.Status == "active")
             .OrderByDescending(p => p.MarketingPlanId)
             .FirstOrDefaultAsync(ct);
         return plan is null ? null : await LoadAsync(plan.MarketingPlanId, ct);
@@ -175,7 +178,7 @@ public sealed class MarketingPlanService(
         if (req.IncludeName is { } inm) item.IncludeName = inm;
         item.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        return Map(item);
+        return Map(item, null);
     }
 
     public async Task<PlanItemDto> AddItemAsync(AddPlanItemRequest req, CancellationToken ct = default)
@@ -199,7 +202,7 @@ public sealed class MarketingPlanService(
         };
         db.MarketingPlanItems.Add(item);
         await db.SaveChangesAsync(ct);
-        return Map(item);
+        return Map(item, null);
     }
 
     public async Task RemoveItemAsync(long itemId, CancellationToken ct = default)
@@ -294,13 +297,24 @@ public sealed class MarketingPlanService(
             .Where(i => i.MarketingPlanId == planId)
             .OrderBy(i => i.ScheduledAt).ThenBy(i => i.SortOrder)
             .ToListAsync(ct);
-        return new PlanDto(plan.MarketingPlanId, plan.WeekStart, plan.Status, items.Select(Map).ToList());
+
+        // Batch-join each item's generated creative (if any) so the review screen can show the actual
+        // caption/poster it made — not just a status badge — without a separate round trip.
+        var itemIds = items.Select(i => i.MarketingPlanItemId).ToList();
+        var creatives = await db.MarketingCreatives.AsNoTracking()
+            .Where(c => itemIds.Contains(c.MarketingPlanItemId))
+            .GroupBy(c => c.MarketingPlanItemId)
+            .Select(g => g.OrderByDescending(c => c.MarketingCreativeId).First())
+            .ToDictionaryAsync(c => c.MarketingPlanItemId, ct);
+
+        return new PlanDto(plan.MarketingPlanId, plan.WeekStart, plan.Status,
+            items.Select(i => Map(i, creatives.GetValueOrDefault(i.MarketingPlanItemId))).ToList());
     }
 
-    private static PlanItemDto Map(MarketingPlanItem i) => new(
+    private static PlanItemDto Map(MarketingPlanItem i, MarketingCreative? creative) => new(
         i.MarketingPlanItemId, i.ScheduledAt, i.Type, i.ProductId, i.Topic, i.Angle,
         string.IsNullOrWhiteSpace(i.Channels) ? [] : i.Channels.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-        i.IncludeLogo, i.IncludeName, i.Status);
+        i.IncludeLogo, i.IncludeName, i.Status, creative?.Body, creative?.OutputMediaUrl);
 
     private static string JoinChannels(IReadOnlyList<string> channels) =>
         string.Join(",", channels.Where(SocialPlatforms.IsKnown).Select(c => SocialPlatforms.Get(c)!.Key).Distinct());

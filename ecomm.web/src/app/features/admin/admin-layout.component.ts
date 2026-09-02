@@ -305,6 +305,7 @@ export class AdminLayoutComponent implements OnInit {
       { path: '/admin/marketing/connections', label: 'Connections', icon: 'puzzle' },
       { path: '/admin/marketing/plan', label: 'Weekly plan', exact: true, icon: 'calendar' },
       { path: '/admin/marketing/plan/review', label: 'This week', icon: 'sparkles' },
+      { path: '/admin/marketing/poster', label: 'Poster Studio', icon: 'photo' },
       { path: '/admin/marketing/scheduler', label: 'Scheduler', icon: 'list' },
       { path: '/admin/marketing/voice', label: 'Voiceover', icon: 'chat' },
       { path: '/admin/marketing/video', label: 'Reels', icon: 'template' },

@@ -82,6 +82,11 @@ export class MarketingStudioService {
   discardPlan(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/plan/${id}`);
   }
+  /** Assign channels to an already-generated item and schedule it — no re-generation, no extra credit. */
+  scheduleItem(itemId: number, channels: string[]): Observable<{ postsScheduled: number }> {
+    return this.http.post<ApiResponse<{ postsScheduled: number }>>(`${this.base}/plan/items/${itemId}/schedule`, { channels })
+      .pipe(map((r) => r.data as { postsScheduled: number }));
+  }
 
   // --- MS2 sub-step 4: scheduler ---
   listScheduled(status?: string): Observable<ScheduledPost[]> {
@@ -129,7 +134,30 @@ export class MarketingStudioService {
   renderStatus(jobId: number): Observable<RenderStatus> {
     return this.http.get<ApiResponse<RenderStatus>>(`${this.base}/video/render/${jobId}`).pipe(map((r) => r.data as RenderStatus));
   }
+
+  // --- Poster Studio: standalone poster editor ---
+  previewPoster(req: PosterStudioRequest): Observable<{ svg: string }> {
+    return this.http.post<ApiResponse<{ svg: string }>>(`${this.base}/poster/preview`, req).pipe(map((r) => r.data as { svg: string }));
+  }
+  suggestPosterHeadline(productId: number | null, topic: string | null): Observable<{ headline: string }> {
+    return this.http.post<ApiResponse<{ headline: string }>>(`${this.base}/poster/suggest-headline`, { productId, topic })
+      .pipe(map((r) => r.data as { headline: string }));
+  }
+  createPoster(req: PosterStudioRequest): Observable<PosterCreatedResult> {
+    return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster`, req).pipe(map((r) => r.data as PosterCreatedResult));
+  }
 }
+
+export interface PosterStudioRequest {
+  kind: 'org' | 'product';
+  productId: number | null;
+  headline: string;
+  price: number | null;
+  cta: string;
+  includeLogo: boolean;
+  includeName: boolean;
+}
+export interface PosterCreatedResult { itemId: number; creativeId: number; mediaUrl: string; caption: string; }
 
 export interface RenderStatus { id: number; status: 'queued' | 'rendering' | 'done' | 'failed'; outputMediaUrl: string | null; error: string | null; }
 
@@ -169,6 +197,8 @@ export interface PlanItem {
   includeLogo: boolean;
   includeName: boolean;
   status: string;
+  creativeBody: string | null;
+  creativeMediaUrl: string | null;
 }
 
 /** A week's proposed plan. Mirrors PlanDto on the API. */

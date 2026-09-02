@@ -48,17 +48,26 @@ public sealed class MarketingPlanController(IMarketingPlanService plan, IMarketi
     {
         var confirmed = await plan.ConfirmAsync(planId, ct);
         var gen = await generation.GenerateForPlanAsync(planId, UserId, ct);
-        // Be honest about outcomes — a merchant with no channel connected yet will have every item
-        // skipped (the "don't spend credits with nowhere to post" guard), and a silent "confirmed"
-        // reads as broken. Say exactly what happened and what to do next.
-        var msg = (gen.CreativesGenerated, gen.Skipped) switch
+        // Content is generated even without a connected channel (so the merchant can see it before
+        // deciding to connect one) — it's just left unscheduled. Say exactly what happened either way.
+        var msg = gen switch
         {
-            (> 0, 0) => $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval.",
-            (> 0, > 0) => $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval. {gen.Skipped} item(s) were skipped (no channel selected).",
-            (0, > 0) => "Plan confirmed, but nothing was generated — none of your posts have a channel selected. Connect a social channel (or enable one for a post type in Weekly plan settings), then re-propose or edit each item's channels.",
+            { CreativesGenerated: > 0, Unscheduled: 0 } =>
+                $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval.",
+            { CreativesGenerated: > 0, Unscheduled: var u } when u == gen.CreativesGenerated =>
+                $"Plan confirmed — generated {gen.CreativesGenerated} post(s). None are scheduled yet — connect a social channel, then assign it to each post.",
+            { CreativesGenerated: > 0 } =>
+                $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval. {gen.Unscheduled} still need a channel.",
             _ => "Plan confirmed.",
         };
         return Ok(ApiResponse<PlanDto>.Ok(confirmed, msg));
+    }
+
+    [HttpPost("items/{itemId:long}/schedule")]
+    public async Task<IActionResult> ScheduleItem(long itemId, ScheduleItemRequest req, CancellationToken ct)
+    {
+        var result = await generation.ScheduleExistingAsync(itemId, req.Channels, ct);
+        return Ok(ApiResponse<object>.Ok(new { result.PostsScheduled }, $"Scheduled to {result.PostsScheduled} channel(s)."));
     }
 
     [HttpDelete("{planId:long}")]
@@ -68,3 +77,5 @@ public sealed class MarketingPlanController(IMarketingPlanService plan, IMarketi
         return Ok(ApiResponse<object>.Ok(new { }, "Discarded."));
     }
 }
+
+public sealed record ScheduleItemRequest(IReadOnlyList<string> Channels);
