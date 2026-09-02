@@ -20,8 +20,16 @@ import {
   template: `
     <div class="max-w-6xl mx-auto p-6">
       @if (mode() === 'browse') {
-        <h1 class="text-xl font-bold text-slate-900">Marketing Studio — Poster Studio</h1>
-        <p class="text-sm text-slate-500 mb-6">Pick a template to start. Preview freely — nothing is created (or costs credits) until you save.</p>
+        <div class="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 class="text-xl font-bold text-slate-900">Marketing Studio — Poster Studio</h1>
+            <p class="text-sm text-slate-500">Pick a template to start. Preview freely — nothing is created (or costs credits) until you save.</p>
+          </div>
+          <button type="button" (click)="autoFillDraft()" [disabled]="autoFilling()" class="text-sm px-3 py-2 rounded-lg border border-teal-300 text-teal-700 hover:bg-teal-50 disabled:opacity-50 shrink-0 whitespace-nowrap">
+            {{ autoFilling() ? 'Filling…' : '✨ Auto-fill a draft' }}
+          </button>
+        </div>
+        @if (autoFillError()) { <p class="text-xs text-red-600 mb-4">{{ autoFillError() }}</p> }
 
         @if (opts(); as o) {
           @for (cat of categories(o); track cat) {
@@ -85,9 +93,15 @@ import {
             </section>
 
             <section class="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-              <div>
+              <div class="flex items-center justify-between gap-2">
                 <label class="lbl">Poster type</label>
-                <div class="flex gap-2 mt-1">
+                <button type="button" (click)="autoFillDraft()" [disabled]="autoFilling()" class="text-xs text-teal-700 hover:underline disabled:opacity-50 shrink-0">
+                  {{ autoFilling() ? 'Filling…' : '✨ Auto-fill a draft' }}
+                </button>
+              </div>
+              @if (autoFillError()) { <p class="text-xs text-red-600 -mt-2">{{ autoFillError() }}</p> }
+              <div>
+                <div class="flex gap-2">
                   <button type="button" (click)="setKind('org')" class="flex-1 text-sm px-3 py-2 rounded-lg border"
                           [class]="kind === 'org' ? 'bg-teal-600 text-white border-teal-600' : 'border-slate-300 text-slate-600 hover:bg-slate-50'">Organization</button>
                   <button type="button" (click)="setKind('product')" class="flex-1 text-sm px-3 py-2 rounded-lg border"
@@ -287,6 +301,8 @@ export class AdminMarketingPosterComponent implements OnInit {
   readonly bgError = signal<string | null>(null);
   readonly suggestError = signal<string | null>(null);
   readonly createError = signal<string | null>(null);
+  readonly autoFilling = signal(false);
+  readonly autoFillError = signal<string | null>(null);
   readonly thumbs = new Map<string, SafeUrl>();
   backgroundStyle = 'lifestyle';
   // SVG data URIs aren't on Angular's default image-src allowlist (only base64 raster formats are) —
@@ -432,6 +448,32 @@ export class AdminMarketingPosterComponent implements OnInit {
     const p = this.products().find((x) => x.id === this.productId);
     if (p) { this.headline = p.name; this.showPrice = true; }
     this.schedulePreview();
+  }
+
+  /** One-click starting draft: picks a template + headline instead of a blank page. From Browse this
+   *  always drafts an organization poster (no product picker there yet); from the Editor it uses
+   *  whatever kind/product is currently selected. Never touches AI background generation on its own. */
+  autoFillDraft(): void {
+    const inEditor = this.mode() === 'editor';
+    const kind = inEditor ? this.kind : 'org';
+    const productId = inEditor ? this.productId : null;
+    this.autoFilling.set(true);
+    this.autoFillError.set(null);
+    this.api.autoFillPosterDraft(kind, productId).subscribe({
+      next: (draft) => {
+        this.autoFilling.set(false);
+        this.kind = kind;
+        this.productId = productId;
+        this.templateId = draft.templateId;
+        this.headline = draft.headline;
+        this.showPrice = draft.showPrice;
+        this.editCreativeId.set(null);
+        this.created.set(null);
+        this.mode.set('editor');
+        this.preview();
+      },
+      error: (err) => { this.autoFilling.set(false); this.autoFillError.set(this.describeError(err)); },
+    });
   }
 
   suggestHeadline(): void {

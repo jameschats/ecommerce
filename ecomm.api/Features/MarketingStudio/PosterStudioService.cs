@@ -45,6 +45,10 @@ public sealed record PosterEditorOptionsDto(
 /// creative predates Spec persistence, or isn't a poster) and its current caption/image.</summary>
 public sealed record PosterDetailDto(long CreativeId, long ItemId, string Type, PosterStudioRequest? Poster, string? Caption, string? MediaUrl);
 
+/// <summary>A populated starting point for the Editor — pick a template and a headline for the
+/// merchant instead of a blank page. See <see cref="IPosterStudioService.AutoFillDraftAsync"/>.</summary>
+public sealed record AutoFillDraftResult(string TemplateId, string Headline, bool ShowPrice);
+
 public interface IPosterStudioService
 {
     /// <summary>Templates, fonts and background styles the Poster Studio editor offers.</summary>
@@ -89,6 +93,13 @@ public interface IPosterStudioService
     /// copies the rendered image/caption/spec as-is (no re-render, no credit spend), the same "fresh row
     /// from the source's content" pattern <c>ThemeLibraryService.DuplicateAsync</c> uses for themes.</summary>
     Task<PosterCreatedResult> DuplicateAsync(long creativeId, CancellationToken ct = default);
+
+    /// <summary>Populates a starting draft instead of a blank editor: picks a template by a simple rule
+    /// (a product poster with a photo gets a photo-capable template, everything else gets a typography
+    /// one — no LLM call for this part, deliberately the cheap version first) and reuses the existing
+    /// headline suggester. Costs whatever <see cref="SuggestHeadlineAsync"/> already costs today — it
+    /// never additionally triggers the paid AI background generation, which stays an explicit opt-in.</summary>
+    Task<AutoFillDraftResult> AutoFillDraftAsync(string kind, long? productId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -320,6 +331,22 @@ public sealed class PosterStudioService(
         await db.SaveChangesAsync(ct);
 
         return new PosterCreatedResult(item.MarketingPlanItemId, copy.MarketingCreativeId, copy.OutputMediaUrl ?? "", copy.Body ?? "");
+    }
+
+    public async Task<AutoFillDraftResult> AutoFillDraftAsync(string kind, long? productId, CancellationToken ct = default)
+    {
+        CatalogProduct? product = kind == "product" && productId is { } pid ? await catalog.GetAsync(pid, ct) : null;
+        var hasPhoto = product?.ImageUrl is not null;
+
+        // Rule-based, not an LLM call — a template already declares whether it wants a photo, so match
+        // on that instead of guessing. Falls back to the first template in the registry if nothing
+        // matches, so this never breaks as the library grows.
+        var template = renderer.AvailableTemplates.FirstOrDefault(t => t.UsesPhoto == hasPhoto)
+            ?? renderer.AvailableTemplates.FirstOrDefault();
+
+        var headline = await SuggestHeadlineAsync(kind == "product" ? productId : null, null, ct);
+
+        return new AutoFillDraftResult(template?.Id ?? "bold-medallion", headline.Headline, product?.Price is not null);
     }
 
     private async Task<PosterSpec> BuildSpecAsync(PosterStudioRequest req, CancellationToken ct)

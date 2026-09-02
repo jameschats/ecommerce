@@ -170,6 +170,12 @@ export class MarketingStudioService {
     return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster/${creativeId}/duplicate`, {})
       .pipe(map((r) => r.data as PosterCreatedResult));
   }
+  /** Populates a starting draft (template + headline) instead of a blank editor. Costs whatever
+   *  suggestPosterHeadline already costs today — never triggers the paid AI background on its own. */
+  autoFillPosterDraft(kind: 'org' | 'product', productId: number | null): Observable<AutoFillDraft> {
+    return this.http.post<ApiResponse<AutoFillDraft>>(`${this.base}/poster/auto-fill`, { kind, productId })
+      .pipe(map((r) => r.data as AutoFillDraft));
+  }
 
   // --- Creative Library ---
   listLibrary(type?: 'text' | 'poster'): Observable<LibraryItem[]> {
@@ -202,6 +208,7 @@ export interface PosterEditorOptions { templates: PosterTemplateInfo[]; fonts: s
 export interface NamedDescribedCode { key: string; label: string; description: string; }
 export interface PosterBackgroundResult { url: string; creditsSpent: number; }
 export interface PosterDetail { creativeId: number; itemId: number; type: string; poster: PosterStudioRequest | null; caption: string | null; mediaUrl: string | null; }
+export interface AutoFillDraft { templateId: string; headline: string; showPrice: boolean; }
 
 export interface LibraryItem {
   creativeId: number;

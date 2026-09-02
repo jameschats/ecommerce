@@ -450,4 +450,41 @@ public class PosterStudioServiceTests
         var ex = await Assert.ThrowsAsync<AppException>(() => New(db).DuplicateAsync(creative.MarketingCreativeId));
         Assert.Equal(400, ex.StatusCode);
     }
+
+    [Fact]
+    public async Task Auto_fill_picks_a_photo_capable_template_for_a_product_with_a_photo()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var copy = new FakeCopywriter { Response = "Elegance for every celebration." };
+
+        var draft = await New(db, copy: copy).AutoFillDraftAsync("product", 3, CancellationToken.None);   // product 3 has an image (FakeCatalog)
+
+        Assert.Equal("bold-medallion", draft.TemplateId);   // the FakeRenderer template with UsesPhoto=true
+        Assert.Equal("Elegance for every celebration", draft.Headline);
+        Assert.True(draft.ShowPrice);                       // product 3 has a price
+    }
+
+    [Fact]
+    public async Task Auto_fill_picks_a_typography_template_for_an_organization_poster()
+    {
+        using var db = TestDb.New(tenantId: 1);
+
+        var draft = await New(db).AutoFillDraftAsync("org", null, CancellationToken.None);
+
+        Assert.Equal("minimal-type", draft.TemplateId);     // the FakeRenderer template with UsesPhoto=false
+        Assert.False(draft.ShowPrice);                      // no product to price
+    }
+
+    [Fact]
+    public async Task Auto_fill_never_triggers_the_paid_background_generation()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var growthImages = new FakeGrowthImages();
+        var credits = new FakeCreditService();
+
+        await New(db, growthImages: growthImages, credits: credits).AutoFillDraftAsync("product", 3, CancellationToken.None);
+
+        Assert.Equal(0, growthImages.Calls);
+        Assert.Equal(0, credits.Calls);
+    }
 }

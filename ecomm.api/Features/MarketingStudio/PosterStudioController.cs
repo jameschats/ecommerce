@@ -9,6 +9,7 @@ namespace ecomm.api.Features.MarketingStudio;
 public sealed record SuggestHeadlineRequest(long? ProductId, string? Topic);
 public sealed record GenerateBackgroundRequest(PosterStudioRequest Poster, string Style);
 public sealed record UpdatePosterRequest(PosterStudioRequest Poster, string Caption);
+public sealed record AutoFillDraftRequest(string Kind, long? ProductId);
 
 /// <summary>
 /// The standalone Poster Studio — an editor for crafting one poster deliberately (org or product-led,
@@ -58,4 +59,8 @@ public sealed class PosterStudioController(IPosterStudioService svc) : Controlle
     [HttpPost("{creativeId:long}/duplicate")]
     public async Task<IActionResult> Duplicate(long creativeId, CancellationToken ct)
         => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.DuplicateAsync(creativeId, ct), "Poster duplicated."));
+
+    [HttpPost("auto-fill")]
+    public async Task<IActionResult> AutoFillDraft(AutoFillDraftRequest req, CancellationToken ct)
+        => Ok(ApiResponse<AutoFillDraftResult>.Ok(await svc.AutoFillDraftAsync(req.Kind, req.ProductId, ct)));
 }
