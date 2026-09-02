@@ -48,9 +48,16 @@ public sealed class MarketingPlanController(IMarketingPlanService plan, IMarketi
     {
         var confirmed = await plan.ConfirmAsync(planId, ct);
         var gen = await generation.GenerateForPlanAsync(planId, UserId, ct);
-        var msg = gen.PostsScheduled > 0
-            ? $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval."
-            : "Plan confirmed.";
+        // Be honest about outcomes — a merchant with no channel connected yet will have every item
+        // skipped (the "don't spend credits with nowhere to post" guard), and a silent "confirmed"
+        // reads as broken. Say exactly what happened and what to do next.
+        var msg = (gen.CreativesGenerated, gen.Skipped) switch
+        {
+            (> 0, 0) => $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval.",
+            (> 0, > 0) => $"Plan confirmed — generated {gen.CreativesGenerated} post(s), {gen.PostsScheduled} scheduled for approval. {gen.Skipped} item(s) were skipped (no channel selected).",
+            (0, > 0) => "Plan confirmed, but nothing was generated — none of your posts have a channel selected. Connect a social channel (or enable one for a post type in Weekly plan settings), then re-propose or edit each item's channels.",
+            _ => "Plan confirmed.",
+        };
         return Ok(ApiResponse<PlanDto>.Ok(confirmed, msg));
     }
 

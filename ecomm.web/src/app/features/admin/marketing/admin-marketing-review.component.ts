@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { PlanItem, WeekPlan, MarketingStudioService } from '../../../core/services/marketing-studio.service';
@@ -38,9 +38,40 @@ import { PlanItem, WeekPlan, MarketingStudioService } from '../../../core/servic
           <p class="text-xs text-slate-400 mt-3">Uses your <a routerLink="/admin/marketing/plan" class="underline">weekly-plan preferences</a>.</p>
         </div>
       } @else if (plan()!.status === 'confirmed') {
-        <div class="rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800">
-          <p class="font-medium">This week's plan is confirmed. ✓</p>
-          <p class="mt-1">Your text posts have been generated and are scheduled — waiting for your approval before they go live. The scheduler screen (to review, approve and reschedule them) is the next piece we're building.</p>
+        @if (generatedCount() > 0) {
+          <div class="rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800 mb-4">
+            <p class="font-medium">This week's plan is confirmed. ✓</p>
+            <p class="mt-1">
+              {{ generatedCount() }} post{{ generatedCount() === 1 ? '' : 's' }} generated and waiting for your approval.
+              <a routerLink="/admin/marketing/scheduler" class="underline font-medium">Review them on the Scheduler</a>.
+            </p>
+          </div>
+        } @else {
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 mb-4">
+            <p class="font-medium">Plan confirmed, but nothing was generated yet.</p>
+            <p class="mt-1">None of this week's posts have a channel to publish to. <a routerLink="/admin/marketing/connections" class="underline font-medium">Connect a social channel</a>, then come back and try again.</p>
+          </div>
+        }
+        @if (skippedCount() > 0) {
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 mb-5 flex items-center justify-between gap-3">
+            <span>{{ skippedCount() }} item{{ skippedCount() === 1 ? '' : 's' }} skipped — no channel selected.</span>
+            <button type="button" (click)="confirm()" [disabled]="busy()" class="text-amber-900 font-medium underline shrink-0">
+              {{ busy() ? 'Retrying…' : 'Try again' }}
+            </button>
+          </div>
+        }
+        <div class="space-y-3">
+          @for (item of plan()!.items; track item.id) {
+            <div class="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+                    [class]="item.type === 'poster' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'">{{ item.type }}</span>
+              <span class="text-sm text-slate-700 flex-1 truncate">{{ item.topic }}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full shrink-0"
+                    [class]="item.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'">
+                {{ item.status === 'approved' ? 'Generated' : 'Skipped' }}
+              </span>
+            </div>
+          }
         </div>
       } @else {
         <div class="space-y-3">
@@ -61,7 +92,7 @@ import { PlanItem, WeekPlan, MarketingStudioService } from '../../../core/servic
                   }
                 </div>
               } @else {
-                <p class="text-xs text-amber-600 mb-2">No channel for this type yet — set it in <a routerLink="/admin/marketing/plan" class="underline">preferences</a>.</p>
+                <p class="text-xs text-amber-600 mb-2">No channel for this type yet — connect one on <a routerLink="/admin/marketing/connections" class="underline">Connections</a> or set it in <a routerLink="/admin/marketing/plan" class="underline">preferences</a>.</p>
               }
               <div class="flex gap-4 text-sm text-slate-600">
                 <label class="flex items-center gap-1.5"><input type="checkbox" [(ngModel)]="item.includeLogo" (change)="saveItem(item)" [name]="'logo' + item.id" /> Logo</label>
@@ -70,6 +101,17 @@ import { PlanItem, WeekPlan, MarketingStudioService } from '../../../core/servic
             </div>
           }
         </div>
+
+        @if (noChannelCount() === plan()!.items.length && plan()!.items.length > 0) {
+          <div class="mt-4 rounded-lg px-4 py-2.5 text-sm bg-amber-50 text-amber-800 border border-amber-200">
+            None of these posts have a channel yet — confirming now won't generate anything.
+            <a routerLink="/admin/marketing/connections" class="underline font-medium">Connect a social channel first</a>.
+          </div>
+        } @else if (noChannelCount() > 0) {
+          <div class="mt-4 rounded-lg px-4 py-2.5 text-sm bg-amber-50 text-amber-800 border border-amber-200">
+            {{ noChannelCount() }} item{{ noChannelCount() === 1 ? '' : 's' }} won't be generated — no channel selected.
+          </div>
+        }
 
         <div class="flex items-center gap-3 mt-6">
           <button type="button" (click)="confirm()" [disabled]="busy() || plan()!.items.length === 0" class="btn-primary disabled:opacity-60">
@@ -88,6 +130,13 @@ export class AdminMarketingReviewComponent implements OnInit {
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly banner = signal<{ ok: boolean; text: string } | null>(null);
+
+  // Post-confirm outcome, computed from item status/channels rather than a static string — an item
+  // stays "proposed" (never "approved") when generation skipped it, almost always for lack of a
+  // connected channel. See admin-marketing-review's confirmed-state block.
+  readonly generatedCount = computed(() => this.plan()?.items.filter((i) => i.status === 'approved').length ?? 0);
+  readonly skippedCount = computed(() => this.plan()?.items.filter((i) => i.status !== 'approved').length ?? 0);
+  readonly noChannelCount = computed(() => this.plan()?.items.filter((i) => i.channels.length === 0).length ?? 0);
 
   ngOnInit(): void { this.load(); }
 
@@ -124,7 +173,9 @@ export class AdminMarketingReviewComponent implements OnInit {
     if (!p) return;
     this.busy.set(true);
     this.api.confirmPlan(p.id).subscribe({
-      next: (res) => { this.plan.set(res); this.busy.set(false); this.banner.set({ ok: true, text: 'Plan confirmed.' }); },
+      // The confirmed-state block below renders its own generated/skipped summary from item status,
+      // so no banner needed here on success — only on a network/request failure.
+      next: ({ plan }) => { this.plan.set(plan); this.busy.set(false); this.banner.set(null); },
       error: () => { this.busy.set(false); this.banner.set({ ok: false, text: 'Could not confirm the plan.' }); },
     });
   }

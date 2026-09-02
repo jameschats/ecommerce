@@ -75,8 +75,9 @@ export class MarketingStudioService {
   removePlanItem(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/plan/items/${id}`);
   }
-  confirmPlan(id: number): Observable<WeekPlan> {
-    return this.http.post<ApiResponse<WeekPlan>>(`${this.base}/plan/${id}/confirm`, {}).pipe(map((r) => r.data as WeekPlan));
+  confirmPlan(id: number): Observable<{ plan: WeekPlan; message: string | null }> {
+    return this.http.post<ApiResponse<WeekPlan>>(`${this.base}/plan/${id}/confirm`, {})
+      .pipe(map((r) => ({ plan: r.data as WeekPlan, message: r.message })));
   }
   discardPlan(id: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/plan/${id}`);
