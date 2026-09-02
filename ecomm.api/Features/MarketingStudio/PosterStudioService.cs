@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
@@ -40,6 +41,10 @@ public sealed record PosterEditorOptionsDto(
     IReadOnlyList<PosterTemplateInfo> Templates, IReadOnlyList<string> Fonts,
     IReadOnlyList<PosterBackgroundStyleDto> BackgroundStyles, IReadOnlyList<PosterFormatInfo> Formats);
 
+/// <summary>What the Editor needs to reopen an existing poster: the spec that made it (null if this
+/// creative predates Spec persistence, or isn't a poster) and its current caption/image.</summary>
+public sealed record PosterDetailDto(long CreativeId, long ItemId, string Type, PosterStudioRequest? Poster, string? Caption, string? MediaUrl);
+
 public interface IPosterStudioService
 {
     /// <summary>Templates, fonts and background styles the Poster Studio editor offers.</summary>
@@ -68,6 +73,22 @@ public interface IPosterStudioService
     /// via <see cref="IMarketingGenerationService.ScheduleExistingAsync"/>. Lives outside any specific
     /// week's plan (an internal "ad hoc" bucket) so it doesn't interfere with "This week".</summary>
     Task<PosterCreatedResult> CreateAsync(PosterStudioRequest req, long? userId, CancellationToken ct = default);
+
+    /// <summary>Loads an existing poster creative's editable spec so the Editor can reopen it exactly as
+    /// it was left. <see cref="PosterDetailDto.Poster"/> is null when there's nothing to reopen (a text
+    /// creative, or a poster made before Spec persistence existed) — the caller should fall back to
+    /// view-only in that case.</summary>
+    Task<PosterDetailDto> GetAsync(long creativeId, CancellationToken ct = default);
+
+    /// <summary>Re-renders and overwrites an existing poster creative in place — free (no credit spend;
+    /// only the explicit "Suggest caption"/"Generate background" actions cost credits, never a save).
+    /// The caption is a hand-editable field in the Editor, not regenerated on every save.</summary>
+    Task<PosterCreatedResult> UpdateAsync(long creativeId, PosterStudioRequest req, string caption, long? userId, CancellationToken ct = default);
+
+    /// <summary>Clones an existing poster creative into a new, independently-editable Library entry —
+    /// copies the rendered image/caption/spec as-is (no re-render, no credit spend), the same "fresh row
+    /// from the source's content" pattern <c>ThemeLibraryService.DuplicateAsync</c> uses for themes.</summary>
+    Task<PosterCreatedResult> DuplicateAsync(long creativeId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -193,6 +214,7 @@ public sealed class PosterStudioService(
             Status = "generated",
             Body = caption,
             OutputMediaUrl = stored.Url,
+            Spec = JsonSerializer.Serialize(req),
             ProductId = item.ProductId,
             CreatedAt = now,
         };
@@ -202,6 +224,102 @@ public sealed class PosterStudioService(
         await db.SaveChangesAsync(ct);
 
         return new PosterCreatedResult(item.MarketingPlanItemId, creative.MarketingCreativeId, stored.Url, caption);
+    }
+
+    public async Task<PosterDetailDto> GetAsync(long creativeId, CancellationToken ct = default)
+    {
+        var creative = await db.MarketingCreatives.AsNoTracking().FirstOrDefaultAsync(c => c.MarketingCreativeId == creativeId, ct)
+            ?? throw new AppException("Poster not found.", StatusCodes.Status404NotFound);
+
+        PosterStudioRequest? poster = null;
+        if (creative.Type == "poster" && !string.IsNullOrWhiteSpace(creative.Spec))
+        {
+            try { poster = JsonSerializer.Deserialize<PosterStudioRequest>(creative.Spec); }
+            catch (JsonException) { poster = null; }   // malformed/legacy — fall back to view-only
+        }
+
+        return new PosterDetailDto(creative.MarketingCreativeId, creative.MarketingPlanItemId, creative.Type, poster, creative.Body, creative.OutputMediaUrl);
+    }
+
+    public async Task<PosterCreatedResult> UpdateAsync(long creativeId, PosterStudioRequest req, string caption, long? userId, CancellationToken ct = default)
+    {
+        var creative = await db.MarketingCreatives.FirstOrDefaultAsync(c => c.MarketingCreativeId == creativeId, ct)
+            ?? throw new AppException("Poster not found.", StatusCodes.Status404NotFound);
+        if (creative.Type != "poster")
+            throw new AppException("Only posters can be edited here.", StatusCodes.Status400BadRequest);
+
+        var spec = await BuildSpecAsync(req, ct);
+        var svg = await renderer.RenderSvgAsync(spec, ct);
+        var bytes = Encoding.UTF8.GetBytes(svg);
+        var stored = await media.SaveAsync(new MemoryStream(bytes), $"poster-{creative.MarketingPlanItemId}.svg", "image/svg+xml", ct);
+
+        var now = DateTime.UtcNow;
+        var newProductId = req.Kind == "product" ? req.ProductId : null;
+
+        creative.Body = Clean(caption, 2000) ?? creative.Body;
+        creative.OutputMediaUrl = stored.Url;
+        creative.Spec = JsonSerializer.Serialize(req);
+        creative.ProductId = newProductId;
+        creative.UpdatedAt = now;
+
+        var item = await db.MarketingPlanItems.FirstOrDefaultAsync(i => i.MarketingPlanItemId == creative.MarketingPlanItemId, ct);
+        if (item is not null)
+        {
+            item.Topic = Clean(req.Headline, 300) ?? item.Topic;
+            item.ProductId = newProductId;
+            item.IncludeLogo = req.IncludeLogo;
+            item.IncludeName = req.IncludeName;
+            item.UpdatedAt = now;
+        }
+        await db.SaveChangesAsync(ct);
+
+        return new PosterCreatedResult(creative.MarketingPlanItemId, creative.MarketingCreativeId, stored.Url, creative.Body ?? "");
+    }
+
+    public async Task<PosterCreatedResult> DuplicateAsync(long creativeId, CancellationToken ct = default)
+    {
+        var src = await db.MarketingCreatives.AsNoTracking().FirstOrDefaultAsync(c => c.MarketingCreativeId == creativeId, ct)
+            ?? throw new AppException("Poster not found.", StatusCodes.Status404NotFound);
+        if (src.Type != "poster")
+            throw new AppException("Only posters can be duplicated here.", StatusCodes.Status400BadRequest);
+
+        var srcItem = await db.MarketingPlanItems.AsNoTracking().FirstOrDefaultAsync(i => i.MarketingPlanItemId == src.MarketingPlanItemId, ct);
+        var planId = await GetOrCreateAdHocPlanAsync(ct);
+        var now = DateTime.UtcNow;
+
+        var item = new MarketingPlanItem
+        {
+            MarketingPlanId = planId,
+            Type = "poster",
+            Topic = (srcItem?.Topic ?? "Poster") + " (copy)",
+            ProductId = src.ProductId,
+            Channels = "",
+            IncludeLogo = srcItem?.IncludeLogo ?? true,
+            IncludeName = srcItem?.IncludeName ?? true,
+            Status = "proposed",
+            ScheduledAt = now,
+            CreatedAt = now,
+        };
+        db.MarketingPlanItems.Add(item);
+        await db.SaveChangesAsync(ct);
+
+        var copy = new MarketingCreative
+        {
+            MarketingPlanItemId = item.MarketingPlanItemId,
+            Type = "poster",
+            Status = "generated",
+            Body = src.Body,
+            OutputMediaUrl = src.OutputMediaUrl,
+            Spec = src.Spec,
+            ProductId = src.ProductId,
+            CreatedAt = now,
+        };
+        db.MarketingCreatives.Add(copy);
+        item.Status = "approved";
+        item.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
+
+        return new PosterCreatedResult(item.MarketingPlanItemId, copy.MarketingCreativeId, copy.OutputMediaUrl ?? "", copy.Body ?? "");
     }
 
     private async Task<PosterSpec> BuildSpecAsync(PosterStudioRequest req, CancellationToken ct)

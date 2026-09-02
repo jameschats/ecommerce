@@ -8,13 +8,13 @@ namespace ecomm.tests;
 public class MarketingLibraryServiceTests
 {
     private static async Task<(long itemId, long creativeId)> SeedCreativeAsync(
-        EcommerceDbContext db, string type, string? mediaUrl = null)
+        EcommerceDbContext db, string type, string? mediaUrl = null, string? spec = null)
     {
         var now = DateTime.UtcNow;
         var item = new MarketingPlanItem { MarketingPlanId = 1, Type = type, Topic = "T", Channels = "", Status = "approved", ScheduledAt = now, CreatedAt = now };
         db.MarketingPlanItems.Add(item);
         await db.SaveChangesAsync();
-        var creative = new MarketingCreative { MarketingPlanItemId = item.MarketingPlanItemId, Type = type, Status = "generated", Body = "Caption", OutputMediaUrl = mediaUrl, CreatedAt = now };
+        var creative = new MarketingCreative { MarketingPlanItemId = item.MarketingPlanItemId, Type = type, Status = "generated", Body = "Caption", OutputMediaUrl = mediaUrl, Spec = spec, CreatedAt = now };
         db.MarketingCreatives.Add(creative);
         await db.SaveChangesAsync();
         return (item.MarketingPlanItemId, creative.MarketingCreativeId);
@@ -67,5 +67,34 @@ public class MarketingLibraryServiceTests
         await SeedCreativeAsync(db, "poster");
         var list = await new MarketingLibraryService(db).ListAsync(null);
         Assert.Empty(list[0].Channels);
+    }
+
+    [Fact]
+    public async Task A_poster_with_a_saved_spec_is_reported_editable()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        await SeedCreativeAsync(db, "poster", spec: "{\"kind\":\"org\"}");
+        var list = await new MarketingLibraryService(db).ListAsync(null);
+        Assert.True(list[0].Editable);
+    }
+
+    [Fact]
+    public async Task A_poster_without_a_saved_spec_is_not_editable()
+    {
+        // Predates Spec persistence, or was never a Poster Studio creative — still viewable/scheduled/
+        // duplicated, just can't be reopened in the Editor.
+        using var db = TestDb.New(tenantId: 1);
+        await SeedCreativeAsync(db, "poster");
+        var list = await new MarketingLibraryService(db).ListAsync(null);
+        Assert.False(list[0].Editable);
+    }
+
+    [Fact]
+    public async Task Text_creatives_are_never_editable_even_with_a_spec_column()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        await SeedCreativeAsync(db, "text", spec: "{\"kind\":\"org\"}");
+        var list = await new MarketingLibraryService(db).ListAsync(null);
+        Assert.False(list[0].Editable);
     }
 }

@@ -4,10 +4,12 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.MarketingStudio;
 
 /// <summary>One saved creative — a poster or text post, wherever it came from (a weekly plan or the
-/// standalone Poster Studio) — with where (if anywhere) it's currently scheduled.</summary>
+/// standalone Poster Studio) — with where (if anywhere) it's currently scheduled. <paramref name="Editable"/>
+/// is true only for posters that persisted their spec (see MarketingCreative.Spec) — older posters and
+/// text creatives can still be viewed/scheduled/duplicated here, just not reopened in the Editor.</summary>
 public sealed record LibraryItemDto(
     long CreativeId, long ItemId, string Type, string? Body, string? MediaUrl,
-    long? ProductId, DateTime CreatedAt, IReadOnlyList<string> Channels);
+    long? ProductId, DateTime CreatedAt, IReadOnlyList<string> Channels, bool Editable);
 
 public interface IMarketingLibraryService
 {
@@ -41,6 +43,7 @@ public sealed class MarketingLibraryService(EcommerceDbContext db) : IMarketingL
 
         return creatives.Select(c => new LibraryItemDto(
             c.MarketingCreativeId, c.MarketingPlanItemId, c.Type, c.Body, c.OutputMediaUrl,
-            c.ProductId, c.CreatedAt, channelsByItem.GetValueOrDefault(c.MarketingPlanItemId, []))).ToList();
+            c.ProductId, c.CreatedAt, channelsByItem.GetValueOrDefault(c.MarketingPlanItemId, []),
+            Editable: c.Type == "poster" && !string.IsNullOrWhiteSpace(c.Spec))).ToList();
     }
 }

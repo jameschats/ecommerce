@@ -156,6 +156,20 @@ export class MarketingStudioService {
     return this.http.post<ApiResponse<PosterBackgroundResult>>(`${this.base}/poster/background`, { poster, style })
       .pipe(map((r) => r.data as PosterBackgroundResult));
   }
+  /** Reopens an existing poster creative — null `poster` means it can't be re-edited (a text creative,
+   *  or a poster made before spec persistence existed); the caller should fall back to view-only. */
+  getPoster(creativeId: number): Observable<PosterDetail> {
+    return this.http.get<ApiResponse<PosterDetail>>(`${this.base}/poster/${creativeId}`).pipe(map((r) => r.data as PosterDetail));
+  }
+  /** Re-renders and overwrites an existing poster in place — free, no credit spend. */
+  updatePoster(creativeId: number, poster: PosterStudioRequest, caption: string): Observable<PosterCreatedResult> {
+    return this.http.put<ApiResponse<PosterCreatedResult>>(`${this.base}/poster/${creativeId}`, { poster, caption })
+      .pipe(map((r) => r.data as PosterCreatedResult));
+  }
+  duplicatePoster(creativeId: number): Observable<PosterCreatedResult> {
+    return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster/${creativeId}/duplicate`, {})
+      .pipe(map((r) => r.data as PosterCreatedResult));
+  }
 
   // --- Creative Library ---
   listLibrary(type?: 'text' | 'poster'): Observable<LibraryItem[]> {
@@ -176,12 +190,18 @@ export interface PosterStudioRequest {
   templateId?: string | null;
   font?: string | null;
   headlineScale?: string | null;
+  format?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
 }
 export interface PosterCreatedResult { itemId: number; creativeId: number; mediaUrl: string; caption: string; }
-export interface PosterTemplateInfo { id: string; name: string; description: string; usesPhoto: boolean; }
-export interface PosterEditorOptions { templates: PosterTemplateInfo[]; fonts: string[]; backgroundStyles: NamedDescribedCode[]; }
+export interface PosterTemplateInfo { id: string; name: string; description: string; usesPhoto: boolean; category: string; }
+export interface PosterFormatInfo { id: string; label: string; width: number; height: number; }
+export interface PosterEditorOptions { templates: PosterTemplateInfo[]; fonts: string[]; backgroundStyles: NamedDescribedCode[]; formats: PosterFormatInfo[]; }
 export interface NamedDescribedCode { key: string; label: string; description: string; }
 export interface PosterBackgroundResult { url: string; creditsSpent: number; }
+export interface PosterDetail { creativeId: number; itemId: number; type: string; poster: PosterStudioRequest | null; caption: string | null; mediaUrl: string | null; }
 
 export interface LibraryItem {
   creativeId: number;
@@ -192,6 +212,7 @@ export interface LibraryItem {
   productId: number | null;
   createdAt: string;
   channels: string[];
+  editable: boolean;
 }
 
 export interface RenderStatus { id: number; status: 'queued' | 'rendering' | 'done' | 'failed'; outputMediaUrl: string | null; error: string | null; }

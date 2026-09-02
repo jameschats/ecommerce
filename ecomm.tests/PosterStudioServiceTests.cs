@@ -1,5 +1,6 @@
 using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
+using ecomm.api.Data.Entities;
 using ecomm.api.Features.Ai;
 using ecomm.api.Features.Growth;
 using ecomm.api.Features.Media;
@@ -342,5 +343,111 @@ public class PosterStudioServiceTests
         Assert.Equal("#111827", renderer.LastSpec!.Primary);    // from FakeBrand
         Assert.Equal("#6b7280", renderer.LastSpec.Secondary);
         Assert.Equal("#2563eb", renderer.LastSpec.Accent);
+    }
+
+    [Fact]
+    public async Task Create_persists_the_spec_and_get_returns_it_for_reopening()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var created = await New(db).CreateAsync(
+            new PosterStudioRequest("org", null, "Big Diwali Sale", 999m, "Shop Now", true, true, TemplateId: "minimal-type", Format: "story"), null);
+
+        var detail = await New(db).GetAsync(created.CreativeId);
+
+        Assert.Equal("poster", detail.Type);
+        Assert.NotNull(detail.Poster);
+        Assert.Equal("Big Diwali Sale", detail.Poster!.Headline);
+        Assert.Equal("minimal-type", detail.Poster.TemplateId);
+        Assert.Equal("story", detail.Poster.Format);
+        Assert.Equal(created.Caption, detail.Caption);
+    }
+
+    [Fact]
+    public async Task Get_returns_null_poster_for_a_text_creative()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var item = new MarketingPlanItem { MarketingPlanId = 1, Type = "text", Topic = "T", Channels = "", Status = "approved", ScheduledAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
+        db.MarketingPlanItems.Add(item);
+        await db.SaveChangesAsync();
+        var creative = new MarketingCreative { MarketingPlanItemId = item.MarketingPlanItemId, Type = "text", Status = "generated", Body = "Some copy", CreatedAt = DateTime.UtcNow };
+        db.MarketingCreatives.Add(creative);
+        await db.SaveChangesAsync();
+
+        var detail = await New(db).GetAsync(creative.MarketingCreativeId);
+
+        Assert.Null(detail.Poster);
+        Assert.Equal("Some copy", detail.Caption);
+    }
+
+    [Fact]
+    public async Task Update_re_renders_in_place_without_spending_a_credit_and_keeps_the_same_ids()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var renderer = new FakeRenderer();
+        var copy = new FakeCopywriter();
+        var created = await New(db, renderer, copy).CreateAsync(
+            new PosterStudioRequest("org", null, "First", null, "Shop Now", true, true), null);
+        Assert.Equal(1, copy.Calls);
+
+        var updated = await New(db, renderer, copy).UpdateAsync(
+            created.CreativeId, new PosterStudioRequest("org", null, "Updated Headline", 499m, "Buy Now", true, true), "Hand-edited caption", null);
+
+        Assert.Equal(created.ItemId, updated.ItemId);
+        Assert.Equal(created.CreativeId, updated.CreativeId);
+        Assert.Equal("Hand-edited caption", updated.Caption);
+        Assert.Equal(1, copy.Calls);                          // no new AI caption call — free edit
+        Assert.Single(db.MarketingCreatives);                 // updated in place, not a new row
+        Assert.Contains("Updated Headline", renderer.LastSpec!.Headline);
+    }
+
+    [Fact]
+    public async Task Update_rejects_a_creative_that_is_not_a_poster()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var item = new MarketingPlanItem { MarketingPlanId = 1, Type = "text", Topic = "T", Channels = "", Status = "approved", ScheduledAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
+        db.MarketingPlanItems.Add(item);
+        await db.SaveChangesAsync();
+        var creative = new MarketingCreative { MarketingPlanItemId = item.MarketingPlanItemId, Type = "text", Status = "generated", Body = "Copy", CreatedAt = DateTime.UtcNow };
+        db.MarketingCreatives.Add(creative);
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            New(db).UpdateAsync(creative.MarketingCreativeId, new PosterStudioRequest("org", null, "X", null, "Shop Now", true, true), "Caption", null));
+        Assert.Equal(400, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Duplicate_clones_the_creative_into_a_new_independently_editable_item()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var created = await New(db).CreateAsync(
+            new PosterStudioRequest("org", null, "Original", 199m, "Shop Now", true, true), null);
+
+        var dup = await New(db).DuplicateAsync(created.CreativeId);
+
+        Assert.NotEqual(created.CreativeId, dup.CreativeId);
+        Assert.NotEqual(created.ItemId, dup.ItemId);
+        Assert.Equal(created.MediaUrl, dup.MediaUrl);         // copied as-is, no re-render
+        Assert.Equal(created.Caption, dup.Caption);
+        Assert.Equal(2, db.MarketingCreatives.Count());
+
+        var dupDetail = await New(db).GetAsync(dup.CreativeId);
+        Assert.NotNull(dupDetail.Poster);                     // the copy is independently editable
+        Assert.Equal("Original", dupDetail.Poster!.Headline);
+    }
+
+    [Fact]
+    public async Task Duplicate_rejects_a_creative_that_is_not_a_poster()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var item = new MarketingPlanItem { MarketingPlanId = 1, Type = "text", Topic = "T", Channels = "", Status = "approved", ScheduledAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
+        db.MarketingPlanItems.Add(item);
+        await db.SaveChangesAsync();
+        var creative = new MarketingCreative { MarketingPlanItemId = item.MarketingPlanItemId, Type = "text", Status = "generated", Body = "Copy", CreatedAt = DateTime.UtcNow };
+        db.MarketingCreatives.Add(creative);
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<AppException>(() => New(db).DuplicateAsync(creative.MarketingCreativeId));
+        Assert.Equal(400, ex.StatusCode);
     }
 }

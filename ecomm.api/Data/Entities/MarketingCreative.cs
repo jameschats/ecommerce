@@ -21,8 +21,15 @@ public class MarketingCreative : ITenantScoped
     /// <summary>Public URL of the rendered image/video (posters/videos); null for pure text.</summary>
     public string? OutputMediaUrl { get; set; }
 
+    /// <summary>JSON snapshot of the editable poster spec (kind/headline/price/colours/template/format
+    /// etc. — see PosterStudioRequest) that produced this creative. Null for text creatives and for
+    /// posters made before this existed. Presence of a value is what makes a poster re-editable from the
+    /// Library instead of only viewable/duplicable as a fixed image.</summary>
+    public string? Spec { get; set; }
+
     public long? ProductId { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 }
 
 /// <summary>

@@ -8,6 +8,7 @@ namespace ecomm.api.Features.MarketingStudio;
 
 public sealed record SuggestHeadlineRequest(long? ProductId, string? Topic);
 public sealed record GenerateBackgroundRequest(PosterStudioRequest Poster, string Style);
+public sealed record UpdatePosterRequest(PosterStudioRequest Poster, string Caption);
 
 /// <summary>
 /// The standalone Poster Studio — an editor for crafting one poster deliberately (org or product-led,
@@ -45,4 +46,16 @@ public sealed class PosterStudioController(IPosterStudioService svc) : Controlle
     [HttpPost]
     public async Task<IActionResult> Create(PosterStudioRequest req, CancellationToken ct)
         => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.CreateAsync(req, UserId, ct), "Poster created."));
+
+    [HttpGet("{creativeId:long}")]
+    public async Task<IActionResult> Get(long creativeId, CancellationToken ct)
+        => Ok(ApiResponse<PosterDetailDto>.Ok(await svc.GetAsync(creativeId, ct)));
+
+    [HttpPut("{creativeId:long}")]
+    public async Task<IActionResult> Update(long creativeId, UpdatePosterRequest req, CancellationToken ct)
+        => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.UpdateAsync(creativeId, req.Poster, req.Caption, UserId, ct), "Poster updated."));
+
+    [HttpPost("{creativeId:long}/duplicate")]
+    public async Task<IActionResult> Duplicate(long creativeId, CancellationToken ct)
+        => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.DuplicateAsync(creativeId, ct), "Poster duplicated."));
 }

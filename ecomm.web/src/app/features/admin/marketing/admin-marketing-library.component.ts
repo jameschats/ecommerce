@@ -46,6 +46,17 @@ import { ChannelPref, LibraryItem, MarketingPlanSettings, MarketingStudioService
                 </div>
                 @if (item.body) { <p class="text-sm text-slate-600 line-clamp-3">{{ item.body }}</p> }
 
+                @if (item.type === 'poster') {
+                  <div class="flex items-center gap-3 mt-1.5">
+                    @if (item.editable) {
+                      <a [routerLink]="['/admin/marketing/poster']" [queryParams]="{ edit: item.creativeId }" class="text-xs font-medium text-teal-700 hover:underline">Edit</a>
+                    }
+                    <button type="button" (click)="duplicate(item)" [disabled]="duplicating() === item.creativeId" class="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50">
+                      {{ duplicating() === item.creativeId ? 'Duplicating…' : 'Duplicate' }}
+                    </button>
+                  </div>
+                }
+
                 @if (item.channels.length) {
                   <div class="flex flex-wrap gap-1.5 mt-2">
                     @for (ch of item.channels; track ch) { <span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">{{ ch }}</span> }
@@ -88,6 +99,7 @@ export class AdminMarketingLibraryComponent implements OnInit {
   readonly loading = signal(true);
   readonly filter = signal<'' | 'text' | 'poster'>('');
   readonly scheduling = signal<number | null>(null);
+  readonly duplicating = signal<number | null>(null);
   private readonly selectedChannels = new Map<number, Set<string>>();
 
   readonly filters: { value: '' | 'text' | 'poster'; label: string }[] = [
@@ -140,6 +152,20 @@ export class AdminMarketingLibraryComponent implements OnInit {
         this.items.set(this.items().map((i) => i.creativeId === item.creativeId ? { ...i, channels: [...i.channels, ...channels] } : i));
       },
       error: () => this.scheduling.set(null),
+    });
+  }
+
+  duplicate(item: LibraryItem): void {
+    this.duplicating.set(item.creativeId);
+    this.api.duplicatePoster(item.creativeId).subscribe({
+      next: (r) => {
+        this.duplicating.set(null);
+        this.items.set([
+          { creativeId: r.creativeId, itemId: r.itemId, type: 'poster', body: r.caption, mediaUrl: r.mediaUrl, productId: item.productId, createdAt: new Date().toISOString(), channels: [], editable: true },
+          ...this.items(),
+        ]);
+      },
+      error: () => this.duplicating.set(null),
     });
   }
 

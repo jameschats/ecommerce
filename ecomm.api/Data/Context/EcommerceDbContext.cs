@@ -538,7 +538,7 @@ public class EcommerceDbContext : DbContext
             e.HasMany(x => x.Items).WithOne(x => x.Plan!).HasForeignKey(x => x.MarketingPlanId);
         });
         b.Entity<MarketingPlanItem>(e => { e.ToTable("MarketingPlanItems"); e.HasKey(x => x.MarketingPlanItemId); });
-        b.Entity<MarketingCreative>(e => { e.ToTable("MarketingCreatives"); e.HasKey(x => x.MarketingCreativeId); });
+        b.Entity<MarketingCreative>(e => { e.ToTable("MarketingCreatives"); e.HasKey(x => x.MarketingCreativeId); e.Property(x => x.Spec).HasColumnType("json"); });
         b.Entity<ScheduledPost>(e => { e.ToTable("ScheduledPosts"); e.HasKey(x => x.ScheduledPostId); });
         b.Entity<MarketingVideoRender>(e => { e.ToTable("MarketingVideoRenders"); e.HasKey(x => x.MarketingVideoRenderId); });
         b.Entity<GrowthContent>(e => { e.ToTable("GrowthContents"); e.HasKey(x => x.GrowthContentId); });
