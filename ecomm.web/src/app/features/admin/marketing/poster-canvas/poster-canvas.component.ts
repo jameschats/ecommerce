@@ -37,8 +37,8 @@ import { PosterDocument } from '../../../../core/services/marketing-studio.servi
       @if (debug()) {
         <pre class="text-[10px] leading-tight bg-slate-900 text-lime-300 p-3 rounded-lg overflow-auto max-h-64 whitespace-pre">{{ debugDump() }}</pre>
       }
-      <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4 min-w-0">
-        <canvas #host class="max-w-full"></canvas>
+      <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4 min-w-0 overflow-hidden">
+        <canvas #host class="max-w-full min-w-0"></canvas>
       </div>
     </div>
   `,
@@ -56,30 +56,34 @@ export class PosterCanvasComponent implements OnDestroy {
     return JSON.stringify(this.svc.debugObjects(), null, 1);
   }
 
+  private resizeObserver: ResizeObserver | null = null;
+
   constructor() {
     afterNextRender(async () => {
       const doc = this.document();
       await this.svc.init(this.hostRef().nativeElement, doc.format.width, doc.format.height);
-      this.applyDisplaySize(doc.format.width, doc.format.height);
       await this.svc.loadDocument(doc);
       this.ready.emit();
+
+      // ResizeObserver (not a single measurement in this same callback) deliberately: it only ever
+      // fires once the browser has actually committed layout for the wrapper, so it can't race a
+      // still-inflated intermediate box the way measuring clientWidth synchronously here could — and
+      // it keeps firing for any later resize (window resize, sidebar collapse, anything), no separate
+      // window:resize listener needed.
+      const wrap = this.wrapRef().nativeElement;
+      this.resizeObserver = new ResizeObserver(() => this.applyDisplaySize(doc.format.width, doc.format.height));
+      this.resizeObserver.observe(wrap);
     });
   }
 
-  /** Fits the canvas inside its wrapper's actual available width (minus the wrapper's own padding),
-   *  scaling height to match so the aspect ratio — and every layer's real coordinate space — is
-   *  untouched. Caps at 1:1 so a canvas smaller than its container never gets blown up. */
+  /** Fits the canvas inside its wrapper's actual available content width (ResizeObserver's contentRect
+   *  already excludes the wrapper's own padding/border), scaling height to match so the aspect ratio —
+   *  and every layer's real coordinate space — is untouched. Caps at 1:1 so a canvas smaller than its
+   *  container never gets blown up. */
   private applyDisplaySize(docWidth: number, docHeight: number): void {
-    const wrap = this.wrapRef().nativeElement;
-    const available = wrap.clientWidth - 32;   // minus the wrapper's own p-4 (16px) each side
+    const available = this.wrapRef().nativeElement.clientWidth - 32;   // minus the wrapper's own p-4 (16px) each side
     const scale = Math.min(1, (available > 0 ? available : docWidth) / docWidth);
     this.svc.setDisplaySize(docWidth * scale, docHeight * scale);
-  }
-
-  @HostListener('window:resize')
-  onResize(): void {
-    const doc = this.document();
-    this.applyDisplaySize(doc.format.width, doc.format.height);
   }
 
   @HostListener('document:keydown.delete', ['$event'])
@@ -100,5 +104,8 @@ export class PosterCanvasComponent implements OnDestroy {
   toDocument(): PosterDocument { return this.svc.toDocument(); }
   exportPng(): Promise<Blob> { return this.svc.exportPng(); }
 
-  ngOnDestroy(): void { this.svc.destroy(); }
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.svc.destroy();
+  }
 }
