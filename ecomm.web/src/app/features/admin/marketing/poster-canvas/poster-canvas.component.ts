@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnDestroy, afterNextRender, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, afterNextRender, inject, input, output, viewChild } from '@angular/core';
 import { PosterCanvasService } from '../../../../core/services/poster-canvas.service';
 import { PosterDocument } from '../../../../core/services/marketing-studio.service';
 
@@ -32,11 +32,7 @@ import { PosterDocument } from '../../../../core/services/marketing-studio.servi
         @if (svc.selection(); as sel) {
           <span class="text-xs text-slate-400 ml-auto">Selected: {{ sel.role ?? sel.type }}</span>
         }
-        <button type="button" (click)="debug.set(!debug())" class="text-xs px-2.5 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">Debug</button>
       </div>
-      @if (debug()) {
-        <pre class="text-[10px] leading-tight bg-slate-900 text-lime-300 p-3 rounded-lg overflow-auto max-h-[32rem] whitespace-pre">{{ debugDump() }}</pre>
-      }
       <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4 min-w-0 overflow-hidden">
         <canvas #host class="max-w-full min-w-0"></canvas>
       </div>
@@ -50,19 +46,6 @@ export class PosterCanvasComponent implements OnDestroy {
   private readonly hostRef = viewChild.required<ElementRef<HTMLCanvasElement>>('host');
   private readonly wrapRef = viewChild.required<ElementRef<HTMLDivElement>>('wrap');
   readonly svc = inject(PosterCanvasService);
-  readonly debug = signal(false);
-
-  debugDump(): string {
-    // The grid layout bug is confirmed fixed — one line confirming that stays, the other 5 ancestor
-    // levels are gone now so the object dump (what actually matters at this point) doesn't need scrolling.
-    const wrap = this.wrapRef().nativeElement;
-    // wrap -> .space-y-2 -> <app-poster-canvas> -> the grid div
-    const gridAncestor = wrap.parentElement?.parentElement?.parentElement;
-    const gridCols = gridAncestor ? getComputedStyle(gridAncestor).gridTemplateColumns : '?';
-    const summary = `windowInnerWidth=${window.innerWidth} gridTemplateColumns="${gridCols}"`;
-    return summary + '\n\n' + JSON.stringify(this.svc.debugObjects(), null, 1);
-  }
-
   private resizeObserver: ResizeObserver | null = null;
 
   constructor() {
