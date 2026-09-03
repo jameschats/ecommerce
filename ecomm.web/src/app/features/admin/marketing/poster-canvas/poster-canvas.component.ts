@@ -53,7 +53,17 @@ export class PosterCanvasComponent implements OnDestroy {
   readonly debug = signal(false);
 
   debugDump(): string {
-    return JSON.stringify(this.svc.debugObjects(), null, 1);
+    const layout: Record<string, unknown> = { windowInnerWidth: window.innerWidth };
+    let el: HTMLElement | null = this.wrapRef().nativeElement;
+    let i = 0;
+    while (el && i < 6) {
+      const cs = getComputedStyle(el);
+      layout[`ancestor${i}<${el.tagName.toLowerCase()}.${Array.from(el.classList).join('.')}>`] =
+        `rect=${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)} display=${cs.display} gridTemplateColumns=${cs.gridTemplateColumns}`;
+      el = el.parentElement;
+      i++;
+    }
+    return JSON.stringify(layout, null, 1) + '\n\n' + JSON.stringify(this.svc.debugObjects(), null, 1);
   }
 
   private resizeObserver: ResizeObserver | null = null;
