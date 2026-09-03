@@ -35,4 +35,10 @@
     <EmbeddedResource Include="Themes\**\*.json" />
   </ItemGroup>
 
+  <!-- Poster template bundles: same pure-data-JSON, embedded-resource convention as the theme
+       bundles above. Loaded by PosterTemplateDocumentRegistry. -->
+  <ItemGroup>
+    <EmbeddedResource Include="PosterTemplates\**\*.json" />
+  </ItemGroup>
+
 </Project>

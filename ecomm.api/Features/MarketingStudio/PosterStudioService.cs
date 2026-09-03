@@ -41,9 +41,15 @@ public sealed record PosterEditorOptionsDto(
     IReadOnlyList<PosterTemplateInfo> Templates, IReadOnlyList<string> Fonts,
     IReadOnlyList<PosterBackgroundStyleDto> BackgroundStyles, IReadOnlyList<PosterFormatInfo> Formats);
 
-/// <summary>What the Editor needs to reopen an existing poster: the spec that made it (null if this
-/// creative predates Spec persistence, or isn't a poster) and its current caption/image.</summary>
-public sealed record PosterDetailDto(long CreativeId, long ItemId, string Type, PosterStudioRequest? Poster, string? Caption, string? MediaUrl);
+/// <summary>What the Editor needs to reopen an existing poster. <paramref name="SpecKind"/> is the
+/// explicit discriminator: <c>"layers-v1"</c> means <paramref name="Document"/> is populated and the
+/// freeform canvas editor can fully reopen it; <c>"legacy"</c> means <paramref name="LegacyPoster"/> is
+/// populated (a poster made before the canvas editor existed — still viewable/duplicable, editable only
+/// through the old flat-field form); <c>"none"</c> means there's nothing to reopen (a text creative, or
+/// a poster with a corrupt/missing spec) and the caller should fall back to a plain view of the image.</summary>
+public sealed record PosterDetailDto(
+    long CreativeId, long ItemId, string Type, string SpecKind,
+    PosterDocument? Document, PosterStudioRequest? LegacyPoster, string? Caption, string? MediaUrl);
 
 /// <summary>A populated starting point for the Editor — pick a template and a headline for the
 /// merchant instead of a blank page. See <see cref="IPosterStudioService.AutoFillDraftAsync"/>.</summary>
@@ -79,9 +85,7 @@ public interface IPosterStudioService
     Task<PosterCreatedResult> CreateAsync(PosterStudioRequest req, long? userId, CancellationToken ct = default);
 
     /// <summary>Loads an existing poster creative's editable spec so the Editor can reopen it exactly as
-    /// it was left. <see cref="PosterDetailDto.Poster"/> is null when there's nothing to reopen (a text
-    /// creative, or a poster made before Spec persistence existed) — the caller should fall back to
-    /// view-only in that case.</summary>
+    /// it was left — see <see cref="PosterDetailDto.SpecKind"/> for how the caller should branch.</summary>
     Task<PosterDetailDto> GetAsync(long creativeId, CancellationToken ct = default);
 
     /// <summary>Re-renders and overwrites an existing poster creative in place — free (no credit spend;
@@ -100,6 +104,24 @@ public interface IPosterStudioService
     /// headline suggester. Costs whatever <see cref="SuggestHeadlineAsync"/> already costs today — it
     /// never additionally triggers the paid AI background generation, which stays an explicit opt-in.</summary>
     Task<AutoFillDraftResult> AutoFillDraftAsync(string kind, long? productId, CancellationToken ct = default);
+
+    /// <summary>A template's starter layer document at one format, with its <c>{primary}</c>/
+    /// <c>{primaryDark}</c>/<c>{secondary}</c>/<c>{accent}</c>/<c>{font}</c> placeholder tokens resolved
+    /// against the tenant's brand kit — the freeform canvas editor's equivalent of the old flat-field
+    /// editor defaulting colours/font from the brand kit.</summary>
+    Task<PosterDocument> TemplateDocumentAsync(string templateId, string format, CancellationToken ct = default);
+
+    /// <summary>Finalizes a freeform poster: validates the layer document, resolves
+    /// <paramref name="mediaFileId"/> to the URL of an image the merchant already uploaded (the client
+    /// exports the canvas to PNG and uploads it through the existing media endpoint — never trusts a
+    /// raw client-supplied URL string), and persists it exactly like <see cref="CreateAsync"/> does,
+    /// just without any server-side rendering. <paramref name="caption"/> is optional — when omitted,
+    /// this writes one via the AI copywriter (credit-metered), same as the legacy create path, so
+    /// "Create" stays the one metered step regardless of which editor produced the poster.</summary>
+    Task<PosterCreatedResult> CreateFromDocumentAsync(PosterDocument doc, long mediaFileId, string? caption, long? userId, CancellationToken ct = default);
+
+    /// <summary>The document-based equivalent of <see cref="UpdateAsync"/> — free, no credit spend.</summary>
+    Task<PosterCreatedResult> UpdateFromDocumentAsync(long creativeId, PosterDocument doc, long mediaFileId, string caption, long? userId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -112,11 +134,17 @@ public interface IPosterStudioService
 public sealed class PosterStudioService(
     EcommerceDbContext db, IPosterRenderer renderer, IMarketingBrandService brandService,
     ICatalogReader catalog, IMarketingCopywriter copywriter, IMediaStorage media,
-    IGrowthImageService growthImages, IAiCreditService credits) : IPosterStudioService
+    IGrowthImageService growthImages, IAiCreditService credits, IPosterDocumentValidator documentValidator) : IPosterStudioService
 {
     // Sentinel far outside any real computed week-start date — guarantees the ad-hoc bucket can never
     // collide with AutoDraftForCurrentTenantAsync's "does a plan already exist for this week" check.
     private static readonly DateTime AdHocWeekStart = new(1970, 1, 1);
+
+    // camelCase specifically for PosterDocument (de)serialization — PosterSpecReader/the schema/the
+    // frontend all agree on "specVersion" lowercase-first. Legacy PosterStudioRequest (de)serialization
+    // elsewhere in this class deliberately keeps the default (PascalCase) options unchanged — those are
+    // already-persisted rows whose on-disk format must not shift.
+    private static readonly JsonSerializerOptions DocJsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     // Org-level (no product) prompts, keyed to the same style labels the product-image generator uses
     // (reused as-is for products via IGrowthImageService) so the picker reads consistently either way.
@@ -242,14 +270,150 @@ public sealed class PosterStudioService(
         var creative = await db.MarketingCreatives.AsNoTracking().FirstOrDefaultAsync(c => c.MarketingCreativeId == creativeId, ct)
             ?? throw new AppException("Poster not found.", StatusCodes.Status404NotFound);
 
-        PosterStudioRequest? poster = null;
-        if (creative.Type == "poster" && !string.IsNullOrWhiteSpace(creative.Spec))
+        if (creative.Type != "poster" || string.IsNullOrWhiteSpace(creative.Spec))
+            return new PosterDetailDto(creative.MarketingCreativeId, creative.MarketingPlanItemId, creative.Type,
+                "none", null, null, creative.Body, creative.OutputMediaUrl);
+
+        if (PosterSpecReader.IsLayersDocument(creative.Spec))
         {
-            try { poster = JsonSerializer.Deserialize<PosterStudioRequest>(creative.Spec); }
-            catch (JsonException) { poster = null; }   // malformed/legacy — fall back to view-only
+            var doc = JsonSerializer.Deserialize<PosterDocument>(creative.Spec, DocJsonOpts);   // written by us, after validation — trusted
+            return new PosterDetailDto(creative.MarketingCreativeId, creative.MarketingPlanItemId, creative.Type,
+                "layers-v1", doc, null, creative.Body, creative.OutputMediaUrl);
         }
 
-        return new PosterDetailDto(creative.MarketingCreativeId, creative.MarketingPlanItemId, creative.Type, poster, creative.Body, creative.OutputMediaUrl);
+        PosterStudioRequest? legacy = null;
+        try { legacy = JsonSerializer.Deserialize<PosterStudioRequest>(creative.Spec); }
+        catch (JsonException) { /* genuinely corrupt row — SpecKind stays "legacy" with LegacyPoster null */ }
+        return new PosterDetailDto(creative.MarketingCreativeId, creative.MarketingPlanItemId, creative.Type,
+            "legacy", null, legacy, creative.Body, creative.OutputMediaUrl);
+    }
+
+    public async Task<PosterDocument> TemplateDocumentAsync(string templateId, string format, CancellationToken ct = default)
+    {
+        var doc = PosterTemplateDocumentRegistry.StarterDocument(templateId, format)
+            ?? throw new AppException("Unknown template.", StatusCodes.Status400BadRequest);
+        var brand = await brandService.GetAsync(ct);
+        return ResolveBrandColors(doc, brand);
+    }
+
+    public async Task<PosterCreatedResult> CreateFromDocumentAsync(PosterDocument doc, long mediaFileId, string? caption, long? userId, CancellationToken ct = default)
+    {
+        var errors = documentValidator.Validate(doc);
+        if (errors.Count > 0) throw new AppException(string.Join(" ", errors), StatusCodes.Status400BadRequest);
+
+        var mediaFile = await db.MediaFiles.AsNoTracking().FirstOrDefaultAsync(m => m.MediaFileId == mediaFileId, ct)
+            ?? throw new AppException("Uploaded image not found.", StatusCodes.Status400BadRequest);
+
+        var planId = await GetOrCreateAdHocPlanAsync(ct);
+        var now = DateTime.UtcNow;
+        var headline = doc.Layers.FirstOrDefault(l => l.Role == "headline")?.Text;
+
+        // "Create" stays the one credit-metered step regardless of editor shape: if the caller hasn't
+        // already got a caption (the freeform editor doesn't yet offer its own "suggest caption" control
+        // — that lands with the properties panel), write one the same way the legacy CreateAsync always
+        // has, rather than silently shipping posters with no caption.
+        var resolvedCaption = string.IsNullOrWhiteSpace(caption)
+            ? await copywriter.WriteAsync(doc.Kind == "product" ? "product-description" : "instagram-caption", doc.Kind == "product" ? doc.ProductId : null, headline ?? "our store", userId, ct)
+            : caption;
+
+        var item = new MarketingPlanItem
+        {
+            MarketingPlanId = planId,
+            Type = "poster",
+            Topic = Clean(headline, 300) ?? "Poster",
+            ProductId = doc.Kind == "product" ? doc.ProductId : null,
+            Channels = "",
+            IncludeLogo = doc.Layers.Any(l => l.Role == "logo"),
+            IncludeName = false,
+            Status = "proposed",
+            ScheduledAt = now,
+            CreatedAt = now,
+        };
+        db.MarketingPlanItems.Add(item);
+        await db.SaveChangesAsync(ct);
+
+        var creative = new MarketingCreative
+        {
+            MarketingPlanItemId = item.MarketingPlanItemId,
+            Type = "poster",
+            Status = "generated",
+            Body = Clean(resolvedCaption, 2000),
+            OutputMediaUrl = mediaFile.Url,
+            Spec = JsonSerializer.Serialize(doc, DocJsonOpts),
+            ProductId = item.ProductId,
+            CreatedAt = now,
+        };
+        db.MarketingCreatives.Add(creative);
+        item.Status = "approved";
+        item.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
+
+        return new PosterCreatedResult(item.MarketingPlanItemId, creative.MarketingCreativeId, mediaFile.Url, creative.Body ?? "");
+    }
+
+    public async Task<PosterCreatedResult> UpdateFromDocumentAsync(long creativeId, PosterDocument doc, long mediaFileId, string caption, long? userId, CancellationToken ct = default)
+    {
+        var errors = documentValidator.Validate(doc);
+        if (errors.Count > 0) throw new AppException(string.Join(" ", errors), StatusCodes.Status400BadRequest);
+
+        var creative = await db.MarketingCreatives.FirstOrDefaultAsync(c => c.MarketingCreativeId == creativeId, ct)
+            ?? throw new AppException("Poster not found.", StatusCodes.Status404NotFound);
+        if (creative.Type != "poster")
+            throw new AppException("Only posters can be edited here.", StatusCodes.Status400BadRequest);
+
+        var mediaFile = await db.MediaFiles.AsNoTracking().FirstOrDefaultAsync(m => m.MediaFileId == mediaFileId, ct)
+            ?? throw new AppException("Uploaded image not found.", StatusCodes.Status400BadRequest);
+
+        var now = DateTime.UtcNow;
+        var headline = doc.Layers.FirstOrDefault(l => l.Role == "headline")?.Text;
+        var newProductId = doc.Kind == "product" ? doc.ProductId : null;
+
+        creative.Body = Clean(caption, 2000) ?? creative.Body;
+        creative.OutputMediaUrl = mediaFile.Url;
+        creative.Spec = JsonSerializer.Serialize(doc, DocJsonOpts);
+        creative.ProductId = newProductId;
+        creative.UpdatedAt = now;
+
+        var item = await db.MarketingPlanItems.FirstOrDefaultAsync(i => i.MarketingPlanItemId == creative.MarketingPlanItemId, ct);
+        if (item is not null)
+        {
+            item.Topic = Clean(headline, 300) ?? item.Topic;
+            item.ProductId = newProductId;
+            item.UpdatedAt = now;
+        }
+        await db.SaveChangesAsync(ct);
+
+        return new PosterCreatedResult(creative.MarketingPlanItemId, creative.MarketingCreativeId, mediaFile.Url, creative.Body ?? "");
+    }
+
+    /// <summary>Substitutes a template's <c>{primary}</c>/<c>{primaryDark}</c>/<c>{secondary}</c>/
+    /// <c>{accent}</c>/<c>{font}</c> placeholder tokens with the tenant's actual brand kit values —
+    /// the one place a template's pure data becomes tenant-specific, mirroring how the old flat-field
+    /// <see cref="BuildSpecAsync"/> defaulted colours/font from the brand kit.</summary>
+    private static PosterDocument ResolveBrandColors(PosterDocument doc, MarketingBrandDto brand)
+    {
+        var primaryDark = SvgPosterRenderer.Darken(brand.PrimaryColor, 0.35);
+        var font = string.IsNullOrWhiteSpace(brand.Font) ? "Poppins" : brand.Font;
+
+        string? Resolve(string? s) => s switch
+        {
+            "{primary}" => brand.PrimaryColor,
+            "{primaryDark}" => primaryDark,
+            "{secondary}" => brand.SecondaryColor,
+            "{accent}" => brand.AccentColor,
+            "{font}" => font,
+            _ => s,
+        };
+
+        var layers = doc.Layers.Select(l => l with
+        {
+            FontFamily = Resolve(l.FontFamily),
+            Color = Resolve(l.Color),
+            Fill = Resolve(l.Fill),
+            Stroke = Resolve(l.Stroke),
+        }).ToList();
+
+        return doc with { Background = doc.Background with { Color = Resolve(doc.Background.Color) }, Layers = layers };
     }
 
     public async Task<PosterCreatedResult> UpdateAsync(long creativeId, PosterStudioRequest req, string caption, long? userId, CancellationToken ct = default)

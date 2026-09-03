@@ -8,8 +8,9 @@ namespace ecomm.api.Features.MarketingStudio;
 
 public sealed record SuggestHeadlineRequest(long? ProductId, string? Topic);
 public sealed record GenerateBackgroundRequest(PosterStudioRequest Poster, string Style);
-public sealed record UpdatePosterRequest(PosterStudioRequest Poster, string Caption);
 public sealed record AutoFillDraftRequest(string Kind, long? ProductId);
+public sealed record CreatePosterDocumentRequest(PosterDocument Document, long MediaFileId, string? Caption = null);
+public sealed record UpdatePosterDocumentRequest(PosterDocument Document, long MediaFileId, string Caption);
 
 /// <summary>
 /// The standalone Poster Studio — an editor for crafting one poster deliberately (org or product-led,
@@ -44,17 +45,22 @@ public sealed class PosterStudioController(IPosterStudioService svc) : Controlle
     public async Task<IActionResult> GenerateBackground(GenerateBackgroundRequest req, CancellationToken ct)
         => Ok(ApiResponse<PosterBackgroundResult>.Ok(await svc.GenerateBackgroundAsync(req.Poster, req.Style, UserId, ct), "Background generated."));
 
+    // Canvas-editor create/update — takes over the primary POST/PUT routes going forward. The old
+    // flat-field CreateAsync/UpdateAsync(PosterStudioRequest, ...) stay in the service (still exercised
+    // by tests, still what GetAsync/DuplicateAsync read for posters made before this existed) but are
+    // no longer reachable via HTTP: a legacy poster is view-only + duplicable from here on, never
+    // re-saved through the old form.
     [HttpPost]
-    public async Task<IActionResult> Create(PosterStudioRequest req, CancellationToken ct)
-        => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.CreateAsync(req, UserId, ct), "Poster created."));
+    public async Task<IActionResult> Create(CreatePosterDocumentRequest req, CancellationToken ct)
+        => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.CreateFromDocumentAsync(req.Document, req.MediaFileId, req.Caption, UserId, ct), "Poster created."));
+
+    [HttpPut("{creativeId:long}")]
+    public async Task<IActionResult> Update(long creativeId, UpdatePosterDocumentRequest req, CancellationToken ct)
+        => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.UpdateFromDocumentAsync(creativeId, req.Document, req.MediaFileId, req.Caption, UserId, ct), "Poster updated."));
 
     [HttpGet("{creativeId:long}")]
     public async Task<IActionResult> Get(long creativeId, CancellationToken ct)
         => Ok(ApiResponse<PosterDetailDto>.Ok(await svc.GetAsync(creativeId, ct)));
-
-    [HttpPut("{creativeId:long}")]
-    public async Task<IActionResult> Update(long creativeId, UpdatePosterRequest req, CancellationToken ct)
-        => Ok(ApiResponse<PosterCreatedResult>.Ok(await svc.UpdateAsync(creativeId, req.Poster, req.Caption, UserId, ct), "Poster updated."));
 
     [HttpPost("{creativeId:long}/duplicate")]
     public async Task<IActionResult> Duplicate(long creativeId, CancellationToken ct)
@@ -63,4 +69,8 @@ public sealed class PosterStudioController(IPosterStudioService svc) : Controlle
     [HttpPost("auto-fill")]
     public async Task<IActionResult> AutoFillDraft(AutoFillDraftRequest req, CancellationToken ct)
         => Ok(ApiResponse<AutoFillDraftResult>.Ok(await svc.AutoFillDraftAsync(req.Kind, req.ProductId, ct)));
+
+    [HttpGet("templates/{templateId}/document")]
+    public async Task<IActionResult> TemplateDocument(string templateId, [FromQuery] string? format, CancellationToken ct)
+        => Ok(ApiResponse<PosterDocument>.Ok(await svc.TemplateDocumentAsync(templateId, format ?? "square", ct)));
 }

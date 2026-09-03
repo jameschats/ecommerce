@@ -131,6 +131,7 @@ builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ISocialConnectionS
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IMarketingPlanSettingsService, ecomm.api.Features.MarketingStudio.MarketingPlanSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.ICatalogReader, ecomm.api.Features.MarketingStudio.CatalogReader>();
 builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IPosterRenderer, ecomm.api.Features.MarketingStudio.SvgPosterRenderer>();
+builder.Services.AddScoped<ecomm.api.Features.MarketingStudio.IPosterDocumentValidator, ecomm.api.Features.MarketingStudio.PosterDocumentValidator>();
 // MS3·a voiceover — Sarvam TTS when a key is configured (Sarvam:ApiKey via env/user-secrets), else a
 // no-op Null provider (same dev-provider convention as Email/SMS/WhatsApp).
 builder.Services.Configure<ecomm.api.Features.MarketingStudio.SarvamOptions>(builder.Configuration.GetSection(ecomm.api.Features.MarketingStudio.SarvamOptions.SectionName));

@@ -97,9 +97,13 @@ public class PosterStudioServiceTests
 
     private static PosterStudioService New(
         EcommerceDbContext db, FakeRenderer? renderer = null, FakeCopywriter? copy = null,
-        FakeGrowthImages? growthImages = null, FakeCreditService? credits = null) =>
-        new(db, renderer ?? new FakeRenderer(), new FakeBrand(), new FakeCatalog(), copy ?? new FakeCopywriter(), new FakeMedia(),
-            growthImages ?? new FakeGrowthImages(), credits ?? new FakeCreditService());
+        FakeGrowthImages? growthImages = null, FakeCreditService? credits = null)
+    {
+        var r = renderer ?? new FakeRenderer();
+        return new(db, r, new FakeBrand(), new FakeCatalog(), copy ?? new FakeCopywriter(), new FakeMedia(),
+            growthImages ?? new FakeGrowthImages(), credits ?? new FakeCreditService(),
+            new PosterDocumentValidator(r, Microsoft.Extensions.Options.Options.Create(new ecomm.api.Features.Media.MediaOptions())));
+    }
 
     [Fact]
     public async Task Preview_renders_without_touching_the_database_or_spending_credits()
@@ -355,15 +359,16 @@ public class PosterStudioServiceTests
         var detail = await New(db).GetAsync(created.CreativeId);
 
         Assert.Equal("poster", detail.Type);
-        Assert.NotNull(detail.Poster);
-        Assert.Equal("Big Diwali Sale", detail.Poster!.Headline);
-        Assert.Equal("minimal-type", detail.Poster.TemplateId);
-        Assert.Equal("story", detail.Poster.Format);
+        Assert.Equal("legacy", detail.SpecKind);           // made via the legacy PosterStudioRequest create path
+        Assert.NotNull(detail.LegacyPoster);
+        Assert.Equal("Big Diwali Sale", detail.LegacyPoster!.Headline);
+        Assert.Equal("minimal-type", detail.LegacyPoster.TemplateId);
+        Assert.Equal("story", detail.LegacyPoster.Format);
         Assert.Equal(created.Caption, detail.Caption);
     }
 
     [Fact]
-    public async Task Get_returns_null_poster_for_a_text_creative()
+    public async Task Get_returns_none_for_a_text_creative()
     {
         using var db = TestDb.New(tenantId: 1);
         var item = new MarketingPlanItem { MarketingPlanId = 1, Type = "text", Topic = "T", Channels = "", Status = "approved", ScheduledAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
@@ -375,7 +380,9 @@ public class PosterStudioServiceTests
 
         var detail = await New(db).GetAsync(creative.MarketingCreativeId);
 
-        Assert.Null(detail.Poster);
+        Assert.Equal("none", detail.SpecKind);
+        Assert.Null(detail.LegacyPoster);
+        Assert.Null(detail.Document);
         Assert.Equal("Some copy", detail.Caption);
     }
 
@@ -432,8 +439,9 @@ public class PosterStudioServiceTests
         Assert.Equal(2, db.MarketingCreatives.Count());
 
         var dupDetail = await New(db).GetAsync(dup.CreativeId);
-        Assert.NotNull(dupDetail.Poster);                     // the copy is independently editable
-        Assert.Equal("Original", dupDetail.Poster!.Headline);
+        Assert.Equal("legacy", dupDetail.SpecKind);
+        Assert.NotNull(dupDetail.LegacyPoster);                // the copy is independently editable
+        Assert.Equal("Original", dupDetail.LegacyPoster!.Headline);
     }
 
     [Fact]
@@ -486,5 +494,147 @@ public class PosterStudioServiceTests
 
         Assert.Equal(0, growthImages.Calls);
         Assert.Equal(0, credits.Calls);
+    }
+
+    // ---- Freeform canvas editor: document-based create/update/template resolution ----
+
+    private static async Task<long> SeedMediaFileAsync(EcommerceDbContext db, string url = "https://cdn.test/uploads/poster.png")
+    {
+        var media = new ecomm.api.Data.Entities.MediaFile { FileName = "poster.png", Url = url, CreatedAt = DateTime.UtcNow };
+        db.MediaFiles.Add(media);
+        await db.SaveChangesAsync();
+        return media.MediaFileId;
+    }
+
+    private static PosterDocument MinimalDoc(string format = "square") => new(
+        "layers-v1",
+        new PosterDocFormat(1080, format == "story" ? 1920 : 1080),
+        new PosterDocBackground("color", "#111827"),
+        new[]
+        {
+            new PosterLayer("headline", "text", 72, 200, 500, 200, 0, 1, 1,
+                Role: "headline", Text: "Hello World", FontFamily: "Poppins", FontSize: 80, FontWeight: "900", Color: "#ffffff"),
+        });
+
+    [Fact]
+    public async Task Template_document_resolves_brand_colour_placeholders()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var doc = await New(db).TemplateDocumentAsync("bold-medallion", "square", CancellationToken.None);
+
+        Assert.Equal("#111827", doc.Background.Color);              // FakeBrand's PrimaryColor, not "{primary}"
+        var cta = doc.Layers.First(l => l.Role == "cta");
+        Assert.Equal("#111827", cta.Color);                          // cta text colour is "{primary}" in the bundle
+        Assert.Equal("Poppins", doc.Layers.First(l => l.Role == "headline").FontFamily);
+    }
+
+    [Fact]
+    public async Task Template_document_rejects_an_unknown_template()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var ex = await Assert.ThrowsAsync<AppException>(() => New(db).TemplateDocumentAsync("not-a-template", "square", CancellationToken.None));
+        Assert.Equal(400, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_from_document_persists_a_layers_v1_spec_and_the_uploaded_image_url()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var mediaId = await SeedMediaFileAsync(db);
+
+        var result = await New(db).CreateFromDocumentAsync(MinimalDoc(), mediaId, "A caption", userId: 5);
+
+        Assert.Equal("https://cdn.test/uploads/poster.png", result.MediaUrl);
+        Assert.Equal("A caption", result.Caption);
+        var detail = await New(db).GetAsync(result.CreativeId);
+        Assert.Equal("layers-v1", detail.SpecKind);
+        Assert.NotNull(detail.Document);
+        Assert.Equal("Hello World", detail.Document!.Layers.First(l => l.Role == "headline").Text);
+    }
+
+    [Fact]
+    public async Task Create_from_document_writes_an_ai_caption_when_none_is_given()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var copy = new FakeCopywriter { Response = "AI-written caption" };
+        var mediaId = await SeedMediaFileAsync(db);
+
+        var result = await New(db, copy: copy).CreateFromDocumentAsync(MinimalDoc(), mediaId, null, userId: 5);
+
+        Assert.Equal(1, copy.Calls);                       // "Create" is still the one metered step
+        Assert.Equal("AI-written caption", result.Caption);
+    }
+
+    [Fact]
+    public async Task Create_from_document_keeps_a_provided_caption_without_calling_ai()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var copy = new FakeCopywriter { Response = "Should not be used" };
+        var mediaId = await SeedMediaFileAsync(db);
+
+        var result = await New(db, copy: copy).CreateFromDocumentAsync(MinimalDoc(), mediaId, "Hand-typed caption", null);
+
+        Assert.Equal(0, copy.Calls);
+        Assert.Equal("Hand-typed caption", result.Caption);
+    }
+
+    [Fact]
+    public async Task Create_from_document_rejects_an_invalid_document()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var mediaId = await SeedMediaFileAsync(db);
+        var badDoc = MinimalDoc() with { SpecVersion = "not-layers-v1" };
+
+        var ex = await Assert.ThrowsAsync<AppException>(() => New(db).CreateFromDocumentAsync(badDoc, mediaId, "Caption", null));
+        Assert.Equal(400, ex.StatusCode);
+        Assert.Empty(db.MarketingCreatives);
+    }
+
+    [Fact]
+    public async Task Create_from_document_rejects_an_unknown_media_file()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var ex = await Assert.ThrowsAsync<AppException>(() => New(db).CreateFromDocumentAsync(MinimalDoc(), 999999, "Caption", null));
+        Assert.Equal(400, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_from_document_overwrites_in_place_without_creating_a_new_row()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var mediaId1 = await SeedMediaFileAsync(db, "https://cdn.test/uploads/v1.png");
+        var created = await New(db).CreateFromDocumentAsync(MinimalDoc(), mediaId1, "First caption", null);
+
+        var mediaId2 = await SeedMediaFileAsync(db, "https://cdn.test/uploads/v2.png");
+        var updatedDoc = MinimalDoc() with
+        {
+            Layers = new[] { MinimalDoc().Layers[0] with { Text = "Updated headline" } },
+        };
+        var updated = await New(db).UpdateFromDocumentAsync(created.CreativeId, updatedDoc, mediaId2, "Second caption", null);
+
+        Assert.Equal(created.CreativeId, updated.CreativeId);
+        Assert.Equal(created.ItemId, updated.ItemId);
+        Assert.Equal("https://cdn.test/uploads/v2.png", updated.MediaUrl);
+        Assert.Equal("Second caption", updated.Caption);
+        Assert.Single(db.MarketingCreatives);
+
+        var detail = await New(db).GetAsync(created.CreativeId);
+        Assert.Equal("Updated headline", detail.Document!.Layers.First(l => l.Role == "headline").Text);
+    }
+
+    [Fact]
+    public async Task Update_from_document_rejects_a_creative_that_is_not_a_poster()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var item = new MarketingPlanItem { MarketingPlanId = 1, Type = "text", Topic = "T", Channels = "", Status = "approved", ScheduledAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
+        db.MarketingPlanItems.Add(item);
+        await db.SaveChangesAsync();
+        var creative = new MarketingCreative { MarketingPlanItemId = item.MarketingPlanItemId, Type = "text", Status = "generated", Body = "Copy", CreatedAt = DateTime.UtcNow };
+        db.MarketingCreatives.Add(creative);
+        await db.SaveChangesAsync();
+        var mediaId = await SeedMediaFileAsync(db);
+
+        var ex = await Assert.ThrowsAsync<AppException>(() => New(db).UpdateFromDocumentAsync(creative.MarketingCreativeId, MinimalDoc(), mediaId, "Caption", null));
+        Assert.Equal(400, ex.StatusCode);
     }
 }

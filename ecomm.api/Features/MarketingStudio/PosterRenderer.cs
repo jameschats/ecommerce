@@ -72,15 +72,14 @@ public sealed class SvgPosterRenderer(IMediaStorage media) : IPosterRenderer
     public IReadOnlyList<string> AvailableFonts { get; } =
         new[] { "Poppins", "Montserrat", "Archivo", "Oswald", "Bebas Neue", "Space Grotesk", "DM Sans" };
 
-    public IReadOnlyList<PosterTemplateInfo> AvailableTemplates { get; } = new[]
-    {
-        new PosterTemplateInfo("bold-medallion", "Bold Medallion",
-            "A flat brand-colour ground with your product/scene in a bold circular medallion bleeding off the frame — confident, editorial.",
-            UsesPhoto: true, Category: "Product Spotlight"),
-        new PosterTemplateInfo("minimal-type", "Minimal Type",
-            "A two-tone colour-block poster built entirely from typography — no photo needed. Great for sales, offers and announcements.",
-            UsesPhoto: false, Category: "Sale & Offer"),
-    };
+    // Sourced from PosterTemplateDocumentRegistry (the pure-data JSON bundles that also back the new
+    // freeform canvas editor's starter documents) so template metadata is defined in exactly one
+    // place — this legacy SVG renderer and the new canvas editor can never drift out of sync on
+    // what templates exist, even though only the canvas editor uses their actual layer geometry.
+    public IReadOnlyList<PosterTemplateInfo> AvailableTemplates { get; } =
+        PosterTemplateDocumentRegistry.All
+            .Select(t => new PosterTemplateInfo(t.Id, t.Name, t.Description, t.UsesPhoto, t.Category))
+            .ToList();
 
     public IReadOnlyList<PosterFormatInfo> AvailableFormats { get; } = new[]
     {
@@ -283,8 +282,11 @@ public sealed class SvgPosterRenderer(IMediaStorage media) : IPosterRenderer
         return t;
     }
 
-    /// <summary>Darken a #rrggbb / #rgb hex colour toward black by <paramref name="factor"/> (0–1).</summary>
-    private static string Darken(string hex, double factor)
+    /// <summary>Darken a #rrggbb / #rgb hex colour toward black by <paramref name="factor"/> (0–1).
+    /// Internal (not private) so <see cref="PosterStudioService"/> can resolve the canvas editor's
+    /// <c>{primaryDark}</c> placeholder token the same way this legacy renderer derives its own
+    /// ambient-decoration shade — one formula, not two that could drift.</summary>
+    internal static string Darken(string hex, double factor)
     {
         var h = hex.Length == 4 ? $"#{hex[1]}{hex[1]}{hex[2]}{hex[2]}{hex[3]}{hex[3]}" : hex;
         int R = Convert.ToInt32(h.Substring(1, 2), 16), G = Convert.ToInt32(h.Substring(3, 2), 16), B = Convert.ToInt32(h.Substring(5, 2), 16);

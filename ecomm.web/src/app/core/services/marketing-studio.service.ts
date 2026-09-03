@@ -146,9 +146,6 @@ export class MarketingStudioService {
     return this.http.post<ApiResponse<{ headline: string }>>(`${this.base}/poster/suggest-headline`, { productId, topic })
       .pipe(map((r) => r.data as { headline: string }));
   }
-  createPoster(req: PosterStudioRequest): Observable<PosterCreatedResult> {
-    return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster`, req).pipe(map((r) => r.data as PosterCreatedResult));
-  }
   posterBackgroundStyles(): Observable<NamedDescribedCode[]> {
     return this.http.get<ApiResponse<NamedDescribedCode[]>>(`${this.base}/poster/background-styles`).pipe(map((r) => r.data as NamedDescribedCode[]));
   }
@@ -156,15 +153,11 @@ export class MarketingStudioService {
     return this.http.post<ApiResponse<PosterBackgroundResult>>(`${this.base}/poster/background`, { poster, style })
       .pipe(map((r) => r.data as PosterBackgroundResult));
   }
-  /** Reopens an existing poster creative — null `poster` means it can't be re-edited (a text creative,
-   *  or a poster made before spec persistence existed); the caller should fall back to view-only. */
+  /** Reopens an existing poster creative — see PosterDetail.specKind for how to branch: "layers-v1" (a
+   *  freeform canvas poster, fully re-editable), "legacy" (made before the canvas editor existed —
+   *  view-only from here on), or "none" (a text creative, or nothing salvageable). */
   getPoster(creativeId: number): Observable<PosterDetail> {
     return this.http.get<ApiResponse<PosterDetail>>(`${this.base}/poster/${creativeId}`).pipe(map((r) => r.data as PosterDetail));
-  }
-  /** Re-renders and overwrites an existing poster in place — free, no credit spend. */
-  updatePoster(creativeId: number, poster: PosterStudioRequest, caption: string): Observable<PosterCreatedResult> {
-    return this.http.put<ApiResponse<PosterCreatedResult>>(`${this.base}/poster/${creativeId}`, { poster, caption })
-      .pipe(map((r) => r.data as PosterCreatedResult));
   }
   duplicatePoster(creativeId: number): Observable<PosterCreatedResult> {
     return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster/${creativeId}/duplicate`, {})
@@ -175,6 +168,27 @@ export class MarketingStudioService {
   autoFillPosterDraft(kind: 'org' | 'product', productId: number | null): Observable<AutoFillDraft> {
     return this.http.post<ApiResponse<AutoFillDraft>>(`${this.base}/poster/auto-fill`, { kind, productId })
       .pipe(map((r) => r.data as AutoFillDraft));
+  }
+
+  // --- Freeform canvas editor ---
+  /** A template's starter layer document, brand-kit colours/font already resolved server-side. */
+  templateDocument(templateId: string, format: string): Observable<PosterDocument> {
+    return this.http.get<ApiResponse<PosterDocument>>(`${this.base}/poster/templates/${templateId}/document?format=${format}`)
+      .pipe(map((r) => r.data as PosterDocument));
+  }
+  /** Finalizes a freeform poster. `mediaFileId` is the id returned by MediaService.upload() after the
+   *  canvas has been exported to PNG client-side — the server resolves it to a URL itself rather than
+   *  trusting a client-supplied one. Omit `caption` to have the server write one via AI (credit-metered,
+   *  same as the legacy editor) — "Create" is the one metered step regardless of editor. */
+  createPosterDocument(document: PosterDocument, mediaFileId: number, caption?: string | null): Observable<PosterCreatedResult> {
+    return this.http.post<ApiResponse<PosterCreatedResult>>(`${this.base}/poster`, { document, mediaFileId, caption: caption ?? null })
+      .pipe(map((r) => r.data as PosterCreatedResult));
+  }
+  /** Re-renders (client-side, then re-exports) and overwrites an existing freeform poster in place —
+   *  free, no credit spend. */
+  updatePosterDocument(creativeId: number, document: PosterDocument, mediaFileId: number, caption: string): Observable<PosterCreatedResult> {
+    return this.http.put<ApiResponse<PosterCreatedResult>>(`${this.base}/poster/${creativeId}`, { document, mediaFileId, caption })
+      .pipe(map((r) => r.data as PosterCreatedResult));
   }
 
   // --- Creative Library ---
@@ -207,8 +221,47 @@ export interface PosterFormatInfo { id: string; label: string; width: number; he
 export interface PosterEditorOptions { templates: PosterTemplateInfo[]; fonts: string[]; backgroundStyles: NamedDescribedCode[]; formats: PosterFormatInfo[]; }
 export interface NamedDescribedCode { key: string; label: string; description: string; }
 export interface PosterBackgroundResult { url: string; creditsSpent: number; }
-export interface PosterDetail { creativeId: number; itemId: number; type: string; poster: PosterStudioRequest | null; caption: string | null; mediaUrl: string | null; }
+export interface PosterDetail {
+  creativeId: number; itemId: number; type: string;
+  specKind: 'layers-v1' | 'legacy' | 'none';
+  document: PosterDocument | null;
+  legacyPoster: PosterStudioRequest | null;
+  caption: string | null;
+  mediaUrl: string | null;
+}
 export interface AutoFillDraft { templateId: string; headline: string; showPrice: boolean; }
+
+/** Mirrors PosterDocument/PosterLayer on the API — the freeform canvas editor's persisted shape.
+ *  Colour/font fields may carry unresolved "{primary}"/"{primaryDark}"/"{secondary}"/"{accent}"/"{font}"
+ *  placeholder tokens straight from a template until the server resolves them (see templateDocument());
+ *  a document read back via getPoster()/duplicated already has real values, never placeholders. */
+export interface PosterDocument {
+  specVersion: 'layers-v1';
+  format: { width: number; height: number };
+  background: { type: 'color' | 'image'; color?: string | null; imageUrl?: string | null };
+  layers: PosterLayer[];
+  templateId?: string | null;
+  kind?: 'org' | 'product' | null;
+  productId?: number | null;
+}
+
+export type PosterLayerRole = 'headline' | 'price' | 'cta' | 'logo' | 'photo' | 'background' | null;
+
+export interface PosterLayer {
+  id: string;
+  type: 'text' | 'image' | 'shape';
+  x: number; y: number; width: number; height: number;
+  rotation: number; opacity: number; zIndex: number;
+  role?: PosterLayerRole;
+  // text
+  text?: string | null; fontFamily?: string | null; fontSize?: number | null; fontWeight?: string | null;
+  fontStyle?: string | null; textAlign?: 'left' | 'center' | 'right' | null; color?: string | null;
+  lineHeight?: number | null; letterSpacing?: number | null;
+  // image
+  imageUrl?: string | null; fit?: 'cover' | 'contain' | null; cornerRadius?: number | null;
+  // shape
+  shapeKind?: 'rect' | 'ellipse' | 'line' | null; fill?: string | null; stroke?: string | null; strokeWidth?: number | null;
+}
 
 export interface LibraryItem {
   creativeId: number;
