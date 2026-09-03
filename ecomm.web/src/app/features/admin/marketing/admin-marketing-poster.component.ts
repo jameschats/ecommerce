@@ -6,8 +6,8 @@ import { Observable, from, map, switchMap } from 'rxjs';
 import { MediaService } from '../../../core/services/media.service';
 import { PosterCanvasService } from '../../../core/services/poster-canvas.service';
 import {
-  ChannelPref, MarketingPlanSettings, NamedProduct, PosterDetail, PosterDocument, PosterEditorOptions,
-  PosterTemplateInfo, MarketingStudioService,
+  ChannelPref, MarketingPlanSettings, NamedDescribedCode, NamedProduct, PosterDetail, PosterDocument,
+  PosterEditorOptions, PosterStudioRequest, PosterTemplateInfo, MarketingStudioService,
 } from '../../../core/services/marketing-studio.service';
 import { PosterCanvasComponent } from './poster-canvas/poster-canvas.component';
 import { PosterLayersPanelComponent } from './poster-canvas/poster-layers-panel.component';
@@ -17,8 +17,9 @@ import { PosterPropertiesPanelComponent } from './poster-canvas/poster-propertie
  * Poster Studio — a Canva-style Browse (category-grouped template gallery, one card per template x
  * format) that opens into a freeform canvas Editor. `?edit=<creativeId>` reopens a saved poster;
  * `?template=<id>&format=<id>` jumps straight into a fresh one. A LEGACY poster (made before the
- * canvas editor existed) opens view-only — it can still be viewed/duplicated from the Library, just
- * not re-edited here; see PosterStudioService.GetAsync's SpecKind discriminator on the API side.
+ * canvas editor existed) opens view-only — it can still be viewed/duplicated from the Library, or
+ * recreated as a fresh editable poster here, but not re-edited in place; see
+ * PosterStudioService.GetAsync's SpecKind discriminator on the API side.
  */
 @Component({
   selector: 'app-admin-marketing-poster',
@@ -27,8 +28,16 @@ import { PosterPropertiesPanelComponent } from './poster-canvas/poster-propertie
   template: `
     <div class="max-w-6xl mx-auto p-6">
       @if (mode() === 'browse') {
-        <h1 class="text-xl font-bold text-slate-900">Marketing Studio — Poster Studio</h1>
-        <p class="text-sm text-slate-500 mb-6">Pick a template and a format to start. Nothing is created (or costs credits) until you save.</p>
+        <div class="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 class="text-xl font-bold text-slate-900">Marketing Studio — Poster Studio</h1>
+            <p class="text-sm text-slate-500">Pick a template and a format to start. Nothing is created (or costs credits) until you save.</p>
+          </div>
+          <button type="button" (click)="autoFillDraft()" [disabled]="autoFilling()" class="text-sm px-3 py-2 rounded-lg border border-teal-300 text-teal-700 hover:bg-teal-50 disabled:opacity-50 shrink-0 whitespace-nowrap">
+            {{ autoFilling() ? 'Filling…' : '✨ Auto-fill a draft' }}
+          </button>
+        </div>
+        @if (autoFillError()) { <p class="text-xs text-red-600 mb-4">{{ autoFillError() }}</p> }
 
         @if (opts(); as o) {
           @for (cat of categories(o); track cat) {
@@ -75,7 +84,9 @@ import { PosterPropertiesPanelComponent } from './poster-canvas/poster-propertie
           <section class="max-w-md mx-auto bg-white border border-slate-200 rounded-xl p-5 space-y-3 text-center">
             <p class="text-sm font-medium text-slate-700">This poster predates the canvas editor</p>
             @if (legacyMediaUrl(); as url) { <img [src]="url" alt="Poster" class="max-w-full rounded-lg border border-slate-200 mx-auto" /> }
-            <p class="text-xs text-slate-500">It's still viewable and can be duplicated from the Library, but can't be re-edited here.</p>
+            <p class="text-xs text-slate-500">It's still viewable and can be duplicated from the Library, but can't be edited in place here.</p>
+            <button type="button" (click)="recreateAsEditable()" class="btn-primary w-full">Recreate as an editable poster</button>
+            <p class="text-xs text-slate-400">Starts a new, fully editable poster from this image — the original stays untouched.</p>
             <a routerLink="/admin/marketing/library" class="inline-block text-sm text-teal-700 hover:underline">Back to Library</a>
           </section>
         } @else if (activeDoc(); as doc) {
@@ -85,6 +96,32 @@ import { PosterPropertiesPanelComponent } from './poster-canvas/poster-propertie
             <div class="space-y-4">
               <app-poster-layers-panel />
               <app-poster-properties-panel />
+
+              <section class="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                  <label class="lbl">Headline</label>
+                  <button type="button" (click)="suggestHeadline()" [disabled]="suggestingHeadline()" class="text-xs text-teal-700 hover:underline disabled:opacity-50">
+                    {{ suggestingHeadline() ? '…' : '✨ Suggest' }}
+                  </button>
+                </div>
+                @if (suggestError()) { <p class="text-xs text-red-600">{{ suggestError() }}</p> }
+
+                @if (usesPhoto()) {
+                  <div class="pt-2 border-t border-slate-100 space-y-2">
+                    <label class="lbl">AI background</label>
+                    <div class="flex gap-2">
+                      <select [(ngModel)]="backgroundStyle" name="bgStyle" class="input flex-1">
+                        @for (s of backgroundStyles(); track s.key) { <option [ngValue]="s.key">{{ s.label }}</option> }
+                      </select>
+                      <button type="button" (click)="generateBackground()" [disabled]="generatingBg()"
+                              class="text-sm px-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 shrink-0 disabled:opacity-50">
+                        {{ generatingBg() ? 'Generating…' : '✨ (20 credits)' }}
+                      </button>
+                    </div>
+                    @if (bgError()) { <p class="text-xs text-red-600">{{ bgError() }}</p> }
+                  </div>
+                }
+              </section>
 
               <section class="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
                 <label class="lbl">Caption</label>
@@ -145,6 +182,7 @@ import { PosterPropertiesPanelComponent } from './poster-canvas/poster-propertie
 export class AdminMarketingPosterComponent implements OnInit {
   private readonly api = inject(MarketingStudioService);
   private readonly mediaApi = inject(MediaService);
+  private readonly canvasSvc = inject(PosterCanvasService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -169,11 +207,21 @@ export class AdminMarketingPosterComponent implements OnInit {
   readonly scheduling = signal(false);
   readonly selected = new Set<string>();
 
+  readonly autoFilling = signal(false);
+  readonly autoFillError = signal<string | null>(null);
+  readonly suggestingHeadline = signal(false);
+  readonly suggestError = signal<string | null>(null);
+  readonly generatingBg = signal(false);
+  readonly bgError = signal<string | null>(null);
+  readonly backgroundStyles = signal<NamedDescribedCode[]>([]);
+  backgroundStyle = 'lifestyle';
+
   caption = '';
 
   ngOnInit(): void {
     this.api.videoOptions().subscribe((o) => this.products.set(o.products));
     this.api.getPlanSettings().subscribe((s) => this.settings.set(s));
+    this.api.posterBackgroundStyles().subscribe((s) => this.backgroundStyles.set(s));
     this.api.posterOptions().subscribe((o) => {
       this.opts.set(o);
       this.loadThumbnails(o.templates);
@@ -207,14 +255,102 @@ export class AdminMarketingPosterComponent implements OnInit {
     }
   }
 
-  startFromTemplate(templateId: string, format: string, navigate = true): void {
+  /** True once a document with a photo/background-role layer is loaded — gates the AI background
+   *  section, which only makes sense for templates that have somewhere to put a generated scene. */
+  usesPhoto(): boolean {
+    return this.activeDoc()?.layers.some((l) => l.role === 'photo' || l.role === 'background') ?? false;
+  }
+
+  startFromTemplate(templateId: string, format: string, navigate = true, overrides?: { headline?: string; showPrice?: boolean }): void {
     this.api.templateDocument(templateId, format).subscribe((doc) => {
       this.resetEditorState();
-      this.activeDoc.set(doc);
+      let layers = doc.layers;
+      if (overrides?.headline) layers = layers.map((l) => (l.role === 'headline' ? { ...l, text: overrides.headline! } : l));
+      if (overrides?.showPrice === false) layers = layers.filter((l) => l.role !== 'price');
+      this.activeDoc.set({ ...doc, layers });
       this.specKind.set('layers-v1');
       this.mode.set('editor');
     });
     if (navigate) this.router.navigate([], { queryParams: { template: templateId, format }, replaceUrl: true });
+  }
+
+  /** Picks a template + headline instead of a blank Browse page. Rule-based template pick + the
+   *  existing headline suggester (server side, unchanged) — never triggers the paid AI background
+   *  generation on its own, that stays an explicit opt-in click once in the Editor. */
+  autoFillDraft(): void {
+    this.autoFilling.set(true);
+    this.autoFillError.set(null);
+    this.api.autoFillPosterDraft('org', null).subscribe({
+      next: (draft) => {
+        this.autoFilling.set(false);
+        this.startFromTemplate(draft.templateId, 'square', true, { headline: draft.headline, showPrice: draft.showPrice });
+      },
+      error: (err) => { this.autoFilling.set(false); this.autoFillError.set(this.describeError(err)); },
+    });
+  }
+
+  /** Writes an AI-suggested headline into the document's headline-role text layer (or the first text
+   *  layer, if a template has none tagged) — the layer-aware equivalent of the old flat-field editor's
+   *  "Suggest" button next to a single headline input. */
+  suggestHeadline(): void {
+    const doc = this.activeDoc();
+    if (!doc) return;
+    this.suggestingHeadline.set(true);
+    this.suggestError.set(null);
+    const productId = doc.kind === 'product' ? doc.productId ?? null : null;
+    this.api.suggestPosterHeadline(productId, null).subscribe({
+      next: (r) => {
+        this.suggestingHeadline.set(false);
+        const layers = this.canvasSvc.layers();
+        const target = layers.find((l) => l.role === 'headline') ?? layers.find((l) => l.type === 'text');
+        if (target) this.canvasSvc.setLayerProp(target.id, { text: r.headline });
+      },
+      error: (err) => { this.suggestingHeadline.set(false); this.suggestError.set(this.describeError(err)); },
+    });
+  }
+
+  /** Generates a real AI scene (the same pipeline "Product images" uses) and drops it onto the
+   *  document's photo/background-role layer — credit-metered, explicit opt-in. Reuses the legacy
+   *  PosterStudioRequest shape purely as this endpoint's wire format; only Kind/ProductId/Headline are
+   *  actually read server-side for this call, the rest are unused placeholders. */
+  generateBackground(): void {
+    const doc = this.activeDoc();
+    if (!doc) return;
+    const headline = this.canvasSvc.layers().find((l) => l.role === 'headline')?.text ?? '';
+    const req: PosterStudioRequest = {
+      kind: doc.kind === 'product' ? 'product' : 'org', productId: doc.productId ?? null,
+      headline, price: null, cta: 'Shop Now', includeLogo: true, includeName: true,
+    };
+    this.generatingBg.set(true);
+    this.bgError.set(null);
+    this.api.generatePosterBackground(req, this.backgroundStyle).subscribe({
+      next: (r) => {
+        this.generatingBg.set(false);
+        const target = this.canvasSvc.layers().find((l) => l.role === 'photo' || l.role === 'background');
+        if (target) void this.canvasSvc.setLayerImage(target.id, r.url);
+        else this.canvasSvc.addImageLayer(r.url, 'photo');
+      },
+      error: (err) => { this.generatingBg.set(false); this.bgError.set(this.describeError(err)); },
+    });
+  }
+
+  /** A legacy poster's flat image, wrapped as a single full-bleed layer in a brand-new editable
+   *  document — the original creative/row is untouched; this becomes a genuinely new poster on Create,
+   *  not an in-place migration of the old one. */
+  recreateAsEditable(): void {
+    const url = this.legacyMediaUrl();
+    if (!url) return;
+    this.resetEditorState();
+    this.activeDoc.set({
+      specVersion: 'layers-v1',
+      format: { width: 1080, height: 1080 },
+      background: { type: 'color', color: '#ffffff' },
+      layers: [{
+        id: crypto.randomUUID(), type: 'image', x: 0, y: 0, width: 1080, height: 1080,
+        rotation: 0, opacity: 1, zIndex: 0, role: 'background', imageUrl: url, fit: 'cover',
+      }],
+    });
+    this.specKind.set('layers-v1');
   }
 
   private openForEdit(creativeId: number): void {
@@ -244,6 +380,8 @@ export class AdminMarketingPosterComponent implements OnInit {
     this.scheduled.set(false);
     this.saved.set(false);
     this.createError.set(null);
+    this.suggestError.set(null);
+    this.bgError.set(null);
     this.caption = '';
     this.selected.clear();
   }
