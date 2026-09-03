@@ -11,6 +11,13 @@ import { PosterDocument } from '../../../../core/services/marketing-studio.servi
  * Deliberately mounted only once its starting `document` is already known (the parent gates this with
  * `@if (doc(); as d) { <app-poster-canvas [document]="d" /> }`) — avoids reactive re-init complexity
  * for a document that changes after the canvas already exists, which Stage D doesn't need.
+ *
+ * The canvas always draws at its document's real resolution (1080px+) so exports stay full quality —
+ * but that's wider than this column on any normal screen, so it's scaled down for DISPLAY only
+ * (`PosterCanvasService.setDisplaySize`, Fabric's `cssOnly` dimension mode) to fit whatever width the
+ * wrapper div actually has. Without this the canvas rendered 1:1, simply wider than its container with
+ * nothing to scale it — on a real admin layout that clipped most of the poster out of view entirely
+ * rather than just needing a scrollbar.
  */
 @Component({
   selector: 'app-poster-canvas',
@@ -26,7 +33,7 @@ import { PosterDocument } from '../../../../core/services/marketing-studio.servi
           <span class="text-xs text-slate-400 ml-auto">Selected: {{ sel.role ?? sel.type }}</span>
         }
       </div>
-      <div class="border border-slate-200 rounded-xl overflow-auto bg-slate-100 flex items-center justify-center p-4">
+      <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4">
         <canvas #host></canvas>
       </div>
     </div>
@@ -37,15 +44,33 @@ export class PosterCanvasComponent implements OnDestroy {
   readonly ready = output<void>();
 
   private readonly hostRef = viewChild.required<ElementRef<HTMLCanvasElement>>('host');
+  private readonly wrapRef = viewChild.required<ElementRef<HTMLDivElement>>('wrap');
   readonly svc = inject(PosterCanvasService);
 
   constructor() {
     afterNextRender(async () => {
       const doc = this.document();
       await this.svc.init(this.hostRef().nativeElement, doc.format.width, doc.format.height);
+      this.applyDisplaySize(doc.format.width, doc.format.height);
       await this.svc.loadDocument(doc);
       this.ready.emit();
     });
+  }
+
+  /** Fits the canvas inside its wrapper's actual available width (minus the wrapper's own padding),
+   *  scaling height to match so the aspect ratio — and every layer's real coordinate space — is
+   *  untouched. Caps at 1:1 so a canvas smaller than its container never gets blown up. */
+  private applyDisplaySize(docWidth: number, docHeight: number): void {
+    const wrap = this.wrapRef().nativeElement;
+    const available = wrap.clientWidth - 32;   // minus the wrapper's own p-4 (16px) each side
+    const scale = Math.min(1, (available > 0 ? available : docWidth) / docWidth);
+    this.svc.setDisplaySize(docWidth * scale, docHeight * scale);
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    const doc = this.document();
+    this.applyDisplaySize(doc.format.width, doc.format.height);
   }
 
   @HostListener('document:keydown.delete', ['$event'])

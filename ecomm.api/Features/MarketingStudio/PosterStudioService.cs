@@ -387,13 +387,20 @@ public sealed class PosterStudioService(
     }
 
     /// <summary>Substitutes a template's <c>{primary}</c>/<c>{primaryDark}</c>/<c>{secondary}</c>/
-    /// <c>{accent}</c>/<c>{font}</c> placeholder tokens with the tenant's actual brand kit values —
-    /// the one place a template's pure data becomes tenant-specific, mirroring how the old flat-field
-    /// <see cref="BuildSpecAsync"/> defaulted colours/font from the brand kit.</summary>
+    /// <c>{accent}</c>/<c>{onPrimary}</c>/<c>{onAccent}</c>/<c>{font}</c> placeholder tokens with the
+    /// tenant's actual brand kit values — the one place a template's pure data becomes tenant-specific,
+    /// mirroring how the old flat-field <see cref="BuildSpecAsync"/> defaulted colours/font from the
+    /// brand kit. <c>onPrimary</c>/<c>onAccent</c> are computed, not looked up: a template author can't
+    /// know in advance whether a given tenant's brand colour will be light or dark, so text meant to sit
+    /// on top of a primary/accent-coloured surface should use these rather than a fixed literal colour
+    /// — a tenant with a pale brand colour would otherwise get pale-on-pale, unreadable text (exactly
+    /// what happened here before this existed).</summary>
     private static PosterDocument ResolveBrandColors(PosterDocument doc, MarketingBrandDto brand)
     {
         var primaryDark = SvgPosterRenderer.Darken(brand.PrimaryColor, 0.35);
         var font = string.IsNullOrWhiteSpace(brand.Font) ? "Poppins" : brand.Font;
+        var onPrimary = ReadableTextColor(brand.PrimaryColor);
+        var onAccent = ReadableTextColor(brand.AccentColor);
 
         string? Resolve(string? s) => s switch
         {
@@ -401,6 +408,8 @@ public sealed class PosterStudioService(
             "{primaryDark}" => primaryDark,
             "{secondary}" => brand.SecondaryColor,
             "{accent}" => brand.AccentColor,
+            "{onPrimary}" => onPrimary,
+            "{onAccent}" => onAccent,
             "{font}" => font,
             _ => s,
         };
@@ -552,5 +561,25 @@ public sealed class PosterStudioService(
         if (string.IsNullOrWhiteSpace(v)) return null;
         var t = v.Trim();
         return t.Length <= max ? t : t[..max];
+    }
+
+    /// <summary>Picks black or white for text sitting on top of <paramref name="backgroundHex"/>, via
+    /// the standard WCAG relative-luminance formula — reliably readable regardless of how light or dark
+    /// a tenant's own brand colour happens to be, rather than assuming any particular brand colour is
+    /// "probably dark enough" for white text or vice versa.</summary>
+    private static string ReadableTextColor(string backgroundHex)
+    {
+        var hex = backgroundHex.Length == 4
+            ? $"#{backgroundHex[1]}{backgroundHex[1]}{backgroundHex[2]}{backgroundHex[2]}{backgroundHex[3]}{backgroundHex[3]}"
+            : backgroundHex;
+        if (hex.Length != 7) return "#111827";   // malformed — fall back to dark text, the safer default
+
+        double Channel(int start)
+        {
+            var v = Convert.ToInt32(hex.Substring(start, 2), 16) / 255.0;
+            return v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
+        }
+        var luminance = 0.2126 * Channel(1) + 0.7152 * Channel(3) + 0.0722 * Channel(5);
+        return luminance > 0.5 ? "#111827" : "#ffffff";
     }
 }

@@ -24,6 +24,7 @@ interface FabricCanvasLike {
   on(event: string, handler: (e: unknown) => void): void;
   backgroundColor?: string;
   set(props: Record<string, unknown>): void;
+  setDimensions(size: { width: string; height: string }, options: { cssOnly: true }): void;
 }
 
 interface TaggedFabricObject extends FabricObjectLike {
@@ -66,6 +67,17 @@ export class PosterCanvasService {
     canvas.on('selection:updated', (e) => this.onSelectionChanged(e));
     canvas.on('selection:cleared', () => this.selection.set(null));
     canvas.on('object:modified', (e) => this.onObjectModified(e));
+  }
+
+  /** Scales the canvas's on-screen (CSS) size to fit its container while keeping the actual drawing
+   *  resolution (and every layer's authored coordinates) untouched — `cssOnly: true` is Fabric's
+   *  supported way to do this; it also keeps pointer/drag math correctly mapped back to the real
+   *  coordinate space, so this is not just a visual scale, dragging/resizing stays accurate at any
+   *  display size. Without this, a 1080px+ canvas rendered at its native resolution inside a
+   *  same-size-or-smaller container either overflows (clipping content, what the merchant hit first)
+   *  or needs the browser's own scrollbars, neither of which reads as a real design surface. */
+  setDisplaySize(width: number, height: number): void {
+    this.canvas?.setDimensions({ width: `${Math.round(width)}px`, height: `${Math.round(height)}px` }, { cssOnly: true });
   }
 
   async loadDocument(doc: PosterDocument): Promise<void> {

@@ -531,6 +531,46 @@ public class PosterStudioServiceTests
         Assert.Equal("#111827", doc.Layers.First(l => l.Role == "cta").Color);
     }
 
+    private sealed class FakeLightBrand : IMarketingBrandService
+    {
+        // A pale, low-contrast-risk brand palette — the exact shape of colour that produced pale-on-pale
+        // unreadable text before {onPrimary}/{onAccent} existed (see PosterStudioService.ReadableTextColor).
+        public Task<MarketingBrandDto> GetAsync(CancellationToken ct = default) =>
+            Task.FromResult(new MarketingBrandDto("Bazaar", null, null, "#a8dcf0", "#6b7280", "#e0f2fe", "Poppins", true, true, null, null, null, null, null, null, null));
+        public Task<MarketingBrandDto> SaveAsync(MarketingBrandDto req, CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private static PosterStudioService NewWithBrand(EcommerceDbContext db, IMarketingBrandService brand)
+    {
+        var r = new FakeRenderer();
+        return new(db, r, brand, new FakeCatalog(), new FakeCopywriter(), new FakeMedia(),
+            new FakeGrowthImages(), new FakeCreditService(),
+            new PosterDocumentValidator(r, Microsoft.Extensions.Options.Options.Create(new ecomm.api.Features.Media.MediaOptions())));
+    }
+
+    [Fact]
+    public async Task Template_document_picks_dark_text_for_a_light_brand_colour()
+    {
+        // The actual bug reported live: a pale brand primary/accent made white "headline"/"price"/"cta"
+        // text on top of it unreadable. onPrimary/onAccent must compute dark text for a light background
+        // rather than assuming a fixed colour works for every tenant's brand palette.
+        using var db = TestDb.New(tenantId: 1);
+        var doc = await NewWithBrand(db, new FakeLightBrand()).TemplateDocumentAsync("bold-medallion", "square", CancellationToken.None);
+
+        Assert.Equal("#111827", doc.Layers.First(l => l.Role == "headline").Color);   // sits on the light primary background
+        Assert.Equal("#111827", doc.Layers.First(l => l.Role == "price").Color);      // sits on the light accent-coloured badge
+    }
+
+    [Fact]
+    public async Task Template_document_still_picks_white_text_for_a_dark_brand_colour()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var doc = await New(db).TemplateDocumentAsync("bold-medallion", "square", CancellationToken.None);   // FakeBrand: dark primary/accent
+
+        Assert.Equal("#ffffff", doc.Layers.First(l => l.Role == "headline").Color);
+        Assert.Equal("#ffffff", doc.Layers.First(l => l.Role == "price").Color);
+    }
+
     [Fact]
     public async Task Template_document_rejects_an_unknown_template()
     {

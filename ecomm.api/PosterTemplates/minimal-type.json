@@ -13,11 +13,11 @@
         { "id": "band", "type": "shape", "shapeKind": "rect", "x": 0, "y": 680, "width": 1080, "height": 400, "rotation": 0, "opacity": 1, "zIndex": 1, "fill": "{accent}" },
         { "id": "ambient", "type": "shape", "shapeKind": "ellipse", "x": 880, "y": -80, "width": 280, "height": 280, "rotation": 0, "opacity": 0.35, "zIndex": 2, "fill": "{primaryDark}" },
         { "id": "logo", "type": "image", "role": "logo", "x": 72, "y": 56, "width": 220, "height": 90, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "contain" },
-        { "id": "headline", "type": "text", "role": "headline", "x": 72, "y": 180, "width": 900, "height": 350, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "Big sale headline", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "#ffffff", "textAlign": "left", "lineHeight": 1.05 },
+        { "id": "headline", "type": "text", "role": "headline", "x": 72, "y": 180, "width": 900, "height": 350, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "Big sale headline", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "left", "lineHeight": 1.05 },
         { "id": "rule", "type": "shape", "shapeKind": "rect", "x": 72, "y": 600, "width": 140, "height": 6, "rotation": 0, "opacity": 0.85, "zIndex": 5, "fill": "#ffffff" },
-        { "id": "price", "type": "text", "role": "price", "x": 72, "y": 860, "width": 500, "height": 110, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "₹999", "fontFamily": "{font}", "fontSize": 96, "fontWeight": "900", "color": "{primary}", "textAlign": "left" },
+        { "id": "price", "type": "text", "role": "price", "x": 72, "y": 860, "width": 500, "height": 110, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "₹999", "fontFamily": "{font}", "fontSize": 96, "fontWeight": "900", "color": "{onAccent}", "textAlign": "left" },
         { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 72, "y": 950, "width": 300, "height": 88, "rotation": 0, "opacity": 1, "zIndex": 7, "fill": "{primary}", "cornerRadius": 44 },
-        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 972, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 8, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "#ffffff", "textAlign": "center" }
+        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 972, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 8, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{onPrimary}", "textAlign": "center" }
       ]
     },
     "story": {
@@ -27,11 +27,11 @@
         { "id": "band", "type": "shape", "shapeKind": "rect", "x": 0, "y": 1210, "width": 1080, "height": 710, "rotation": 0, "opacity": 1, "zIndex": 1, "fill": "{accent}" },
         { "id": "ambient", "type": "shape", "shapeKind": "ellipse", "x": 880, "y": -80, "width": 280, "height": 280, "rotation": 0, "opacity": 0.35, "zIndex": 2, "fill": "{primaryDark}" },
         { "id": "logo", "type": "image", "role": "logo", "x": 72, "y": 56, "width": 220, "height": 90, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "contain" },
-        { "id": "headline", "type": "text", "role": "headline", "x": 72, "y": 180, "width": 900, "height": 350, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "Big sale headline", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "#ffffff", "textAlign": "left", "lineHeight": 1.05 },
+        { "id": "headline", "type": "text", "role": "headline", "x": 72, "y": 180, "width": 900, "height": 350, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "Big sale headline", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "left", "lineHeight": 1.05 },
         { "id": "rule", "type": "shape", "shapeKind": "rect", "x": 72, "y": 600, "width": 140, "height": 6, "rotation": 0, "opacity": 0.85, "zIndex": 5, "fill": "#ffffff" },
-        { "id": "price", "type": "text", "role": "price", "x": 72, "y": 1525, "width": 500, "height": 110, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "₹999", "fontFamily": "{font}", "fontSize": 96, "fontWeight": "900", "color": "{primary}", "textAlign": "left" },
+        { "id": "price", "type": "text", "role": "price", "x": 72, "y": 1525, "width": 500, "height": 110, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "₹999", "fontFamily": "{font}", "fontSize": 96, "fontWeight": "900", "color": "{onAccent}", "textAlign": "left" },
         { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 72, "y": 1790, "width": 300, "height": 88, "rotation": 0, "opacity": 1, "zIndex": 7, "fill": "{primary}", "cornerRadius": 44 },
-        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 1812, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 8, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "#ffffff", "textAlign": "center" }
+        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 1812, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 8, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{onPrimary}", "textAlign": "center" }
       ]
     }
   }
