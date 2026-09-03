@@ -192,6 +192,9 @@ export class PosterCanvasService {
       {
         _canvasElement: `${el.width}x${el.height} native, ${el.style.width}x${el.style.height} css, clientWidth=${el.clientWidth}`,
         _canvasGetBoundingClientRect: `left=${Math.round(rect.left)} top=${Math.round(rect.top)} width=${Math.round(rect.width)} height=${Math.round(rect.height)}`,
+        _devicePixelRatio: window.devicePixelRatio,
+        _fabricRetinaScaling: (this.canvas as any)?.getRetinaScaling?.(),
+        _viewportTransform: (this.canvas as any)?.viewportTransform,
       },
       ...objects.map((o: any) => ({
         id: (o as TaggedFabricObject).layerMeta?.id, ctor: o.constructor?.name,

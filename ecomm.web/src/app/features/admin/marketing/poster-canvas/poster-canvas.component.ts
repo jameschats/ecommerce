@@ -35,7 +35,7 @@ import { PosterDocument } from '../../../../core/services/marketing-studio.servi
         <button type="button" (click)="debug.set(!debug())" class="text-xs px-2.5 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">Debug</button>
       </div>
       @if (debug()) {
-        <pre class="text-[10px] leading-tight bg-slate-900 text-lime-300 p-3 rounded-lg overflow-auto max-h-64 whitespace-pre">{{ debugDump() }}</pre>
+        <pre class="text-[10px] leading-tight bg-slate-900 text-lime-300 p-3 rounded-lg overflow-auto max-h-[32rem] whitespace-pre">{{ debugDump() }}</pre>
       }
       <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4 min-w-0 overflow-hidden">
         <canvas #host class="max-w-full min-w-0"></canvas>
@@ -53,17 +53,14 @@ export class PosterCanvasComponent implements OnDestroy {
   readonly debug = signal(false);
 
   debugDump(): string {
-    const layout: Record<string, unknown> = { windowInnerWidth: window.innerWidth };
-    let el: HTMLElement | null = this.wrapRef().nativeElement;
-    let i = 0;
-    while (el && i < 6) {
-      const cs = getComputedStyle(el);
-      layout[`ancestor${i}<${el.tagName.toLowerCase()}.${Array.from(el.classList).join('.')}>`] =
-        `rect=${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)} display=${cs.display} gridTemplateColumns=${cs.gridTemplateColumns}`;
-      el = el.parentElement;
-      i++;
-    }
-    return JSON.stringify(layout, null, 1) + '\n\n' + JSON.stringify(this.svc.debugObjects(), null, 1);
+    // The grid layout bug is confirmed fixed — one line confirming that stays, the other 5 ancestor
+    // levels are gone now so the object dump (what actually matters at this point) doesn't need scrolling.
+    const wrap = this.wrapRef().nativeElement;
+    // wrap -> .space-y-2 -> <app-poster-canvas> -> the grid div
+    const gridAncestor = wrap.parentElement?.parentElement?.parentElement;
+    const gridCols = gridAncestor ? getComputedStyle(gridAncestor).gridTemplateColumns : '?';
+    const summary = `windowInnerWidth=${window.innerWidth} gridTemplateColumns="${gridCols}"`;
+    return summary + '\n\n' + JSON.stringify(this.svc.debugObjects(), null, 1);
   }
 
   private resizeObserver: ResizeObserver | null = null;
