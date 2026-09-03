@@ -28,6 +28,16 @@ describe('layerToFabricOptions', () => {
     });
   });
 
+  it('always sets a left/top origin explicitly, for every layer type', () => {
+    // Fabric defaults every object's origin to 'center' — left/top would then mean the object's
+    // CENTER, not its top-left corner, silently shifting every layer left/up by half its own size
+    // (a 1080-wide full-bleed shape ends up exactly half off-canvas, a headline's leading characters
+    // land off-canvas). This schema's X/Y are documented as top-left everywhere, so this must never
+    // regress — it was the actual root cause behind every "layout looks wrong" bug report traced here.
+    expect(layerToFabricOptions(textLayer())).toMatchObject({ originX: 'left', originY: 'top' });
+    expect(layerToFabricOptions(shapeLayer())).toMatchObject({ originX: 'left', originY: 'top' });
+  });
+
   it('converts letterSpacing from em to Fabric charSpacing (1/1000 em)', () => {
     const opts = layerToFabricOptions(textLayer({ letterSpacing: 0.02 }));
     expect(opts['charSpacing']).toBe(20);

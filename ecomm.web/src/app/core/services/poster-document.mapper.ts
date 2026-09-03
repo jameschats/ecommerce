@@ -36,6 +36,13 @@ export interface FabricObjectLike {
  *  this straight through as the second constructor argument (or first, for shapes/images). */
 export function layerToFabricOptions(layer: PosterLayer): Record<string, unknown> {
   const base: Record<string, unknown> = {
+    // Fabric defaults every object's origin to 'center' (left/top mean the object's CENTER, not its
+    // top-left corner) — explicit here because this schema's X/Y are documented as top-left throughout
+    // (PosterDocument.cs, the mapper's own tests, every authored template). Without this, every object
+    // renders shifted left/up by half its own width/height: a 1080-wide "full bleed" shape ends up
+    // exactly half off-canvas, a headline's leading characters land off-canvas to the left, etc. — this
+    // was the actual root cause of every "layout looks wrong" report traced through this file.
+    originX: 'left', originY: 'top',
     left: layer.x, top: layer.y,
     width: layer.width, height: layer.height, scaleX: 1, scaleY: 1,
     angle: layer.rotation, opacity: layer.opacity,
