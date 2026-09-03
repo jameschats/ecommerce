@@ -78,6 +78,12 @@ export class PosterCanvasService {
    *  or needs the browser's own scrollbars, neither of which reads as a real design surface. */
   setDisplaySize(width: number, height: number): void {
     this.canvas?.setDimensions({ width: `${Math.round(width)}px`, height: `${Math.round(height)}px` }, { cssOnly: true });
+    // Fabric's own setDimensions deliberately skips its internal requestRenderAll when cssOnly is set
+    // (a pure CSS resize shouldn't need the backing bitmap repainted) — but the very first paint here
+    // happens moments earlier, while the canvas still sits at its full native CSS size before this method
+    // ever runs (loadDocument's initial render fires before any ResizeObserver callback), and that
+    // insists on a fresh repaint once the visible box has actually changed size.
+    this.canvas?.requestRenderAll();
   }
 
   async loadDocument(doc: PosterDocument): Promise<void> {
