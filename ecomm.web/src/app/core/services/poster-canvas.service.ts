@@ -200,11 +200,21 @@ export class PosterCanvasService {
       } else {
         obj = new this.fabricNs.Rect(options) as unknown as TaggedFabricObject;
       }
+    } else if (!layer.imageUrl) {
+      // No photo set yet — a dashed placeholder in the layer's own position/shape, instead of silently
+      // omitting the whole layer. Without this, an empty photo slot (the common case: a template's
+      // starting document never ships with a photo already chosen) just leaves a hole in the canvas
+      // with no indication anything belongs there. Still tagged with the real "image" layerMeta, so it
+      // round-trips correctly and (once the properties panel ships) can have an image assigned to it.
+      obj = new this.fabricNs.Rect({
+        ...options, fill: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.65)',
+        strokeWidth: 2, strokeDashArray: [10, 8], strokeUniform: true,
+        rx: layer.cornerRadius ?? 0, ry: layer.cornerRadius ?? 0,
+      }) as unknown as TaggedFabricObject;
     } else {
       // image — width/height in `options` set the drawn box directly; Fabric has no built-in
       // object-fit, so "cover" scales up-and-crops via clipPath while "contain" (the default) just
       // uses the box as-is, matching the aspect ratio the layer was authored/resized to.
-      if (!layer.imageUrl) return null;
       const img = await this.fabricNs.FabricImage.fromURL(layer.imageUrl, { crossOrigin: 'anonymous' });
       img.set(options);
       if (layer.fit === 'cover') {

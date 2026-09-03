@@ -18,7 +18,7 @@
         { "id": "price-badge", "type": "shape", "shapeKind": "rect", "x": 72, "y": 520, "width": 250, "height": 78, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "{accent}", "cornerRadius": 12 },
         { "id": "price", "type": "text", "role": "price", "x": 72, "y": 536, "width": 250, "height": 50, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "₹999", "fontFamily": "{font}", "fontSize": 42, "fontWeight": "800", "color": "#ffffff", "textAlign": "center" },
         { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 72, "y": 940, "width": 300, "height": 88, "rotation": 0, "opacity": 1, "zIndex": 8, "fill": "#ffffff", "cornerRadius": 44 },
-        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 962, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 9, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{primary}", "textAlign": "center" }
+        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 962, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 9, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
       ]
     },
     "story": {
@@ -33,7 +33,7 @@
         { "id": "price-badge", "type": "shape", "shapeKind": "rect", "x": 72, "y": 520, "width": 250, "height": 78, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "{accent}", "cornerRadius": 12 },
         { "id": "price", "type": "text", "role": "price", "x": 72, "y": 536, "width": 250, "height": 50, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "₹999", "fontFamily": "{font}", "fontSize": 42, "fontWeight": "800", "color": "#ffffff", "textAlign": "center" },
         { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 72, "y": 1780, "width": 300, "height": 88, "rotation": 0, "opacity": 1, "zIndex": 8, "fill": "#ffffff", "cornerRadius": 44 },
-        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 1802, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 9, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{primary}", "textAlign": "center" }
+        { "id": "cta", "type": "text", "role": "cta", "x": 72, "y": 1802, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 9, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
       ]
     }
   }

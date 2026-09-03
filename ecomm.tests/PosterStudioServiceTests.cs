@@ -523,9 +523,12 @@ public class PosterStudioServiceTests
         var doc = await New(db).TemplateDocumentAsync("bold-medallion", "square", CancellationToken.None);
 
         Assert.Equal("#111827", doc.Background.Color);              // FakeBrand's PrimaryColor, not "{primary}"
-        var cta = doc.Layers.First(l => l.Role == "cta");
-        Assert.Equal("#111827", cta.Color);                          // cta text colour is "{primary}" in the bundle
+        var priceBadge = doc.Layers.First(l => l.Id == "price-badge");
+        Assert.Equal("#2563eb", priceBadge.Fill);                    // FakeBrand's AccentColor, not "{accent}"
         Assert.Equal("Poppins", doc.Layers.First(l => l.Role == "headline").FontFamily);
+        // The CTA's own text colour is a fixed dark neutral in this template (not brand-derived) —
+        // guarantees contrast against its white pill regardless of how light a tenant's brand colour is.
+        Assert.Equal("#111827", doc.Layers.First(l => l.Role == "cta").Color);
     }
 
     [Fact]
