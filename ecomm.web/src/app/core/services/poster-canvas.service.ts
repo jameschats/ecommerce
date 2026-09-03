@@ -17,8 +17,6 @@ interface FabricCanvasLike {
   discardActiveObject(): void;
   requestRenderAll(): void;
   moveObjectTo?(obj: FabricObjectLike, index: number): void;
-  sendObjectToBack?(obj: FabricObjectLike): void;
-  bringObjectToFront?(obj: FabricObjectLike): void;
   getElement(): HTMLCanvasElement;
   dispose(): Promise<void> | void;
   on(event: string, handler: (e: unknown) => void): void;
@@ -34,14 +32,17 @@ interface TaggedFabricObject extends FabricObjectLike {
 const HEADLINE_WEIGHTS = '400;700;800;900';   // wider than ThemeService.loadFonts' 400-700 — poster
                                                // headlines need genuine 900-weight caps, not a browser's
                                                // faux-bold of a lighter weight it happens to have loaded
+const MAX_HISTORY = 50;
+const COMMIT_DEBOUNCE_MS = 400;
 
 /**
  * A thin, testable-by-construction wrapper around one live Fabric.js `Canvas` instance — deliberately
- * component-scoped (provided on `PosterCanvasComponent`, not root) so its Fabric instance/DOM element
- * lifecycle is tied 1:1 to one editor session, never leaking across navigations. Fabric is dynamically
- * imported only inside `init()`, which is only ever called from `afterNextRender` (see
- * `poster-canvas.component.ts`) — this class itself has no top-level Fabric import, so merely importing
- * this file (e.g. for DI wiring) never pulls Fabric into a server-rendered bundle path.
+ * scoped to one editor session (provided once at the top of the Poster Studio editor, shared by the
+ * canvas surface, layers panel, and properties panel, all siblings under that same provider) so its
+ * Fabric instance/DOM element lifecycle is tied 1:1 to one session, never leaking across navigations.
+ * Fabric is dynamically imported only inside `init()`, which is only ever called from `afterNextRender`
+ * (see `poster-canvas.component.ts`) — this class itself has no top-level Fabric import, so merely
+ * importing this file (e.g. for DI wiring) never pulls Fabric into a server-rendered bundle path.
  */
 @Injectable()
 export class PosterCanvasService {
@@ -53,8 +54,14 @@ export class PosterCanvasService {
   private fabricNs: typeof import('fabric') | null = null;
   private docMeta: Omit<PosterDocument, 'specVersion' | 'layers'> | null = null;
 
+  private history: PosterDocument[] = [];
+  private historyIndex = -1;
+  private commitTimer: ReturnType<typeof setTimeout> | null = null;
+
   readonly selection = signal<PosterLayer | null>(null);
   readonly layers = signal<PosterLayer[]>([]);
+  readonly canUndo = signal(false);
+  readonly canRedo = signal(false);
 
   async init(canvasEl: HTMLCanvasElement, width: number, height: number): Promise<void> {
     if (!this.isBrowser) return;
@@ -78,16 +85,20 @@ export class PosterCanvasService {
    *  or needs the browser's own scrollbars, neither of which reads as a real design surface. */
   setDisplaySize(width: number, height: number): void {
     this.canvas?.setDimensions({ width: `${Math.round(width)}px`, height: `${Math.round(height)}px` }, { cssOnly: true });
-    // Fabric's own setDimensions deliberately skips its internal requestRenderAll when cssOnly is set
-    // (a pure CSS resize shouldn't need the backing bitmap repainted) — but the very first paint here
-    // happens moments earlier, while the canvas still sits at its full native CSS size before this method
-    // ever runs (loadDocument's initial render fires before any ResizeObserver callback), and that
-    // insists on a fresh repaint once the visible box has actually changed size.
     this.canvas?.requestRenderAll();
   }
 
+  /** Loads a document as the editor's starting point — resets undo history to just this state. */
   async loadDocument(doc: PosterDocument): Promise<void> {
-    if (!this.canvas || !this.fabricNs) return;
+    if (!this.canvas) return;
+    await this.renderDocument(doc);
+    this.history = [this.toDocument()];
+    this.historyIndex = 0;
+    this.updateHistoryFlags();
+  }
+
+  private async renderDocument(doc: PosterDocument): Promise<void> {
+    if (!this.canvas) return;
     const { specVersion: _v, layers, ...meta } = doc;
     this.docMeta = meta;
     this.canvas.clear();
@@ -101,7 +112,9 @@ export class PosterCanvasService {
       const obj = await this.buildFabricObject(layer);
       if (obj) this.canvas.add(obj);
     }
+    this.canvas.discardActiveObject();
     this.canvas.requestRenderAll();
+    this.selection.set(null);
     this.refreshLayers();
 
     // A just-requested Google Font may not have finished downloading by the time objects were added
@@ -137,7 +150,7 @@ export class PosterCanvasService {
   }
 
   addTextLayer(role: PosterLayer['role'] = null): void {
-    if (!this.canvas || !this.fabricNs) return;
+    if (!this.canvas) return;
     const layer: PosterLayer = {
       id: crypto.randomUUID(), type: 'text', x: 100, y: 100, width: 400, height: 100,
       rotation: 0, opacity: 1, zIndex: this.canvas.getObjects().length, role,
@@ -145,29 +158,103 @@ export class PosterCanvasService {
       fontStyle: 'normal', textAlign: 'left', color: '#111827', lineHeight: 1.16, letterSpacing: 0,
     };
     this.ensureFontsLoaded(new Set(['Poppins']));
+    this.addLayer(layer);
+  }
+
+  addImageLayer(imageUrl: string, role: PosterLayer['role'] = null): void {
+    if (!this.canvas) return;
+    this.addLayer({
+      id: crypto.randomUUID(), type: 'image', x: 100, y: 100, width: 400, height: 400,
+      rotation: 0, opacity: 1, zIndex: this.canvas.getObjects().length, role, imageUrl, fit: 'cover',
+    });
+  }
+
+  addShapeLayer(shapeKind: 'rect' | 'ellipse' | 'line'): void {
+    if (!this.canvas) return;
+    this.addLayer({
+      id: crypto.randomUUID(), type: 'shape', x: 100, y: 100, width: 300, height: shapeKind === 'line' ? 4 : 200,
+      rotation: 0, opacity: 1, zIndex: this.canvas.getObjects().length, shapeKind, fill: '#2563eb', strokeWidth: 0,
+    });
+  }
+
+  private addLayer(layer: PosterLayer): void {
     this.buildFabricObject(layer).then((obj) => {
       if (!obj || !this.canvas) return;
       this.canvas.add(obj);
       this.canvas.setActiveObject(obj);
       this.canvas.requestRenderAll();
       this.refreshLayers();
+      this.commit();
     });
   }
 
-  deleteSelected(): void {
+  /** Selects a layer by id — for the layers panel, where the row clicked isn't necessarily Fabric's
+   *  own idea of "active" yet. */
+  selectLayer(id: string): void {
     if (!this.canvas) return;
-    const active = this.canvas.getActiveObject();
-    if (!active) return;
-    this.canvas.remove(active);
+    const obj = this.findObject(id);
+    if (!obj) return;
+    this.canvas.setActiveObject(obj);
+    this.canvas.requestRenderAll();
+    this.selection.set(obj.layerMeta ? fabricObjectToLayer(obj, obj.layerMeta) : null);
+  }
+
+  deleteSelected(): void {
+    const active = this.canvas?.getActiveObject() as TaggedFabricObject | undefined;
+    if (active?.layerMeta) this.deleteLayer(active.layerMeta.id);
+  }
+
+  /** Swaps an image layer's URL in place — a placeholder Rect and a real FabricImage are different
+   *  Fabric classes, so this can't just be a property patch like setLayerProp; it rebuilds the object
+   *  at the SAME geometry/z-order/id and drops it back into the same stacking position, rather than
+   *  the much simpler-looking (but position/size-losing) "delete then add fresh" alternative. */
+  async setLayerImage(id: string, imageUrl: string): Promise<void> {
+    if (!this.canvas) return;
+    const obj = this.findObject(id);
+    if (!obj?.layerMeta) return;
+    const index = this.canvas.getObjects().indexOf(obj);
+    const updatedLayer: PosterLayer = { ...obj.layerMeta, imageUrl };
+    const newObj = await this.buildFabricObject(updatedLayer);
+    if (!newObj) return;
+    this.canvas.remove(obj);
+    this.canvas.add(newObj);
+    if (this.canvas.moveObjectTo) this.canvas.moveObjectTo(newObj, index);
+    this.canvas.setActiveObject(newObj);
+    this.canvas.requestRenderAll();
+    this.refreshLayers();
+    this.selection.set(updatedLayer);
+    this.commit();
+  }
+
+  deleteLayer(id: string): void {
+    if (!this.canvas) return;
+    const obj = this.findObject(id);
+    if (!obj) return;
+    this.canvas.remove(obj);
     this.canvas.discardActiveObject();
     this.canvas.requestRenderAll();
-    this.selection.set(null);
+    if (this.selection()?.id === id) this.selection.set(null);
     this.refreshLayers();
+    this.commit();
+  }
+
+  /** Moves a layer to a new position in the stacking order — the layers panel's drag-reorder. Index 0
+   *  is the back-most layer, matching the panel listing back-to-front top-to-bottom would invert; the
+   *  panel is responsible for whatever visual order it wants to present and translating clicks back to
+   *  a raw stacking index. */
+  reorderLayer(id: string, newIndex: number): void {
+    if (!this.canvas?.moveObjectTo) return;
+    const obj = this.findObject(id);
+    if (!obj) return;
+    this.canvas.moveObjectTo(obj, newIndex);
+    this.canvas.requestRenderAll();
+    this.refreshLayers();
+    this.commit();
   }
 
   setLayerProp(id: string, patch: Partial<PosterLayer>): void {
     if (!this.canvas) return;
-    const obj = (this.canvas.getObjects() as TaggedFabricObject[]).find((o) => o.layerMeta?.id === id);
+    const obj = this.findObject(id);
     if (!obj?.layerMeta) return;
     const merged: PosterLayer = { ...obj.layerMeta, ...patch };
     obj.layerMeta = merged;
@@ -175,12 +262,33 @@ export class PosterCanvasService {
     this.canvas.requestRenderAll();
     this.refreshLayers();
     if (this.selection()?.id === id) this.selection.set(merged);
+    this.commitDebounced();   // a properties-panel field firing on every keystroke/drag shouldn't
+                               // create one undo step per keystroke — settles shortly after input stops
+  }
+
+  undo(): void {
+    if (this.historyIndex <= 0) return;
+    this.historyIndex--;
+    void this.renderDocument(this.history[this.historyIndex]);
+    this.updateHistoryFlags();
+  }
+
+  redo(): void {
+    if (this.historyIndex >= this.history.length - 1) return;
+    this.historyIndex++;
+    void this.renderDocument(this.history[this.historyIndex]);
+    this.updateHistoryFlags();
   }
 
   destroy(): void {
+    if (this.commitTimer) clearTimeout(this.commitTimer);
     void this.canvas?.dispose();
     this.canvas = null;
     this.fabricNs = null;
+  }
+
+  private findObject(id: string): TaggedFabricObject | undefined {
+    return (this.canvas?.getObjects() as TaggedFabricObject[] | undefined)?.find((o) => o.layerMeta?.id === id);
   }
 
   private onSelectionChanged(e: unknown): void {
@@ -194,12 +302,34 @@ export class PosterCanvasService {
     obj.layerMeta = fabricObjectToLayer(obj, obj.layerMeta);
     this.refreshLayers();
     if (this.selection()?.id === obj.layerMeta.id) this.selection.set(obj.layerMeta);
+    this.commit();   // a drag/resize/rotate release is already a single settled action, no debounce needed
   }
 
   private refreshLayers(): void {
     if (!this.canvas) return;
     const objects = this.canvas.getObjects() as TaggedFabricObject[];
     this.layers.set(objects.filter((o) => o.layerMeta).map((o) => o.layerMeta!));
+  }
+
+  private commit(): void {
+    if (this.commitTimer) { clearTimeout(this.commitTimer); this.commitTimer = null; }
+    if (!this.canvas || !this.docMeta) return;
+    const snapshot = this.toDocument();
+    this.history = this.history.slice(0, this.historyIndex + 1);
+    this.history.push(snapshot);
+    this.historyIndex++;
+    if (this.history.length > MAX_HISTORY) { this.history.shift(); this.historyIndex--; }
+    this.updateHistoryFlags();
+  }
+
+  private commitDebounced(): void {
+    if (this.commitTimer) clearTimeout(this.commitTimer);
+    this.commitTimer = setTimeout(() => this.commit(), COMMIT_DEBOUNCE_MS);
+  }
+
+  private updateHistoryFlags(): void {
+    this.canUndo.set(this.historyIndex > 0);
+    this.canRedo.set(this.historyIndex < this.history.length - 1);
   }
 
   private async buildFabricObject(layer: PosterLayer): Promise<TaggedFabricObject | null> {
@@ -223,7 +353,7 @@ export class PosterCanvasService {
       // omitting the whole layer. Without this, an empty photo slot (the common case: a template's
       // starting document never ships with a photo already chosen) just leaves a hole in the canvas
       // with no indication anything belongs there. Still tagged with the real "image" layerMeta, so it
-      // round-trips correctly and (once the properties panel ships) can have an image assigned to it.
+      // round-trips correctly and can have an image assigned via the properties panel's "Replace image".
       obj = new this.fabricNs.Rect({
         ...options, fill: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.65)',
         strokeWidth: 2, strokeDashArray: [10, 8], strokeUniform: true,

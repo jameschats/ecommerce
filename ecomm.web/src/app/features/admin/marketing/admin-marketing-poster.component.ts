@@ -4,11 +4,14 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Observable, from, map, switchMap } from 'rxjs';
 import { MediaService } from '../../../core/services/media.service';
+import { PosterCanvasService } from '../../../core/services/poster-canvas.service';
 import {
   ChannelPref, MarketingPlanSettings, NamedProduct, PosterDetail, PosterDocument, PosterEditorOptions,
   PosterTemplateInfo, MarketingStudioService,
 } from '../../../core/services/marketing-studio.service';
 import { PosterCanvasComponent } from './poster-canvas/poster-canvas.component';
+import { PosterLayersPanelComponent } from './poster-canvas/poster-layers-panel.component';
+import { PosterPropertiesPanelComponent } from './poster-canvas/poster-properties-panel.component';
 
 /**
  * Poster Studio — a Canva-style Browse (category-grouped template gallery, one card per template x
@@ -19,7 +22,8 @@ import { PosterCanvasComponent } from './poster-canvas/poster-canvas.component';
  */
 @Component({
   selector: 'app-admin-marketing-poster',
-  imports: [FormsModule, RouterLink, PosterCanvasComponent],
+  imports: [FormsModule, RouterLink, PosterCanvasComponent, PosterLayersPanelComponent, PosterPropertiesPanelComponent],
+  providers: [PosterCanvasService],
   template: `
     <div class="max-w-6xl mx-auto p-6">
       @if (mode() === 'browse') {
@@ -79,6 +83,9 @@ import { PosterCanvasComponent } from './poster-canvas/poster-canvas.component';
             <app-poster-canvas #canvas [document]="doc" class="min-w-0" />
 
             <div class="space-y-4">
+              <app-poster-layers-panel />
+              <app-poster-properties-panel />
+
               <section class="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
                 <label class="lbl">Caption</label>
                 <textarea [(ngModel)]="caption" name="caption" rows="3" class="input" placeholder="Leave blank for an AI-written caption"></textarea>
