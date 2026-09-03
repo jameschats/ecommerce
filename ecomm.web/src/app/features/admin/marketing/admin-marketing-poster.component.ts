@@ -76,7 +76,7 @@ import { PosterCanvasComponent } from './poster-canvas/poster-canvas.component';
           </section>
         } @else if (activeDoc(); as doc) {
           <div class="grid lg:grid-cols-[1fr,320px] gap-6">
-            <app-poster-canvas #canvas [document]="doc" />
+            <app-poster-canvas #canvas [document]="doc" class="min-w-0" />
 
             <div class="space-y-4">
               <section class="bg-white border border-slate-200 rounded-xl p-4 space-y-2">

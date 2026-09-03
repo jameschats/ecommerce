@@ -33,8 +33,8 @@ import { PosterDocument } from '../../../../core/services/marketing-studio.servi
           <span class="text-xs text-slate-400 ml-auto">Selected: {{ sel.role ?? sel.type }}</span>
         }
       </div>
-      <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4">
-        <canvas #host></canvas>
+      <div #wrap class="border border-slate-200 rounded-xl bg-slate-100 flex items-center justify-center p-4 min-w-0">
+        <canvas #host class="max-w-full"></canvas>
       </div>
     </div>
   `,
