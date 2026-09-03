@@ -183,9 +183,17 @@ export class PosterCanvasService {
   debugObjects(): Array<Record<string, unknown>> {
     if (!this.canvas) return [];
     const el = this.canvas.getElement();
+    const rect = el.getBoundingClientRect();
+    const objects = [...this.canvas.getObjects()] as unknown as Array<TaggedFabricObject & Record<string, any>>;
+    // Headline first (whatever it's called) — that's the layer whose crop we're actually chasing, so
+    // don't make it something to scroll past a dozen other entries to find.
+    objects.sort((a, b) => (a.layerMeta?.role === 'headline' ? -1 : 0) - (b.layerMeta?.role === 'headline' ? -1 : 0));
     return [
-      { _canvasElement: `${el.width}x${el.height} native, ${el.style.width}x${el.style.height} css, clientWidth=${el.clientWidth}` },
-      ...this.canvas.getObjects().map((o: any) => ({
+      {
+        _canvasElement: `${el.width}x${el.height} native, ${el.style.width}x${el.style.height} css, clientWidth=${el.clientWidth}`,
+        _canvasGetBoundingClientRect: `left=${Math.round(rect.left)} top=${Math.round(rect.top)} width=${Math.round(rect.width)} height=${Math.round(rect.height)}`,
+      },
+      ...objects.map((o: any) => ({
         id: (o as TaggedFabricObject).layerMeta?.id, ctor: o.constructor?.name,
         left: o.left, top: o.top, width: o.width, height: o.height,
         scaleX: o.scaleX, scaleY: o.scaleY, angle: o.angle, opacity: o.opacity,
