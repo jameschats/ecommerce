@@ -171,6 +171,24 @@ export class PosterCanvasService {
     if (this.selection()?.id === id) this.selection.set(merged);
   }
 
+  /** Raw live Fabric object state, for on-page debugging when something renders differently than its
+   *  authored geometry — read directly off the objects, not through the mapper, so this can't itself
+   *  hide the bug it's meant to help find. */
+  debugObjects(): Array<Record<string, unknown>> {
+    if (!this.canvas) return [];
+    const el = this.canvas.getElement();
+    return [
+      { _canvasElement: `${el.width}x${el.height} native, ${el.style.width}x${el.style.height} css, clientWidth=${el.clientWidth}` },
+      ...this.canvas.getObjects().map((o: any) => ({
+        id: (o as TaggedFabricObject).layerMeta?.id, ctor: o.constructor?.name,
+        left: o.left, top: o.top, width: o.width, height: o.height,
+        scaleX: o.scaleX, scaleY: o.scaleY, angle: o.angle, opacity: o.opacity,
+        fill: o.fill, rx: o.rx, ry: o.ry,
+        scaledW: o.getScaledWidth?.(), scaledH: o.getScaledHeight?.(),
+      })),
+    ];
+  }
+
   destroy(): void {
     void this.canvas?.dispose();
     this.canvas = null;

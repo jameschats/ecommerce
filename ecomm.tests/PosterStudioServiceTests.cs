@@ -572,6 +572,27 @@ public class PosterStudioServiceTests
     }
 
     [Fact]
+    public async Task Template_document_geometry_for_minimal_type_matches_the_authored_bundle_exactly()
+    {
+        // A regression lock on the resolved geometry actually reaching the client — when a layout bug
+        // was reported live, this confirmed the server side was never the problem (it wasn't: every
+        // value below matched the authored JSON to the pixel), which is exactly the kind of check that
+        // should have existed before, not been improvised during triage.
+        using var db = TestDb.New(tenantId: 1);
+        var doc = await New(db).TemplateDocumentAsync("minimal-type", "square", CancellationToken.None);
+
+        var band = doc.Layers.Single(l => l.Id == "band");
+        Assert.Equal((0, 680, 1080, 400), (band.X, band.Y, band.Width, band.Height));
+
+        var ctaPill = doc.Layers.Single(l => l.Id == "cta-pill");
+        Assert.Equal((72, 950, 300, 88), (ctaPill.X, ctaPill.Y, ctaPill.Width, ctaPill.Height));
+        Assert.Equal(44, ctaPill.CornerRadius);
+
+        var price = doc.Layers.Single(l => l.Id == "price");
+        Assert.Equal((72, 860, 500, 110), (price.X, price.Y, price.Width, price.Height));
+    }
+
+    [Fact]
     public async Task Template_document_rejects_an_unknown_template()
     {
         using var db = TestDb.New(tenantId: 1);
