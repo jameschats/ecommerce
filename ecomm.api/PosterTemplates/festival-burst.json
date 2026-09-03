@@ -1,0 +1,42 @@
+{
+  "id": "festival-burst",
+  "sortOrder": 10,
+  "name": "Festival Burst",
+  "description": "Radiating colour rays behind a circular product photo — festive, celebratory energy for seasonal drops and holiday specials.",
+  "category": "Festival & Seasonal",
+  "usesPhoto": true,
+  "formats": {
+    "square": {
+      "width": 1080, "height": 1080,
+      "background": { "type": "color", "color": "{accent}" },
+      "layers": [
+        { "id": "ray-1", "type": "shape", "shapeKind": "rect", "x": 490, "y": -400, "width": 100, "height": 1900, "rotation": 20, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "ray-2", "type": "shape", "shapeKind": "rect", "x": 490, "y": -400, "width": 100, "height": 1900, "rotation": -20, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "ray-3", "type": "shape", "shapeKind": "rect", "x": 490, "y": -400, "width": 100, "height": 1900, "rotation": 60, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "ray-4", "type": "shape", "shapeKind": "rect", "x": 490, "y": -400, "width": 100, "height": 1900, "rotation": -60, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "photo-ring", "type": "shape", "shapeKind": "rect", "x": 265, "y": 120, "width": 550, "height": 550, "rotation": 0, "opacity": 1, "zIndex": 2, "fill": "#ffffff", "cornerRadius": 32 },
+        { "id": "photo", "type": "image", "role": "photo", "x": 290, "y": 145, "width": 500, "height": 500, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "cover" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 440, "y": 40, "width": 200, "height": 70, "rotation": 0, "opacity": 1, "zIndex": 4, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 90, "y": 720, "width": 900, "height": 160, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "Festive specials are here", "fontFamily": "{font}", "fontSize": 62, "fontWeight": "800", "color": "{onAccent}", "textAlign": "center", "lineHeight": 1.1 },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 390, "y": 910, "width": 300, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "#ffffff", "cornerRadius": 42 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 390, "y": 934, "width": 300, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Celebrate Now", "fontFamily": "{font}", "fontSize": 30, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    },
+    "story": {
+      "width": 1080, "height": 1920,
+      "background": { "type": "color", "color": "{accent}" },
+      "layers": [
+        { "id": "ray-1", "type": "shape", "shapeKind": "rect", "x": 490, "y": -600, "width": 100, "height": 2400, "rotation": 20, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "ray-2", "type": "shape", "shapeKind": "rect", "x": 490, "y": -600, "width": 100, "height": 2400, "rotation": -20, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "ray-3", "type": "shape", "shapeKind": "rect", "x": 490, "y": -600, "width": 100, "height": 2400, "rotation": 60, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "ray-4", "type": "shape", "shapeKind": "rect", "x": 490, "y": -600, "width": 100, "height": 2400, "rotation": -60, "opacity": 0.16, "zIndex": 1, "fill": "{onAccent}" },
+        { "id": "photo-ring", "type": "shape", "shapeKind": "rect", "x": 240, "y": 280, "width": 600, "height": 600, "rotation": 0, "opacity": 1, "zIndex": 2, "fill": "#ffffff", "cornerRadius": 32 },
+        { "id": "photo", "type": "image", "role": "photo", "x": 265, "y": 305, "width": 550, "height": 550, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "cover" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 440, "y": 120, "width": 200, "height": 70, "rotation": 0, "opacity": 1, "zIndex": 4, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 90, "y": 1000, "width": 900, "height": 180, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "Festive specials are here", "fontFamily": "{font}", "fontSize": 66, "fontWeight": "800", "color": "{onAccent}", "textAlign": "center", "lineHeight": 1.1 },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 390, "y": 1780, "width": 300, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "#ffffff", "cornerRadius": 42 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 390, "y": 1804, "width": 300, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Celebrate Now", "fontFamily": "{font}", "fontSize": 30, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    }
+  }
+}

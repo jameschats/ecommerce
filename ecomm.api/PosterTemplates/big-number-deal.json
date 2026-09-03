@@ -1,0 +1,36 @@
+{
+  "id": "big-number-deal",
+  "sortOrder": 7,
+  "name": "Big Number Deal",
+  "description": "The discount itself is the hero — one huge number owns the frame, Canva's favourite trick for stopping the scroll on a flash sale.",
+  "category": "Sale & Offer",
+  "usesPhoto": false,
+  "formats": {
+    "square": {
+      "width": 1080, "height": 1080,
+      "background": { "type": "color", "color": "{primary}" },
+      "layers": [
+        { "id": "ambient", "type": "shape", "shapeKind": "ellipse", "x": 700, "y": -220, "width": 620, "height": 620, "rotation": 0, "opacity": 0.18, "zIndex": 1, "fill": "{onPrimary}" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 56, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 2, "fit": "contain" },
+        { "id": "eyebrow", "type": "text", "x": 64, "y": 190, "width": 700, "height": 60, "rotation": 0, "opacity": 1, "zIndex": 3, "text": "LIMITED TIME OFFER", "fontFamily": "{font}", "fontSize": 34, "fontWeight": "700", "color": "{accent}", "textAlign": "left", "letterSpacing": 3 },
+        { "id": "price", "type": "text", "role": "price", "x": 40, "y": 260, "width": 1000, "height": 420, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "70% OFF", "fontFamily": "{font}", "fontSize": 190, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "center", "lineHeight": 0.95 },
+        { "id": "headline", "type": "text", "role": "headline", "x": 100, "y": 700, "width": 880, "height": 100, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "On your favourite picks", "fontFamily": "{font}", "fontSize": 42, "fontWeight": "600", "color": "{onPrimary}", "textAlign": "center" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 390, "y": 900, "width": 300, "height": 90, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "{accent}", "cornerRadius": 45 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 390, "y": 924, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{onAccent}", "textAlign": "center" }
+      ]
+    },
+    "story": {
+      "width": 1080, "height": 1920,
+      "background": { "type": "color", "color": "{primary}" },
+      "layers": [
+        { "id": "ambient", "type": "shape", "shapeKind": "ellipse", "x": 700, "y": -220, "width": 620, "height": 620, "rotation": 0, "opacity": 0.18, "zIndex": 1, "fill": "{onPrimary}" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 80, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 2, "fit": "contain" },
+        { "id": "eyebrow", "type": "text", "x": 64, "y": 420, "width": 900, "height": 60, "rotation": 0, "opacity": 1, "zIndex": 3, "text": "LIMITED TIME OFFER", "fontFamily": "{font}", "fontSize": 36, "fontWeight": "700", "color": "{accent}", "textAlign": "left", "letterSpacing": 3 },
+        { "id": "price", "type": "text", "role": "price", "x": 40, "y": 500, "width": 1000, "height": 460, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "70% OFF", "fontFamily": "{font}", "fontSize": 200, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "center", "lineHeight": 0.95 },
+        { "id": "headline", "type": "text", "role": "headline", "x": 100, "y": 990, "width": 880, "height": 110, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "On your favourite picks", "fontFamily": "{font}", "fontSize": 44, "fontWeight": "600", "color": "{onPrimary}", "textAlign": "center" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 390, "y": 1780, "width": 300, "height": 90, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "{accent}", "cornerRadius": 45 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 390, "y": 1804, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{onAccent}", "textAlign": "center" }
+      ]
+    }
+  }
+}

@@ -387,19 +387,20 @@ public sealed class PosterStudioService(
     }
 
     /// <summary>Substitutes a template's <c>{primary}</c>/<c>{primaryDark}</c>/<c>{secondary}</c>/
-    /// <c>{accent}</c>/<c>{onPrimary}</c>/<c>{onAccent}</c>/<c>{font}</c> placeholder tokens with the
-    /// tenant's actual brand kit values — the one place a template's pure data becomes tenant-specific,
-    /// mirroring how the old flat-field <see cref="BuildSpecAsync"/> defaulted colours/font from the
-    /// brand kit. <c>onPrimary</c>/<c>onAccent</c> are computed, not looked up: a template author can't
-    /// know in advance whether a given tenant's brand colour will be light or dark, so text meant to sit
-    /// on top of a primary/accent-coloured surface should use these rather than a fixed literal colour
-    /// — a tenant with a pale brand colour would otherwise get pale-on-pale, unreadable text (exactly
-    /// what happened here before this existed).</summary>
+    /// <c>{accent}</c>/<c>{onPrimary}</c>/<c>{onSecondary}</c>/<c>{onAccent}</c>/<c>{font}</c>
+    /// placeholder tokens with the tenant's actual brand kit values — the one place a template's pure
+    /// data becomes tenant-specific, mirroring how the old flat-field <see cref="BuildSpecAsync"/>
+    /// defaulted colours/font from the brand kit. The <c>on*</c> tokens are computed, not looked up: a
+    /// template author can't know in advance whether a given tenant's brand colour will be light or
+    /// dark, so text meant to sit on top of a primary/secondary/accent-coloured surface should use these
+    /// rather than a fixed literal colour — a tenant with a pale brand colour would otherwise get
+    /// pale-on-pale, unreadable text (exactly what happened here before this existed).</summary>
     private static PosterDocument ResolveBrandColors(PosterDocument doc, MarketingBrandDto brand)
     {
         var primaryDark = SvgPosterRenderer.Darken(brand.PrimaryColor, 0.35);
         var font = string.IsNullOrWhiteSpace(brand.Font) ? "Poppins" : brand.Font;
         var onPrimary = ReadableTextColor(brand.PrimaryColor);
+        var onSecondary = ReadableTextColor(brand.SecondaryColor);
         var onAccent = ReadableTextColor(brand.AccentColor);
 
         string? Resolve(string? s) => s switch
@@ -409,6 +410,7 @@ public sealed class PosterStudioService(
             "{secondary}" => brand.SecondaryColor,
             "{accent}" => brand.AccentColor,
             "{onPrimary}" => onPrimary,
+            "{onSecondary}" => onSecondary,
             "{onAccent}" => onAccent,
             "{font}" => font,
             _ => s,

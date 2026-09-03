@@ -1,0 +1,36 @@
+{
+  "id": "split-frame",
+  "sortOrder": 3,
+  "name": "Split Frame",
+  "description": "A clean vertical split — your product photo fills one half, a solid brand-colour panel carries the message on the other. Editorial and confident.",
+  "category": "Product Spotlight",
+  "usesPhoto": true,
+  "formats": {
+    "square": {
+      "width": 1080, "height": 1080,
+      "background": { "type": "color", "color": "{primary}" },
+      "layers": [
+        { "id": "photo", "type": "image", "role": "photo", "x": 540, "y": 0, "width": 540, "height": 1080, "rotation": 0, "opacity": 1, "zIndex": 1, "fit": "cover" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 56, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 2, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 64, "y": 400, "width": 420, "height": 260, "rotation": 0, "opacity": 1, "zIndex": 3, "text": "Your headline here", "fontFamily": "{font}", "fontSize": 62, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "left", "lineHeight": 1.08 },
+        { "id": "price-badge", "type": "shape", "shapeKind": "rect", "x": 64, "y": 700, "width": 220, "height": 74, "rotation": 0, "opacity": 1, "zIndex": 4, "fill": "{accent}", "cornerRadius": 10 },
+        { "id": "price", "type": "text", "role": "price", "x": 64, "y": 716, "width": 220, "height": 46, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "₹999", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{onAccent}", "textAlign": "center" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 64, "y": 800, "width": 260, "height": 76, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "#ffffff", "cornerRadius": 38 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 64, "y": 822, "width": 260, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 32, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    },
+    "story": {
+      "width": 1080, "height": 1920,
+      "background": { "type": "color", "color": "{primary}" },
+      "layers": [
+        { "id": "photo", "type": "image", "role": "photo", "x": 540, "y": 0, "width": 540, "height": 1920, "rotation": 0, "opacity": 1, "zIndex": 1, "fit": "cover" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 56, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 2, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 64, "y": 700, "width": 420, "height": 320, "rotation": 0, "opacity": 1, "zIndex": 3, "text": "Your headline here", "fontFamily": "{font}", "fontSize": 62, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "left", "lineHeight": 1.08 },
+        { "id": "price-badge", "type": "shape", "shapeKind": "rect", "x": 64, "y": 1050, "width": 220, "height": 74, "rotation": 0, "opacity": 1, "zIndex": 4, "fill": "{accent}", "cornerRadius": 10 },
+        { "id": "price", "type": "text", "role": "price", "x": 64, "y": 1066, "width": 220, "height": 46, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "₹999", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "{onAccent}", "textAlign": "center" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 64, "y": 1780, "width": 260, "height": 76, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "#ffffff", "cornerRadius": 38 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 64, "y": 1802, "width": 260, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 32, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "diagonal-cut",
+  "sortOrder": 6,
+  "name": "Diagonal Cut",
+  "description": "A bold diagonal band slashes across a flat brand-colour ground — dynamic energy for flash sales and limited-time offers, no photo needed.",
+  "category": "Sale & Offer",
+  "usesPhoto": false,
+  "formats": {
+    "square": {
+      "width": 1080, "height": 1080,
+      "background": { "type": "color", "color": "{primary}" },
+      "layers": [
+        { "id": "band", "type": "shape", "shapeKind": "rect", "x": -260, "y": 610, "width": 1600, "height": 340, "rotation": -11, "opacity": 1, "zIndex": 1, "fill": "{accent}" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 56, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 2, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 64, "y": 220, "width": 950, "height": 280, "rotation": 0, "opacity": 1, "zIndex": 3, "text": "Big sale headline", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "left", "lineHeight": 1.05 },
+        { "id": "price", "type": "text", "role": "price", "x": 90, "y": 730, "width": 400, "height": 120, "rotation": -11, "opacity": 1, "zIndex": 4, "text": "50% OFF", "fontFamily": "{font}", "fontSize": 84, "fontWeight": "900", "color": "{onAccent}", "textAlign": "left" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 64, "y": 940, "width": 300, "height": 88, "rotation": 0, "opacity": 1, "zIndex": 5, "fill": "#ffffff", "cornerRadius": 44 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 64, "y": 962, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    },
+    "story": {
+      "width": 1080, "height": 1920,
+      "background": { "type": "color", "color": "{primary}" },
+      "layers": [
+        { "id": "band", "type": "shape", "shapeKind": "rect", "x": -260, "y": 1180, "width": 1600, "height": 400, "rotation": -11, "opacity": 1, "zIndex": 1, "fill": "{accent}" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 70, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 2, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 64, "y": 320, "width": 950, "height": 280, "rotation": 0, "opacity": 1, "zIndex": 3, "text": "Big sale headline", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "{onPrimary}", "textAlign": "left", "lineHeight": 1.05 },
+        { "id": "price", "type": "text", "role": "price", "x": 90, "y": 1320, "width": 400, "height": 130, "rotation": -11, "opacity": 1, "zIndex": 4, "text": "50% OFF", "fontFamily": "{font}", "fontSize": 92, "fontWeight": "900", "color": "{onAccent}", "textAlign": "left" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 64, "y": 1780, "width": 300, "height": 88, "rotation": 0, "opacity": 1, "zIndex": 5, "fill": "#ffffff", "cornerRadius": 44 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 64, "y": 1802, "width": 300, "height": 44, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 38, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "framed-announcement",
+  "sortOrder": 9,
+  "name": "Framed Announcement",
+  "description": "A formal inset border and centred type give any announcement — a new policy, store hours, a closure notice — a calm, trustworthy presence.",
+  "category": "Announcement",
+  "usesPhoto": false,
+  "formats": {
+    "square": {
+      "width": 1080, "height": 1080,
+      "background": { "type": "color", "color": "{secondary}" },
+      "layers": [
+        { "id": "frame-outer", "type": "shape", "shapeKind": "rect", "x": 56, "y": 56, "width": 968, "height": 968, "rotation": 0, "opacity": 1, "zIndex": 1, "fill": null, "stroke": "{onSecondary}", "strokeWidth": 3 },
+        { "id": "frame-inner", "type": "shape", "shapeKind": "rect", "x": 78, "y": 78, "width": 924, "height": 924, "rotation": 0, "opacity": 1, "zIndex": 2, "fill": null, "stroke": "{onSecondary}", "strokeWidth": 1 },
+        { "id": "logo", "type": "image", "role": "logo", "x": 440, "y": 150, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "contain" },
+        { "id": "eyebrow", "type": "text", "x": 190, "y": 300, "width": 700, "height": 50, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "ANNOUNCEMENT", "fontFamily": "{font}", "fontSize": 28, "fontWeight": "700", "color": "{accent}", "textAlign": "center", "letterSpacing": 4 },
+        { "id": "divider", "type": "shape", "shapeKind": "line", "x": 440, "y": 380, "width": 200, "height": 2, "rotation": 0, "opacity": 1, "zIndex": 5, "stroke": "{onSecondary}", "strokeWidth": 2 },
+        { "id": "headline", "type": "text", "role": "headline", "x": 140, "y": 440, "width": 800, "height": 240, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "We're now open every Sunday", "fontFamily": "{font}", "fontSize": 58, "fontWeight": "700", "color": "{onSecondary}", "textAlign": "center", "lineHeight": 1.2 },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 390, "y": 800, "width": 300, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 7, "fill": "{accent}", "cornerRadius": 4 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 390, "y": 824, "width": 300, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 8, "text": "Learn More", "fontFamily": "{font}", "fontSize": 32, "fontWeight": "700", "color": "{onAccent}", "textAlign": "center" }
+      ]
+    },
+    "story": {
+      "width": 1080, "height": 1920,
+      "background": { "type": "color", "color": "{secondary}" },
+      "layers": [
+        { "id": "frame-outer", "type": "shape", "shapeKind": "rect", "x": 56, "y": 130, "width": 968, "height": 1660, "rotation": 0, "opacity": 1, "zIndex": 1, "fill": null, "stroke": "{onSecondary}", "strokeWidth": 3 },
+        { "id": "frame-inner", "type": "shape", "shapeKind": "rect", "x": 78, "y": 152, "width": 924, "height": 1616, "rotation": 0, "opacity": 1, "zIndex": 2, "fill": null, "stroke": "{onSecondary}", "strokeWidth": 1 },
+        { "id": "logo", "type": "image", "role": "logo", "x": 440, "y": 280, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "contain" },
+        { "id": "eyebrow", "type": "text", "x": 190, "y": 460, "width": 700, "height": 50, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "ANNOUNCEMENT", "fontFamily": "{font}", "fontSize": 30, "fontWeight": "700", "color": "{accent}", "textAlign": "center", "letterSpacing": 4 },
+        { "id": "divider", "type": "shape", "shapeKind": "line", "x": 440, "y": 550, "width": 200, "height": 2, "rotation": 0, "opacity": 1, "zIndex": 5, "stroke": "{onSecondary}", "strokeWidth": 2 },
+        { "id": "headline", "type": "text", "role": "headline", "x": 140, "y": 640, "width": 800, "height": 280, "rotation": 0, "opacity": 1, "zIndex": 6, "text": "We're now open every Sunday", "fontFamily": "{font}", "fontSize": 62, "fontWeight": "700", "color": "{onSecondary}", "textAlign": "center", "lineHeight": 1.2 },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 390, "y": 1620, "width": 300, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 7, "fill": "{accent}", "cornerRadius": 4 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 390, "y": 1644, "width": 300, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 8, "text": "Learn More", "fontFamily": "{font}", "fontSize": 32, "fontWeight": "700", "color": "{onAccent}", "textAlign": "center" }
+      ]
+    }
+  }
+}

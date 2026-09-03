@@ -1,0 +1,36 @@
+{
+  "id": "cinematic-scrim",
+  "sortOrder": 5,
+  "name": "Cinematic Scrim",
+  "description": "Your photo fills the whole frame with a dark scrim across the bottom for readable text — the native, understated look of a well-made Instagram Story.",
+  "category": "Product Spotlight",
+  "usesPhoto": true,
+  "formats": {
+    "square": {
+      "width": 1080, "height": 1080,
+      "background": { "type": "color", "color": "#111827" },
+      "layers": [
+        { "id": "photo", "type": "image", "role": "photo", "x": 0, "y": 0, "width": 1080, "height": 1080, "rotation": 0, "opacity": 1, "zIndex": 1, "fit": "cover" },
+        { "id": "scrim", "type": "shape", "shapeKind": "rect", "x": 0, "y": 680, "width": 1080, "height": 400, "rotation": 0, "opacity": 0.55, "zIndex": 2, "fill": "#000000" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 56, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 64, "y": 760, "width": 700, "height": 140, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "Your headline here", "fontFamily": "{font}", "fontSize": 58, "fontWeight": "800", "color": "#ffffff", "textAlign": "left" },
+        { "id": "price", "type": "text", "role": "price", "x": 64, "y": 900, "width": 300, "height": 70, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "₹999", "fontFamily": "{font}", "fontSize": 48, "fontWeight": "800", "color": "{accent}", "textAlign": "left" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 720, "y": 900, "width": 300, "height": 76, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "#ffffff", "cornerRadius": 38 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 720, "y": 922, "width": 300, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 32, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    },
+    "story": {
+      "width": 1080, "height": 1920,
+      "background": { "type": "color", "color": "#111827" },
+      "layers": [
+        { "id": "photo", "type": "image", "role": "photo", "x": 0, "y": 0, "width": 1080, "height": 1920, "rotation": 0, "opacity": 1, "zIndex": 1, "fit": "cover" },
+        { "id": "scrim", "type": "shape", "shapeKind": "rect", "x": 0, "y": 1380, "width": 1080, "height": 540, "rotation": 0, "opacity": 0.55, "zIndex": 2, "fill": "#000000" },
+        { "id": "logo", "type": "image", "role": "logo", "x": 64, "y": 70, "width": 200, "height": 84, "rotation": 0, "opacity": 1, "zIndex": 3, "fit": "contain" },
+        { "id": "headline", "type": "text", "role": "headline", "x": 64, "y": 1460, "width": 900, "height": 160, "rotation": 0, "opacity": 1, "zIndex": 4, "text": "Your headline here", "fontFamily": "{font}", "fontSize": 62, "fontWeight": "800", "color": "#ffffff", "textAlign": "left" },
+        { "id": "price", "type": "text", "role": "price", "x": 64, "y": 1620, "width": 300, "height": 70, "rotation": 0, "opacity": 1, "zIndex": 5, "text": "₹999", "fontFamily": "{font}", "fontSize": 48, "fontWeight": "800", "color": "{accent}", "textAlign": "left" },
+        { "id": "cta-pill", "type": "shape", "shapeKind": "rect", "x": 720, "y": 1790, "width": 300, "height": 76, "rotation": 0, "opacity": 1, "zIndex": 6, "fill": "#ffffff", "cornerRadius": 38 },
+        { "id": "cta", "type": "text", "role": "cta", "x": 720, "y": 1812, "width": 300, "height": 40, "rotation": 0, "opacity": 1, "zIndex": 7, "text": "Shop Now", "fontFamily": "{font}", "fontSize": 32, "fontWeight": "800", "color": "#111827", "textAlign": "center" }
+      ]
+    }
+  }
+}
