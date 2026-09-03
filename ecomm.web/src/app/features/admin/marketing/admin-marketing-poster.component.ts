@@ -75,7 +75,7 @@ import { PosterCanvasComponent } from './poster-canvas/poster-canvas.component';
             <a routerLink="/admin/marketing/library" class="inline-block text-sm text-teal-700 hover:underline">Back to Library</a>
           </section>
         } @else if (activeDoc(); as doc) {
-          <div class="grid lg:grid-cols-[1fr,320px] gap-6">
+          <div class="grid lg:grid-cols-[1fr_320px] gap-6">
             <app-poster-canvas #canvas [document]="doc" class="min-w-0" />
 
             <div class="space-y-4">
