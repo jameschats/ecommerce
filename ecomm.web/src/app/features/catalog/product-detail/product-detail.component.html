@@ -96,11 +96,17 @@
 
         <!-- Quantity + actions -->
         <div class="mt-6 flex flex-wrap items-center gap-3">
-          <div class="flex items-center border border-slate-300 rounded-lg">
-            <button type="button" (click)="decQty()" class="w-9 h-10 text-slate-600 hover:bg-slate-50">−</button>
-            <span class="w-10 text-center text-sm">{{ qty() }}</span>
-            <button type="button" (click)="incQty()" class="w-9 h-10 text-slate-600 hover:bg-slate-50">+</button>
-          </div>
+          <!-- Direct-entry quantity, same input the price list and product cards use — a
+               typed number rather than +/- taps, so "buy 40" is one edit, not thirty-nine. -->
+          <input type="number" inputmode="numeric" min="1" max="999" step="1"
+            [value]="qty()" aria-label="Quantity"
+            (focus)="$any($event.target).select()"
+            (input)="onQtyInput($event)"
+            (keypress)="onQtyKeypress($event)"
+            class="w-16 h-10 text-center rounded-lg border border-slate-300 font-semibold
+                   focus:border-primary focus:ring-2 focus:ring-primary/25 focus:outline-none
+                   [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                   [&::-webkit-inner-spin-button]:appearance-none" />
           <button type="button" (click)="addToCart()" [disabled]="!p.inStock || adding()"
             class="bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-6 py-3 rounded-lg transition">
             {{ p.inStock ? 'Add to estimate' : 'Out of stock' }}

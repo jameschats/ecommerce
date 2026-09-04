@@ -134,8 +134,18 @@ export class ProductDetailComponent implements OnInit {
     if (['Escape', 'ArrowLeft', 'ArrowRight'].includes(event.key)) event.preventDefault();
   }
 
-  incQty(): void { this.qty.update((q) => Math.min(999, q + 1)); }
-  decQty(): void { this.qty.update((q) => Math.max(1, q - 1)); }
+  onQtyInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    const parsed = value === '' ? 1 : Number.parseInt(value, 10);
+    this.qty.set(Math.min(999, Math.max(1, Number.isNaN(parsed) ? 1 : parsed)));
+  }
+
+  /** Blocks keys that would produce a non-integer — type="number" alone still accepts
+   *  "e", "+", "-" and ".", which then read back as an empty value (matches
+   *  quick-order-table's onQtyKeypress and the product card's own quantity box). */
+  onQtyKeypress(event: KeyboardEvent): void {
+    if (['e', 'E', '+', '-', '.', ','].includes(event.key)) event.preventDefault();
+  }
 
   selectOption(name: string, value: string): void { this.selected = { ...this.selected, [name]: value }; }
 
