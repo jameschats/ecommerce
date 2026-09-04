@@ -129,6 +129,7 @@
         <a routerLink="/contact" routerLinkActive="nav-link-active" class="nav-link">Contact Us</a>
         <a routerLink="/buying-guide" routerLinkActive="nav-link-active" class="nav-link">Buying Guide</a>
         <a routerLink="/faq" routerLinkActive="nav-link-active" class="nav-link">FAQ</a>
+        <a routerLink="/enquiry" routerLinkActive="nav-link-active" class="nav-link">Enquiry</a>
       </div>
     </nav>
   </header>
@@ -146,11 +147,16 @@
              as a half-finished deploy. The logo is its own setting though: this strip is
              slate-900, so it usually needs a light version of the mark. Falls back to the
              header logo when none is set. -->
+        <!-- Logo only. The wordmark sat beside it and repeated what the mark already says,
+             and with a logo that carries its own lettering the two read as one crowded line.
+             The name is still shown when no footer logo is set, so a shop without one is not
+             left with an unlabelled footer. -->
         <a routerLink="/" class="flex items-center gap-2.5 font-bold text-xl text-white">
-          @if (footerLogoUrl()) { <img [src]="footerLogoUrl()" [alt]="fullSiteName()" class="h-9 max-h-9 w-auto object-contain" /> }
-          @if (siteName() || siteNameAccent()) {
+          @if (footerLogoUrl()) {
+            <img [src]="footerLogoUrl()" [alt]="fullSiteName()" class="h-10 max-h-10 w-auto object-contain" />
+          } @else if (siteName() || siteNameAccent()) {
             <span [style.fontSize]="siteNameSize()">{{ siteName() }}<span class="text-primary">{{ siteNameAccent() }}</span></span>
-          } @else if (!footerLogoUrl()) {
+          } @else {
             <span>Calendar<span class="text-primary">Shop</span></span>
           }
         </a>
@@ -164,16 +170,18 @@
       </div>
 
       <div>
+        <!-- The pages, not the catalogue. This listed every category, which is now more than
+             forty and made the footer taller than most of the pages above it. The price list
+             has its own category dropdown, which is a better place to choose one. -->
         <h3 class="text-white font-semibold text-sm mb-3">Shop</h3>
         <ul class="space-y-2 text-sm">
+          <li><a routerLink="/" class="text-slate-400 hover:text-white">Home</a></li>
           <!-- No query parameter, so the dropdown lands on "All categories". -->
-          <li><a routerLink="/order" class="text-slate-400 hover:text-white">All calendars</a></li>
-          @for (c of categories(); track c.categoryId) {
-            <li>
-              <a [routerLink]="categoryLink(c)" [queryParams]="categoryQuery(c)"
-                 class="text-slate-400 hover:text-white">{{ c.name }}</a>
-            </li>
-          }
+          <li><a routerLink="/order" class="text-slate-400 hover:text-white">Order now — all calendars</a></li>
+          <li><a routerLink="/products" class="text-slate-400 hover:text-white">Products</a></li>
+          <li><a routerLink="/finished-calendar" class="text-slate-400 hover:text-white">Finished calendars</a></li>
+          <li><a routerLink="/buying-guide" class="text-slate-400 hover:text-white">Buying guide</a></li>
+          <li><a routerLink="/enquiry" class="text-slate-400 hover:text-white">Bulk enquiry</a></li>
         </ul>
       </div>
 

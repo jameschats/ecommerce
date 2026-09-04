@@ -113,8 +113,8 @@ public sealed class CategoryService : ICategoryService
 
             throw new AppException(
                 $"Cannot delete this category — it is still used by {total} deleted "
-                + $"product{(total == 1 ? "" : "s")} ({names}). Those are kept so past orders and invoices "
-                + "still say what was sold.",
+                + $"product{(total == 1 ? "" : "s")} ({names}). They are kept because orders still "
+                + "reference them. Delete those orders first and the category will free up.",
                 StatusCodes.Status409Conflict);
         }
 

@@ -32,6 +32,40 @@ public sealed class ContactController : ControllerBase
             new { received = true },
             "Thanks — we have your message and will get back to you shortly."));
     }
+
+    /// <summary>
+    /// A bulk-requirement enquiry — a lead, not a general question.
+    ///
+    /// Its own endpoint rather than a source the caller passes in: this is a public,
+    /// unauthenticated route, and letting the request choose how it is filed would let anyone
+    /// label their message whatever they liked. The requirement and design number are folded
+    /// into the subject and message, so the inbox, CSV export and campaign audiences all read
+    /// it without needing to know an enquiry from any other contact.
+    /// </summary>
+    [HttpPost("enquiry")]
+    public async Task<IActionResult> Enquiry([FromBody] SubmitEnquiryRequest req, CancellationToken ct)
+    {
+        var userId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : (long?)null;
+
+        var requirement = string.IsNullOrWhiteSpace(req.Requirement) ? "Bulk enquiry" : req.Requirement.Trim();
+        var design = string.IsNullOrWhiteSpace(req.DesignNo) ? null : req.DesignNo.Trim();
+
+        var message = string.IsNullOrWhiteSpace(req.Details) ? "" : req.Details.Trim();
+        if (design is not null) message = $"Design no: {design}\n\n{message}";
+
+        await _contacts.SubmitAsync(
+            new SubmitContactRequest(
+                req.Name, req.Email, req.Phone,
+                Subject: requirement,
+                Message: message,
+                SourcePage: req.SourcePage ?? "/enquiry",
+                Website: req.Website),
+            userId, ct, source: "Enquiry");
+
+        return Ok(ApiResponse<object>.Ok(
+            new { received = true },
+            "Thanks — we have your requirement and will send you a quote shortly."));
+    }
 }
 
 /// <summary>The admin inbox: read enquiries, work through them, export the list.</summary>

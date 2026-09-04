@@ -34,6 +34,13 @@ public sealed record CreateContactRequest(
     string Name, string? Email, string? Phone, string? Subject, string? Message,
     bool SubscribeToEmails = false);
 
+/// <summary>A bulk-requirement enquiry from the public enquiry form.</summary>
+public sealed record SubmitEnquiryRequest(
+    string Name, string? Phone, string? Email, string? DesignNo,
+    string? Requirement, string? Details, string? SourcePage = null,
+    /// <summary>Honeypot, same as the contact form.</summary>
+    string? Website = null);
+
 public sealed record SendContactEmailRequest(string Subject, string Body);
 
 public sealed record ContactImportResult(
@@ -43,7 +50,7 @@ public sealed record ContactQuery(string? Status = null, string? Search = null, 
 
 public interface IContactService
 {
-    Task<long> SubmitAsync(SubmitContactRequest req, long? userId, CancellationToken ct = default);
+    Task<long> SubmitAsync(SubmitContactRequest req, long? userId, CancellationToken ct = default, string source = "ContactForm");
     Task<PagedResult<ContactDto>> ListAsync(ContactQuery query, CancellationToken ct = default);
     Task<ContactDto?> UpdateAsync(long id, UpdateContactRequest req, CancellationToken ct = default);
     Task<ContactDto> CreateAsync(CreateContactRequest req, CancellationToken ct = default);
@@ -85,7 +92,7 @@ public sealed class ContactService : IContactService
         _email = email;
     }
 
-    public async Task<long> SubmitAsync(SubmitContactRequest req, long? userId, CancellationToken ct = default)
+    public async Task<long> SubmitAsync(SubmitContactRequest req, long? userId, CancellationToken ct = default, string source = "ContactForm")
     {
         // Honeypot: the field is hidden from people, so anything in it came from a bot.
         // Accepted silently rather than rejected — telling a bot it failed teaches it to
@@ -123,7 +130,7 @@ public sealed class ContactService : IContactService
             Phone = phone,
             Subject = req.Subject?.Trim(),
             Message = message,
-            Source = "ContactForm",
+            Source = source,
             SourcePage = req.SourcePage?.Trim(),
             Status = "New",
             UserId = userId,

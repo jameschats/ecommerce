@@ -88,6 +88,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/pages/buying-guide/buying-guide.component').then((m) => m.BuyingGuideComponent),
   },
   {
+    path: 'enquiry',
+    loadComponent: () => import('./features/pages/enquiry/enquiry.component').then((m) => m.EnquiryComponent),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then((m) => m.LoginComponent),
   },

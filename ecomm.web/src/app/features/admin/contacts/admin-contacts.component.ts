@@ -201,6 +201,15 @@ interface ContactForm {
                 <span class="font-semibold text-slate-900">{{ c.name }}</span>
                 @if (c.email) { <a [href]="'mailto:' + c.email" class="text-sm text-primary hover:underline">{{ c.email }}</a> }
                 @if (c.phone) { <a [href]="'tel:' + c.phone" class="text-sm text-primary hover:underline">{{ c.phone }}</a> }
+                <!-- A bulk enquiry is a lead, not a question, and is worth answering first —
+                     but it arrives in the same list, so it needs to be visible at a glance. -->
+                @if (c.source === 'Enquiry') {
+                  <span class="text-[11px] bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 font-medium">bulk enquiry</span>
+                } @else if (c.source === 'Admin') {
+                  <span class="text-[11px] bg-slate-100 text-slate-600 border border-slate-200 rounded px-1.5 py-0.5">added by hand</span>
+                } @else if (c.source === 'Import') {
+                  <span class="text-[11px] bg-slate-100 text-slate-600 border border-slate-200 rounded px-1.5 py-0.5">imported</span>
+                }
                 @if (c.subscribedToEmails) {
                   <span class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5">opted in</span>
                 }
