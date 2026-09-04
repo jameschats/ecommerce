@@ -34,7 +34,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
                   <td class="px-4 py-2 text-slate-800">{{ o.orderNumber }}<div class="text-xs text-slate-400">{{ o.firstItemName }}</div></td>
                   <td class="px-4 py-2 text-slate-500">{{ (o.placedAt || o.createdAt) | date:'dd MMM yy' }}</td>
                   <td class="px-4 py-2 text-slate-500">{{ o.itemCount }}</td>
-                  <td class="px-4 py-2 text-slate-700">{{ o.totalAmount | currency:'INR':'symbol':'1.0-0' }}</td>
+                  <td class="px-4 py-2 text-slate-700">{{ o.totalAmount | currency:'INR':'symbol':'1.2-2' }}</td>
                   <td class="px-4 py-2"><span class="text-[11px] px-2 py-0.5 rounded-full" [class]="badge(o.status)">{{ o.status }}</span></td>
                 </tr>
               }
@@ -57,7 +57,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           </div>
           <div class="divide-y divide-slate-100 border-y border-slate-100 mb-3">
             @for (it of o.items; track it.orderItemId) {
-              <div class="flex justify-between py-2 text-sm"><span class="text-slate-700">{{ it.productName }} × {{ it.quantity }}</span><span>{{ it.lineTotal | currency:'INR':'symbol':'1.0-0' }}</span></div>
+              <div class="flex justify-between py-2 text-sm"><span class="text-slate-700">{{ it.productName }} × {{ it.quantity }}</span><span>{{ it.lineTotal | currency:'INR':'symbol':'1.2-2' }}</span></div>
             }
           </div>
           <div class="flex justify-between text-sm font-semibold mb-1"><span>Total</span><span>{{ o.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span></div>

@@ -31,7 +31,7 @@ import { orderStatusClass } from './order-status';
               <div class="text-sm text-slate-500 truncate">{{ o.firstItemName }}@if (o.itemCount > 1) { <span class="text-slate-400"> +{{ o.itemCount - 1 }} more</span> }</div>
               <div class="text-xs text-slate-400">{{ (o.placedAt || o.createdAt) | date:'dd MMM yyyy' }}</div>
             </div>
-            <div class="text-right font-semibold text-slate-800">{{ o.totalAmount | currency:'INR':'symbol':'1.0-0' }}</div>
+            <div class="text-right font-semibold text-slate-800">{{ o.totalAmount | currency:'INR':'symbol':'1.2-2' }}</div>
           </a>
         }
       }

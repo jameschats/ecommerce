@@ -56,7 +56,7 @@ type RazorpayWindow = { Razorpay?: new (opts: unknown) => { open: () => void } }
                   @for (l of q.lines; track l.productId + '-' + (l.productVariantId || 0)) {
                     <div class="flex justify-between py-2 text-sm">
                       <span class="text-slate-700">{{ l.name }}@if (l.variantLabel) { <span class="text-slate-400"> · {{ l.variantLabel }}</span> } <span class="text-slate-400">× {{ l.quantity }}</span></span>
-                      <span class="text-slate-700">{{ l.lineSubtotal | currency:'INR':'symbol':'1.0-0' }}</span>
+                      <span class="text-slate-700">{{ l.lineSubtotal | currency:'INR':'symbol':'1.2-2' }}</span>
                     </div>
                   }
                 </div>

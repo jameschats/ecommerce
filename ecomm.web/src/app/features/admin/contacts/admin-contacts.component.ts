@@ -167,7 +167,7 @@ interface ContactForm {
                       </div>
                     </td>
                     <td class="px-2 py-2 text-right">{{ u.orders }}</td>
-                    <td class="px-2 py-2 text-right">{{ u.totalSpent | currency:'INR':'symbol':'1.0-0' }}</td>
+                    <td class="px-2 py-2 text-right">{{ u.totalSpent | currency:'INR':'symbol':'1.2-2' }}</td>
                     <td class="px-2 py-2 text-slate-500">{{ u.lastOrderAt ? (u.lastOrderAt | date: 'dd MMM yyyy') : '—' }}</td>
                   </tr>
                 }

@@ -73,7 +73,7 @@ interface Abandoned {
                     <div class="text-xs text-slate-500">{{ r.email || r.phone || 'no contact details' }}</div>
                   </td>
                   <td class="px-2 py-2 text-right">{{ r.itemCount }}</td>
-                  <td class="px-2 py-2 text-right font-medium">{{ r.value | currency: 'INR' : 'symbol' : '1.0-0' }}</td>
+                  <td class="px-2 py-2 text-right font-medium">{{ r.value | currency: 'INR' : 'symbol' : '1.2-2' }}</td>
                   <td class="px-4 py-2 text-slate-500">{{ r.lastActivity | date: 'dd MMM, HH:mm' }}</td>
                   <td class="px-4 py-2 text-right">
                     @if (r.remindedAt) {

@@ -33,7 +33,7 @@ import { CartService } from '../../core/services/cart.service';
                 <div class="flex-1 min-w-0">
                   <a [routerLink]="['/product', it.slug]" class="font-medium text-slate-800 hover:text-primary line-clamp-2">{{ it.name }}</a>
                   @if (it.variantLabel) { <div class="text-xs text-slate-400 mt-0.5">{{ it.variantLabel }}</div> }
-                  <div class="text-sm text-slate-500 mt-0.5">{{ it.unitPrice | currency:'INR':'symbol':'1.0-0' }}</div>
+                  <div class="text-sm text-slate-500 mt-0.5">{{ it.unitPrice | currency:'INR':'symbol':'1.2-2' }}</div>
                   @if (!it.inStock) { <div class="text-xs text-red-600 mt-1">Out of stock</div> }
                   @else if (it.quantity > it.availableQty) { <div class="text-xs text-orange-600 mt-1">Only {{ it.availableQty }} available</div> }
 
@@ -46,7 +46,7 @@ import { CartService } from '../../core/services/cart.service';
                     <button type="button" (click)="remove(it)" [disabled]="busy()" class="text-sm text-slate-500 hover:text-red-600">Remove</button>
                   </div>
                 </div>
-                <div class="text-right font-semibold text-slate-800 whitespace-nowrap">{{ it.lineTotal | currency:'INR':'symbol':'1.0-0' }}</div>
+                <div class="text-right font-semibold text-slate-800 whitespace-nowrap">{{ it.lineTotal | currency:'INR':'symbol':'1.2-2' }}</div>
               </div>
             }
           </div>
@@ -54,9 +54,9 @@ import { CartService } from '../../core/services/cart.service';
           <!-- Summary -->
           <div class="bg-white rounded-xl border border-slate-200 p-5 lg:sticky lg:top-20">
             <h2 class="font-semibold text-slate-800 mb-3">Order summary</h2>
-            <div class="flex justify-between text-sm text-slate-600 mb-1"><span>Subtotal ({{ count() }} items)</span><span>{{ subtotal() | currency:'INR':'symbol':'1.0-0' }}</span></div>
+            <div class="flex justify-between text-sm text-slate-600 mb-1"><span>Subtotal ({{ count() }} items)</span><span>{{ subtotal() | currency:'INR':'symbol':'1.2-2' }}</span></div>
             <div class="flex justify-between text-sm text-slate-500 mb-3"><span>Shipping</span><span>Calculated at checkout</span></div>
-            <div class="border-t border-slate-100 pt-3 flex justify-between font-bold text-slate-900"><span>Total</span><span>{{ subtotal() | currency:'INR':'symbol':'1.0-0' }}</span></div>
+            <div class="border-t border-slate-100 pt-3 flex justify-between font-bold text-slate-900"><span>Total</span><span>{{ subtotal() | currency:'INR':'symbol':'1.2-2' }}</span></div>
             @if (taxMode() === 'Inclusive') { <p class="text-xs text-slate-400 mt-1">Inclusive of all taxes</p> }
             <button type="button" (click)="checkout()" [disabled]="!canCheckout()" class="btn-primary w-full mt-4 py-3 disabled:opacity-50 disabled:cursor-not-allowed">Proceed to checkout</button>
             @if (checkoutNote()) { <p class="text-xs text-amber-600 mt-2 text-center">{{ checkoutNote() }}</p> }

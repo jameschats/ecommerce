@@ -155,7 +155,7 @@ import { AdminCatalogService } from '../../../core/services/admin-catalog.servic
                   <td class="px-4 py-2 font-mono text-slate-700">{{ p.designNo || '—' }}</td>
                   <td class="px-4 py-2 text-slate-400">{{ p.sku }}</td>
                   <td class="px-4 py-2 text-slate-600">{{ p.categoryName }}</td>
-                  <td class="px-4 py-2 text-slate-800">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</td>
+                  <td class="px-4 py-2 text-slate-800">{{ p.price | currency:'INR':'symbol':'1.2-2' }}</td>
                   <td class="px-4 py-2">
                     <span class="text-xs rounded px-2 py-0.5"
                       [class]="p.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'">{{ p.status }}</span>

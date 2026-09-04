@@ -20,8 +20,8 @@ type Tab = 'sales' | 'traffic' | 'best' | 'marginHigh' | 'marginLow' | 'return' 
       @if (summary(); as s) {
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Orders today</div><div class="text-lg font-bold text-slate-900">{{ s.ordersToday }}</div><div class="text-[11px] text-slate-400">{{ s.ordersThisWeek }} this week</div></div>
-          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Revenue today</div><div class="text-lg font-bold text-slate-900">{{ s.revenueToday | currency:'INR':'symbol':'1.0-0' }}</div></div>
-          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">AOV (7d)</div><div class="text-lg font-bold text-slate-900">{{ s.aovThisWeek | currency:'INR':'symbol':'1.0-0' }}</div></div>
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">Revenue today</div><div class="text-lg font-bold text-slate-900">{{ s.revenueToday | currency:'INR':'symbol':'1.2-2' }}</div></div>
+          <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">AOV (7d)</div><div class="text-lg font-bold text-slate-900">{{ s.aovThisWeek | currency:'INR':'symbol':'1.2-2' }}</div></div>
           <div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-xs text-slate-400">New signups (7d)</div><div class="text-lg font-bold text-slate-900">{{ s.newSignupsThisWeek }}</div></div>
           <div class="bg-white border rounded-xl p-3" [class]="s.pendingActionCount > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'"><div class="text-xs text-slate-400">Needs action</div><div class="text-lg font-bold text-slate-900">{{ s.pendingActionCount }}</div><div class="text-[11px] text-slate-400">paid, not shipped</div></div>
           <div class="bg-white border rounded-xl p-3" [class]="s.lowStockCount > 0 ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'"><div class="text-xs text-slate-400">Low stock</div><div class="text-lg font-bold text-slate-900">{{ s.lowStockCount }}</div></div>
@@ -101,11 +101,11 @@ type Tab = 'sales' | 'traffic' | 'best' | 'marginHigh' | 'marginLow' | 'return' 
                     <td class="px-4 py-2">
                       <span class="flex items-center gap-2">
                         <span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.revenue, maxSales())"></span>
-                        <span class="text-xs text-slate-600 whitespace-nowrap">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</span>
+                        <span class="text-xs text-slate-600 whitespace-nowrap">{{ r.revenue | currency:'INR':'symbol':'1.2-2' }}</span>
                       </span>
                     </td>
                     <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">
-                      {{ r.costMissing ? '—' : (r.profit | currency:'INR':'symbol':'1.0-0') }}
+                      {{ r.costMissing ? '—' : (r.profit | currency:'INR':'symbol':'1.2-2') }}
                     </td>
                     <td class="px-2 py-2 text-right">{{ r.costMissing ? '—' : r.marginPct + '%' }}</td>
                   </tr>
@@ -115,8 +115,8 @@ type Tab = 'sales' | 'traffic' | 'best' | 'marginHigh' | 'marginLow' | 'return' 
                     <td class="px-4 py-2">Total</td>
                     <td class="px-2 py-2 text-right">{{ salesTotals().orders }}</td>
                     <td class="px-2 py-2 text-right">{{ salesTotals().units }}</td>
-                    <td class="px-4 py-2">{{ salesTotals().revenue | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-2 py-2 text-right" [class.text-slate-400]="salesTotals().costMissing">{{ salesTotals().costMissing ? '—' : (salesTotals().profit | currency:'INR':'symbol':'1.0-0') }}</td>
+                    <td class="px-4 py-2">{{ salesTotals().revenue | currency:'INR':'symbol':'1.2-2' }}</td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="salesTotals().costMissing">{{ salesTotals().costMissing ? '—' : (salesTotals().profit | currency:'INR':'symbol':'1.2-2') }}</td>
                     <td class="px-2 py-2 text-right"></td>
                   </tr>
                 }
@@ -134,19 +134,19 @@ type Tab = 'sales' | 'traffic' | 'best' | 'marginHigh' | 'marginLow' | 'return' 
                   <tr class="border-b border-slate-50">
                     <td class="px-4 py-2 text-slate-800">{{ r.name }}</td>
                     <td class="px-2 py-2 text-right">{{ r.units }}</td>
-                    <td class="px-4 py-2"><span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.revenue, maxRevenue())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</span></span></td>
-                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.profit | currency:'INR':'symbol':'1.0-0') }}</td>
+                    <td class="px-4 py-2"><span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.revenue, maxRevenue())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.revenue | currency:'INR':'symbol':'1.2-2' }}</span></span></td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.profit | currency:'INR':'symbol':'1.2-2') }}</td>
                   </tr>
                 }
               } @else if (isGroup()) {
                 @for (r of groupRows(); track r.name) {
                   <tr class="border-b border-slate-50">
                     <td class="px-4 py-2 text-slate-800">{{ r.name }} @if (r.costMissing) { <span class="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1">no cost</span> }</td>
-                    <td class="px-2 py-2 text-right">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.cost | currency:'INR':'symbol':'1.0-0') }}</td>
+                    <td class="px-2 py-2 text-right">{{ r.revenue | currency:'INR':'symbol':'1.2-2' }}</td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.cost | currency:'INR':'symbol':'1.2-2') }}</td>
                     <td class="px-4 py-2">
                       @if (r.costMissing) { <span class="text-xs text-slate-400">—</span> }
-                      @else { <span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.0-0' }}</span></span> }
+                      @else { <span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.2-2' }}</span></span> }
                     </td>
                     <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : r.marginPct + '%' }}</td>
                   </tr>
@@ -155,11 +155,11 @@ type Tab = 'sales' | 'traffic' | 'best' | 'marginHigh' | 'marginLow' | 'return' 
                 @for (r of productRows(); track r.productId) {
                   <tr class="border-b border-slate-50">
                     <td class="px-4 py-2 text-slate-800">{{ r.name }} @if (r.costMissing) { <span class="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1">no cost</span> }</td>
-                    <td class="px-2 py-2 text-right">{{ r.revenue | currency:'INR':'symbol':'1.0-0' }}</td>
-                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.cost | currency:'INR':'symbol':'1.0-0') }}</td>
+                    <td class="px-2 py-2 text-right">{{ r.revenue | currency:'INR':'symbol':'1.2-2' }}</td>
+                    <td class="px-2 py-2 text-right" [class.text-slate-400]="r.costMissing">{{ r.costMissing ? '—' : (r.cost | currency:'INR':'symbol':'1.2-2') }}</td>
                     <td class="px-4 py-2">
                       @if (r.costMissing) { <span class="text-xs text-slate-400">—</span> }
-                      @else { <span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.0-0' }}</span></span> }
+                      @else { <span class="flex items-center gap-2"><span class="h-2 rounded bg-blue-500/70" [style.width.%]="barPct(r.profit, maxProfit())"></span><span class="text-xs text-slate-600 whitespace-nowrap">{{ r.profit | currency:'INR':'symbol':'1.2-2' }}</span></span> }
                     </td>
                     <td class="px-2 py-2 text-right font-medium"
                         [class]="r.costMissing ? 'text-slate-400' : (r.marginPct < 15 ? 'text-red-600' : 'text-slate-800')">{{ r.costMissing ? '—' : r.marginPct + '%' }}</td>
