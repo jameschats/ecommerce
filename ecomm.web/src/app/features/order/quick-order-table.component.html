@@ -7,7 +7,7 @@
     <!-- Dropped on a single-category page: a choice of one is furniture. -->
     @if (!onlyCategorySlug()) {
       <select
-        class="h-9 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 bg-white"
+        class="h-9 w-full sm:w-auto max-w-full rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 bg-white"
         aria-label="Filter by category"
         (change)="onCategoryChange($any($event.target).value)">
         <option value="">All categories</option>
