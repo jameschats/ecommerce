@@ -19,7 +19,10 @@
       <div class="md:sticky md:top-20 self-start">
         <div class="relative aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center">
           @if (mainImage()) {
-            <img [src]="mainImage()" [alt]="p.name" class="w-full h-full object-cover" />
+            <button type="button" (click)="openLightbox()" [attr.aria-label]="'View ' + p.name + ' full size'"
+              class="w-full h-full cursor-zoom-in">
+              <img [src]="mainImage()" [alt]="p.name" class="w-full h-full object-cover" />
+            </button>
           } @else { <span class="text-slate-300">No image</span> }
           @if (p.images.length > 1) {
             <button type="button" (click)="prevImage()" aria-label="Previous image"
@@ -205,4 +208,5 @@
       </div>
     </div>
   </section>
+  <app-image-lightbox />
 }

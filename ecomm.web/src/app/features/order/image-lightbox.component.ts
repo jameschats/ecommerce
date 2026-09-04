@@ -8,7 +8,8 @@ interface ProductImagesResponse {
 }
 
 /**
- * Full-size view of a calendar design, opened from a price-list thumbnail (design.md §5.1).
+ * Full-size view of a calendar design, opened from a price-list or product-page thumbnail
+ * (design.md §5.1).
  *
  * The price list carries only the primary image URL — adding every image to a 400-row
  * payload would cost far more than it saves. So the lightbox opens *immediately* with the
@@ -112,6 +113,20 @@ export class ImageLightboxComponent {
         // A failed fetch simply means no siblings — the primary image is already showing.
         error: () => {},
       });
+  }
+
+  /**
+   * Opens directly on a caller-supplied image list — for pages (e.g. product detail) that
+   * already have every image loaded, so there is no fetch-then-reveal step: the full set
+   * and correct starting index are known up front.
+   */
+  showWithImages(images: string[], startUrl: string, title: string, designNo: string): void {
+    this.images.set(images);
+    const at = images.indexOf(startUrl);
+    this.index.set(at >= 0 ? at : 0);
+    this.title.set(title);
+    this.designNo.set(designNo);
+    this.open.set(true);
   }
 
   close(): void {

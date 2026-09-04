@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { switchMap } from 'rxjs';
@@ -11,12 +11,17 @@ import { CatalogService } from '../../../core/services/catalog.service';
 import { QuickOrderService } from '../../../core/services/quick-order.service';
 import { ReviewService } from '../../../core/services/review.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { ImageLightboxComponent } from '../../order/image-lightbox.component';
 import { WishlistButtonComponent } from '../../../shared/wishlist-button/wishlist-button.component';
 
 @Component({
   selector: 'app-product-detail',
-  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule, WishlistButtonComponent],
+  imports: [RouterLink, CurrencyPipe, DatePipe, FormsModule, WishlistButtonComponent, ImageLightboxComponent],
   templateUrl: './product-detail.component.html',
+  // Escape/arrow keys reach the lightbox the same way the price list forwards them
+  // (quick-order-table.component.ts) — bound at document level because the overlay,
+  // not any element on this page, is what the keys should be steering while it's open.
+  host: { '(document:keydown)': 'onDocumentKey($event)' },
 })
 export class ProductDetailComponent implements OnInit {
   private readonly catalog = inject(CatalogService);
@@ -26,6 +31,8 @@ export class ProductDetailComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly reviewSvc = inject(ReviewService);
   private readonly auth = inject(AuthService);
+
+  private readonly lightbox = viewChild(ImageLightboxComponent);
 
   readonly isAuthenticated = this.auth.isAuthenticated;
 
@@ -108,6 +115,23 @@ export class ProductDetailComponent implements OnInit {
   nextImage(): void {
     const n = this.product()?.images.length ?? 0;
     if (n) this.currentImage.update((i) => (i + 1) % n);
+  }
+
+  /** Opens the full-size lightbox on the currently-shown image — every image is already
+   *  loaded on this page, so this skips straight to showWithImages() rather than the
+   *  price list's fetch-then-reveal (there is nothing left to fetch). */
+  openLightbox(): void {
+    const p = this.product();
+    const img = this.mainImage();
+    if (!p || !img) return;
+    this.lightbox()?.showWithImages(p.images.map((i) => i.url), img, p.name, p.designNo || p.sku);
+  }
+
+  onDocumentKey(event: KeyboardEvent): void {
+    const box = this.lightbox();
+    if (!box?.open()) return;
+    box.handleKey(event);
+    if (['Escape', 'ArrowLeft', 'ArrowRight'].includes(event.key)) event.preventDefault();
   }
 
   incQty(): void { this.qty.update((q) => Math.min(999, q + 1)); }
