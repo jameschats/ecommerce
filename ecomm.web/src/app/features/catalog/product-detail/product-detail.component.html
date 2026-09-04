@@ -97,12 +97,17 @@
         <!-- Quantity + actions -->
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <!-- Direct-entry quantity, same input the price list and product cards use — a
-               typed number rather than +/- taps, so "buy 40" is one edit, not thirty-nine. -->
+               typed number rather than +/- taps, so "buy 40" is one edit, not thirty-nine.
+               The 1-999 range is enforced on blur/Enter only, not on every keystroke — clamping
+               live meant typing "1000" snapped to "999" the instant the 4th digit landed,
+               fighting the person mid-type instead of after they were done. -->
           <input type="number" inputmode="numeric" min="1" max="999" step="1"
             [value]="qty()" aria-label="Quantity"
             (focus)="$any($event.target).select()"
             (input)="onQtyInput($event)"
             (keypress)="onQtyKeypress($event)"
+            (blur)="onQtyBlur($event)"
+            (keydown.enter)="$any($event.target).blur()"
             class="w-16 h-10 text-center rounded-lg border border-slate-300 font-semibold
                    focus:border-primary focus:ring-2 focus:ring-primary/25 focus:outline-none
                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none

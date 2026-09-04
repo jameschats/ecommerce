@@ -134,10 +134,23 @@ export class ProductDetailComponent implements OnInit {
     if (['Escape', 'ArrowLeft', 'ArrowRight'].includes(event.key)) event.preventDefault();
   }
 
+  /**
+   * Tracks whatever is typed, unclamped — so typing "1000" reads as 1000 while it is still
+   * being typed, rather than getting forced back to 999 after the 4th keystroke. The 1-999
+   * bound is real, but it is applied once editing finishes (onQtyBlur), not mid-keystroke.
+   */
   onQtyInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    const parsed = value === '' ? 1 : Number.parseInt(value, 10);
-    this.qty.set(Math.min(999, Math.max(1, Number.isNaN(parsed) ? 1 : parsed)));
+    if (value === '') return; // let the field sit empty rather than snapping back to 1
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isNaN(parsed)) this.qty.set(parsed);
+  }
+
+  /** Clamps to 1-999 once the person is done editing — see onQtyInput. */
+  onQtyBlur(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    const parsed = value === '' ? NaN : Number.parseInt(value, 10);
+    this.qty.set(Number.isNaN(parsed) ? 1 : Math.min(999, Math.max(1, parsed)));
   }
 
   /** Blocks keys that would produce a non-integer — type="number" alone still accepts
@@ -145,6 +158,12 @@ export class ProductDetailComponent implements OnInit {
    *  quick-order-table's onQtyKeypress and the product card's own quantity box). */
   onQtyKeypress(event: KeyboardEvent): void {
     if (['e', 'E', '+', '-', '.', ','].includes(event.key)) event.preventDefault();
+  }
+
+  /** Guards against an in-flight, not-yet-blurred value (e.g. mid-type "1000") ever
+   *  reaching the estimate — Add can theoretically fire before blur commits the clamp. */
+  private clampedQty(): number {
+    return Math.min(999, Math.max(1, this.qty()));
   }
 
   selectOption(name: string, value: string): void { this.selected = { ...this.selected, [name]: value }; }
@@ -212,7 +231,7 @@ export class ProductDetailComponent implements OnInit {
     if (!p || !p.inStock || this.adding()) return;
     this.adding.set(true);
     this.cartError.set(null);
-    this.quickOrder.addToEstimate(p.productId, this.qty()).subscribe({
+    this.quickOrder.addToEstimate(p.productId, this.clampedQty()).subscribe({
       next: (added) => {
         this.adding.set(false);
         if (!added) {
@@ -231,7 +250,7 @@ export class ProductDetailComponent implements OnInit {
     if (!p || !p.inStock || this.adding()) return;
     this.adding.set(true);
     this.cartError.set(null);
-    this.quickOrder.addToEstimate(p.productId, this.qty()).subscribe({
+    this.quickOrder.addToEstimate(p.productId, this.clampedQty()).subscribe({
       next: (added) => {
         this.adding.set(false);
         if (!added) {
