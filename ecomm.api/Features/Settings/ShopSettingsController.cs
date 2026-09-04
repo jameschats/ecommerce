@@ -203,6 +203,7 @@ public sealed class ShopSettingsController : ControllerBase
                      || x.SettingKey.StartsWith("Payment.")
                      || x.SettingKey.StartsWith("Email.")
                      || x.SettingKey.StartsWith("Site.")
+                     || x.SettingKey.StartsWith("Store.")
                      || x.SettingKey == "Channels.EmailMode")
             .ToDictionaryAsync(x => x.SettingKey, x => x.SettingValue, ct);
 
