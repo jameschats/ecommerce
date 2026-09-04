@@ -38,7 +38,6 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
             <span class="text-xs text-slate-400 line-through">{{ product().compareAtPrice | currency:'INR':'symbol':'1.0-0' }}</span>
           }
         </div>
-        <p class="text-[11px] text-slate-400 mt-0.5">Customizable</p>
       </div>
     </a>
   `,

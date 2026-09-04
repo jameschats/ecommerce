@@ -2,29 +2,31 @@
   <!-- Header -->
   <div class="mb-6">
     <h1 class="text-2xl font-bold text-slate-900">{{ activeCategory()?.name ?? 'All calendars' }}</h1>
-    @if (result()) {
-      <p class="text-sm text-slate-500 mt-1">{{ result()!.totalCount }} product(s)</p>
+    @if (!loading()) {
+      <p class="text-sm text-slate-500 mt-1">{{ totalCount() }} product(s)</p>
     }
   </div>
 
-  <!-- Category showcase (only on the all-products view) -->
-  @if (!activeCategory() && categories().length) {
-    <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-      @for (c of categories(); track c.categoryId) {
-        <a [routerLink]="['/category', c.slug]" class="group text-center">
-          <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
-            @if (c.imageUrl) { <img [src]="c.imageUrl" [alt]="c.name" class="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" /> }
-          </div>
-          <p class="mt-2 text-sm font-medium text-slate-700 group-hover:text-primary">{{ c.name }}</p>
-        </a>
-      }
-    </div>
-  }
-
   <!-- Filter bar -->
   <div class="flex flex-wrap items-center gap-3 mb-6">
-    <input type="search" [(ngModel)]="searchText" (keyup.enter)="applyFilters()" placeholder="Search products…"
-      class="flex-1 min-w-[200px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+    <div #searchWrapper class="relative flex-1 min-w-[200px]">
+      <input type="search" [(ngModel)]="searchText" (ngModelChange)="onSearchInput()"
+        (keyup.enter)="applyFilters(); showSuggestions.set(false)" (keydown.escape)="showSuggestions.set(false)"
+        (focus)="suggestions().length && showSuggestions.set(true)"
+        placeholder="Search products…" autocomplete="off"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+
+      @if (showSuggestions()) {
+        <ul class="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          @for (s of suggestions(); track s) {
+            <li>
+              <button type="button" (click)="selectSuggestion(s)"
+                class="block w-full truncate text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{{ s }}</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
 
     <select [(ngModel)]="brandId" (ngModelChange)="applyFilters()"
       class="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary">
@@ -62,7 +64,7 @@
     <!-- Grid -->
     <div class="flex-1">
       @if (loading()) {
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           @for (s of skeletons; track s) {
             <div class="bg-white border border-slate-200 rounded-xl overflow-hidden animate-pulse">
               <div class="aspect-square bg-slate-100"></div>
@@ -74,25 +76,29 @@
             </div>
           }
         </div>
-      } @else if (result() && result()!.items.length === 0) {
+      } @else if (items().length === 0) {
         <div class="py-20 text-center text-slate-400">No products found.</div>
       } @else {
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          @for (p of result()!.items; track p.productId) {
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          @for (p of items(); track p.productId) {
             <app-product-card [product]="p" />
           }
         </div>
 
-        @if (result()!.totalPages > 1) {
-          <div class="flex justify-center gap-1 mt-8">
-            @for (pg of pages; track pg) {
-              <button type="button" (click)="goToPage(pg)"
-                class="w-9 h-9 rounded-lg text-sm border"
-                [class]="pg === result()!.page ? 'bg-primary text-white border-primary' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'">
-                {{ pg }}
-              </button>
-            }
+        <!-- Infinite scroll: an empty marker just below the grid. Once it drifts within
+             400px of the viewport, ProductListComponent's IntersectionObserver fetches and
+             appends the next page — see loadMore(). Replaces page-number pagination, which
+             meant losing your place in a 690-product catalogue on every "next page" tap. -->
+        @if (hasMore()) {
+          <div #sentinel class="h-px"></div>
+        }
+
+        @if (loadingMore()) {
+          <div class="flex justify-center py-8">
+            <div class="w-6 h-6 rounded-full border-2 border-slate-200 border-t-primary animate-spin"></div>
           </div>
+        } @else if (!hasMore()) {
+          <p class="text-center text-sm text-slate-400 py-8">You've reached the end — {{ totalCount() }} product(s).</p>
         }
       }
     </div>
