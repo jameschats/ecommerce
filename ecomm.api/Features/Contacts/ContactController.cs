@@ -79,10 +79,10 @@ public sealed class ContactsAdminController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> List(
-        [FromQuery] string? status, [FromQuery] string? search,
+        [FromQuery] string? status, [FromQuery] string? search, [FromQuery] string? segment,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default)
         => Ok(ApiResponse<PagedResult<ContactDto>>.Ok(
-            await _contacts.ListAsync(new ContactQuery(status, search, page, pageSize), ct)));
+            await _contacts.ListAsync(new ContactQuery(status, search, page, pageSize, segment), ct)));
 
     /// <summary>Unworked enquiries, for the badge on the nav.</summary>
     [HttpGet("new-count")]
@@ -157,7 +157,8 @@ public sealed class ContactsAdminController : ControllerBase
     /// </summary>
     [HttpGet("export")]
     public async Task<IActionResult> Export(
-        [FromQuery] string? status, [FromQuery] string? search, CancellationToken ct)
+        [FromQuery] string? status, [FromQuery] string? search, [FromQuery] string? segment,
+        CancellationToken ct)
     {
         // Paged through rather than asked for in one go: ListAsync clamps PageSize to 100, so
         // the single call this used to make silently produced an export of at most 100 rows —
@@ -166,7 +167,7 @@ public sealed class ContactsAdminController : ControllerBase
         var items = new List<ContactDto>();
         for (var page = 1; ; page++)
         {
-            var batch = await _contacts.ListAsync(new ContactQuery(status, search, page, PageSize), ct);
+            var batch = await _contacts.ListAsync(new ContactQuery(status, search, page, PageSize, segment), ct);
             items.AddRange(batch.Items);
             if (items.Count >= batch.TotalCount || batch.Items.Count == 0) break;
         }

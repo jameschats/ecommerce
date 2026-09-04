@@ -53,7 +53,7 @@ interface ContactForm {
       <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-slate-900">Contacts</h1>
         <div class="flex items-center gap-2">
-          @if (view() === 'enquiries') {
+          @if (view() !== 'customers') {
             <button type="button" (click)="startCreate()"
                     class="text-sm px-3 py-1.5 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-800">Add contact</button>
             <label class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 cursor-pointer">
@@ -67,7 +67,13 @@ interface ContactForm {
           }
         </div>
       </div>
-      <p class="text-sm text-slate-500 mb-5">Enquiries from the contact form, and anyone you add by hand.</p>
+      <p class="text-sm text-slate-500 mb-5">
+        @switch (view()) {
+          @case ('leads') { Bulk requirements sent through the enquiry form — quotes waiting to go out. }
+          @case ('messages') { Questions from the contact form, plus anyone added or imported by hand. }
+          @default { People who have an account, and what they have bought. }
+        }
+      </p>
 
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
@@ -323,11 +329,17 @@ export class AdminContactsComponent implements OnInit {
   readonly error = signal<string | null>(null);
   search = '';
 
+  /**
+   * Leads first: a bulk enquiry is a quote waiting to be sent, and that is the list worth
+   * opening the screen on. The old tab was called "Website enquiries", which would now be
+   * mistaken for this one, so it is "Messages" — the questions, not the leads.
+   */
   readonly views = [
-    { key: 'enquiries' as const, label: 'Website enquiries' },
+    { key: 'leads' as const, label: 'Bulk enquiries' },
+    { key: 'messages' as const, label: 'Messages' },
     { key: 'customers' as const, label: 'Customers' },
   ];
-  readonly view = signal<'enquiries' | 'customers'>('enquiries');
+  readonly view = signal<'leads' | 'messages' | 'customers'>('leads');
 
   readonly customers = signal<AdminCustomer[]>([]);
   readonly loadingCustomers = signal(false);
@@ -357,8 +369,10 @@ export class AdminContactsComponent implements OnInit {
     this.exporting.set(true);
     this.error.set(null);
 
+    // Carries the tab too, so exporting from Bulk enquiries gives you the leads and not the
+    // whole inbox — what is on screen is what downloads.
     const url = `${this.base}/export?status=${encodeURIComponent(this.status())}`
-      + `&search=${encodeURIComponent(this.search)}`;
+      + `&search=${encodeURIComponent(this.search)}&segment=${this.view()}`;
 
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {
@@ -385,7 +399,8 @@ export class AdminContactsComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     const url = `${this.base}?status=${encodeURIComponent(this.status())}`
-      + `&search=${encodeURIComponent(this.search)}&page=${this.page()}&pageSize=25`;
+      + `&search=${encodeURIComponent(this.search)}&segment=${this.view()}`
+      + `&page=${this.page()}&pageSize=25`;
     this.http.get<ApiResponse<PagedResult<Contact>>>(url).subscribe({
       next: (r) => {
         this.rows.set(r.data?.items ?? []);
@@ -466,10 +481,12 @@ export class AdminContactsComponent implements OnInit {
 
   // --- Customers tab ---
 
-  setView(v: 'enquiries' | 'customers'): void {
+  setView(v: 'leads' | 'messages' | 'customers'): void {
     this.view.set(v);
     this.error.set(null);
-    if (v === 'customers' && !this.customers().length) this.loadCustomers();
+    this.page.set(1);
+    if (v === 'customers') { if (!this.customers().length) this.loadCustomers(); return; }
+    this.load();
   }
 
   loadCustomers(): void {

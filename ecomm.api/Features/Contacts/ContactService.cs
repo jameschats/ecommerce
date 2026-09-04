@@ -46,7 +46,9 @@ public sealed record SendContactEmailRequest(string Subject, string Body);
 public sealed record ContactImportResult(
     int Total, int Added, int Updated, int Skipped, List<string> Errors);
 
-public sealed record ContactQuery(string? Status = null, string? Search = null, int Page = 1, int PageSize = 25);
+/// <param name="Segment">"leads" for bulk enquiries, "messages" for everything else, null for all.</param>
+public sealed record ContactQuery(
+    string? Status = null, string? Search = null, int Page = 1, int PageSize = 25, string? Segment = null);
 
 public interface IContactService
 {
@@ -158,6 +160,12 @@ public sealed class ContactService : IContactService
 
         if (!string.IsNullOrWhiteSpace(query.Status))
             q = q.Where(c => c.Status == query.Status);
+
+        // Leads and messages arrive in one table and are told apart by Source. The screen
+        // shows them as separate tabs because they are answered differently: an enquiry is a
+        // quote waiting to be sent, a message is a question waiting to be answered.
+        if (query.Segment == "leads") q = q.Where(c => c.Source == "Enquiry");
+        else if (query.Segment == "messages") q = q.Where(c => c.Source != "Enquiry");
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
