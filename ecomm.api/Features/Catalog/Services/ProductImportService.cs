@@ -35,7 +35,8 @@ public sealed class ProductImportService : IProductImportService
     private static readonly string[] Headers =
     [
         "SKU", "DesignNo", "Name", "Category", "Brand", "Price", "MRP", "CostPrice",
-        "HsnCode", "Status", "SortOrder", "ShortDescription", "ImageUrl", "Content",
+        "HsnCode", "Status", "SortOrder", "ShortDescription", "Description",
+        "MetaTitle", "MetaDescription", "MetaKeywords", "Featured", "ImageUrl", "Content",
     ];
 
     /// <summary>
@@ -46,7 +47,8 @@ public sealed class ProductImportService : IProductImportService
     {
         "sku", "designno", "design no", "name", "category", "brand", "price", "mrp",
         "compareatprice", "costprice", "cost", "hsncode", "status", "sortorder",
-        "shortdescription", "description", "imageurl",
+        "shortdescription", "description", "metatitle", "metadescription", "metakeywords",
+        "keywords", "featured", "imageurl",
     };
 
     private readonly EcommerceDbContext _db;
@@ -71,7 +73,11 @@ public sealed class ProductImportService : IProductImportService
         ws.Cell(2, 9).Value = "4910";
         ws.Cell(2, 10).Value = "Active";
         ws.Cell(2, 11).Value = 10;
-        ws.Cell(2, 14).Value = "1 Box (50 Pcs)";
+        ws.Cell(2, 14).Value = "10x15 Art Mount Lamination — CalendarShop";
+        ws.Cell(2, 15).Value = "One or two sentences quoted in search results.";
+        ws.Cell(2, 16).Value = "wall calendar, wholesale, 2027";
+        ws.Cell(2, 17).Value = "FALSE";
+        ws.Cell(2, 19).Value = "1 Box (50 Pcs)";
 
         ws.Row(1).Style.Font.Bold = true;
         ws.Columns().AdjustToContents();
@@ -88,6 +94,7 @@ public sealed class ProductImportService : IProductImportService
                 p.Sku, p.DesignNo, p.Name, Category = p.Category!.Name,
                 Brand = p.Brand != null ? p.Brand.Name : "",
                 p.Price, p.CompareAtPrice, p.CostPrice, p.HsnCode, p.Status, p.SortOrder, p.ShortDescription,
+                p.Description, p.MetaTitle, p.MetaDescription, p.MetaKeywords, p.IsFeatured,
                 ImageUrl = p.Images.OrderByDescending(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault(),
                 Content = p.AttributeValues.Where(a => a.Attribute!.Name == "Content")
                     .Select(a => a.ValueText).FirstOrDefault(),
@@ -113,8 +120,13 @@ public sealed class ProductImportService : IProductImportService
             ws.Cell(r, 10).Value = p.Status;
             ws.Cell(r, 11).Value = p.SortOrder;
             ws.Cell(r, 12).Value = p.ShortDescription;
-            ws.Cell(r, 13).Value = p.ImageUrl;
-            ws.Cell(r, 14).Value = p.Content;
+            ws.Cell(r, 13).Value = p.Description;
+            ws.Cell(r, 14).Value = p.MetaTitle;
+            ws.Cell(r, 15).Value = p.MetaDescription;
+            ws.Cell(r, 16).Value = p.MetaKeywords;
+            ws.Cell(r, 17).Value = p.IsFeatured;
+            ws.Cell(r, 18).Value = p.ImageUrl;
+            ws.Cell(r, 19).Value = p.Content;
             r++;
         }
         ws.Row(1).Style.Font.Bold = true;
@@ -321,6 +333,12 @@ public sealed class ProductImportService : IProductImportService
         product.Status = status is "Active" or "Inactive" or "Draft" ? status : "Active";
         product.IsActive = product.Status == "Active";
         var shortDesc = row.Get("ShortDescription"); if (shortDesc.Length > 0) product.ShortDescription = shortDesc;
+        var description = row.Get("Description"); if (description.Length > 0) product.Description = description;
+        var metaTitle = row.Get("MetaTitle"); if (metaTitle.Length > 0) product.MetaTitle = metaTitle;
+        var metaDesc = row.Get("MetaDescription"); if (metaDesc.Length > 0) product.MetaDescription = metaDesc;
+        var metaKeywords = FirstNonEmpty(row, "MetaKeywords", "Keywords"); if (metaKeywords.Length > 0) product.MetaKeywords = metaKeywords;
+        var featured = row.Get("Featured");
+        if (featured.Length > 0) product.IsFeatured = featured.Trim().ToLowerInvariant() is "true" or "yes" or "1";
 
         if (isNew)
         {
