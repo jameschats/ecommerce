@@ -43,11 +43,12 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
         <!--
           Adds to the estimate — the site's one basket (see QuickOrderService) — not a
           separate cart. Starts as a one-tap "Add"; once there is a quantity it becomes a
-          stepper in place, the same swap Blinkit/Zepto-style grids use, so adjusting a
-          quantity never needs a trip to the product page or the price list.
+          typable box, the same input the price list already uses (quick-order-table.html)
+          — direct entry rather than +/-, so going from 1 to 20 is one edit, not nineteen taps.
+          Typing 0 (or clearing it) removes the line and the box reverts to Add.
 
-          preventDefault + stopPropagation on every button: the whole card is an <a>, and
-          without them a tap here would both add the item and navigate to the product page.
+          preventDefault + stopPropagation everywhere: the whole card is an <a>, and without
+          them a tap here would both change the quantity and navigate to the product page.
         -->
         @if (qtyInEstimate() === 0) {
           <button type="button" (click)="add($event)" [disabled]="adding() || !product().inStock"
@@ -59,13 +60,17 @@ import { WishlistButtonComponent } from '../wishlist-button/wishlist-button.comp
             Add
           </button>
         } @else {
-          <div class="mt-2 h-9 flex items-center justify-between rounded-lg bg-primary text-white overflow-hidden">
-            <button type="button" (click)="dec($event)" aria-label="Decrease quantity"
-              class="w-9 h-full grid place-items-center text-lg font-bold hover:bg-primary-dark transition">−</button>
-            <span class="text-sm font-semibold tabular-nums">{{ qtyInEstimate() }}</span>
-            <button type="button" (click)="inc($event)" aria-label="Increase quantity"
-              class="w-9 h-full grid place-items-center text-lg font-bold hover:bg-primary-dark transition">+</button>
-          </div>
+          <input type="number" inputmode="numeric" min="0" step="1"
+            [value]="qtyInEstimate()"
+            [attr.aria-label]="'Quantity for ' + product().name"
+            (click)="$event.preventDefault(); $event.stopPropagation()"
+            (focus)="$any($event.target).select()"
+            (input)="onQtyInput($event)"
+            (keypress)="onQtyKeypress($event)"
+            class="mt-2 w-full h-9 text-center rounded-lg border-2 border-primary bg-primary/5
+                   text-primary font-bold text-base focus:outline-none focus:ring-2 focus:ring-primary/25
+                   [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                   [&::-webkit-inner-spin-button]:appearance-none" />
         }
       </div>
     </a>
@@ -97,17 +102,17 @@ export class ProductCardComponent {
     });
   }
 
-  inc(event: Event): void {
-    event.preventDefault();
+  onQtyInput(event: Event): void {
     event.stopPropagation();
-    const id = this.product().productId;
-    this.quickOrder.setQty(id, this.quickOrder.qty(id) + 1);
+    const value = (event.target as HTMLInputElement).value;
+    const parsed = value === '' ? 0 : Number.parseInt(value, 10);
+    this.quickOrder.setQty(this.product().productId, Number.isNaN(parsed) ? 0 : parsed);
   }
 
-  dec(event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    const id = this.product().productId;
-    this.quickOrder.setQty(id, this.quickOrder.qty(id) - 1);
+  /** Blocks keys that would produce a non-integer — type="number" alone still accepts
+   *  "e", "+", "-" and ".", which then read back as an empty value (matches
+   *  quick-order-table's onQtyKeypress). */
+  onQtyKeypress(event: KeyboardEvent): void {
+    if (['e', 'E', '+', '-', '.', ','].includes(event.key)) event.preventDefault();
   }
 }
