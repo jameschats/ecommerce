@@ -73,6 +73,45 @@ public class AdminOrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Removes an order permanently, along with its invoice, payments, shipments and history —
+    /// the database cascades all of it.
+    ///
+    /// Cancelling is the normal way to end an order and keeps the record; this is for clearing
+    /// test data before a shop goes live. It requires the order number to be typed back, and
+    /// settings.manage rather than order.manage: a staff member who works orders every day
+    /// should not be one mis-click from destroying one.
+    /// </summary>
+    [Authorize(Policy = ecomm.api.Common.Security.Perm.SettingsManage)]
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Delete(
+        long id, [FromQuery] string confirm,
+        [FromServices] Data.Context.EcommerceDbContext db,
+        [FromServices] ILogger<AdminOrdersController> log,
+        CancellationToken ct)
+    {
+        var order = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .FirstOrDefaultAsync(db.Orders, o => o.OrderId == id, ct);
+        if (order is null) return NotFound(ApiResponse<object>.Fail("Order not found."));
+
+        if (!string.Equals(confirm?.Trim(), order.OrderNumber, StringComparison.OrdinalIgnoreCase))
+            throw new Common.Exceptions.AppException(
+                $"Type the order number exactly — {order.OrderNumber} — to confirm.");
+
+        var invoices = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .CountAsync(db.Invoices, i => i.OrderId == id, ct);
+
+        db.Orders.Remove(order);
+        await db.SaveChangesAsync(ct);
+
+        log.LogWarning("Order {Number} deleted permanently with {Invoices} invoice(s), value {Value}.",
+            order.OrderNumber, invoices, order.TotalAmount);
+
+        return Ok(ApiResponse<object>.Ok(
+            new { deleted = true },
+            $"Order {order.OrderNumber} deleted, along with {invoices} invoice(s) and its payments."));
+    }
+
+    /// <summary>
     /// A pre-written WhatsApp message and a wa.me link for it (design.md §9.4).
     ///
     /// Click-to-send rather than the Cloud API: Meta's template approval takes days to

@@ -73,6 +73,7 @@ builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductImportSer
 builder.Services.AddScoped<ecomm.api.Features.Theme.IThemeService, ecomm.api.Features.Theme.ThemeService>();
 
 // CMS
+builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.ICategoryDeletionService, ecomm.api.Features.Catalog.Services.CategoryDeletionService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.ICmsService, ecomm.api.Features.Cms.CmsService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.IContentPageService, ecomm.api.Features.Cms.ContentPageService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.IBannerService, ecomm.api.Features.Cms.BannerService>();

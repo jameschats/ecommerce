@@ -111,11 +111,13 @@ export class EnquiryComponent implements OnInit {
 
   /**
    * The buying decisions this shop actually sells against. Fixed rather than admin-editable
-   * for now — five options are not worth a settings screen until the list is argued about.
+   * for now — a handful of options are not worth a settings screen until the list is argued about.
    */
   readonly requirements = [
     'Finished calendars (ready to hang)',
-    'Loose sheets / bulk wholesale',
+    'Daily calendar mount and other items',
+    'Bulk requirements',
+    'Design number quote',
     'Custom branding or corporate gifting',
     'Sample request',
     'Something else',
