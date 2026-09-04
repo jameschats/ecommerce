@@ -86,7 +86,12 @@ public sealed class ProductService : IProductService
                     ? g.Key.CategoryName
                     : $"{g.Key.ParentCategoryName} — {g.Key.CategoryName}",
                 g.Key.CategoryShowInPriceList,
-                g.Select(r => new PriceListItemDto(
+                // Within a band, by design number low to high — that is the column buyers
+                // scan. Sorted here rather than in SQL because design numbers are
+                // alphanumeric and MySQL would order them lexicographically (1005 before
+                // 225); the rows are already materialised, so this costs nothing extra.
+                g.OrderBy(r => r.Sku, DesignNoComparer.Instance)
+                 .Select(r => new PriceListItemDto(
                     r.ProductId, r.Sku, r.Name, r.Content,
                     r.Price, r.CompareAtPrice,
                     DiscountPercent(r.Price, r.CompareAtPrice),

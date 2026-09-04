@@ -20,12 +20,40 @@ public sealed class SitemapController : ControllerBase
         _config = config;
     }
 
+    /// <summary>
+    /// The public address of the shop, which every &lt;loc&gt; in the sitemap is built from.
+    ///
+    /// This used to read Cors:AngularOrigin, which production never sets — so it fell through to
+    /// the localhost value in appsettings.json and the live sitemap advertised every page as
+    /// http://localhost:4200/... to search engines. It now reads the Site.Url setting, the same
+    /// one OrderMailer uses for links in customer email, so the shop has one answer to "where do
+    /// we live" rather than two that can disagree.
+    /// </summary>
+    private async Task<string> BaseUrlAsync(CancellationToken ct)
+    {
+        var stored = await _db.Settings
+            .Where(s => s.TenantId == Tenant && s.SettingKey == "Site.Url")
+            .Select(s => s.SettingValue)
+            .FirstOrDefaultAsync(ct);
+
+        var url = !string.IsNullOrWhiteSpace(stored) ? stored : _config["Site:Url"];
+
+        // No guessed default. A sitemap pointing at the wrong shop is worse than no sitemap, and
+        // a wrong one is silent — this at least fails where somebody will see it.
+        if (string.IsNullOrWhiteSpace(url))
+            throw new Common.Exceptions.AppException(
+                "Site.Url is not set, so the sitemap cannot say where the shop lives. "
+                + "Set it in Settings before submitting a sitemap.");
+
+        return url.TrimEnd('/');
+    }
+
     [OutputCache(PolicyName = "public")]
     [HttpGet("api/sitemap.xml")]
     [Produces("application/xml")]
     public async Task<IActionResult> Sitemap(CancellationToken ct)
     {
-        var baseUrl = (_config["Cors:AngularOrigin"] ?? "https://calendarshop.online").TrimEnd('/');
+        var baseUrl = await BaseUrlAsync(ct);
 
         var sb = new StringBuilder();
         sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");

@@ -10,18 +10,18 @@ values apply and vary by state.
 
 ## Ordering
 
-- [Order Now](https://daily.calendarshop.online/order): the full price list — every
+- [Order Now](https://dailycalendarstore.in/order): the full price list — every
   design, its design number, MRP, discount and trade rate.
-- [Finished Calendar](https://daily.calendarshop.online/finished-calendar):
+- [Finished Calendar](https://dailycalendarstore.in/finished-calendar):
   ready-made calendars, sold separately from the printing ranges.
-- [Products](https://daily.calendarshop.online/products): the same catalogue as
+- [Products](https://dailycalendarstore.in/products): the same catalogue as
   individual product pages.
 
 ## About
 
-- [About us](https://daily.calendarshop.online/about)
-- [Contact](https://daily.calendarshop.online/contact): enquiries and bulk quotes.
-- [FAQ](https://daily.calendarshop.online/faq)
+- [About us](https://dailycalendarstore.in/about)
+- [Contact](https://dailycalendarstore.in/contact): enquiries and bulk quotes.
+- [FAQ](https://dailycalendarstore.in/faq)
 
 ## Notes for machine readers
 
@@ -31,4 +31,4 @@ values apply and vary by state.
 - Product pages publish schema.org Product data including price and live stock
   availability.
 - The full URL list is at
-  [sitemap.xml](https://daily.calendarshop.online/sitemap.xml).
+  [sitemap.xml](https://dailycalendarstore.in/sitemap.xml).

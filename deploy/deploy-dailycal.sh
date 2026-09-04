@@ -20,7 +20,7 @@ set -euo pipefail
 REMOTE_HOST="${REMOTE_HOST:-root@62.72.59.84}"
 SITE="dailycal"
 BASE="/var/www/${SITE}"
-DOMAIN="daily.calendarshop.online"
+DOMAIN="dailycalendarstore.in"
 API_SERVICE="${SITE}-api"
 SSR_SERVICE="${SITE}-ssr"
 

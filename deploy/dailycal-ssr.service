@@ -10,8 +10,12 @@ Environment=PORT=4020
 Environment=HOST=127.0.0.1
 # Must match /config.js exactly — SSR reads these, the browser reads config.js.
 # If they disagree, server-rendered HTML and client hydration disagree.
-Environment=API_BASE_URL=https://daily.calendarshop.online/api
-Environment=SITE_URL=https://daily.calendarshop.online
+Environment=API_BASE_URL=https://dailycalendarstore.in/api
+Environment=SITE_URL=https://dailycalendarstore.in
+# Angular 20+ answers 400 to any Host it has not been told about. SITE_URL covers the
+# canonical name; these cover the two that reach this process by other routes — www before
+# nginx redirects it, and the old address while its 301 is still in place.
+Environment=ALLOWED_HOSTS=www.dailycalendarstore.in,daily.calendarshop.online
 Restart=always
 RestartSec=10
 User=www-data
