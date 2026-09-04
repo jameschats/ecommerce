@@ -8,80 +8,117 @@ import { ContentPage } from '../../../core/models/content-page.model';
 import { BrandingService } from '../../../core/services/branding.service';
 import { SeoService } from '../../../core/services/seo.service';
 
+/**
+ * Same card language as /enquiry (rounded-2xl, shadow-sm, p-6 sm:p-8, centered header,
+ * full-width primary button) — the two pages read as one family now instead of the plainer,
+ * shadowless card this used to be. Contact details still come from BrandingService (settings,
+ * not hardcoded), and the page title/intro stay CMS-editable exactly as before.
+ */
 @Component({
   selector: 'app-contact',
   imports: [FormsModule],
   template: `
-    <section class="page-container py-12">
-      <div class="max-w-2xl mb-10">
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">{{ page?.title || 'Contact us' }}</h1>
-        @if (intro) {
-          <div class="mt-3 text-slate-600 intro-copy" [innerHTML]="intro"></div>
-        } @else {
-          <p class="mt-3 text-slate-600">Questions about an order, customization, or a bulk enquiry? We are happy to help.</p>
-        }
-      </div>
+    <section class="page-container py-10 sm:py-14">
+      <div class="max-w-5xl mx-auto">
+        <div class="max-w-2xl mx-auto text-center mb-8 sm:mb-10">
+          <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">
+            {{ page?.title || ('Get in touch with ' + shopName()) }}
+          </h1>
+          @if (intro) {
+            <div class="mt-3 text-slate-600 intro-copy" [innerHTML]="intro"></div>
+          } @else {
+            <p class="mt-3 text-slate-600">Questions about an order, customization, or a bulk enquiry? We are happy to help.</p>
+          }
+        </div>
 
-      <!--
-        Only a three-column split when there is a details column to fill. With the contact
-        details unset the first column was empty, so the form sat in the right two-thirds
-        with a third of the page blank beside it looking like a layout fault.
-      -->
-      <div class="grid gap-8" [class]="details().length ? 'lg:grid-cols-3' : 'max-w-2xl'">
-        @if (details().length) {
-          <div class="space-y-5">
-            @for (c of details(); track c.label) {
-              <div class="flex items-start gap-3">
-                <span class="text-xl">{{ c.icon }}</span>
-                <div>
-                  <div class="text-sm font-semibold text-slate-800">{{ c.label }}</div>
-                  <div class="text-sm text-slate-500 whitespace-pre-line">{{ c.value }}</div>
-                </div>
+        <!--
+          Five-column split only when there is a details card to fill — with contact details
+          unset the form alone stays centered at a readable width instead of stretching into
+          empty space.
+        -->
+        <div class="grid gap-6 lg:gap-8" [class]="details().length ? 'lg:grid-cols-5' : ''">
+          @if (details().length) {
+            <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm h-fit">
+              <h2 class="text-lg font-bold text-slate-900 mb-5">Contact details</h2>
+              <div class="space-y-5">
+                @for (c of details(); track c.label) {
+                  <div class="flex items-start gap-3">
+                    <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full bg-primary/10 text-primary">{{ c.icon }}</span>
+                    <div class="min-w-0">
+                      <div class="text-sm font-semibold text-slate-800">{{ c.label }}</div>
+                      <div class="text-sm text-slate-500 whitespace-pre-line break-words">{{ c.value }}</div>
+                    </div>
+                  </div>
+                }
               </div>
+
+              @if (whatsappHref() || phoneHref() || emailHref()) {
+                <div class="flex flex-wrap gap-2 mt-6 pt-6 border-t border-slate-100">
+                  @if (whatsappHref()) {
+                    <a [href]="whatsappHref()" target="_blank" rel="noopener"
+                       class="inline-flex items-center gap-1.5 text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 hover:bg-emerald-100 transition">
+                      💬 WhatsApp
+                    </a>
+                  }
+                  @if (phoneHref()) {
+                    <a [href]="phoneHref()"
+                       class="inline-flex items-center gap-1.5 text-sm font-medium bg-slate-50 text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-100 transition">
+                      📞 Call
+                    </a>
+                  }
+                  @if (emailHref()) {
+                    <a [href]="emailHref()"
+                       class="inline-flex items-center gap-1.5 text-sm font-medium bg-slate-50 text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-100 transition">
+                      ✉️ Email
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Form -->
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm"
+               [class]="details().length ? 'lg:col-span-3' : 'max-w-2xl mx-auto w-full'">
+            @if (sent()) {
+              <div class="text-center py-10">
+                <div class="text-4xl">✅</div>
+                <h2 class="text-lg font-semibold text-slate-800 mt-3">Thanks for reaching out!</h2>
+                <p class="text-slate-500 text-sm mt-1">We'll get back to you within 1 business day.</p>
+                <button type="button" (click)="sent.set(false)" class="btn-ghost mt-5 border border-slate-300">Send another message</button>
+              </div>
+            } @else {
+              <h2 class="text-lg font-bold text-slate-900 mb-5">Send us a message</h2>
+              <form (ngSubmit)="submit()" class="space-y-4">
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div><label class="lbl">Name</label><input [(ngModel)]="form.name" name="name" required class="input" /></div>
+                  <div><label class="lbl">Email</label><input [(ngModel)]="form.email" name="email" type="email" class="input" /></div>
+                </div>
+                <div><label class="lbl">Phone</label><input [(ngModel)]="form.phone" name="phone" type="tel" class="input" placeholder="So we can call you back" /></div>
+                <div><label class="lbl">Subject</label><input [(ngModel)]="form.subject" name="subject" class="input" /></div>
+                <div><label class="lbl">Message</label><textarea [(ngModel)]="form.message" name="message" rows="5" required class="input"></textarea></div>
+
+                <!--
+                  Honeypot. Hidden from people and skipped by the tab order, so anything in it
+                  came from a bot filling every field it found. aria-hidden keeps it out of a
+                  screen reader too — it is not a real question.
+                -->
+                <input [(ngModel)]="form.website" name="website" tabindex="-1" autocomplete="off"
+                       aria-hidden="true" class="hidden" />
+
+                <label class="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="form.subscribe" name="subscribe" class="w-4 h-4 mt-0.5" />
+                  <span class="text-sm text-slate-600">Email me about offers and new designs</span>
+                </label>
+
+                <button type="submit" [disabled]="sending()" class="btn-primary w-full py-3 text-base">
+                  {{ sending() ? 'Sending…' : 'Send message' }}
+                </button>
+                @if (error(); as e) { <p class="text-sm text-red-600">{{ e }}</p> }
+                <p class="text-xs text-slate-400 text-center">Leave an email address or a phone number so we can reply.</p>
+              </form>
             }
           </div>
-        }
-
-        <!-- Form -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-6"
-             [class.lg:col-span-2]="details().length">
-          @if (sent()) {
-            <div class="text-center py-10">
-              <div class="text-4xl">✅</div>
-              <h2 class="text-lg font-semibold text-slate-800 mt-2">Thanks for reaching out!</h2>
-              <p class="text-slate-500 text-sm mt-1">We'll get back to you within 1 business day.</p>
-              <button type="button" (click)="sent.set(false)" class="btn-ghost mt-4 border border-slate-300">Send another message</button>
-            </div>
-          } @else {
-            <form (ngSubmit)="submit()" class="space-y-4">
-              <div class="grid sm:grid-cols-2 gap-4">
-                <div><label class="lbl">Name</label><input [(ngModel)]="form.name" name="name" required class="input" /></div>
-                <div><label class="lbl">Email</label><input [(ngModel)]="form.email" name="email" type="email" class="input" /></div>
-              </div>
-              <div><label class="lbl">Phone</label><input [(ngModel)]="form.phone" name="phone" type="tel" class="input" placeholder="So we can call you back" /></div>
-              <div><label class="lbl">Subject</label><input [(ngModel)]="form.subject" name="subject" class="input" /></div>
-              <div><label class="lbl">Message</label><textarea [(ngModel)]="form.message" name="message" rows="5" required class="input"></textarea></div>
-
-              <!--
-                Honeypot. Hidden from people and skipped by the tab order, so anything in it
-                came from a bot filling every field it found. aria-hidden keeps it out of a
-                screen reader too — it is not a real question.
-              -->
-              <input [(ngModel)]="form.website" name="website" tabindex="-1" autocomplete="off"
-                     aria-hidden="true" class="hidden" />
-
-              <label class="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" [(ngModel)]="form.subscribe" name="subscribe" class="w-4 h-4 mt-0.5" />
-                <span class="text-sm text-slate-600">Email me about offers and new designs</span>
-              </label>
-
-              <button type="submit" [disabled]="sending()" class="btn-primary">
-                {{ sending() ? 'Sending…' : 'Send message' }}
-              </button>
-              @if (error(); as e) { <p class="text-sm text-red-600">{{ e }}</p> }
-              <p class="text-xs text-slate-400">Leave an email address or a phone number so we can reply.</p>
-            </form>
-          }
         </div>
       </div>
     </section>
@@ -101,8 +138,9 @@ import { SeoService } from '../../../core/services/seo.service';
 })
 export class ContactComponent implements OnInit {
   private readonly seo = inject(SeoService);
-
   private readonly http = inject(HttpClient);
+  private readonly route = inject(ActivatedRoute);
+  private readonly branding = inject(BrandingService);
 
   readonly sent = signal(false);
   readonly sending = signal(false);
@@ -110,13 +148,15 @@ export class ContactComponent implements OnInit {
 
   form = { name: '', email: '', phone: '', subject: '', message: '', website: '', subscribe: false };
 
-  private readonly route = inject(ActivatedRoute);
-  private readonly branding = inject(BrandingService);
-
   readonly page = this.route.snapshot.data['page'] as ContentPage | null;
 
   /** The editable blurb above the form (055). */
   readonly intro = (this.page?.sections ?? []).find((s) => s.sectionType === 'Prose')?.content ?? null;
+
+  /** Falls back to a neutral word, so the heading never reads "with" and stops. */
+  shopName(): string {
+    return `${this.branding.siteName()}${this.branding.siteNameAccent()}`.trim() || 'us';
+  }
 
   /**
    * From settings, not hardcoded. Only what has been filled in is shown — a contact block
@@ -131,6 +171,26 @@ export class ContactComponent implements OnInit {
       { icon: '✉️', label: 'Email', value: c.email },
       { icon: '🕒', label: 'Hours', value: c.hours },
     ].filter((d) => d.value?.trim());
+  });
+
+  /** tel:/mailto:/wa.me quick actions — built from the same phone/email settings, no separate config. */
+  readonly phoneHref = computed(() => {
+    const phone = this.branding.contact().phone.trim();
+    return phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : null;
+  });
+
+  readonly emailHref = computed(() => {
+    const email = this.branding.contact().email.trim();
+    return email ? `mailto:${email}` : null;
+  });
+
+  readonly whatsappHref = computed(() => {
+    const digits = this.branding.contact().phone.replace(/\D/g, '');
+    if (!digits) return null;
+    // A bare 10-digit Indian mobile number needs the country code for wa.me to resolve it;
+    // anything longer is assumed to already carry one.
+    const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
+    return `https://wa.me/${withCountryCode}`;
   });
 
   ngOnInit(): void {
