@@ -60,9 +60,9 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
                              class="w-16 h-8 text-center rounded border border-slate-300 text-sm font-semibold
                                     [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
                                     [&::-webkit-inner-spin-button]:appearance-none" />
-                      <span class="text-xs text-slate-500">× ₹{{ line.item.price | number: '1.0-0' }}</span>
+                      <span class="text-xs text-slate-500">× ₹{{ line.item.price | number: '1.2-2' }}</span>
                       <span class="ml-auto font-semibold text-slate-900 text-sm">
-                        ₹{{ line.lineTotal | number: '1.0-0' }}
+                        ₹{{ line.lineTotal | number: '1.2-2' }}
                       </span>
                     </div>
                   </div>
@@ -84,7 +84,7 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
                 @for (s of stateMins(); track s.stateName) {
                   <div class="flex justify-between px-3 py-1.5">
                     <dt class="text-slate-600">{{ s.stateName }}</dt>
-                    <dd class="font-medium text-slate-800">₹{{ s.minOrderAmount | number: '1.0-0' }}</dd>
+                    <dd class="font-medium text-slate-800">₹{{ s.minOrderAmount | number: '1.2-2' }}</dd>
                   </div>
                 }
               </dl>
@@ -97,18 +97,18 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
             <dl class="space-y-1 text-sm">
               <div class="flex justify-between">
                 <dt class="text-slate-500">Net Total</dt>
-                <dd class="text-slate-600">{{ netTotal() | currency: 'INR' : 'symbol-narrow' : '1.0-0' }}</dd>
+                <dd class="text-slate-600">{{ netTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}</dd>
               </div>
               <div class="flex justify-between">
                 <dt class="text-slate-500">Discount Total</dt>
                 <dd class="text-emerald-600 font-medium">
-                  − {{ discountTotal() | currency: 'INR' : 'symbol-narrow' : '1.0-0' }}
+                  − {{ discountTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
                 </dd>
               </div>
               <div class="flex justify-between pt-1 border-t border-slate-100">
                 <dt class="font-semibold text-slate-800">Sub Total</dt>
                 <dd class="font-bold text-lg text-slate-900">
-                  {{ subTotal() | currency: 'INR' : 'symbol-narrow' : '1.0-0' }}
+                  {{ subTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
                 </dd>
               </div>
             </dl>

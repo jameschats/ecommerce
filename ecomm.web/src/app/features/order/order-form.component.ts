@@ -193,7 +193,7 @@ import { OtpGateComponent } from './otp-gate.component';
                       Min. Order Amount
                     </dt>
                     <dd [class]="quote().meetsMinimum ? 'text-slate-700' : 'text-red-600 font-semibold'">
-                      {{ quote().minOrderAmount | currency: 'INR' : 'symbol-narrow' : '1.0-0' }}
+                      {{ quote().minOrderAmount | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
                     </dd>
                   </div>
                 }

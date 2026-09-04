@@ -81,10 +81,42 @@ public sealed class CategoryService : ICategoryService
         var category = await Find(id, ct);
         if (category is null) return false;
 
-        if (await _db.Products.AnyAsync(p => p.CategoryId == id && !p.IsDeleted, ct))
-            throw new AppException("Cannot delete a category that still has products.", StatusCodes.Status409Conflict);
         if (await _db.Categories.AnyAsync(c => c.ParentCategoryId == id, ct))
             throw new AppException("Cannot delete a category that has sub-categories.", StatusCodes.Status409Conflict);
+
+        // Counted separately, because deleting a product hides it rather than removing the row:
+        // Products.CategoryId is NOT NULL with an ON DELETE RESTRICT foreign key, so a deleted
+        // product still holds its category. Checking only live products let the delete through
+        // to the database, which refused it, and the admin saw "An unexpected error occurred"
+        // with nothing on screen to explain why.
+        var live = await _db.Products.CountAsync(p => p.CategoryId == id && !p.IsDeleted, ct);
+        if (live > 0)
+            throw new AppException(
+                $"Cannot delete this category — {live} product{(live == 1 ? "" : "s")} still use{(live == 1 ? "s" : "")} it. "
+                + "Move them to another category first.",
+                StatusCodes.Status409Conflict);
+
+        // Named rather than counted: these products are invisible everywhere in admin, so a bare
+        // number would leave the admin looking for something they cannot see.
+        var removed = await _db.Products
+            .Where(p => p.CategoryId == id && p.IsDeleted)
+            .OrderBy(p => p.ProductId)
+            .Select(p => p.Name)
+            .Take(4)
+            .ToListAsync(ct);
+
+        if (removed.Count > 0)
+        {
+            var total = await _db.Products.CountAsync(p => p.CategoryId == id && p.IsDeleted, ct);
+            var names = string.Join(", ", removed.Take(3));
+            if (total > 3) names += $" and {total - 3} more";
+
+            throw new AppException(
+                $"Cannot delete this category — it is still used by {total} deleted "
+                + $"product{(total == 1 ? "" : "s")} ({names}). Those are kept so past orders and invoices "
+                + "still say what was sold.",
+                StatusCodes.Status409Conflict);
+        }
 
         _db.Categories.Remove(category);
         await _db.SaveChangesAsync(ct);
