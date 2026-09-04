@@ -41,7 +41,10 @@ interface ShopSettings {
   logoUrl: string;
   footerLogoUrl: string;
   contactAddress: string;
-  contactPhone: string;
+  contactMobile1: string;
+  contactMobile2: string;
+  contactLandline1: string;
+  contactLandline2: string;
   contactEmail: string;
   contactHours: string;
   contactCity: string;
@@ -274,10 +277,6 @@ interface ShopSettings {
                   <input class="form-input" [(ngModel)]="m.contactCity" placeholder="e.g. Madurai" />
                 </label>
                 <label class="block">
-                  <span class="form-label">Phone</span>
-                  <input class="form-input" [(ngModel)]="m.contactPhone" placeholder="e.g. +91 98765 43210" />
-                </label>
-                <label class="block">
                   <span class="form-label">Email</span>
                   <input class="form-input" type="email" [(ngModel)]="m.contactEmail" placeholder="e.g. orders@yourshop.com" />
                 </label>
@@ -286,6 +285,26 @@ interface ShopSettings {
                   <input class="form-input" [(ngModel)]="m.contactHours" placeholder="e.g. Mon–Sat, 9:30 AM – 6:30 PM" />
                 </label>
               </div>
+
+              <div class="grid gap-3 sm:grid-cols-2 mt-3">
+                <label class="block">
+                  <span class="form-label">Mobile 1</span>
+                  <input class="form-input" [(ngModel)]="m.contactMobile1" placeholder="e.g. +91 98765 43210" />
+                </label>
+                <label class="block">
+                  <span class="form-label">Mobile 2 <span class="text-slate-400 font-normal">(optional)</span></span>
+                  <input class="form-input" [(ngModel)]="m.contactMobile2" placeholder="e.g. +91 98765 43211" />
+                </label>
+                <label class="block">
+                  <span class="form-label">Landline 1 <span class="text-slate-400 font-normal">(optional)</span></span>
+                  <input class="form-input" [(ngModel)]="m.contactLandline1" placeholder="e.g. 04562 123456" />
+                </label>
+                <label class="block">
+                  <span class="form-label">Landline 2 <span class="text-slate-400 font-normal">(optional)</span></span>
+                  <input class="form-input" [(ngModel)]="m.contactLandline2" placeholder="e.g. 04562 123457" />
+                </label>
+              </div>
+              <p class="text-xs text-slate-400 mt-2">The WhatsApp button on the contact page uses Mobile 1 (falling back to Mobile 2).</p>
             </div>
 
             <label class="block">

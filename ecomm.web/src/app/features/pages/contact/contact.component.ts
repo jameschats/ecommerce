@@ -41,12 +41,18 @@ import { SeoService } from '../../../core/services/seo.service';
             <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm h-fit">
               <h2 class="text-lg font-bold text-slate-900 mb-5">Contact details</h2>
               <div class="space-y-5">
-                @for (c of details(); track c.label) {
+                @for (d of details(); track d.label) {
                   <div class="flex items-start gap-3">
-                    <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full bg-primary/10 text-primary">{{ c.icon }}</span>
+                    <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full bg-primary/10 text-primary">{{ d.icon }}</span>
                     <div class="min-w-0">
-                      <div class="text-sm font-semibold text-slate-800">{{ c.label }}</div>
-                      <div class="text-sm text-slate-500 whitespace-pre-line break-words">{{ c.value }}</div>
+                      <div class="text-sm font-semibold text-slate-800">{{ d.label }}</div>
+                      @for (line of d.lines; track line) {
+                        @if (d.href) {
+                          <a [href]="d.href(line)" class="block text-sm text-primary hover:underline break-words">{{ line }}</a>
+                        } @else {
+                          <div class="text-sm text-slate-500 whitespace-pre-line break-words">{{ line }}</div>
+                        }
+                      }
                     </div>
                   </div>
                 }
@@ -162,21 +168,30 @@ export class ContactComponent implements OnInit {
    * From settings, not hardcoded. Only what has been filled in is shown — a contact block
    * listing "Email" with nothing beside it is worse than no line at all, and these were live
    * placeholders (support@calendarshop.example) until now.
+   *
+   * Mobile/Landline each collapse up to two configured numbers into one row rather than
+   * showing four near-identical lines — every number stays individually tappable, just
+   * grouped under the one label.
    */
   readonly details = computed(() => {
     const c = this.branding.contact();
+    const tel = (v: string) => `tel:${v.replace(/[^\d+]/g, '')}`;
+    const numbers = (...vs: string[]) => vs.map((v) => v?.trim()).filter((v): v is string => !!v);
+
     return [
-      { icon: '📍', label: 'Address', value: c.address },
-      { icon: '📞', label: 'Phone', value: c.phone },
-      { icon: '✉️', label: 'Email', value: c.email },
-      { icon: '🕒', label: 'Hours', value: c.hours },
-    ].filter((d) => d.value?.trim());
+      { icon: '📍', label: 'Address', lines: numbers(c.address), href: undefined as ((v: string) => string) | undefined },
+      { icon: '📱', label: 'Mobile', lines: numbers(c.mobile1, c.mobile2), href: tel },
+      { icon: '☎️', label: 'Landline', lines: numbers(c.landline1, c.landline2), href: tel },
+      { icon: '✉️', label: 'Email', lines: numbers(c.email), href: (v: string) => `mailto:${v}` },
+      { icon: '🕒', label: 'Hours', lines: numbers(c.hours), href: undefined },
+    ].filter((d) => d.lines.length);
   });
 
   /** tel:/mailto:/wa.me quick actions — built from the same phone/email settings, no separate config. */
   readonly phoneHref = computed(() => {
-    const phone = this.branding.contact().phone.trim();
-    return phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : null;
+    const c = this.branding.contact();
+    const first = [c.mobile1, c.mobile2, c.landline1, c.landline2].map((v) => v?.trim()).find((v) => v);
+    return first ? `tel:${first.replace(/[^\d+]/g, '')}` : null;
   });
 
   readonly emailHref = computed(() => {
@@ -184,8 +199,12 @@ export class ContactComponent implements OnInit {
     return email ? `mailto:${email}` : null;
   });
 
+  /** Landlines can't take WhatsApp, so this only ever offers a mobile number. */
   readonly whatsappHref = computed(() => {
-    const digits = this.branding.contact().phone.replace(/\D/g, '');
+    const c = this.branding.contact();
+    const mobile = [c.mobile1, c.mobile2].map((v) => v?.trim()).find((v) => v);
+    if (!mobile) return null;
+    const digits = mobile.replace(/\D/g, '');
     if (!digits) return null;
     // A bare 10-digit Indian mobile number needs the country code for wa.me to resolve it;
     // anything longer is assumed to already carry one.

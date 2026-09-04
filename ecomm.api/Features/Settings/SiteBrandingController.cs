@@ -21,7 +21,8 @@ public sealed record SiteBrandingDto(
     /// footer and the storefront's structured data all read one source — the site previously
     /// said Chennai on the contact page and Madurai in its structured data (055).
     /// </summary>
-    string ContactAddress, string ContactPhone, string ContactEmail, string ContactHours, string ContactCity);
+    string ContactAddress, string ContactMobile1, string ContactMobile2,
+    string ContactLandline1, string ContactLandline2, string ContactEmail, string ContactHours, string ContactCity);
 
 /// <summary>
 /// Public branding — the browser tab title and favicon, plus the storefront name and
@@ -49,7 +50,9 @@ public sealed class SiteBrandingController : ControllerBase
                      || s.SettingKey == "Site.NameSize"
                      || s.SettingKey == "QuickOrder.AnnouncementText"
                      || s.SettingKey == "QuickOrder.PriceValidUpto"
-                     || s.SettingKey == "Store.AddressLine" || s.SettingKey == "Store.Phone"
+                     || s.SettingKey == "Store.AddressLine"
+                     || s.SettingKey == "Store.Mobile1" || s.SettingKey == "Store.Mobile2"
+                     || s.SettingKey == "Store.Landline1" || s.SettingKey == "Store.Landline2"
                      || s.SettingKey == "Store.Email" || s.SettingKey == "Store.Hours"
                      || s.SettingKey == "Store.City")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
@@ -67,7 +70,10 @@ public sealed class SiteBrandingController : ControllerBase
             Get("QuickOrder.AnnouncementText"),
             Get("QuickOrder.PriceValidUpto"),
             Get("Store.AddressLine"),
-            Get("Store.Phone"),
+            Get("Store.Mobile1"),
+            Get("Store.Mobile2"),
+            Get("Store.Landline1"),
+            Get("Store.Landline2"),
             Get("Store.Email"),
             Get("Store.Hours"),
             Get("Store.City"))));

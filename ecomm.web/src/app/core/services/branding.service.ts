@@ -18,7 +18,10 @@ export interface SiteBranding {
   priceValidUpto: string;
   /** One source for the contact page, the footer and the storefront's structured data. */
   contactAddress: string;
-  contactPhone: string;
+  contactMobile1: string;
+  contactMobile2: string;
+  contactLandline1: string;
+  contactLandline2: string;
   contactEmail: string;
   contactHours: string;
   contactCity: string;
@@ -28,7 +31,8 @@ const EMPTY: SiteBranding = {
   browserTitle: '', faviconUrl: '', siteName: '', siteNameAccent: '', siteNameSize: '',
   logoUrl: '', footerLogoUrl: '',
   announcementText: '', priceValidUpto: '',
-  contactAddress: '', contactPhone: '', contactEmail: '', contactHours: '', contactCity: '',
+  contactAddress: '', contactMobile1: '', contactMobile2: '', contactLandline1: '', contactLandline2: '',
+  contactEmail: '', contactHours: '', contactCity: '',
 };
 
 /**
@@ -89,7 +93,9 @@ export class BrandingService {
    * structured data — the site used to say Chennai on the contact page while its structured
    * data said Madurai, and an AI asked where the shop is could have believed either.
    */
-  readonly contact = signal({ address: '', phone: '', email: '', hours: '', city: '' });
+  readonly contact = signal({
+    address: '', mobile1: '', mobile2: '', landline1: '', landline2: '', email: '', hours: '', city: '',
+  });
 
   private branding$?: Observable<SiteBranding>;
 
@@ -124,7 +130,10 @@ export class BrandingService {
 
     this.contact.set({
       address: b.contactAddress?.trim() ?? '',
-      phone: b.contactPhone?.trim() ?? '',
+      mobile1: b.contactMobile1?.trim() ?? '',
+      mobile2: b.contactMobile2?.trim() ?? '',
+      landline1: b.contactLandline1?.trim() ?? '',
+      landline2: b.contactLandline2?.trim() ?? '',
       email: b.contactEmail?.trim() ?? '',
       hours: b.contactHours?.trim() ?? '',
       city: b.contactCity?.trim() ?? '',
