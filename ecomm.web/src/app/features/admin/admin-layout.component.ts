@@ -42,6 +42,7 @@ const ICONS: Record<string, string> = {
   login: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 M10 17l5-5-5-5 M15 12H3',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4',
   bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.9 1.9 0 0 0 3.4 0',
+  rocket: 'M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2a2.1 2.1 0 0 0-3-3z M12 15l-3-3a22 22 0 0 1 2-3.9A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.7-6 11a22 22 0 0 1-4 2z M9 12H4s.5-2.8 2-4c1.7-1.3 5 0 5 0 M12 15v5s2.8-.5 4-2c1.3-1.7 0-5 0-5',
   cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.8 1.2V21a2 2 0 0 1-4 0v-.1A1.7 1.7 0 0 0 7.2 19.7l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 14H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.3 7.2l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 3.1V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.8 1.2l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.8H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
 };
 
@@ -221,6 +222,7 @@ export class AdminLayoutComponent {
         { path: '/admin/auth-providers', label: 'Sign-in methods', perm: 'settings.manage', icon: 'login' },
         { path: '/admin/users', label: 'Users & roles', perm: 'user.manage', icon: 'shield' },
         { path: '/admin/notifications', label: 'Notifications', perm: 'settings.manage', icon: 'bell' },
+        { path: '/admin/data-reset', label: 'Go live', perm: 'settings.manage', icon: 'rocket' },
       ],
     },
   ];
