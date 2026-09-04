@@ -135,22 +135,24 @@ export class ProductDetailComponent implements OnInit {
   }
 
   /**
-   * Tracks whatever is typed, unclamped — so typing "1000" reads as 1000 while it is still
-   * being typed, rather than getting forced back to 999 after the 4th keystroke. The 1-999
-   * bound is real, but it is applied once editing finishes (onQtyBlur), not mid-keystroke.
+   * Tracks whatever is typed, as typed — no upper bound (this is a wholesale shop; the
+   * price list and product cards never capped quantity either). Only the empty-string case
+   * is special: left alone here rather than snapped to 1, so clearing the field to retype
+   * doesn't fight the person mid-edit.
    */
   onQtyInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    if (value === '') return; // let the field sit empty rather than snapping back to 1
+    if (value === '') return;
     const parsed = Number.parseInt(value, 10);
     if (!Number.isNaN(parsed)) this.qty.set(parsed);
   }
 
-  /** Clamps to 1-999 once the person is done editing — see onQtyInput. */
+  /** Floors to 1 once the person is done editing — an empty or 0 field means nothing was
+   *  actually entered, not literally "order zero". See onQtyInput. */
   onQtyBlur(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     const parsed = value === '' ? NaN : Number.parseInt(value, 10);
-    this.qty.set(Number.isNaN(parsed) ? 1 : Math.min(999, Math.max(1, parsed)));
+    this.qty.set(Number.isNaN(parsed) ? 1 : Math.max(1, parsed));
   }
 
   /** Blocks keys that would produce a non-integer — type="number" alone still accepts
@@ -160,10 +162,10 @@ export class ProductDetailComponent implements OnInit {
     if (['e', 'E', '+', '-', '.', ','].includes(event.key)) event.preventDefault();
   }
 
-  /** Guards against an in-flight, not-yet-blurred value (e.g. mid-type "1000") ever
-   *  reaching the estimate — Add can theoretically fire before blur commits the clamp. */
+  /** Guards against an in-flight, not-yet-blurred value ever reaching the estimate —
+   *  Add can theoretically fire before blur commits the floor of 1. */
   private clampedQty(): number {
-    return Math.min(999, Math.max(1, this.qty()));
+    return Math.max(1, this.qty());
   }
 
   selectOption(name: string, value: string): void { this.selected = { ...this.selected, [name]: value }; }

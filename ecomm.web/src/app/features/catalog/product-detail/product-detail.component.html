@@ -98,10 +98,11 @@
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <!-- Direct-entry quantity, same input the price list and product cards use — a
                typed number rather than +/- taps, so "buy 40" is one edit, not thirty-nine.
-               The 1-999 range is enforced on blur/Enter only, not on every keystroke — clamping
-               live meant typing "1000" snapped to "999" the instant the 4th digit landed,
-               fighting the person mid-type instead of after they were done. -->
-          <input type="number" inputmode="numeric" min="1" max="999" step="1"
+               No upper bound, matching the price list and product cards, which never capped
+               quantity either — this is a wholesale shop, and 1000+ is a legitimate order.
+               The floor of 1 applies on blur/Enter only, not every keystroke, so clearing the
+               field to retype doesn't fight the person mid-edit. -->
+          <input type="number" inputmode="numeric" min="1" step="1"
             [value]="qty()" aria-label="Quantity"
             (focus)="$any($event.target).select()"
             (input)="onQtyInput($event)"
