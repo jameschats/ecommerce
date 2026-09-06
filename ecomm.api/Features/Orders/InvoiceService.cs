@@ -53,10 +53,10 @@ public sealed class InvoiceService : IInvoiceService
         var cgst = interState ? 0m : Math.Round(order.TaxAmount / 2m, 2, MidpointRounding.AwayFromZero);
         var sgst = interState ? 0m : order.TaxAmount - cgst;
         var igst = interState ? order.TaxAmount : 0m;
-        // The seller's GSTIN belongs on a tax invoice, not on a Bill of Supply — a document
-        // that charges no GST has no business carrying a GST number, and printing one that
-        // is still the seeded placeholder would be worse than printing none.
-        var sellerGstin = order.TaxAmount > 0m ? await SettingAsync("StoreGstin", ct) : null;
+        // Shown regardless of whether GST was broken out as a separate line — prices here are
+        // GST-inclusive by store policy even on a Bill of Supply, so the registration number
+        // is still meaningful to print.
+        var sellerGstin = await SettingAsync("StoreGstin", ct);
 
         var invoice = new Invoice
         {
@@ -116,12 +116,32 @@ public sealed class InvoiceService : IInvoiceService
         var items = await _db.InvoiceItems.Where(i => i.InvoiceId == invoice.InvoiceId).OrderBy(i => i.InvoiceItemId).ToListAsync(ct);
         var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
         var sellerState = await SettingAsync("StoreState", ct) ?? "";
+        var sellerContact = await SellerContactLinesAsync(ct);
 
-        var bytes = BuildPdf(invoice, items, order, sellerName, sellerState);
+        var bytes = BuildPdf(invoice, items, order, sellerName, sellerState, sellerContact);
         return new InvoicePdf(bytes, $"{invoice.InvoiceNumber}.pdf");
     }
 
-    private static byte[] BuildPdf(Invoice inv, List<InvoiceItem> items, Order order, string sellerName, string sellerState)
+    /// <summary>Address + phone(s) + email, in the same one-source-of-truth settings the
+    /// contact page and footer already read (Store.* keys).</summary>
+    private async Task<List<string>> SellerContactLinesAsync(CancellationToken ct)
+    {
+        var address = await SettingAsync("Store.AddressLine", ct);
+        var mobile1 = await SettingAsync("Store.Mobile1", ct);
+        var mobile2 = await SettingAsync("Store.Mobile2", ct);
+        var landline1 = await SettingAsync("Store.Landline1", ct);
+        var email = await SettingAsync("Store.Email", ct);
+
+        var phones = new[] { mobile1, mobile2, landline1 }.Where(p => !string.IsNullOrWhiteSpace(p));
+        var lines = new List<string>();
+        if (!string.IsNullOrWhiteSpace(address)) lines.Add(address!);
+        if (phones.Any()) lines.Add("Ph: " + string.Join(", ", phones));
+        if (!string.IsNullOrWhiteSpace(email)) lines.Add(email!);
+        return lines;
+    }
+
+    private static byte[] BuildPdf(
+        Invoice inv, List<InvoiceItem> items, Order order, string sellerName, string sellerState, List<string> sellerContact)
     {
         // Inferred from the document's own stored amounts, not the current TaxMode setting, so
         // an invoice issued under an older setting still prints the way it was charged.
@@ -144,6 +164,7 @@ public sealed class InvoiceService : IInvoiceService
                             c.Item().Text(sellerName).FontSize(15).Bold().FontColor(Colors.Black);
                             if (!string.IsNullOrEmpty(inv.GstNumber)) c.Item().Text($"GSTIN: {inv.GstNumber}");
                             if (!string.IsNullOrEmpty(sellerState)) c.Item().Text($"State: {sellerState}");
+                            foreach (var line in sellerContact) c.Item().Text(line).FontSize(8).FontColor(Colors.Grey.Darken1);
                         });
                         row.ConstantItem(180).Column(c =>
                         {
@@ -287,6 +308,11 @@ public sealed class InvoiceService : IInvoiceService
                                 : $"Inclusive of all taxes (CGST {Money(inv.CgstAmount)} + SGST {Money(inv.SgstAmount)})";
                             c.Item().PaddingTop(3).Text(note).FontSize(8).FontColor(Colors.Grey.Darken1);
                         }
+                        // A Bill of Supply carries no separate tax line by definition, but prices
+                        // are still GST-inclusive by store policy — said plainly rather than left
+                        // for the customer to wonder whether GST was charged at all.
+                        if (billOfSupply)
+                            c.Item().PaddingTop(3).Text("All prices are inclusive of GST.").FontSize(8).FontColor(Colors.Grey.Darken1);
                     });
                 });
 

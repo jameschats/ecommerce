@@ -42,8 +42,17 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
 
         var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
         var sellerState = await SettingAsync("StoreState", ct);
+        var sellerGstin = await SettingAsync("StoreGstin", ct);
         var validUpto = await SettingAsync("QuickOrder.PriceValidUpto", ct);
         var announcement = await SettingAsync("QuickOrder.AnnouncementText", ct);
+
+        // Same one-source-of-truth Store.* settings the contact page, footer and invoice read.
+        var sellerAddress = await SettingAsync("Store.AddressLine", ct);
+        var mobile1 = await SettingAsync("Store.Mobile1", ct);
+        var mobile2 = await SettingAsync("Store.Mobile2", ct);
+        var landline1 = await SettingAsync("Store.Landline1", ct);
+        var sellerEmail = await SettingAsync("Store.Email", ct);
+        var phones = new[] { mobile1, mobile2, landline1 }.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
         var date = DateTime.UtcNow;
         var reference = $"Q-{date:yyyyMMdd}-{date:HHmmss}";
@@ -63,7 +72,11 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                         row.RelativeItem().Column(c =>
                         {
                             c.Item().Text(sellerName).FontSize(15).Bold().FontColor(Colors.Black);
+                            if (!string.IsNullOrWhiteSpace(sellerGstin)) c.Item().Text($"GSTIN: {sellerGstin}");
                             if (!string.IsNullOrWhiteSpace(sellerState)) c.Item().Text($"State: {sellerState}");
+                            if (!string.IsNullOrWhiteSpace(sellerAddress)) c.Item().Text(sellerAddress!).FontSize(8).FontColor(Colors.Grey.Darken1);
+                            if (phones.Count > 0) c.Item().Text("Ph: " + string.Join(", ", phones)).FontSize(8).FontColor(Colors.Grey.Darken1);
+                            if (!string.IsNullOrWhiteSpace(sellerEmail)) c.Item().Text(sellerEmail!).FontSize(8).FontColor(Colors.Grey.Darken1);
                         });
                         row.ConstantItem(180).Column(c =>
                         {
@@ -163,6 +176,7 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                         c.Item().Text(string.IsNullOrWhiteSpace(validUpto)
                             ? "This is a quotation, not an invoice. Prices are subject to change."
                             : $"This is a quotation, not an invoice. Prices valid up to {validUpto}.");
+                        c.Item().Text("All prices are inclusive of GST.");
                         if (quote.MinOrderAmount > 0)
                             // A figure in a sentence needs its currency; only the aligned column
                             // of line amounts can safely go without one.
