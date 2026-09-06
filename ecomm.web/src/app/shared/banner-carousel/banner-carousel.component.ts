@@ -20,12 +20,15 @@ import { HomeBanner } from '../../core/models/banner.model';
               <a [routerLink]="b.link ?? '/order'"
                  class="snap-start shrink-0 w-[88%] sm:w-[52%] lg:w-[40%] relative rounded-xl overflow-hidden h-[170px] sm:h-[230px] bg-slate-900">
                 <img [src]="b.imageUrl" [alt]="b.title ?? ''" class="absolute inset-0 w-full h-full object-cover" />
-                <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent"></div>
-                <div class="absolute inset-0 p-5 sm:p-6 flex flex-col justify-center max-w-[75%] text-white">
-                  @if (b.title) { <h3 class="text-lg sm:text-2xl font-bold leading-tight">{{ b.title }}</h3> }
-                  @if (b.subtitle) { <p class="text-xs sm:text-sm text-white/85 mt-1 line-clamp-2">{{ b.subtitle }}</p> }
-                  @if (b.cta) { <span class="mt-3 w-fit bg-primary px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-medium">{{ b.cta }}</span> }
-                </div>
+                @if (b.title || b.subtitle || b.cta) {
+                  <div class="absolute inset-0 p-5 sm:p-6 flex flex-col justify-center max-w-[75%] text-white">
+                    @if (b.title) { <h3 class="text-lg sm:text-2xl font-bold leading-tight drop-shadow-md">{{ b.title }}</h3> }
+                    @if (b.subtitle) { <p class="text-xs sm:text-sm text-white/90 mt-1 line-clamp-2 drop-shadow-md">{{ b.subtitle }}</p> }
+                    <!-- Optional per banner: leaving the CTA blank in admin hides this entirely
+                         (no empty-but-styled box), rather than always-off or always-on. -->
+                    @if (b.cta) { <span class="mt-3 w-fit bg-primary px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-medium">{{ b.cta }}</span> }
+                  </div>
+                }
               </a>
             }
           </div>
@@ -35,13 +38,6 @@ import { HomeBanner } from '../../core/models/banner.model';
               class="hidden sm:grid absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-700 w-10 h-10 rounded-full place-items-center shadow-md opacity-0 group-hover/banner:opacity-100 transition">‹</button>
             <button type="button" (click)="next()" aria-label="Next"
               class="hidden sm:grid absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-700 w-10 h-10 rounded-full place-items-center shadow-md opacity-0 group-hover/banner:opacity-100 transition">›</button>
-
-            <div class="flex justify-center gap-1.5 mt-3">
-              @for (b of banners(); track b.homeBannerId; let i = $index) {
-                <button type="button" (click)="goTo(i)" [attr.aria-label]="'Banner ' + (i + 1)"
-                  class="h-2 rounded-full transition-all" [class]="currentSlide() === i ? 'bg-primary w-5' : 'bg-slate-300 w-2'"></button>
-              }
-            </div>
           }
         </div>
       </section>

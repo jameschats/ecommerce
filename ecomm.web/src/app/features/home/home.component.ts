@@ -1,48 +1,59 @@
-import { isPlatformBrowser } from '@angular/common';
-import { Component, ElementRef, OnDestroy, OnInit, PLATFORM_ID, inject, signal, viewChild } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { SITE_URL } from '../../core/api.config';
+import { HomeBanner } from '../../core/models/banner.model';
+import { ContentPage } from '../../core/models/content-page.model';
 import { GalleryImage } from '../../core/models/gallery.model';
+import { Testimonial } from '../../core/models/testimonial.model';
 import { SeoService } from '../../core/services/seo.service';
+import { BannerCarouselComponent } from '../../shared/banner-carousel/banner-carousel.component';
+import { ContentSectionsComponent } from '../../shared/content-sections/content-sections.component';
 import { GalleryStripComponent } from '../../shared/gallery-strip/gallery-strip.component';
+import { TestimonialSectionComponent } from '../../shared/testimonial-section/testimonial-section.component';
 import { QuickOrderTableComponent } from '../order/quick-order-table.component';
 import { GalleryData } from './gallery.resolver';
 import { HomeData } from './home.resolver';
-
-interface HeroSlide { image: string; title: string; subtitle: string; cta: string; link: string; }
+import { TestimonialsData } from './testimonials.resolver';
 
 /**
- * Home = banner carousel + the quick-order price list (design.md §4).
+ * Home = banner carousel + "New designs" gallery + the About Us write-up + the quick-order
+ * price list + a second gallery + testimonials (design.md §4, revised).
  *
- * The category tiles, product rails and testimonials that used to sit between them are
- * gone: in Phase 1 the table *is* the storefront, and anything between the banners and
- * the first row of the price list just pushes the working screen below the fold.
+ * The category tiles and product rails that used to sit here are still gone — in Phase 1
+ * the table *is* the storefront — but the write-up and testimonials came back by request,
+ * reusing the same admin-editable content as the About Us page rather than a second copy.
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, QuickOrderTableComponent, GalleryStripComponent],
+  imports: [QuickOrderTableComponent, GalleryStripComponent, BannerCarouselComponent, ContentSectionsComponent, TestimonialSectionComponent],
   templateUrl: './home.component.html',
 })
-export class HomeComponent implements OnInit, OnDestroy {
+export class HomeComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
-  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  readonly galleryImages: GalleryImage[] = (this.route.snapshot.data['gallery'] as GalleryData | undefined)?.images ?? [];
+  readonly newDesigns: GalleryImage[] = (this.route.snapshot.data['gallery'] as GalleryData | undefined)?.images ?? [];
+  readonly secondGallery: GalleryImage[] = (this.route.snapshot.data['secondGallery'] as GalleryData | undefined)?.images ?? [];
+  readonly testimonials: Testimonial[] = (this.route.snapshot.data['testimonials'] as TestimonialsData | undefined)?.items ?? [];
+
+  /**
+   * Reuses the About Us page's own admin-editable content (Pages CMS) rather than a second
+   * copy someone would have to remember to update twice. The closing "Ready to design your
+   * calendar?" CTA is left out — the price list right below already serves that purpose here.
+   */
+  readonly aboutSections = ((this.route.snapshot.data['homeAbout'] as ContentPage | null)?.sections ?? [])
+    .filter((s) => s.sectionType !== 'Cta');
 
   // Fallback banners — shown only if the admin has configured none.
-  private readonly defaultSlides: HeroSlide[] = [
-    { image: 'https://picsum.photos/seed/calbanner1/900/300', title: 'Customizable 2026 Calendars', subtitle: 'Wall, desk & pocket — with your photos, brand & logo.', cta: 'Order now', link: '/order' },
-    { image: 'https://picsum.photos/seed/calbanner2/900/300', title: 'Corporate Gifting', subtitle: 'Branded calendars in bulk.', cta: 'Order in bulk', link: '/order' },
-    { image: 'https://picsum.photos/seed/calbanner3/900/300', title: 'Desk Calendars', subtitle: 'Elegant picks for any workspace.', cta: 'Browse', link: '/order' },
-    { image: 'https://picsum.photos/seed/calbanner4/900/300', title: 'Photo Calendars', subtitle: 'Turn your memories into a year.', cta: 'Create yours', link: '/order' },
-    { image: 'https://picsum.photos/seed/calbanner5/900/300', title: 'New-Year Offers', subtitle: 'Up to 30% off select ranges.', cta: 'Grab deals', link: '/order' },
-    { image: 'https://picsum.photos/seed/calbanner6/900/300', title: 'Pocket & Tent Calendars', subtitle: 'Handy formats for every desk.', cta: 'Explore', link: '/order' },
+  private readonly defaultBanners: HomeBanner[] = [
+    { homeBannerId: -1, imageUrl: 'https://picsum.photos/seed/calbanner1/900/300', title: 'Customizable 2026 Calendars', subtitle: 'Wall, desk & pocket — with your photos, brand & logo.', cta: 'Order now', link: '/order' },
+    { homeBannerId: -2, imageUrl: 'https://picsum.photos/seed/calbanner2/900/300', title: 'Corporate Gifting', subtitle: 'Branded calendars in bulk.', cta: 'Order in bulk', link: '/order' },
+    { homeBannerId: -3, imageUrl: 'https://picsum.photos/seed/calbanner3/900/300', title: 'Desk Calendars', subtitle: 'Elegant picks for any workspace.', cta: 'Browse', link: '/order' },
+    { homeBannerId: -4, imageUrl: 'https://picsum.photos/seed/calbanner4/900/300', title: 'Photo Calendars', subtitle: 'Turn your memories into a year.', cta: 'Create yours', link: '/order' },
+    { homeBannerId: -5, imageUrl: 'https://picsum.photos/seed/calbanner5/900/300', title: 'New-Year Offers', subtitle: 'Up to 30% off select ranges.', cta: 'Grab deals', link: '/order' },
+    { homeBannerId: -6, imageUrl: 'https://picsum.photos/seed/calbanner6/900/300', title: 'Pocket & Tent Calendars', subtitle: 'Handy formats for every desk.', cta: 'Explore', link: '/order' },
   ];
-  readonly slides = signal<HeroSlide[]>(this.defaultSlides);
-  readonly currentSlide = signal(0);
-  private readonly bannerTrack = viewChild<ElementRef<HTMLDivElement>>('bannerTrack');
-  private timer: ReturnType<typeof setInterval> | null = null;
+  readonly banners = signal<HomeBanner[]>(this.defaultBanners);
 
   ngOnInit(): void {
     this.seo.setMeta({
@@ -80,28 +91,6 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     // Preloaded by homeResolver → present on first render (no reflow).
     const data = this.route.snapshot.data['home'] as HomeData | undefined;
-    if (data?.banners?.length) {
-      this.slides.set(data.banners.map((b) => ({
-        image: b.imageUrl ?? '', title: b.title ?? '', subtitle: b.subtitle ?? '',
-        cta: b.cta ?? '', link: b.link ?? '/order',
-      })));
-    }
-
-    if (this.isBrowser) this.timer = setInterval(() => this.next(), 5000);
-  }
-
-  ngOnDestroy(): void {
-    if (this.timer) clearInterval(this.timer);
-  }
-
-  next(): void { this.currentSlide.update((i) => (i + 1) % this.slides().length); this.scrollToCurrent(); }
-  prev(): void { this.currentSlide.update((i) => (i - 1 + this.slides().length) % this.slides().length); this.scrollToCurrent(); }
-  goTo(i: number): void { this.currentSlide.set(i); this.scrollToCurrent(); }
-
-  /** Scroll the banner track so the current banner aligns to the left (browser only). */
-  private scrollToCurrent(): void {
-    const track = this.bannerTrack()?.nativeElement;
-    const card = track?.children[this.currentSlide()] as HTMLElement | undefined;
-    if (track && card) track.scrollTo({ left: card.offsetLeft, behavior: 'smooth' });
+    if (data?.banners?.length) this.banners.set(data.banners);
   }
 }

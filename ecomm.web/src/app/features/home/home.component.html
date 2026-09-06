@@ -1,39 +1,18 @@
-<!-- Flipkart-style banner carousel: a horizontal row of wide banners that auto-scroll -->
-<section class="page-container pt-6 pb-2">
-  <div class="relative group/banner">
-    <div #bannerTrack class="flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth">
-      @for (slide of slides(); track $index) {
-        <a [routerLink]="slide.link"
-           class="snap-start shrink-0 w-[88%] sm:w-[52%] lg:w-[40%] relative rounded-xl overflow-hidden h-[170px] sm:h-[230px] bg-slate-900">
-          <img [src]="slide.image" [alt]="slide.title" class="absolute inset-0 w-full h-full object-cover" />
-          <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent"></div>
-          <div class="absolute inset-0 p-5 sm:p-6 flex flex-col justify-center max-w-[75%] text-white">
-            <h3 class="text-lg sm:text-2xl font-bold leading-tight">{{ slide.title }}</h3>
-            <p class="text-xs sm:text-sm text-white/85 mt-1 line-clamp-2">{{ slide.subtitle }}</p>
-            <span class="mt-3 w-fit bg-primary px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-medium">{{ slide.cta }}</span>
-          </div>
-        </a>
-      }
-    </div>
+<app-banner-carousel [banners]="banners()" />
 
-    <button type="button" (click)="prev()" aria-label="Previous"
-      class="hidden sm:grid absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-700 w-10 h-10 rounded-full place-items-center shadow-md opacity-0 group-hover/banner:opacity-100 transition">‹</button>
-    <button type="button" (click)="next()" aria-label="Next"
-      class="hidden sm:grid absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-700 w-10 h-10 rounded-full place-items-center shadow-md opacity-0 group-hover/banner:opacity-100 transition">›</button>
+<app-gallery-strip [images]="newDesigns" title="New designs" />
 
-    <div class="flex justify-center gap-1.5 mt-3">
-      @for (slide of slides(); track $index) {
-        <button type="button" (click)="goTo($index)" [attr.aria-label]="'Banner ' + ($index + 1)"
-          class="h-2 rounded-full transition-all" [class]="currentSlide() === $index ? 'bg-primary w-5' : 'bg-slate-300 w-2'"></button>
-      }
-    </div>
-  </div>
-</section>
+@if (aboutSections.length) {
+  <section class="page-container py-4">
+    <app-content-sections [sections]="aboutSections" />
+  </section>
+}
 
 <!--
-  The quick-order price list, directly below the banners (design.md §4).
-  Identical component to /order — home just adds the carousel above it.
+  The quick-order price list — unchanged, still the working screen (design.md §4).
 -->
 <app-quick-order-table />
 
-<app-gallery-strip [images]="galleryImages" />
+<app-gallery-strip [images]="secondGallery" title="Our Work" />
+
+<app-testimonial-section [items]="testimonials" />
