@@ -27,6 +27,11 @@ public sealed record ShopSettingsDto(
     // old landline still printed on stock, and one "Phone" field couldn't hold that.
     string ContactAddress, string ContactMobile1, string ContactMobile2,
     string ContactLandline1, string ContactLandline2, string ContactEmail, string ContactHours, string ContactCity,
+    // Footer social icons — each shown only when its Enabled flag is true and Url is set
+    string SocialFacebookUrl, bool SocialFacebookEnabled,
+    string SocialInstagramUrl, bool SocialInstagramEnabled,
+    string SocialXUrl, bool SocialXEnabled,
+    string SocialLinkedinUrl, bool SocialLinkedinEnabled,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
 
@@ -46,6 +51,10 @@ public sealed record SaveShopSettingsRequest(
     string? LogoUrl, string? FooterLogoUrl, string? FooterDescription,
     string? ContactAddress, string? ContactMobile1, string? ContactMobile2,
     string? ContactLandline1, string? ContactLandline2, string? ContactEmail, string? ContactHours, string? ContactCity,
+    string? SocialFacebookUrl, bool SocialFacebookEnabled,
+    string? SocialInstagramUrl, bool SocialInstagramEnabled,
+    string? SocialXUrl, bool SocialXEnabled,
+    string? SocialLinkedinUrl, bool SocialLinkedinEnabled,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
 
 public sealed record SendTestEmailRequest(string To);
@@ -114,6 +123,10 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Store.Email"),
             Str(s, "Store.Hours"),
             Str(s, "Store.City"),
+            Str(s, "Social.FacebookUrl"), Bool(s, "Social.FacebookEnabled"),
+            Str(s, "Social.InstagramUrl"), Bool(s, "Social.InstagramEnabled"),
+            Str(s, "Social.XUrl"), Bool(s, "Social.XEnabled"),
+            Str(s, "Social.LinkedinUrl"), Bool(s, "Social.LinkedinEnabled"),
             states)));
     }
 
@@ -168,6 +181,15 @@ public sealed class ShopSettingsController : ControllerBase
         await SetAsync("Store.Hours", req.ContactHours?.Trim() ?? "", ct);
         await SetAsync("Store.City", req.ContactCity?.Trim() ?? "", ct);
 
+        await SetAsync("Social.FacebookUrl", req.SocialFacebookUrl?.Trim() ?? "", ct);
+        await SetAsync("Social.FacebookEnabled", req.SocialFacebookEnabled ? "true" : "false", ct);
+        await SetAsync("Social.InstagramUrl", req.SocialInstagramUrl?.Trim() ?? "", ct);
+        await SetAsync("Social.InstagramEnabled", req.SocialInstagramEnabled ? "true" : "false", ct);
+        await SetAsync("Social.XUrl", req.SocialXUrl?.Trim() ?? "", ct);
+        await SetAsync("Social.XEnabled", req.SocialXEnabled ? "true" : "false", ct);
+        await SetAsync("Social.LinkedinUrl", req.SocialLinkedinUrl?.Trim() ?? "", ct);
+        await SetAsync("Social.LinkedinEnabled", req.SocialLinkedinEnabled ? "true" : "false", ct);
+
         // Per-state overrides are replaced wholesale — the admin screen always sends the
         // complete list, so a row removed there must disappear here.
         if (req.StateMinOrders is not null)
@@ -216,6 +238,7 @@ public sealed class ShopSettingsController : ControllerBase
                      || x.SettingKey.StartsWith("Email.")
                      || x.SettingKey.StartsWith("Site.")
                      || x.SettingKey.StartsWith("Store.")
+                     || x.SettingKey.StartsWith("Social.")
                      || x.SettingKey == "Channels.EmailMode")
             .ToDictionaryAsync(x => x.SettingKey, x => x.SettingValue, ct);
 
@@ -234,4 +257,7 @@ public sealed class ShopSettingsController : ControllerBase
 
     private static string Str(Dictionary<string, string?> s, string key)
         => s.TryGetValue(key, out var raw) ? raw ?? "" : "";
+
+    private static bool Bool(Dictionary<string, string?> s, string key)
+        => Str(s, key) == "true";
 }

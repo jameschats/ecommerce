@@ -49,6 +49,14 @@ interface ShopSettings {
   contactEmail: string;
   contactHours: string;
   contactCity: string;
+  socialFacebookUrl: string;
+  socialFacebookEnabled: boolean;
+  socialInstagramUrl: string;
+  socialInstagramEnabled: boolean;
+  socialXUrl: string;
+  socialXEnabled: boolean;
+  socialLinkedinUrl: string;
+  socialLinkedinEnabled: boolean;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -258,10 +266,12 @@ interface ShopSettings {
 
             <label class="block">
               <span class="form-label">Footer description</span>
-              <textarea class="form-input" rows="2" [(ngModel)]="m.footerDescription"
+              <textarea class="form-input" rows="6" [(ngModel)]="m.footerDescription"
                         placeholder="Custom 2026 calendars — wall, desk, pocket & more. Personalized with your photos, brand name and logo."></textarea>
               <span class="text-xs text-slate-500 mt-1 block">
-                Shown under the logo in the footer. Leave blank to use the built-in default line.
+                Shown under the logo in the footer. Leave a blank line between paragraphs to
+                split them, and any web address typed in (e.g. dailycalendarstore.in) becomes
+                a clickable link automatically. Leave blank to use the built-in default line.
               </span>
             </label>
 
@@ -315,6 +325,45 @@ interface ShopSettings {
                 </label>
               </div>
               <p class="text-xs text-slate-400 mt-2">The WhatsApp button on the contact page uses Mobile 1 (falling back to Mobile 2).</p>
+            </div>
+
+            <div class="sm:col-span-2 border-t border-slate-200 pt-4 mt-2">
+              <h3 class="font-semibold text-slate-800 mb-1">Social links</h3>
+              <p class="text-xs text-slate-500 mb-3">
+                Icons shown in the footer. Each is switched on independently, so a profile
+                you haven't set up yet just stays hidden instead of linking nowhere.
+              </p>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block">
+                  <span class="form-label">Facebook</span>
+                  <div class="flex items-center gap-2">
+                    <input class="form-input flex-1" [(ngModel)]="m.socialFacebookUrl" placeholder="https://facebook.com/yourshop" />
+                    <input type="checkbox" [(ngModel)]="m.socialFacebookEnabled" title="Show in footer" />
+                  </div>
+                </label>
+                <label class="block">
+                  <span class="form-label">Instagram</span>
+                  <div class="flex items-center gap-2">
+                    <input class="form-input flex-1" [(ngModel)]="m.socialInstagramUrl" placeholder="https://instagram.com/yourshop" />
+                    <input type="checkbox" [(ngModel)]="m.socialInstagramEnabled" title="Show in footer" />
+                  </div>
+                </label>
+                <label class="block">
+                  <span class="form-label">X (Twitter)</span>
+                  <div class="flex items-center gap-2">
+                    <input class="form-input flex-1" [(ngModel)]="m.socialXUrl" placeholder="https://x.com/yourshop" />
+                    <input type="checkbox" [(ngModel)]="m.socialXEnabled" title="Show in footer" />
+                  </div>
+                </label>
+                <label class="block">
+                  <span class="form-label">LinkedIn</span>
+                  <div class="flex items-center gap-2">
+                    <input class="form-input flex-1" [(ngModel)]="m.socialLinkedinUrl" placeholder="https://linkedin.com/company/yourshop" />
+                    <input type="checkbox" [(ngModel)]="m.socialLinkedinEnabled" title="Show in footer" />
+                  </div>
+                </label>
+              </div>
+              <p class="text-xs text-slate-400 mt-2">Tick the box to show that icon in the footer. Leave unticked to hide it.</p>
             </div>
 
             <label class="block">

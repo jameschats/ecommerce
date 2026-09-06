@@ -48,9 +48,14 @@ export class App implements OnInit {
   readonly siteNameAccent = this.branding.siteNameAccent;
   readonly logoUrl = this.branding.logoUrl;
   readonly footerLogoUrl = this.branding.footerLogoUrl;
-  readonly footerDescription = this.branding.footerDescription;
+  readonly footerParagraphs = this.branding.footerParagraphs;
   readonly siteNameSize = this.branding.siteNameSize;
   readonly contact = this.branding.contact;
+
+  /** Footer icon URL for one platform, or '' to hide it — admin-configured, show/hide included. */
+  socialUrl(label: string): string {
+    return this.branding.socialLinks().find((l) => l.label === label)?.url ?? '';
+  }
 
   telHref(v: string): string {
     return `tel:${v.replace(/[^\d+]/g, '')}`;

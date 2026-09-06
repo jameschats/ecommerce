@@ -24,7 +24,12 @@ public sealed record SiteBrandingDto(
     /// said Chennai on the contact page and Madurai in its structured data (055).
     /// </summary>
     string ContactAddress, string ContactMobile1, string ContactMobile2,
-    string ContactLandline1, string ContactLandline2, string ContactEmail, string ContactHours, string ContactCity);
+    string ContactLandline1, string ContactLandline2, string ContactEmail, string ContactHours, string ContactCity,
+    /// <summary>Footer social icons. Each is shown only when its Enabled flag is true and Url is set.</summary>
+    string SocialFacebookUrl, bool SocialFacebookEnabled,
+    string SocialInstagramUrl, bool SocialInstagramEnabled,
+    string SocialXUrl, bool SocialXEnabled,
+    string SocialLinkedinUrl, bool SocialLinkedinEnabled);
 
 /// <summary>
 /// Public branding — the browser tab title and favicon, plus the storefront name and
@@ -57,10 +62,15 @@ public sealed class SiteBrandingController : ControllerBase
                      || s.SettingKey == "Store.Mobile1" || s.SettingKey == "Store.Mobile2"
                      || s.SettingKey == "Store.Landline1" || s.SettingKey == "Store.Landline2"
                      || s.SettingKey == "Store.Email" || s.SettingKey == "Store.Hours"
-                     || s.SettingKey == "Store.City")
+                     || s.SettingKey == "Store.City"
+                     || s.SettingKey == "Social.FacebookUrl" || s.SettingKey == "Social.FacebookEnabled"
+                     || s.SettingKey == "Social.InstagramUrl" || s.SettingKey == "Social.InstagramEnabled"
+                     || s.SettingKey == "Social.XUrl" || s.SettingKey == "Social.XEnabled"
+                     || s.SettingKey == "Social.LinkedinUrl" || s.SettingKey == "Social.LinkedinEnabled")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
 
         string Get(string key) => rows.TryGetValue(key, out var v) ? v : "";
+        bool GetBool(string key) => Get(key) == "true";
 
         return Ok(ApiResponse<SiteBrandingDto>.Ok(new SiteBrandingDto(
             Get("Site.BrowserTitle"),
@@ -80,6 +90,10 @@ public sealed class SiteBrandingController : ControllerBase
             Get("Store.Landline2"),
             Get("Store.Email"),
             Get("Store.Hours"),
-            Get("Store.City"))));
+            Get("Store.City"),
+            Get("Social.FacebookUrl"), GetBool("Social.FacebookEnabled"),
+            Get("Social.InstagramUrl"), GetBool("Social.InstagramEnabled"),
+            Get("Social.XUrl"), GetBool("Social.XEnabled"),
+            Get("Social.LinkedinUrl"), GetBool("Social.LinkedinEnabled"))));
     }
 }

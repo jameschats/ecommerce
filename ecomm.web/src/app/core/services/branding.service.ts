@@ -26,6 +26,15 @@ export interface SiteBranding {
   contactEmail: string;
   contactHours: string;
   contactCity: string;
+  /** Footer social icons. Each is shown only when its Enabled flag is true and Url is set. */
+  socialFacebookUrl: string;
+  socialFacebookEnabled: boolean;
+  socialInstagramUrl: string;
+  socialInstagramEnabled: boolean;
+  socialXUrl: string;
+  socialXEnabled: boolean;
+  socialLinkedinUrl: string;
+  socialLinkedinEnabled: boolean;
 }
 
 const EMPTY: SiteBranding = {
@@ -34,7 +43,51 @@ const EMPTY: SiteBranding = {
   announcementText: '', priceValidUpto: '',
   contactAddress: '', contactMobile1: '', contactMobile2: '', contactLandline1: '', contactLandline2: '',
   contactEmail: '', contactHours: '', contactCity: '',
+  socialFacebookUrl: '', socialFacebookEnabled: false,
+  socialInstagramUrl: '', socialInstagramEnabled: false,
+  socialXUrl: '', socialXEnabled: false,
+  socialLinkedinUrl: '', socialLinkedinEnabled: false,
 };
+
+export interface SocialLink {
+  label: string;
+  url: string;
+}
+
+/** One run of plain text, or a run recognized as a URL/domain (href set). */
+export interface TextSegment {
+  text: string;
+  href: string | null;
+}
+
+const FOOTER_DESCRIPTION_FALLBACK =
+  'Custom 2026 calendars — wall, desk, pocket & more. Personalized with your photos, brand name and logo.';
+
+/** Matches an http(s) URL, a www. address, or a bare domain like "dailycalendarstore.in". */
+const URL_PATTERN =
+  /((?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/g;
+
+/**
+ * Splits admin-entered text into paragraphs (blank line = new paragraph) and, within each,
+ * turns anything URL-shaped into a clickable segment — admin types plain text in the settings
+ * textarea, not markup, so a bare "dailycalendarstore.in" should still render as a link.
+ */
+function linkifyParagraphs(text: string): TextSegment[][] {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0)
+    .map((paragraph) =>
+      paragraph
+        .split(URL_PATTERN)
+        .map((part, i): TextSegment => ({
+          text: part,
+          // split() with a capturing group interleaves the captured matches at odd indices.
+          href: i % 2 === 1 ? (part.startsWith('http') ? part : `https://${part}`) : null,
+        }))
+        .filter((seg) => seg.text.length > 0),
+    );
+}
 
 /**
  * Site identity, configured from admin: browser tab title and favicon, plus the storefront
@@ -79,6 +132,13 @@ export class BrandingService {
   readonly footerDescription = signal('');
 
   /**
+   * The same text as {@link footerDescription}, pre-split into paragraphs with any URL-shaped
+   * text turned into a link — the footer template renders this rather than the raw string so
+   * a two-paragraph "About us" with a bare domain in it reads and links correctly.
+   */
+  readonly footerParagraphs = signal<TextSegment[][]>([]);
+
+  /**
    * Wordmark font size as a CSS length, or null to keep the built-in text-xl. How big the
    * name wants to be depends on the name itself and on whether a logo sits beside it, so
    * it is a setting rather than a fixed class.
@@ -100,6 +160,13 @@ export class BrandingService {
   readonly contact = signal({
     address: '', mobile1: '', mobile2: '', landline1: '', landline2: '', email: '', hours: '', city: '',
   });
+
+  /**
+   * Footer social icons, filtered to the ones admin has both enabled and given a URL —
+   * the template just renders this list rather than repeating the enabled-and-has-url
+   * check per platform.
+   */
+  readonly socialLinks = signal<SocialLink[]>([]);
 
   private branding$?: Observable<SiteBranding>;
 
@@ -128,6 +195,7 @@ export class BrandingService {
     // keeps rendering exactly as it did.
     this.footerLogoUrl.set(b.footerLogoUrl?.trim() || (b.logoUrl?.trim() ?? ''));
     this.footerDescription.set(b.footerDescription?.trim() ?? '');
+    this.footerParagraphs.set(linkifyParagraphs(b.footerDescription?.trim() || FOOTER_DESCRIPTION_FALLBACK));
 
     const parts = [b.announcementText?.trim(), b.priceValidUpto?.trim() ? `Prices valid up to ${b.priceValidUpto.trim()}` : '']
       .filter((p) => p);
@@ -143,6 +211,16 @@ export class BrandingService {
       hours: b.contactHours?.trim() ?? '',
       city: b.contactCity?.trim() ?? '',
     });
+
+    const links = [
+      { label: 'Facebook', url: b.socialFacebookUrl?.trim() ?? '', enabled: b.socialFacebookEnabled },
+      { label: 'Instagram', url: b.socialInstagramUrl?.trim() ?? '', enabled: b.socialInstagramEnabled },
+      { label: 'X', url: b.socialXUrl?.trim() ?? '', enabled: b.socialXEnabled },
+      { label: 'LinkedIn', url: b.socialLinkedinUrl?.trim() ?? '', enabled: b.socialLinkedinEnabled },
+    ]
+      .filter((l) => l.enabled && l.url)
+      .map(({ label, url }): SocialLink => ({ label, url }));
+    this.socialLinks.set(links);
 
     if (b.browserTitle?.trim()) {
       this.browserTitle.set(b.browserTitle.trim());
