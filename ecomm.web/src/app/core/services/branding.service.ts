@@ -14,6 +14,7 @@ export interface SiteBranding {
   siteNameSize: string;
   logoUrl: string;
   footerLogoUrl: string;
+  footerDescription: string;
   announcementText: string;
   priceValidUpto: string;
   /** One source for the contact page, the footer and the storefront's structured data. */
@@ -29,7 +30,7 @@ export interface SiteBranding {
 
 const EMPTY: SiteBranding = {
   browserTitle: '', faviconUrl: '', siteName: '', siteNameAccent: '', siteNameSize: '',
-  logoUrl: '', footerLogoUrl: '',
+  logoUrl: '', footerLogoUrl: '', footerDescription: '',
   announcementText: '', priceValidUpto: '',
   contactAddress: '', contactMobile1: '', contactMobile2: '', contactLandline1: '', contactLandline2: '',
   contactEmail: '', contactHours: '', contactCity: '',
@@ -73,6 +74,9 @@ export class BrandingService {
    * makes it a box in the footer, and dark artwork vanishes there instead.
    */
   readonly footerLogoUrl = signal('');
+
+  /** Replaces the hardcoded "Custom 2026 calendars..." blurb under the footer logo. */
+  readonly footerDescription = signal('');
 
   /**
    * Wordmark font size as a CSS length, or null to keep the built-in text-xl. How big the
@@ -123,6 +127,7 @@ export class BrandingService {
     // Blank means "reuse the header logo", so every shop configured before this existed
     // keeps rendering exactly as it did.
     this.footerLogoUrl.set(b.footerLogoUrl?.trim() || (b.logoUrl?.trim() ?? ''));
+    this.footerDescription.set(b.footerDescription?.trim() ?? '');
 
     const parts = [b.announcementText?.trim(), b.priceValidUpto?.trim() ? `Prices valid up to ${b.priceValidUpto.trim()}` : '']
       .filter((p) => p);

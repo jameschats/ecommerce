@@ -14,6 +14,8 @@ public sealed record SiteBrandingDto(
     string SiteNameSize,
     /// <summary>Logo for the dark footer. Empty means reuse LogoUrl.</summary>
     string FooterLogoUrl,
+    /// <summary>Replaces the hardcoded "Custom 2026 calendars..." blurb under the footer logo.</summary>
+    string FooterDescription,
     /// <summary>Header announcement — seasonal booking notices, price validity and the like.</summary>
     string AnnouncementText, string PriceValidUpto,
     /// <summary>
@@ -47,6 +49,7 @@ public sealed class SiteBrandingController : ControllerBase
             .Where(s => s.SettingKey == "Site.BrowserTitle" || s.SettingKey == "Site.FaviconUrl"
                      || s.SettingKey == "Site.Name" || s.SettingKey == "Site.LogoUrl"
                      || s.SettingKey == "Site.NameAccent" || s.SettingKey == "Site.FooterLogoUrl"
+                     || s.SettingKey == "Site.FooterDescription"
                      || s.SettingKey == "Site.NameSize"
                      || s.SettingKey == "QuickOrder.AnnouncementText"
                      || s.SettingKey == "QuickOrder.PriceValidUpto"
@@ -67,6 +70,7 @@ public sealed class SiteBrandingController : ControllerBase
             Get("Site.NameAccent"),
             Get("Site.NameSize"),
             Get("Site.FooterLogoUrl"),
+            Get("Site.FooterDescription"),
             Get("QuickOrder.AnnouncementText"),
             Get("QuickOrder.PriceValidUpto"),
             Get("Store.AddressLine"),

@@ -170,7 +170,22 @@
             <span>Calendar<span class="text-primary">Shop</span></span>
           }
         </a>
-        <p class="text-sm text-slate-400 mt-3 max-w-xs">Custom 2026 calendars — wall, desk, pocket &amp; more. Personalized with your photos, brand name and logo.</p>
+        <p class="text-sm text-slate-400 mt-3 max-w-xs">
+          {{ footerDescription() || 'Custom 2026 calendars — wall, desk, pocket & more. Personalized with your photos, brand name and logo.' }}
+        </p>
+
+        <!-- Same settings BrandingService already exposes for the contact page — one source,
+             so a number changed in admin updates here too instead of needing a second edit. -->
+        @if (contact().mobile1 || contact().mobile2 || contact().landline1 || contact().landline2 || contact().email) {
+          <ul class="text-sm text-slate-400 mt-3 space-y-1">
+            @if (contact().mobile1) { <li><a [href]="telHref(contact().mobile1)" class="hover:text-white">{{ contact().mobile1 }}</a></li> }
+            @if (contact().mobile2) { <li><a [href]="telHref(contact().mobile2)" class="hover:text-white">{{ contact().mobile2 }}</a></li> }
+            @if (contact().landline1) { <li><a [href]="telHref(contact().landline1)" class="hover:text-white">{{ contact().landline1 }}</a></li> }
+            @if (contact().landline2) { <li><a [href]="telHref(contact().landline2)" class="hover:text-white">{{ contact().landline2 }}</a></li> }
+            @if (contact().email) { <li><a [href]="'mailto:' + contact().email" class="hover:text-white">{{ contact().email }}</a></li> }
+          </ul>
+        }
+
         <div class="flex gap-3 mt-4">
           <a href="#" aria-label="Facebook" class="text-slate-400 hover:text-white"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg></a>
           <a href="#" aria-label="Instagram" class="text-slate-400 hover:text-white"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
@@ -180,9 +195,6 @@
       </div>
 
       <div>
-        <!-- The pages, not the catalogue. This listed every category, which is now more than
-             forty and made the footer taller than most of the pages above it. The price list
-             has its own category dropdown, which is a better place to choose one. -->
         <h3 class="text-white font-semibold text-sm mb-3">Shop</h3>
         <ul class="space-y-2 text-sm">
           <li><a routerLink="/" class="text-slate-400 hover:text-white">Home</a></li>
@@ -190,6 +202,11 @@
           <li><a routerLink="/order" class="text-slate-400 hover:text-white">Order now — all calendars</a></li>
           <li><a routerLink="/products" class="text-slate-400 hover:text-white">Products</a></li>
           <li><a routerLink="/finished-calendar" class="text-slate-400 hover:text-white">Finished calendars</a></li>
+          <!-- Brought back now that the catalogue is down to a handful of categories — this
+               previously listed 40+ and made the footer taller than the pages above it. -->
+          @for (c of categories(); track c.categoryId) {
+            <li><a [routerLink]="categoryLink(c)" [queryParams]="categoryQuery(c)" class="text-slate-400 hover:text-white">{{ c.name }}</a></li>
+          }
           <li><a routerLink="/buying-guide" class="text-slate-400 hover:text-white">Buying guide</a></li>
           <li><a routerLink="/enquiry" class="text-slate-400 hover:text-white">Bulk enquiry</a></li>
         </ul>
@@ -199,9 +216,7 @@
         <h3 class="text-white font-semibold text-sm mb-3">Company</h3>
         <ul class="space-y-2 text-sm text-slate-400">
           <li><a routerLink="/about" class="hover:text-white">About us</a></li>
-          <li><a routerLink="/enquiry" class="hover:text-white">Enquiry for bulk</a></li>
           <li><a routerLink="/contact" class="hover:text-white">Contact us</a></li>
-          <li><a href="#" class="hover:text-white">Careers</a></li>
         </ul>
       </div>
 

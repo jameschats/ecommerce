@@ -40,6 +40,7 @@ interface ShopSettings {
   siteNameSize: string;
   logoUrl: string;
   footerLogoUrl: string;
+  footerDescription: string;
   contactAddress: string;
   contactMobile1: string;
   contactMobile2: string;
@@ -254,6 +255,15 @@ interface ShopSettings {
                 best. Leave blank to reuse the header logo.
               </span>
             </div>
+
+            <label class="block">
+              <span class="form-label">Footer description</span>
+              <textarea class="form-input" rows="2" [(ngModel)]="m.footerDescription"
+                        placeholder="Custom 2026 calendars — wall, desk, pocket & more. Personalized with your photos, brand name and logo."></textarea>
+              <span class="text-xs text-slate-500 mt-1 block">
+                Shown under the logo in the footer. Leave blank to use the built-in default line.
+              </span>
+            </label>
 
             <!--
               One place for how to reach the shop. The contact page, the footer and the

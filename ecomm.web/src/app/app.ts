@@ -48,7 +48,13 @@ export class App implements OnInit {
   readonly siteNameAccent = this.branding.siteNameAccent;
   readonly logoUrl = this.branding.logoUrl;
   readonly footerLogoUrl = this.branding.footerLogoUrl;
+  readonly footerDescription = this.branding.footerDescription;
   readonly siteNameSize = this.branding.siteNameSize;
+  readonly contact = this.branding.contact;
+
+  telHref(v: string): string {
+    return `tel:${v.replace(/[^\d+]/g, '')}`;
+  }
 
   /** The two halves as one plain string, for alt text and the copyright line. */
   readonly fullSiteName = computed(() => `${this.siteName()}${this.siteNameAccent()}` || 'CalendarShop');

@@ -20,7 +20,7 @@ public sealed record ShopSettingsDto(
     bool SmtpPasswordSet, string FromAddress, string FromName, string AdminNotifyTo,
     // Site identity — browser tab plus the storefront name and header logo
     string BrowserTitle, string FaviconUrl, string SiteName, string SiteNameAccent, string SiteNameSize,
-    string LogoUrl, string FooterLogoUrl,
+    string LogoUrl, string FooterLogoUrl, string FooterDescription,
     // How to reach the shop — one source for the contact page, the footer and the
     // storefront's structured data (055). Two mobiles and two landlines: a lot of small
     // Indian shops genuinely run two active mobile numbers (owner + shop floor) plus an
@@ -43,7 +43,7 @@ public sealed record SaveShopSettingsRequest(
     string? SmtpPassword,
     string? FromAddress, string? FromName, string? AdminNotifyTo,
     string? BrowserTitle, string? FaviconUrl, string? SiteName, string? SiteNameAccent, string? SiteNameSize,
-    string? LogoUrl, string? FooterLogoUrl,
+    string? LogoUrl, string? FooterLogoUrl, string? FooterDescription,
     string? ContactAddress, string? ContactMobile1, string? ContactMobile2,
     string? ContactLandline1, string? ContactLandline2, string? ContactEmail, string? ContactHours, string? ContactCity,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
@@ -105,6 +105,7 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Site.NameSize"),
             Str(s, "Site.LogoUrl"),
             Str(s, "Site.FooterLogoUrl"),
+            Str(s, "Site.FooterDescription"),
             Str(s, "Store.AddressLine"),
             Str(s, "Store.Mobile1"),
             Str(s, "Store.Mobile2"),
@@ -157,6 +158,7 @@ public sealed class ShopSettingsController : ControllerBase
         await SetAsync("Site.NameSize", req.SiteNameSize?.Trim() ?? "", ct);
         await SetAsync("Site.LogoUrl", req.LogoUrl?.Trim() ?? "", ct);
         await SetAsync("Site.FooterLogoUrl", req.FooterLogoUrl?.Trim() ?? "", ct);
+        await SetAsync("Site.FooterDescription", req.FooterDescription?.Trim() ?? "", ct);
         await SetAsync("Store.AddressLine", req.ContactAddress?.Trim() ?? "", ct);
         await SetAsync("Store.Mobile1", req.ContactMobile1?.Trim() ?? "", ct);
         await SetAsync("Store.Mobile2", req.ContactMobile2?.Trim() ?? "", ct);
