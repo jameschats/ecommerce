@@ -39,6 +39,12 @@ export interface QuickOrderQuote {
   minOrderAmount: number;
   packingChargePct: number;
   packingCharges: number;
+  /** Amount knocked off by a coupon code, distinct from discountTotal (the price list's own MRP markdown). */
+  couponDiscount: number;
+  couponCode: string | null;
+  /** Why the coupon didn't apply, when couponApplied is false. Null otherwise. */
+  couponMessage: string | null;
+  couponApplied: boolean;
   roundOff: number;
   overallAmount: number;
   meetsMinimum: boolean;
@@ -72,12 +78,14 @@ export interface PlaceQuickOrderRequest {
   shipAddress?: string | null;
   shipCity?: string | null;
   shipState?: string | null;
+  couponCode?: string | null;
 }
 
 const EMPTY_QUOTE: QuickOrderQuote = {
   lines: [], itemCount: 0, totalUnits: 0, netTotal: 0, discountTotal: 0, subTotal: 0,
-  minOrderAmount: 0, packingChargePct: 0, packingCharges: 0, roundOff: 0, overallAmount: 0,
-  meetsMinimum: false, warnings: [],
+  minOrderAmount: 0, packingChargePct: 0, packingCharges: 0,
+  couponDiscount: 0, couponCode: null, couponMessage: null, couponApplied: false,
+  roundOff: 0, overallAmount: 0, meetsMinimum: false, warnings: [],
 };
 
 /**
@@ -108,10 +116,14 @@ export class QuickOrderCheckoutService {
     return this.config$;
   }
 
-  quote(lines: { productId: number; quantity: number }[], state: string | null): Observable<QuickOrderQuote> {
+  quote(
+    lines: { productId: number; quantity: number }[],
+    state: string | null,
+    couponCode?: string | null,
+  ): Observable<QuickOrderQuote> {
     if (!lines.length) return of(EMPTY_QUOTE);
     return this.http
-      .post<ApiResponse<QuickOrderQuote>>(`${this.base}/quote`, { lines, state })
+      .post<ApiResponse<QuickOrderQuote>>(`${this.base}/quote`, { lines, state, couponCode: couponCode || null })
       .pipe(
         map((r) => r.data ?? EMPTY_QUOTE),
         catchError(() => of(EMPTY_QUOTE)),

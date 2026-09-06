@@ -38,7 +38,7 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
     public async Task<QuotePdf> RenderAsync(
         QuickOrderQuoteRequest req, string? customerName, CancellationToken ct = default)
     {
-        var quote = await _quickOrder.QuoteAsync(req, ct);
+        var quote = await _quickOrder.QuoteAsync(req, ct: ct);
 
         var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
         var sellerState = await SettingAsync("StoreState", ct);

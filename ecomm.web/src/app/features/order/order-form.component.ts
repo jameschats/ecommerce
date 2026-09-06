@@ -193,6 +193,35 @@ import { OtpGateComponent } from './otp-gate.component';
                   <dd class="text-slate-900">{{ quote().subTotal | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}</dd>
                 </div>
 
+                <!-- Coupon -->
+                <div class="pt-1 pb-1">
+                  @if (appliedCoupon() && quote().couponApplied) {
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-emerald-700 font-medium">{{ quote().couponCode }} applied</span>
+                      <button type="button" (click)="removeCoupon()" class="text-slate-500 hover:text-red-600 text-xs">Remove</button>
+                    </div>
+                  } @else {
+                    <div class="flex gap-2">
+                      <input [ngModel]="couponInput()" (ngModelChange)="couponInput.set($event)" name="coupon"
+                             (keyup.enter)="applyCoupon()" placeholder="Coupon code" class="form-input flex-1 uppercase text-sm" />
+                      <button type="button" (click)="applyCoupon()" [disabled]="!couponInput().trim() || quoting()"
+                              class="px-3 py-2 rounded-lg border border-slate-300 text-sm hover:bg-slate-50 disabled:opacity-50">
+                        Apply
+                      </button>
+                    </div>
+                  }
+                  @if (appliedCoupon() && !quote().couponApplied && quote().couponMessage) {
+                    <p class="text-xs text-red-600 mt-1">{{ quote().couponMessage }}</p>
+                  }
+                </div>
+
+                @if (quote().couponApplied) {
+                  <div class="flex justify-between">
+                    <dt class="text-slate-500">Coupon Discount</dt>
+                    <dd class="text-emerald-600">− {{ quote().couponDiscount | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}</dd>
+                  </div>
+                }
+
                 @if (quote().minOrderAmount > 0) {
                   <div class="flex justify-between">
                     <dt [class]="quote().meetsMinimum ? 'text-slate-500' : 'text-red-600 font-medium'">
@@ -292,10 +321,25 @@ export class OrderFormComponent {
 
   readonly quote = signal<QuickOrderQuote>({
     lines: [], itemCount: 0, totalUnits: 0, netTotal: 0, discountTotal: 0, subTotal: 0,
-    minOrderAmount: 0, packingChargePct: 0, packingCharges: 0, roundOff: 0, overallAmount: 0,
-    meetsMinimum: false, warnings: [],
+    minOrderAmount: 0, packingChargePct: 0, packingCharges: 0,
+    couponDiscount: 0, couponCode: null, couponMessage: null, couponApplied: false,
+    roundOff: 0, overallAmount: 0, meetsMinimum: false, warnings: [],
   });
   readonly quoting = signal(false);
+
+  readonly couponInput = signal('');
+  readonly appliedCoupon = signal<string | null>(null);
+
+  applyCoupon(): void {
+    const code = this.couponInput().trim().toUpperCase();
+    if (!code) return;
+    this.appliedCoupon.set(code);
+  }
+
+  removeCoupon(): void {
+    this.appliedCoupon.set(null);
+    this.couponInput.set('');
+  }
 
   private readonly config = toSignal(this.checkout.getConfig(), { initialValue: null });
   readonly states = computed(() => this.config()?.states ?? []);
@@ -361,6 +405,7 @@ export class OrderFormComponent {
         quantity: l.qty,
       }));
       const state = this.state() || null;
+      const coupon = this.appliedCoupon();
 
       if (!lines.length) {
         this.quote.update((q) => ({ ...q, lines: [], itemCount: 0, subTotal: 0, overallAmount: 0 }));
@@ -368,7 +413,7 @@ export class OrderFormComponent {
       }
 
       this.quoting.set(true);
-      this.checkout.quote(lines, state).subscribe((q) => {
+      this.checkout.quote(lines, state, coupon).subscribe((q) => {
         this.quote.set(q);
         this.quoting.set(false);
       });
@@ -418,6 +463,9 @@ export class OrderFormComponent {
         shipAddress: this.shipAddress().trim() || null,
         shipCity: this.shipCity().trim() || null,
         shipState: this.shipState() || null,
+        // Only send the coupon if the server just confirmed it applies, so a code the
+        // buyer typed but never applied (or that stopped applying) can't block checkout.
+        couponCode: this.quote().couponApplied ? this.appliedCoupon() : null,
       })
       .subscribe({
         next: (result) => {

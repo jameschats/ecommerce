@@ -6,7 +6,8 @@ public sealed record QuickOrderLineRequest(long ProductId, int Quantity);
 
 public sealed record QuickOrderQuoteRequest(
     IReadOnlyList<QuickOrderLineRequest> Lines,
-    string? State);
+    string? State,
+    string? CouponCode = null);
 
 /// <summary>A priced line, with the server's numbers rather than the browser's.</summary>
 public sealed record QuickOrderQuoteLineDto(
@@ -29,6 +30,13 @@ public sealed record QuickOrderQuoteDto(
     decimal MinOrderAmount,
     decimal PackingChargePct,
     decimal PackingCharges,
+    /// <summary>Amount knocked off by a coupon code, if one was sent and applied. Distinct
+    /// from DiscountTotal, which is the MRP-vs-selling-price markdown baked into the price list.</summary>
+    decimal CouponDiscount,
+    string? CouponCode,
+    /// <summary>Why the coupon didn't apply, when CouponApplied is false. Null otherwise.</summary>
+    string? CouponMessage,
+    bool CouponApplied,
     decimal RoundOff,
     decimal OverallAmount,
     bool MeetsMinimum,
@@ -58,7 +66,8 @@ public sealed record PlaceQuickOrderRequest(
     string? ShipMobile = null,
     string? ShipAddress = null,
     string? ShipCity = null,
-    string? ShipState = null);
+    string? ShipState = null,
+    string? CouponCode = null);
 
 public sealed record PlaceQuickOrderResult(
     long OrderId, string OrderNumber, decimal OverallAmount, string Status);

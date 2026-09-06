@@ -8,7 +8,9 @@ namespace ecomm.api.Features.Checkout;
 public interface IQuickOrderService
 {
     Task<QuickOrderConfigDto> GetConfigAsync(CancellationToken ct = default);
-    Task<QuickOrderQuoteDto> QuoteAsync(QuickOrderQuoteRequest req, CancellationToken ct = default);
+    /// <summary>userId is 0 for the anonymous pricing call — a per-user coupon limit simply
+    /// can't be checked yet. It is re-checked for real, against the signed-in buyer, at Place.</summary>
+    Task<QuickOrderQuoteDto> QuoteAsync(QuickOrderQuoteRequest req, long userId = 0, CancellationToken ct = default);
     Task<PlaceQuickOrderResult> PlaceAsync(long userId, PlaceQuickOrderRequest req, CancellationToken ct = default);
 }
 
@@ -36,15 +38,18 @@ public sealed class QuickOrderService : IQuickOrderService
     private readonly EcommerceDbContext _db;
     private readonly Notifications.IOrderMailer _mailer;
     private readonly Inventory.IInventoryService _inventory;
+    private readonly Coupons.ICouponService _coupons;
 
     public QuickOrderService(
         EcommerceDbContext db,
         Notifications.IOrderMailer mailer,
-        Inventory.IInventoryService inventory)
+        Inventory.IInventoryService inventory,
+        Coupons.ICouponService coupons)
     {
         _db = db;
         _mailer = mailer;
         _inventory = inventory;
+        _coupons = coupons;
     }
 
     public async Task<QuickOrderConfigDto> GetConfigAsync(CancellationToken ct = default)
@@ -66,7 +71,7 @@ public sealed class QuickOrderService : IQuickOrderService
             Text(settings, "QuickOrder.PriceValidUpto"));
     }
 
-    public async Task<QuickOrderQuoteDto> QuoteAsync(QuickOrderQuoteRequest req, CancellationToken ct = default)
+    public async Task<QuickOrderQuoteDto> QuoteAsync(QuickOrderQuoteRequest req, long userId = 0, CancellationToken ct = default)
     {
         var warnings = new List<string>();
 
@@ -129,28 +134,39 @@ public sealed class QuickOrderService : IQuickOrderService
         var packingPct = Decimal(settings, "QuickOrder.PackingChargePct");
         var packingCharges = Round(subTotal * packingPct / 100m);
 
-        var beforeRounding = subTotal + packingCharges;
+        // Evaluated against the pre-coupon subtotal, matching the cart checkout's rule.
+        // userId is 0 for the anonymous pricing call, so a per-user usage limit reads as
+        // "not yet used" here — it is enforced for real, against the actual buyer, at Place.
+        var coupon = await _coupons.EvaluateAsync(req.CouponCode, userId, subTotal, ct);
+        var couponDiscount = coupon.Ok ? coupon.Discount : 0m;
+
+        var beforeRounding = subTotal - couponDiscount + packingCharges;
         var roundOffEnabled = Text(settings, "QuickOrder.RoundOffEnabled") != "false";
         var overall = roundOffEnabled ? Math.Round(beforeRounding, 0, MidpointRounding.AwayFromZero) : beforeRounding;
+        if (overall < 0m) overall = 0m;
         var roundOff = Round(overall - beforeRounding);
 
         if (lines.Count > 0 && subTotal < minOrder)
             warnings.Add($"Minimum order for {req.State ?? "this state"} is ₹{minOrder:N0}.");
 
         return new QuickOrderQuoteDto(
-            lines,
-            lines.Count,
-            lines.Sum(l => l.Quantity),
-            netTotal,
-            discountTotal,
-            subTotal,
-            minOrder,
-            packingPct,
-            packingCharges,
-            roundOff,
-            overall,
-            lines.Count > 0 && subTotal >= minOrder,
-            warnings);
+            Lines: lines,
+            ItemCount: lines.Count,
+            TotalUnits: lines.Sum(l => l.Quantity),
+            NetTotal: netTotal,
+            DiscountTotal: discountTotal,
+            SubTotal: subTotal,
+            MinOrderAmount: minOrder,
+            PackingChargePct: packingPct,
+            PackingCharges: packingCharges,
+            CouponDiscount: couponDiscount,
+            CouponCode: coupon.Ok ? coupon.Code : (string.IsNullOrWhiteSpace(req.CouponCode) ? null : req.CouponCode.Trim().ToUpperInvariant()),
+            CouponMessage: coupon.Ok ? null : coupon.Error,
+            CouponApplied: coupon.Ok,
+            RoundOff: roundOff,
+            OverallAmount: overall,
+            MeetsMinimum: lines.Count > 0 && subTotal >= minOrder,
+            Warnings: warnings);
     }
 
     /// <summary>
@@ -171,11 +187,16 @@ public sealed class QuickOrderService : IQuickOrderService
         var mobile = new string((req.Mobile ?? string.Empty).Where(char.IsDigit).ToArray());
         if (mobile.Length != 10) throw new AppException("Enter a valid 10-digit mobile number.");
 
-        var quote = await QuoteAsync(new QuickOrderQuoteRequest(req.Lines, req.State), ct);
+        var quote = await QuoteAsync(new QuickOrderQuoteRequest(req.Lines, req.State, req.CouponCode), userId, ct);
 
         if (quote.Lines.Count == 0) throw new AppException("Your order is empty.");
         if (!quote.MeetsMinimum)
             throw new AppException($"Minimum order for {req.State} is ₹{quote.MinOrderAmount:N0}.");
+        // Re-validated against the real, signed-in buyer (the pricing call above only knew
+        // userId 0), so never trust the client-side flag — a coupon that stopped applying
+        // between quote and place (limit reached, expired) must not silently be dropped.
+        if (!string.IsNullOrWhiteSpace(req.CouponCode) && !quote.CouponApplied)
+            throw new AppException(quote.CouponMessage ?? "That coupon can't be applied.");
 
         var now = DateTime.UtcNow;
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
@@ -292,6 +313,15 @@ public sealed class QuickOrderService : IQuickOrderService
         {
             cart.Status = "Converted";
             cart.UpdatedAt = now;
+        }
+
+        if (quote.CouponApplied)
+        {
+            // Re-evaluated rather than threaded through the quote DTO, so a coupon's internal
+            // id never has to leave the server. Safe to call twice — EvaluateAsync only reads.
+            var coupon = await _coupons.EvaluateAsync(req.CouponCode, userId, quote.SubTotal, ct);
+            if (coupon.Ok && coupon.CouponId is { } couponId)
+                await _coupons.RecordUsageAsync(couponId, userId, order.OrderId, quote.CouponDiscount, ct);
         }
 
         await _db.SaveChangesAsync(ct);

@@ -29,7 +29,13 @@ public sealed class QuickOrderController : ControllerBase
     /// </summary>
     [HttpPost("quote")]
     public async Task<IActionResult> Quote([FromBody] QuickOrderQuoteRequest req, CancellationToken ct)
-        => Ok(ApiResponse<QuickOrderQuoteDto>.Ok(await _quickOrder.QuoteAsync(req, ct)));
+    {
+        // Not [Authorize] — pricing is anonymous — but if the buyer already happens to be
+        // signed in, using their real id here lets a per-user coupon limit be reported
+        // accurately before they submit, rather than only at Place.
+        var userId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
+        return Ok(ApiResponse<QuickOrderQuoteDto>.Ok(await _quickOrder.QuoteAsync(req, userId, ct)));
+    }
 
     /// <summary>
     /// The same basket as a printable quotation.
