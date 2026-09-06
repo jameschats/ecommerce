@@ -90,7 +90,7 @@ export class AdminTestimonialsComponent implements OnInit {
   add(): void {
     this.busy.set(true);
     this.svc.create({
-      name: 'New customer', roleOrCompany: null, quote: '', rating: 5,
+      name: 'New customer', roleOrCompany: null, quote: 'Great experience — highly recommend!', rating: 5,
       photoUrl: null, displayOrder: this.items().length + 1, isActive: true,
     }).subscribe({
       next: () => { this.busy.set(false); this.flash('Testimonial added.'); this.reload(); },
