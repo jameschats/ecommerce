@@ -18,12 +18,21 @@ interface Cta { heading: string; text: string; buttonLabel: string; buttonLink: 
   selector: 'app-content-sections',
   imports: [RouterLink],
   template: `
+    @if (heading()) {
+      <div class="max-w-3xl mx-auto text-center mt-6">
+        <h2 class="text-2xl sm:text-3xl font-bold text-slate-900">{{ heading() }}</h2>
+        <div class="w-14 h-1 rounded-full bg-primary mx-auto mt-3"></div>
+      </div>
+    }
     @for (s of sections(); track s.sectionId) {
       @switch (s.sectionType) {
 
         @case ('Prose') {
-          <div class="max-w-3xl">
-            @if (s.title) { <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-8 mb-2">{{ s.title }}</h2> }
+          <div class="max-w-3xl mx-auto mt-8 bg-white border border-slate-200 rounded-2xl shadow-sm px-6 py-8 sm:px-10 sm:py-10">
+            @if (s.title) {
+              <h2 class="text-xl sm:text-2xl font-bold text-slate-900 text-center mb-1">{{ s.title }}</h2>
+              <div class="w-12 h-1 rounded-full bg-primary/60 mx-auto mb-4"></div>
+            }
             <div class="prose-content text-slate-600" [innerHTML]="s.content"></div>
           </div>
         }
@@ -83,6 +92,8 @@ interface Cta { heading: string; text: string; buttonLabel: string; buttonLink: 
 })
 export class ContentSectionsComponent {
   readonly sections = input.required<ContentSection[]>();
+  /** Optional block heading shown above all sections — used where the page has no title of its own (e.g. the home page reusing About Us content). */
+  readonly heading = input<string | null>(null);
 
   /** Parsed once per content string rather than on every change-detection pass. */
   private readonly parsed = computed(() => {
