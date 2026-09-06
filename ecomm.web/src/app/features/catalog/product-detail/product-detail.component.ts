@@ -63,6 +63,18 @@ export class ProductDetailComponent implements OnInit {
 
   readonly mainImage = computed(() => this.product()?.images[this.currentImage()]?.url ?? null);
 
+  /**
+   * Used only when an image has no admin-set alt text of its own — "just the SKU number" is
+   * the failure mode Gemini's alt-text template was reacting to, and this fixes it for every
+   * product image without anyone having to fill in 700+ SKUs' worth of alt text by hand.
+   */
+  readonly imageAltFallback = computed(() => {
+    const p = this.product();
+    if (!p) return '';
+    const brand = p.brandName?.trim() || 'Lotus';
+    return `${brand} ${p.name} — ${p.categoryName} | Senthaamarai Press`;
+  });
+
   readonly optionGroups = computed(() => {
     const p = this.product();
     if (!p) return [] as { name: string; values: string[] }[];
@@ -273,9 +285,15 @@ export class ProductDetailComponent implements OnInit {
     // Admin-authored meta wins over the derived fallback. Search engines and AI summarisers
     // quote these heavily, and a line written for a shopper browsing is rarely the line you
     // want appearing in someone else's answer.
+    //
+    // The fallback is a template rather than just the bare name — with 700+ SKUs, writing a
+    // Meta title/description by hand for each is not realistic, so every product gets a
+    // brand-forward line for free and admin only needs to override the ones worth the effort.
+    const brand = p.brandName?.trim() || 'Lotus';
     this.seo.setMeta({
-      title: p.metaTitle?.trim() || `${p.name} — CalendarShop`,
-      description: p.metaDescription?.trim() || p.shortDescription || p.name,
+      title: p.metaTitle?.trim() || `${p.name} | ${brand} | Senthaamarai Press`,
+      description: p.metaDescription?.trim()
+        || `Buy factory-direct ${p.name} (${p.categoryName}) by ${brand}, Senthaamarai Press, Sivakasi. ${p.shortDescription ?? 'High-opacity print, standard fit for daily calendar assembly.'} Pan-India delivery.`,
       keywords: p.metaKeywords?.trim() || undefined,
       image, url, type: 'product',
     });

@@ -1,11 +1,33 @@
 <section class="page-container py-8">
+  <!-- Breadcrumb -->
+  <nav class="text-xs text-slate-400 mb-3">
+    <a routerLink="/" class="hover:text-primary">Home</a> /
+    @if (activeCategory(); as cat) {
+      <a routerLink="/products" class="hover:text-primary">All calendars</a> /
+      <span class="text-slate-600">{{ cat.name }}</span>
+    } @else {
+      <span class="text-slate-600">All calendars</span>
+    }
+  </nav>
+
   <!-- Header -->
-  <div class="mb-6">
+  <div class="mb-4">
     <h1 class="text-2xl font-bold text-slate-900">{{ activeCategory()?.name ?? 'All calendars' }}</h1>
     @if (!loading()) {
       <p class="text-sm text-slate-500 mt-1">{{ totalCount() }} product(s)</p>
     }
   </div>
+
+  <!-- Bulk/wholesale intent — the dominant search behind this catalogue (dealers and shops
+       buying by design number), so it earns a real heading on every listing rather than only
+       living in meta text nobody visiting the page actually reads. h2, not h1: the category
+       name above is still the page's main heading. -->
+  <h2 class="text-sm font-semibold text-slate-700 mb-1">
+    Wholesale Calendar Materials &amp; Bulk Printing Orders
+  </h2>
+  <p class="text-sm text-slate-500 mb-6 max-w-2xl">
+    Direct from Senthaamarai Press, Sivakasi &amp; Rajapalayam.
+  </p>
 
   <!-- Filter bar. Stacked on mobile — search full-width, then brand + sort as two equal
        columns underneath — rather than the desktop's single row, where the sort dropdown

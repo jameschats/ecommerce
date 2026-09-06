@@ -29,7 +29,9 @@ public sealed record SiteBrandingDto(
     string SocialFacebookUrl, bool SocialFacebookEnabled,
     string SocialInstagramUrl, bool SocialInstagramEnabled,
     string SocialXUrl, bool SocialXEnabled,
-    string SocialLinkedinUrl, bool SocialLinkedinEnabled);
+    string SocialLinkedinUrl, bool SocialLinkedinEnabled,
+    /// <summary>Homepage meta description. Falls back to a built-in line when blank.</summary>
+    string HomeMetaDescription);
 
 /// <summary>
 /// Public branding — the browser tab title and favicon, plus the storefront name and
@@ -66,7 +68,8 @@ public sealed class SiteBrandingController : ControllerBase
                      || s.SettingKey == "Social.FacebookUrl" || s.SettingKey == "Social.FacebookEnabled"
                      || s.SettingKey == "Social.InstagramUrl" || s.SettingKey == "Social.InstagramEnabled"
                      || s.SettingKey == "Social.XUrl" || s.SettingKey == "Social.XEnabled"
-                     || s.SettingKey == "Social.LinkedinUrl" || s.SettingKey == "Social.LinkedinEnabled")
+                     || s.SettingKey == "Social.LinkedinUrl" || s.SettingKey == "Social.LinkedinEnabled"
+                     || s.SettingKey == "Site.HomeMetaDescription")
             .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue ?? "", ct);
 
         string Get(string key) => rows.TryGetValue(key, out var v) ? v : "";
@@ -94,6 +97,7 @@ public sealed class SiteBrandingController : ControllerBase
             Get("Social.FacebookUrl"), GetBool("Social.FacebookEnabled"),
             Get("Social.InstagramUrl"), GetBool("Social.InstagramEnabled"),
             Get("Social.XUrl"), GetBool("Social.XEnabled"),
-            Get("Social.LinkedinUrl"), GetBool("Social.LinkedinEnabled"))));
+            Get("Social.LinkedinUrl"), GetBool("Social.LinkedinEnabled"),
+            Get("Site.HomeMetaDescription"))));
     }
 }

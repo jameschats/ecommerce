@@ -5,6 +5,7 @@ import { HomeBanner } from '../../core/models/banner.model';
 import { ContentPage } from '../../core/models/content-page.model';
 import { GalleryImage } from '../../core/models/gallery.model';
 import { Testimonial } from '../../core/models/testimonial.model';
+import { BrandingService } from '../../core/services/branding.service';
 import { SeoService } from '../../core/services/seo.service';
 import { BannerCarouselComponent } from '../../shared/banner-carousel/banner-carousel.component';
 import { ContentSectionsComponent } from '../../shared/content-sections/content-sections.component';
@@ -31,6 +32,7 @@ import { TestimonialsData } from './testimonials.resolver';
 export class HomeComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
+  private readonly branding = inject(BrandingService);
 
   private readonly galleryData = this.route.snapshot.data['gallery'] as GalleryData | undefined;
   private readonly secondGalleryData = this.route.snapshot.data['secondGallery'] as GalleryData | undefined;
@@ -62,38 +64,61 @@ export class HomeComponent implements OnInit {
   readonly banners = signal<HomeBanner[]>(this.defaultBanners);
 
   ngOnInit(): void {
-    this.seo.setMeta({
-      title: 'CalendarShop — Custom 2026 Calendars: Wall, Desk, Pocket & More',
-      description: 'Personalized 2026 calendars — wall, desk, tent, pocket, magnet & mouse-pad. Add your photos, brand name and logo. Fast delivery, great prices.',
-      url: `${SITE_URL}/`,
-    });
-    this.seo.setJsonLd([
-      {
-        '@context': 'https://schema.org', '@type': 'WebSite', name: 'CalendarShop', url: SITE_URL,
-        potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
-      },
-      // LocalBusiness rather than a bare Organization: an AI asked "who sells wholesale
-      // calendars in Madurai" can only answer from data that says where the shop is and
-      // what it sells. Name and URL alone answer nothing.
-      {
-        '@context': 'https://schema.org',
-        '@type': 'Store',
-        name: 'DailyCalendarShop',
-        url: SITE_URL,
-        description:
-          'Wholesale calendar printing — wall, desk, tent and pocket calendars, panchangam '
-          + 'and cake calendars, sold to dealers and shops by design number at trade rates.',
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: 'Madurai',
-          addressRegion: 'Tamil Nadu',
-          addressCountry: 'IN',
+    // Admin-authored title/description win over these fallbacks — same rule the product
+    // page follows (product-detail.component.ts). Read from the same load() the app shell
+    // already triggers (shareReplay'd, so this is normally an instant replay, not a second
+    // request), rather than the branding signals directly: apply() runs inside that
+    // pipeline before any subscriber sees the value, so there is no race to get this early.
+    this.branding.load().subscribe((b) => {
+      const siteName = (b.siteName?.trim() || '') + (b.siteNameAccent?.trim() || '') || 'CalendarShop';
+
+      this.seo.setMeta({
+        title: b.browserTitle?.trim()
+          || 'CalendarShop — Custom 2026 Calendars: Wall, Desk, Pocket & More',
+        description: b.homeMetaDescription?.trim()
+          || 'Personalized 2026 calendars — wall, desk, tent, pocket, magnet & mouse-pad. Add your photos, brand name and logo. Fast delivery, great prices.',
+        // Ignored by Google, still read by some AI crawlers — cheap to emit.
+        keywords: 'sivakasi daily calendar manufacturer, lotus calendar senthaamarai press, '
+          + 'daily calendar store online, buy daily calendar sivakasi, daily calendar mount board wholesale',
+        url: `${SITE_URL}/`,
+      });
+
+      // City/address read from the same Settings the contact page and footer use — this used
+      // to hardcode "Madurai" while the real shop (Settings → Contact) said Sivakasi, so an AI
+      // asked where the shop is could have believed either. See branding.service.ts's `contact`
+      // doc comment for the earlier Chennai/Madurai version of the same bug.
+      const city = b.contactCity?.trim().split('|')[0]?.trim() || 'Sivakasi';
+      const streetAddress = b.contactAddress?.trim().split('\n')[0]?.trim();
+
+      this.seo.setJsonLd([
+        {
+          '@context': 'https://schema.org', '@type': 'WebSite', name: siteName, url: SITE_URL,
+          potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
         },
-        areaServed: 'IN',
-        currenciesAccepted: 'INR',
-        paymentAccepted: 'UPI, Bank transfer',
-      },
-    ]);
+        // LocalBusiness rather than a bare Organization: an AI asked "who sells wholesale
+        // calendars in Sivakasi" can only answer from data that says where the shop is and
+        // what it sells. Name and URL alone answer nothing.
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Store',
+          name: siteName,
+          url: SITE_URL,
+          description:
+            'Wholesale calendar printing — wall, desk, tent and pocket calendars, panchangam '
+            + 'and cake calendars, sold to dealers and shops by design number at trade rates.',
+          address: {
+            '@type': 'PostalAddress',
+            ...(streetAddress ? { streetAddress } : {}),
+            addressLocality: city,
+            addressRegion: 'Tamil Nadu',
+            addressCountry: 'IN',
+          },
+          areaServed: 'IN',
+          currenciesAccepted: 'INR',
+          paymentAccepted: 'UPI, Bank transfer',
+        },
+      ]);
+    });
 
     // Preloaded by homeResolver → present on first render (no reflow).
     const data = this.route.snapshot.data['home'] as HomeData | undefined;

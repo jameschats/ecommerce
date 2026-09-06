@@ -57,6 +57,7 @@ interface ShopSettings {
   socialXEnabled: boolean;
   socialLinkedinUrl: string;
   socialLinkedinEnabled: boolean;
+  homeMetaDescription: string;
   stateMinOrders: StateMinOrderRow[];
 }
 
@@ -369,6 +370,16 @@ interface ShopSettings {
             <label class="block">
               <span class="form-label">Tab title</span>
               <input class="form-input" [(ngModel)]="m.browserTitle" placeholder="e.g. DailyCalendarShop" />
+              <span class="text-xs text-slate-500 mt-1 block">
+                Also used as the homepage's search-result title. Keep it specific — this is
+                the line search engines and AI assistants quote.
+              </span>
+            </label>
+
+            <label class="block sm:col-span-2">
+              <span class="form-label">Homepage meta description</span>
+              <textarea class="form-input" rows="2" [(ngModel)]="m.homeMetaDescription" maxlength="500"
+                        placeholder="One or two sentences describing the shop. Shown under the title in search results."></textarea>
             </label>
 
             <div>

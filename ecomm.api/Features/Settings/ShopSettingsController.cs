@@ -32,6 +32,8 @@ public sealed record ShopSettingsDto(
     string SocialInstagramUrl, bool SocialInstagramEnabled,
     string SocialXUrl, bool SocialXEnabled,
     string SocialLinkedinUrl, bool SocialLinkedinEnabled,
+    // Homepage meta description — falls back to a built-in line when blank
+    string HomeMetaDescription,
     // Per-state minimum order overrides
     IReadOnlyList<StateMinOrderRow> StateMinOrders);
 
@@ -55,6 +57,7 @@ public sealed record SaveShopSettingsRequest(
     string? SocialInstagramUrl, bool SocialInstagramEnabled,
     string? SocialXUrl, bool SocialXEnabled,
     string? SocialLinkedinUrl, bool SocialLinkedinEnabled,
+    string? HomeMetaDescription,
     IReadOnlyList<StateMinOrderRow>? StateMinOrders);
 
 public sealed record SendTestEmailRequest(string To);
@@ -127,6 +130,7 @@ public sealed class ShopSettingsController : ControllerBase
             Str(s, "Social.InstagramUrl"), Bool(s, "Social.InstagramEnabled"),
             Str(s, "Social.XUrl"), Bool(s, "Social.XEnabled"),
             Str(s, "Social.LinkedinUrl"), Bool(s, "Social.LinkedinEnabled"),
+            Str(s, "Site.HomeMetaDescription"),
             states)));
     }
 
@@ -189,6 +193,7 @@ public sealed class ShopSettingsController : ControllerBase
         await SetAsync("Social.XEnabled", req.SocialXEnabled ? "true" : "false", ct);
         await SetAsync("Social.LinkedinUrl", req.SocialLinkedinUrl?.Trim() ?? "", ct);
         await SetAsync("Social.LinkedinEnabled", req.SocialLinkedinEnabled ? "true" : "false", ct);
+        await SetAsync("Site.HomeMetaDescription", req.HomeMetaDescription?.Trim() ?? "", ct);
 
         // Per-state overrides are replaced wholesale — the admin screen always sends the
         // complete list, so a row removed there must disappear here.

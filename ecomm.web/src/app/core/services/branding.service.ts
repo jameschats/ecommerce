@@ -35,6 +35,8 @@ export interface SiteBranding {
   socialXEnabled: boolean;
   socialLinkedinUrl: string;
   socialLinkedinEnabled: boolean;
+  /** Homepage meta description. Falls back to a built-in line when blank. */
+  homeMetaDescription: string;
 }
 
 const EMPTY: SiteBranding = {
@@ -47,6 +49,7 @@ const EMPTY: SiteBranding = {
   socialInstagramUrl: '', socialInstagramEnabled: false,
   socialXUrl: '', socialXEnabled: false,
   socialLinkedinUrl: '', socialLinkedinEnabled: false,
+  homeMetaDescription: '',
 };
 
 export interface SocialLink {

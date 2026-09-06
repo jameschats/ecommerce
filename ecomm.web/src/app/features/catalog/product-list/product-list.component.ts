@@ -175,9 +175,23 @@ export class ProductListComponent implements OnInit, OnDestroy {
 
   private applySeo(): void {
     const cat = this.activeCategory();
-    const title = cat ? `${cat.name} — CalendarShop` : 'Shop all products — CalendarShop';
-    const description = cat?.description ?? `Browse ${cat?.name ?? 'our catalog'} at CalendarShop. Great prices, fast delivery.`;
+    // Category.Description (admin-editable, Catalog → Categories) drives the fallback
+    // description when set — same admin-wins-over-derived rule as the product page.
+    const title = cat
+      ? `${cat.name} | Lotus Wholesale Calendar Materials — Senthaamarai Press`
+      : 'Shop all products — Lotus Daily Calendars | Senthaamarai Press';
+    const description = cat?.description?.trim()
+      || `Buy ${cat?.name ?? 'our catalog'} wholesale from Lotus, Senthaamarai Press, Sivakasi. Factory-direct rates, pan-India delivery.`;
     this.seo.setMeta({ title, description, url: SITE_URL + this.router.url });
+
+    // Matches the visible breadcrumb in the template above — product-detail.component.ts
+    // sets the same shape one level deeper.
+    const trail = [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+      { '@type': 'ListItem', position: 2, name: 'All calendars', item: `${SITE_URL}/products` },
+    ];
+    if (cat) trail.push({ '@type': 'ListItem', position: 3, name: cat.name, item: SITE_URL + this.router.url });
+    this.seo.setJsonLd([{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: trail }]);
   }
 
   /** Bound to the search box's (input) event — feeds both the live filter and the suggest dropdown. */

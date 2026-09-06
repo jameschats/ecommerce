@@ -21,7 +21,7 @@
           @if (mainImage()) {
             <button type="button" (click)="openLightbox()" [attr.aria-label]="'View ' + p.name + ' full size'"
               class="w-full h-full cursor-zoom-in">
-              <img [src]="mainImage()" [alt]="p.name" class="w-full h-full object-cover" />
+              <img [src]="mainImage()" [alt]="p.images[currentImage()]?.altText?.trim() || imageAltFallback()" class="w-full h-full object-cover" />
             </button>
           } @else { <span class="text-slate-300">No image</span> }
           @if (p.images.length > 1) {
@@ -37,7 +37,7 @@
               <button type="button" (click)="selectImage(i)"
                 class="w-16 h-16 rounded-lg border overflow-hidden shrink-0"
                 [class]="currentImage() === i ? 'border-primary ring-1 ring-primary' : 'border-slate-200'">
-                <img [src]="img.url" [alt]="img.altText ?? p.name" class="w-full h-full object-cover" />
+                <img [src]="img.url" [alt]="img.altText?.trim() || imageAltFallback()" class="w-full h-full object-cover" />
               </button>
             }
           </div>
