@@ -47,7 +47,7 @@ type Step = 'identify' | 'code';
               <label class="block mt-4">
                 <span class="form-label">Mobile number</span>
                 <input type="tel" [ngModel]="mobile()" (ngModelChange)="mobile.set(sanitizeMobile($event))"
-                       maxlength="14" inputmode="numeric" class="form-input"
+                       (blur)="normalizeMobile()" maxlength="14" inputmode="numeric" class="form-input"
                        placeholder="10 digits, +91 is fine" (keydown.enter)="requestCode()" />
               </label>
             }
@@ -110,15 +110,30 @@ export class OtpGateComponent {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
 
-  readonly identifier = computed(() => (this.channel() === 'email' ? this.email() : this.mobile()));
+  readonly identifier = computed(() => (this.channel() === 'email' ? this.email() : this.toTenDigits(this.mobile())));
 
-  /** Strips everything but digits and keeps the last 10, so a leading +91 doesn't overflow maxlength. */
+  /**
+   * Strips everything but digits while typing. Deliberately does NOT trim a leading +91
+   * here — doing that on every keystroke made digits visibly vanish from the front of the
+   * field once the user typed past 10 of them. The +91 is collapsed away in toTenDigits()
+   * instead, applied on blur and again right before the request is sent.
+   */
   sanitizeMobile(raw: string): string {
-    return raw.replace(/\D/g, '').slice(-10);
+    return raw.replace(/\D/g, '').slice(0, 12);
   }
 
+  /** Collapses a +91/91/0-prefixed number down to its bare last-10 digits. */
+  private toTenDigits(v: string): string {
+    let d = v.replace(/\D/g, '');
+    if (d.length > 10 && (d.startsWith('91') || d.startsWith('0'))) d = d.slice(d.startsWith('91') ? 2 : 1);
+    return d.slice(-10);
+  }
+
+  /** Tidies the field to its clean 10-digit form once the user leaves it. */
+  normalizeMobile(): void { this.mobile.set(this.toTenDigits(this.mobile())); }
+
   readonly canRequest = computed(() =>
-    this.channel() === 'email' ? /\S+@\S+\.\S+/.test(this.email()) : /^\d{10}$/.test(this.mobile()),
+    this.channel() === 'email' ? /\S+@\S+\.\S+/.test(this.email()) : /^\d{10}$/.test(this.toTenDigits(this.mobile())),
   );
 
   requestCode(): void {
@@ -129,7 +144,7 @@ export class OtpGateComponent {
     const request$ =
       this.channel() === 'email'
         ? this.auth.requestEmailOtp(this.email())
-        : this.auth.requestMobileOtp(this.mobile());
+        : this.auth.requestMobileOtp(this.toTenDigits(this.mobile()));
 
     request$.subscribe({
       next: () => {
@@ -151,7 +166,7 @@ export class OtpGateComponent {
     const verify$ =
       this.channel() === 'email'
         ? this.auth.verifyEmailOtp(this.email(), this.code())
-        : this.auth.verifyMobileOtp(this.mobile(), this.code());
+        : this.auth.verifyMobileOtp(this.toTenDigits(this.mobile()), this.code());
 
     verify$.subscribe({
       next: () => {
