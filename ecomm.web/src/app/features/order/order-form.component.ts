@@ -1,7 +1,7 @@
-import { CurrencyPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { CurrencyPipe, isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   PlacedOrder,
@@ -48,8 +48,12 @@ import { OtpGateComponent } from './otp-gate.component';
               Pay by UPI or bank transfer to complete your order. We will contact you on the
               number you provided to confirm.
             </p>
+            <!-- Auto-continues to the payment screen a moment after this acknowledgement is
+                 shown — "Pay now" stays as an immediate way in, not the only way in, in case
+                 the redirect is ever slow to fire. -->
+            <p class="mt-4 text-xs text-slate-400">Taking you to payment…</p>
             <a [routerLink]="['/order', order.orderId, 'pay']"
-               class="inline-block mt-5 bg-primary hover:bg-primary-dark text-white font-semibold px-6 py-2.5 rounded-lg transition">
+               class="inline-block mt-2 bg-primary hover:bg-primary-dark text-white font-semibold px-6 py-2.5 rounded-lg transition">
               Pay now
             </a>
             <a routerLink="/account/orders" class="block mt-3 text-sm text-primary hover:underline">
@@ -259,6 +263,8 @@ export class OrderFormComponent {
   private readonly quickOrder = inject(QuickOrderService);
   private readonly checkout = inject(QuickOrderCheckoutService);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly lineCount = this.quickOrder.lineCount;
   readonly gateOpen = signal(false);
@@ -396,6 +402,11 @@ export class OrderFormComponent {
           // Only clear the basket once the server has confirmed the order exists.
           this.quickOrder.clear();
           this.placed.set(result);
+          // Long enough to read the order number and amount, short enough that it still
+          // reads as one continuous flow rather than a screen the buyer has to act on.
+          if (this.isBrowser) {
+            setTimeout(() => this.router.navigate(['/order', result.orderId, 'pay']), 1800);
+          }
         },
         error: (e) => {
           this.placing.set(false);
