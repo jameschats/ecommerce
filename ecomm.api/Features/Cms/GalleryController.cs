@@ -17,8 +17,8 @@ public sealed class GalleryController : ControllerBase
 
     [OutputCache(PolicyName = "public")]
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
-        => Ok(ApiResponse<List<GalleryImageDto>>.Ok(await _gallery.GetActiveAsync(ct)));
+    public async Task<IActionResult> List([FromQuery] string section, CancellationToken ct)
+        => Ok(ApiResponse<List<GalleryImageDto>>.Ok(await _gallery.GetActiveAsync(section, ct)));
 
     [HttpGet("{id:long}/image")]
     public async Task<IActionResult> Image(long id, CancellationToken ct)
@@ -43,8 +43,8 @@ public sealed class GalleryAdminController : ControllerBase
     public GalleryAdminController(IGalleryService gallery) => _gallery = gallery;
 
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
-        => Ok(ApiResponse<List<AdminGalleryImageDto>>.Ok(await _gallery.GetAllAsync(ct)));
+    public async Task<IActionResult> List([FromQuery] string section, CancellationToken ct)
+        => Ok(ApiResponse<List<AdminGalleryImageDto>>.Ok(await _gallery.GetAllAsync(section, ct)));
 
     [HttpPost]
     public async Task<IActionResult> Create(GalleryImageUpsert req, CancellationToken ct)

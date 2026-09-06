@@ -17,7 +17,7 @@ import { GalleryImage } from '../../core/models/gallery.model';
   template: `
     @if (images().length) {
       <section class="page-container py-8">
-        <h2 class="text-lg sm:text-xl font-bold text-slate-900 mb-4">Our Work</h2>
+        <h2 class="text-lg sm:text-xl font-bold text-slate-900 mb-4">{{ title() }}</h2>
 
         <!-- Desktop / tablet: horizontal continuous scroll -->
         <div class="hidden sm:block marquee-box overflow-hidden">
@@ -56,4 +56,5 @@ import { GalleryImage } from '../../core/models/gallery.model';
 })
 export class GalleryStripComponent {
   readonly images = input.required<GalleryImage[]>();
+  readonly title = input('Our Work');
 }

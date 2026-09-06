@@ -10,14 +10,14 @@ public sealed record GalleryImageDto(long GalleryImageId, string? ImageUrl, stri
 
 /// <summary>Full gallery row for the admin editor.</summary>
 public sealed record AdminGalleryImageDto(
-    long GalleryImageId, string? Title, string? LinkUrl, string? ImageUrl, bool HasUpload, int DisplayOrder, bool IsActive);
+    long GalleryImageId, string Section, string? Title, string? LinkUrl, string? ImageUrl, bool HasUpload, int DisplayOrder, bool IsActive);
 
-public sealed record GalleryImageUpsert(string? Title, string? LinkUrl, string? ImageUrl, int DisplayOrder, bool IsActive);
+public sealed record GalleryImageUpsert(string Section, string? Title, string? LinkUrl, string? ImageUrl, int DisplayOrder, bool IsActive);
 
 public interface IGalleryService
 {
-    Task<List<GalleryImageDto>> GetActiveAsync(CancellationToken ct = default);
-    Task<List<AdminGalleryImageDto>> GetAllAsync(CancellationToken ct = default);
+    Task<List<GalleryImageDto>> GetActiveAsync(string section, CancellationToken ct = default);
+    Task<List<AdminGalleryImageDto>> GetAllAsync(string section, CancellationToken ct = default);
     Task<AdminGalleryImageDto> CreateAsync(GalleryImageUpsert req, CancellationToken ct = default);
     Task<AdminGalleryImageDto> UpdateAsync(long id, GalleryImageUpsert req, CancellationToken ct = default);
     Task DeleteAsync(long id, CancellationToken ct = default);
@@ -28,14 +28,20 @@ public interface IGalleryService
 public sealed class GalleryService : IGalleryService
 {
     private const long Tenant = 1;
+    /// <summary>Keeps a stray/typo query param from splintering photos into an unmanaged section.</summary>
+    public static readonly string[] KnownSections = ["new-designs", "featured"];
     private readonly EcommerceDbContext _db;
 
     public GalleryService(EcommerceDbContext db) => _db = db;
 
-    public async Task<List<GalleryImageDto>> GetActiveAsync(CancellationToken ct = default)
+    public static string NormalizeSection(string? section) =>
+        section is not null && KnownSections.Contains(section) ? section : "new-designs";
+
+    public async Task<List<GalleryImageDto>> GetActiveAsync(string section, CancellationToken ct = default)
     {
+        section = NormalizeSection(section);
         var rows = await _db.GalleryImages.AsNoTracking()
-            .Where(g => g.TenantId == Tenant && g.IsActive)
+            .Where(g => g.TenantId == Tenant && g.Section == section && g.IsActive)
             .OrderBy(g => g.DisplayOrder).ThenBy(g => g.GalleryImageId)
             .Select(g => new { g.GalleryImageId, g.Title, g.LinkUrl, g.ImageUrl, HasUpload = g.ImageData != null, g.UpdatedAt, g.CreatedAt })
             .ToListAsync(ct);
@@ -45,16 +51,17 @@ public sealed class GalleryService : IGalleryService
             g.Title, g.LinkUrl)).ToList();
     }
 
-    public async Task<List<AdminGalleryImageDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<List<AdminGalleryImageDto>> GetAllAsync(string section, CancellationToken ct = default)
     {
+        section = NormalizeSection(section);
         var rows = await _db.GalleryImages.AsNoTracking()
-            .Where(g => g.TenantId == Tenant)
+            .Where(g => g.TenantId == Tenant && g.Section == section)
             .OrderBy(g => g.DisplayOrder).ThenBy(g => g.GalleryImageId)
-            .Select(g => new { g.GalleryImageId, g.Title, g.LinkUrl, g.ImageUrl, HasUpload = g.ImageData != null, g.DisplayOrder, g.IsActive, g.UpdatedAt, g.CreatedAt })
+            .Select(g => new { g.GalleryImageId, g.Section, g.Title, g.LinkUrl, g.ImageUrl, HasUpload = g.ImageData != null, g.DisplayOrder, g.IsActive, g.UpdatedAt, g.CreatedAt })
             .ToListAsync(ct);
 
         return rows.Select(g => new AdminGalleryImageDto(
-            g.GalleryImageId, g.Title, g.LinkUrl,
+            g.GalleryImageId, g.Section, g.Title, g.LinkUrl,
             ResolveImage(g.GalleryImageId, g.HasUpload, g.ImageUrl, g.UpdatedAt ?? g.CreatedAt),
             g.HasUpload, g.DisplayOrder, g.IsActive)).ToList();
     }
@@ -64,7 +71,7 @@ public sealed class GalleryService : IGalleryService
         var now = DateTime.UtcNow;
         var g = new GalleryImage
         {
-            TenantId = Tenant, Title = req.Title, LinkUrl = req.LinkUrl,
+            TenantId = Tenant, Section = NormalizeSection(req.Section), Title = req.Title, LinkUrl = req.LinkUrl,
             ImageUrl = string.IsNullOrWhiteSpace(req.ImageUrl) ? null : req.ImageUrl.Trim(),
             DisplayOrder = req.DisplayOrder, IsActive = req.IsActive, CreatedAt = now,
         };
@@ -116,7 +123,7 @@ public sealed class GalleryService : IGalleryService
         hasUpload ? $"/api/cms/gallery/{id}/image?v={stamp.Ticks}" : imageUrl;
 
     private static AdminGalleryImageDto ToAdmin(GalleryImage g) => new(
-        g.GalleryImageId, g.Title, g.LinkUrl,
+        g.GalleryImageId, g.Section, g.Title, g.LinkUrl,
         ResolveImage(g.GalleryImageId, g.ImageData != null, g.ImageUrl, g.UpdatedAt ?? g.CreatedAt),
         g.ImageData != null, g.DisplayOrder, g.IsActive);
 }

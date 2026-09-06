@@ -1,3 +1,6 @@
+/** Home-page galleries this photo can belong to. */
+export type GallerySection = 'new-designs' | 'featured';
+
 /** A storefront gallery photo (image URL already resolved by the service). */
 export interface GalleryImage {
   galleryImageId: number;
@@ -9,6 +12,7 @@ export interface GalleryImage {
 /** Full gallery row for the admin editor. */
 export interface AdminGalleryImage {
   galleryImageId: number;
+  section: GallerySection;
   title: string | null;
   linkUrl: string | null;
   imageUrl: string | null;
@@ -18,6 +22,7 @@ export interface AdminGalleryImage {
 }
 
 export interface SaveGalleryImageRequest {
+  section: GallerySection;
   title: string | null;
   linkUrl: string | null;
   imageUrl: string | null;

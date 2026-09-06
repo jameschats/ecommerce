@@ -1,24 +1,43 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminGalleryImage } from '../../../core/models/gallery.model';
+import { AdminGalleryImage, GallerySection } from '../../../core/models/gallery.model';
 import { GalleryService } from '../../../core/services/gallery.service';
+
+interface SectionTab { key: GallerySection; label: string; hint: string; }
+
+const TABS: SectionTab[] = [
+  { key: 'new-designs', label: 'New designs', hint: 'Shown at the top of the home page, right below the banner.' },
+  { key: 'featured', label: 'Our Work', hint: 'Shown lower on the home page, below the price list.' },
+];
 
 @Component({
   selector: 'app-admin-gallery',
   imports: [FormsModule],
   template: `
     <div class="max-w-3xl mx-auto p-6">
-      <div class="flex items-center justify-between mb-1">
-        <h1 class="text-xl font-bold text-slate-900">Home gallery</h1>
-        <button type="button" (click)="add()" [disabled]="busy()" class="btn-primary">+ Add photo</button>
+      <h1 class="text-xl font-bold text-slate-900 mb-1">Home gallery</h1>
+      <p class="text-sm text-slate-500 mb-4">Each tab is its own photo strip on the home page. Hidden photos aren't displayed.</p>
+
+      <div class="flex gap-1 border-b border-slate-200 mb-6">
+        @for (tab of tabs; track tab.key) {
+          <button type="button" (click)="selectTab(tab.key)"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition"
+            [class]="activeTab() === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'">
+            {{ tab.label }}
+          </button>
+        }
       </div>
-      <p class="text-sm text-slate-500 mb-6">Upload photos for the continuous-scroll gallery strip below the price list on the home page. Hidden photos aren't displayed.</p>
-      @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
+
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-sm text-slate-500">{{ activeTabHint() }}</p>
+        <button type="button" (click)="add()" [disabled]="busy()" class="btn-primary shrink-0 ml-3">+ Add photo</button>
+      </div>
+      @if (message()) { <div class="mt-4 mb-2 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
 
       @if (loading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
       @else if (!images().length) { <div class="p-8 text-center text-slate-400">No photos yet. Click "Add photo" to create one.</div> }
       @else {
-        <div class="space-y-3">
+        <div class="space-y-3 mt-4">
           @for (g of images(); track g.galleryImageId; let i = $index) {
             <div class="bg-white border border-slate-200 rounded-xl p-3 flex gap-3" [class.opacity-60]="!g.isActive">
               <!-- reorder -->
@@ -63,16 +82,29 @@ import { GalleryService } from '../../../core/services/gallery.service';
 export class AdminGalleryComponent implements OnInit {
   private readonly svc = inject(GalleryService);
 
+  readonly tabs = TABS;
+  readonly activeTab = signal<GallerySection>('new-designs');
   readonly images = signal<AdminGalleryImage[]>([]);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
 
+  activeTabHint(): string {
+    return this.tabs.find((t) => t.key === this.activeTab())?.hint ?? '';
+  }
+
   ngOnInit(): void { this.reload(); }
+
+  selectTab(section: GallerySection): void {
+    if (section === this.activeTab()) return;
+    this.activeTab.set(section);
+    this.message.set(null);
+    this.reload();
+  }
 
   private reload(): void {
     this.loading.set(true);
-    this.svc.listAdmin().subscribe({
+    this.svc.listAdmin(this.activeTab()).subscribe({
       next: (g) => { this.images.set(g); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
@@ -81,7 +113,8 @@ export class AdminGalleryComponent implements OnInit {
   add(): void {
     this.busy.set(true);
     this.svc.create({
-      title: '', linkUrl: null, imageUrl: null, displayOrder: this.images().length + 1, isActive: true,
+      section: this.activeTab(), title: '', linkUrl: null, imageUrl: null,
+      displayOrder: this.images().length + 1, isActive: true,
     }).subscribe({
       next: () => { this.busy.set(false); this.flash('Photo added.'); this.reload(); },
       error: () => { this.busy.set(false); this.flash('Add failed.'); },
@@ -122,7 +155,7 @@ export class AdminGalleryComponent implements OnInit {
     this.message.set(null);
     const updates = this.images().map((g, i) =>
       this.svc.update(g.galleryImageId, {
-        title: g.title, linkUrl: g.linkUrl,
+        section: g.section, title: g.title, linkUrl: g.linkUrl,
         // Only send imageUrl when it's an external URL the admin typed — never the resolved
         // /api/... upload URL (uploads are managed via the upload button).
         imageUrl: g.hasUpload ? null : g.imageUrl,

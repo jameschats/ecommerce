@@ -5,6 +5,9 @@ public class GalleryImage
 {
     public long GalleryImageId { get; set; }
     public long TenantId { get; set; } = 1;
+
+    /// <summary>Which home-page gallery this belongs to: "new-designs" (top, below the banner) or "featured" (bottom, below the price list).</summary>
+    public string Section { get; set; } = "new-designs";
     public string? Title { get; set; }
     public string? LinkUrl { get; set; }
     public string? ImageUrl { get; set; }
