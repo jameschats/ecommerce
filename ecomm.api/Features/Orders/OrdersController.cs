@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ecomm.api.Common.Exceptions;
 using ecomm.api.Common.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,9 +34,17 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> Confirm(long id, ConfirmPaymentRequest request, CancellationToken ct)
         => Ok(ApiResponse<OrderDto>.Ok(await _orders.ConfirmPaymentAsync(CurrentUserId, id, request, ct), "Payment confirmed."));
 
+    /// <summary>
+    /// Locked, not removed — CancelOrderAsync(isAdmin: false) still exists and works exactly
+    /// as before, just unreachable from this customer-facing route. Cancellation is now staff-
+    /// only: the customer calls or emails, and an admin cancels via the admin order screen.
+    /// Left as a guard clause here (rather than deleting the route/action) so restoring
+    /// self-service cancellation later is a one-line revert, not a rebuild.
+    /// </summary>
     [HttpPost("{id:long}/cancel")]
-    public async Task<IActionResult> Cancel(long id, CancelOrderRequest request, CancellationToken ct)
-        => Ok(ApiResponse<OrderDto>.Ok(await _orders.CancelOrderAsync(CurrentUserId, id, request, false, ct), "Order cancelled."));
+    public Task<IActionResult> Cancel(long id, CancelOrderRequest request, CancellationToken ct) =>
+        throw new AppException(
+            "Orders can no longer be cancelled online. Please call or email us and we'll cancel it for you.");
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)

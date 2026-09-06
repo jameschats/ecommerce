@@ -30,7 +30,8 @@ import { orderStatusClass } from './order-status';
           </div>
           <div class="flex gap-2">
             @if (o.invoiceNumber) { <button type="button" (click)="invoice(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Invoice PDF</button> }
-            @if (o.canCancel) { <button type="button" (click)="cancel(o.orderId)" [disabled]="busy()" class="text-sm px-3 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">Cancel order</button> }
+            <!-- Cancellation is staff-only now — call or email us and we cancel it for you.
+                 (o.canCancel still exists on the DTO; there's just no button for it here.) -->
           </div>
         </div>
 
@@ -112,17 +113,4 @@ export class OrderDetailComponent implements OnInit {
   payClass(s: string | null): string { return s === 'Success' ? 'text-green-600' : s === 'Refunded' ? 'text-purple-600' : 'text-slate-500'; }
 
   invoice(id: number): void { this.svc.downloadInvoice(id); }
-
-  cancel(id: number): void {
-    if (this.busy()) return;
-    this.busy.set(true);
-    this.error.set(null);
-    this.svc.cancel(id, 'Cancelled by customer').subscribe({
-      next: (o) => { this.order.set(o); this.busy.set(false); this.justPlaced.set(false); },
-      error: (e: unknown) => {
-        this.busy.set(false);
-        this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'Could not cancel the order.');
-      },
-    });
-  }
 }
