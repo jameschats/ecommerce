@@ -209,6 +209,7 @@ export class AdminLayoutComponent {
         { path: '/admin/pages', label: 'Pages', perm: 'cms.manage', icon: 'page' },
         { path: '/admin/banners', label: 'Banners', perm: 'cms.manage', icon: 'image' },
         { path: '/admin/gallery', label: 'Gallery', perm: 'cms.manage', icon: 'grid' },
+        { path: '/admin/testimonials', label: 'Testimonials', perm: 'cms.manage', icon: 'grid' },
         { path: '/admin/theme', label: 'Theme', perm: 'theme.manage', icon: 'palette' },
       ],
     },

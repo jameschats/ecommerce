@@ -79,6 +79,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<StateMinOrderAmount> StateMinOrderAmounts => Set<StateMinOrderAmount>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
     public DbSet<GalleryImage> GalleryImages => Set<GalleryImage>();
+    public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<PageView> PageViews => Set<PageView>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
@@ -314,6 +315,12 @@ public class EcommerceDbContext : DbContext
             e.ToTable("GalleryImages");
             e.HasKey(x => x.GalleryImageId);
             e.Property(x => x.ImageData).HasColumnType("LONGBLOB");
+        });
+        b.Entity<Testimonial>(e =>
+        {
+            e.ToTable("Testimonials");
+            e.HasKey(x => x.TestimonialId);
+            e.Property(x => x.PhotoData).HasColumnType("LONGBLOB");
         });
         b.Entity<PageView>(e => { e.ToTable("PageViews"); e.HasKey(x => x.PageViewId); });
         b.Entity<MediaFile>(e => { e.ToTable("MediaFiles"); e.HasKey(x => x.MediaFileId); });
