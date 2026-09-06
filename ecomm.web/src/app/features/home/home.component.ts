@@ -41,12 +41,14 @@ export class HomeComponent implements OnInit {
   readonly testimonials: Testimonial[] = (this.route.snapshot.data['testimonials'] as TestimonialsData | undefined)?.items ?? [];
 
   /**
-   * Reuses the About Us page's own admin-editable content (Pages CMS) rather than a second
-   * copy someone would have to remember to update twice. The closing "Ready to design your
-   * calendar?" CTA is left out — the price list right below already serves that purpose here.
+   * Its own admin-editable content (Pages CMS, slug `home-about`) — seeded as a copy of the
+   * About Us page's write-up (migration 060) but independently editable from here on, since
+   * the shop wants the two free to diverge. No Cta section here: the price list right below
+   * already serves that purpose on the home page.
    */
-  readonly aboutSections = ((this.route.snapshot.data['homeAbout'] as ContentPage | null)?.sections ?? [])
-    .filter((s) => s.sectionType !== 'Cta');
+  private readonly homeAboutPage = this.route.snapshot.data['homeAbout'] as ContentPage | null;
+  readonly aboutSections = (this.homeAboutPage?.sections ?? []).filter((s) => s.sectionType !== 'Cta');
+  readonly aboutHeading = this.homeAboutPage?.title || 'Who we are?';
 
   // Fallback banners — shown only if the admin has configured none.
   private readonly defaultBanners: HomeBanner[] = [

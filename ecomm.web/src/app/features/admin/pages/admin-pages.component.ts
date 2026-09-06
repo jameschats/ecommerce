@@ -190,6 +190,11 @@ export class AdminPagesComponent implements OnInit {
       { type: 'Prose', label: 'Text' }, { type: 'Stats', label: 'Numbers' },
       { type: 'Cards', label: 'Cards' }, { type: 'Cta', label: 'Call to action' },
     ];
+    // The home page's own "Who we are?" write-up — no Cta here, the price list right below
+    // the section already serves that purpose on the home page.
+    if (slug === 'home-about') return [
+      { type: 'Prose', label: 'Text' }, { type: 'Stats', label: 'Numbers' }, { type: 'Cards', label: 'Cards' },
+    ];
     return [{ type: 'Prose', label: 'Text' }];
   }
 

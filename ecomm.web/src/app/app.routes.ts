@@ -13,7 +13,7 @@ export const routes: Routes = [
       home: homeResolver,
       gallery: galleryResolver('new-designs', 'New designs'),
       secondGallery: galleryResolver('featured', 'Our Work'),
-      homeAbout: contentPageResolver('about'),
+      homeAbout: contentPageResolver('home-about'),
       testimonials: testimonialsResolver,
     },
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
