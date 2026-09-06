@@ -135,9 +135,29 @@ public class AdminOrdersController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { mobile, message, url }));
     }
 
+    /// <summary>
+    /// Downloads the invoice, generating it first if this order doesn't have one yet.
+    ///
+    /// Previously this only rendered an existing Invoice row, and one is otherwise created
+    /// solely by confirming payment — so an order the buyer never reported payment on (paid
+    /// by phone, cash, or simply not yet) had no invoice to download at all, an admin need
+    /// that has nothing to do with whether payment is confirmed. Generating is a paperwork
+    /// snapshot with no side effects (no stock, status or email changes) and is idempotent,
+    /// so calling it here for an already-invoiced order just returns the same one.
+    /// </summary>
     [HttpGet("{id:long}/invoice")]
     public async Task<IActionResult> Invoice(long id, CancellationToken ct)
     {
+        try
+        {
+            await _invoices.GenerateForOrderAsync(id, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            // Thrown only for an order id that doesn't exist at all — same 404 the old
+            // render-only version gave in that case.
+            return NotFound(ApiResponse<object>.Fail("Invoice not available."));
+        }
         var pdf = await _invoices.RenderPdfAsync(id, null, true, ct);
         return pdf is null ? NotFound(ApiResponse<object>.Fail("Invoice not available.")) : File(pdf.Bytes, "application/pdf", pdf.FileName);
     }
