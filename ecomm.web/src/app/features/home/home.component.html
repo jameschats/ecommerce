@@ -1,6 +1,6 @@
 <app-banner-carousel [banners]="banners()" />
 
-<app-gallery-strip [images]="newDesigns" title="New designs" />
+<app-gallery-strip [images]="newDesigns" [title]="newDesignsTitle" />
 
 @if (aboutSections.length) {
   <section class="page-container py-4">
@@ -13,6 +13,6 @@
 -->
 <app-quick-order-table />
 
-<app-gallery-strip [images]="secondGallery" title="Our Work" />
+<app-gallery-strip [images]="secondGallery" [title]="secondGalleryTitle" />
 
 <app-testimonial-section [items]="testimonials" />

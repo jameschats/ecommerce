@@ -20,6 +20,11 @@ public sealed class GalleryController : ControllerBase
     public async Task<IActionResult> List([FromQuery] string section, CancellationToken ct)
         => Ok(ApiResponse<List<GalleryImageDto>>.Ok(await _gallery.GetActiveAsync(section, ct)));
 
+    [OutputCache(PolicyName = "public")]
+    [HttpGet("title")]
+    public async Task<IActionResult> Title([FromQuery] string section, CancellationToken ct)
+        => Ok(ApiResponse<string>.Ok(await _gallery.GetSectionTitleAsync(section, ct)));
+
     [HttpGet("{id:long}/image")]
     public async Task<IActionResult> Image(long id, CancellationToken ct)
     {
@@ -45,6 +50,18 @@ public sealed class GalleryAdminController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] string section, CancellationToken ct)
         => Ok(ApiResponse<List<AdminGalleryImageDto>>.Ok(await _gallery.GetAllAsync(section, ct)));
+
+    [HttpGet("title")]
+    public async Task<IActionResult> Title([FromQuery] string section, CancellationToken ct)
+        => Ok(ApiResponse<string>.Ok(await _gallery.GetSectionTitleAsync(section, ct)));
+
+    [HttpPut("title")]
+    public async Task<IActionResult> SetTitle([FromQuery] string section, [FromBody] SectionTitleUpsert req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Title)) throw new AppException("Enter a title.");
+        await _gallery.SetSectionTitleAsync(section, req.Title, ct);
+        return Ok(ApiResponse<object>.Ok(null!, "Title saved."));
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create(GalleryImageUpsert req, CancellationToken ct)

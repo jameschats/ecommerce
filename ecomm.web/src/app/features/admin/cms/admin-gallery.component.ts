@@ -28,8 +28,19 @@ const TABS: SectionTab[] = [
         }
       </div>
 
+      <div class="rounded-xl border border-slate-200 bg-white p-4 mb-4">
+        <label class="text-xs font-semibold text-slate-500 uppercase">Section title <span class="normal-case font-normal">(shown on the home page)</span></label>
+        <div class="flex gap-2 mt-1.5">
+          <input [ngModel]="sectionTitle()" (ngModelChange)="sectionTitle.set($event)" name="sectionTitle" class="input flex-1" />
+          <button type="button" (click)="saveTitle()" [disabled]="titleBusy() || titleLoading() || !sectionTitle().trim()" class="btn-primary shrink-0">
+            {{ titleBusy() ? 'Saving…' : 'Save title' }}
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mt-1.5">{{ activeTabHint() }}</p>
+      </div>
+
       <div class="flex items-center justify-between mb-1">
-        <p class="text-sm text-slate-500">{{ activeTabHint() }}</p>
+        <h2 class="text-sm font-semibold text-slate-700">Photos</h2>
         <button type="button" (click)="add()" [disabled]="busy()" class="btn-primary shrink-0 ml-3">+ Add photo</button>
       </div>
       @if (message()) { <div class="mt-4 mb-2 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
@@ -89,17 +100,22 @@ export class AdminGalleryComponent implements OnInit {
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
 
+  readonly sectionTitle = signal('');
+  readonly titleLoading = signal(true);
+  readonly titleBusy = signal(false);
+
   activeTabHint(): string {
     return this.tabs.find((t) => t.key === this.activeTab())?.hint ?? '';
   }
 
-  ngOnInit(): void { this.reload(); }
+  ngOnInit(): void { this.reload(); this.reloadTitle(); }
 
   selectTab(section: GallerySection): void {
     if (section === this.activeTab()) return;
     this.activeTab.set(section);
     this.message.set(null);
     this.reload();
+    this.reloadTitle();
   }
 
   private reload(): void {
@@ -107,6 +123,24 @@ export class AdminGalleryComponent implements OnInit {
     this.svc.listAdmin(this.activeTab()).subscribe({
       next: (g) => { this.images.set(g); this.loading.set(false); },
       error: () => this.loading.set(false),
+    });
+  }
+
+  private reloadTitle(): void {
+    this.titleLoading.set(true);
+    this.svc.getSectionTitleAdmin(this.activeTab()).subscribe({
+      next: (t) => { this.sectionTitle.set(t); this.titleLoading.set(false); },
+      error: () => this.titleLoading.set(false),
+    });
+  }
+
+  saveTitle(): void {
+    const title = this.sectionTitle().trim();
+    if (!title) return;
+    this.titleBusy.set(true);
+    this.svc.setSectionTitle(this.activeTab(), title).subscribe({
+      next: () => { this.titleBusy.set(false); this.flash('Title saved.'); },
+      error: () => { this.titleBusy.set(false); this.flash('Could not save the title.'); },
     });
   }
 

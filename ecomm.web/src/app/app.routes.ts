@@ -11,8 +11,8 @@ export const routes: Routes = [
     path: '',
     resolve: {
       home: homeResolver,
-      gallery: galleryResolver('new-designs'),
-      secondGallery: galleryResolver('featured'),
+      gallery: galleryResolver('new-designs', 'New designs'),
+      secondGallery: galleryResolver('featured', 'Our Work'),
       homeAbout: contentPageResolver('about'),
       testimonials: testimonialsResolver,
     },

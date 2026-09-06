@@ -14,6 +14,8 @@ public sealed record AdminGalleryImageDto(
 
 public sealed record GalleryImageUpsert(string Section, string? Title, string? LinkUrl, string? ImageUrl, int DisplayOrder, bool IsActive);
 
+public sealed record SectionTitleUpsert(string Title);
+
 public interface IGalleryService
 {
     Task<List<GalleryImageDto>> GetActiveAsync(string section, CancellationToken ct = default);
@@ -23,6 +25,8 @@ public interface IGalleryService
     Task DeleteAsync(long id, CancellationToken ct = default);
     Task SetImageAsync(long id, byte[] data, string contentType, CancellationToken ct = default);
     Task<(byte[] Data, string ContentType)?> GetImageAsync(long id, CancellationToken ct = default);
+    Task<string> GetSectionTitleAsync(string section, CancellationToken ct = default);
+    Task SetSectionTitleAsync(string section, string title, CancellationToken ct = default);
 }
 
 public sealed class GalleryService : IGalleryService
@@ -30,12 +34,43 @@ public sealed class GalleryService : IGalleryService
     private const long Tenant = 1;
     /// <summary>Keeps a stray/typo query param from splintering photos into an unmanaged section.</summary>
     public static readonly string[] KnownSections = ["new-designs", "featured"];
+
+    /// <summary>Shown until an admin sets a Gallery.Title.{section} setting for that section.</summary>
+    private static readonly Dictionary<string, string> DefaultTitles = new()
+    {
+        ["new-designs"] = "New designs",
+        ["featured"] = "Our Work",
+    };
+
     private readonly EcommerceDbContext _db;
 
     public GalleryService(EcommerceDbContext db) => _db = db;
 
     public static string NormalizeSection(string? section) =>
         section is not null && KnownSections.Contains(section) ? section : "new-designs";
+
+    public async Task<string> GetSectionTitleAsync(string section, CancellationToken ct = default)
+    {
+        section = NormalizeSection(section);
+        var stored = await _db.Settings
+            .Where(s => s.TenantId == Tenant && s.SettingKey == $"Gallery.Title.{section}")
+            .Select(s => s.SettingValue)
+            .FirstOrDefaultAsync(ct);
+        return string.IsNullOrWhiteSpace(stored) ? DefaultTitles[section] : stored;
+    }
+
+    public async Task SetSectionTitleAsync(string section, string title, CancellationToken ct = default)
+    {
+        section = NormalizeSection(section);
+        var key = $"Gallery.Title.{section}";
+        var row = await _db.Settings.FirstOrDefaultAsync(s => s.TenantId == Tenant && s.SettingKey == key, ct);
+        var value = title.Trim();
+        if (row is null)
+            _db.Settings.Add(new Setting { TenantId = Tenant, SettingKey = key, SettingValue = value, CreatedAt = DateTime.UtcNow });
+        else
+            row.SettingValue = value;
+        await _db.SaveChangesAsync(ct);
+    }
 
     public async Task<List<GalleryImageDto>> GetActiveAsync(string section, CancellationToken ct = default)
     {

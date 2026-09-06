@@ -32,8 +32,12 @@ export class HomeComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
 
-  readonly newDesigns: GalleryImage[] = (this.route.snapshot.data['gallery'] as GalleryData | undefined)?.images ?? [];
-  readonly secondGallery: GalleryImage[] = (this.route.snapshot.data['secondGallery'] as GalleryData | undefined)?.images ?? [];
+  private readonly galleryData = this.route.snapshot.data['gallery'] as GalleryData | undefined;
+  private readonly secondGalleryData = this.route.snapshot.data['secondGallery'] as GalleryData | undefined;
+  readonly newDesigns: GalleryImage[] = this.galleryData?.images ?? [];
+  readonly newDesignsTitle = this.galleryData?.title ?? 'New designs';
+  readonly secondGallery: GalleryImage[] = this.secondGalleryData?.images ?? [];
+  readonly secondGalleryTitle = this.secondGalleryData?.title ?? 'Our Work';
   readonly testimonials: Testimonial[] = (this.route.snapshot.data['testimonials'] as TestimonialsData | undefined)?.items ?? [];
 
   /**

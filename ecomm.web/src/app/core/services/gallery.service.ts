@@ -28,11 +28,28 @@ export class GalleryService {
     );
   }
 
+  getSectionTitle(section: GallerySection, fallback: string): Observable<string> {
+    return this.http.get<ApiResponse<string>>(`${this.pub}/title`, { params: { section } }).pipe(
+      map((r) => r.data ?? fallback),
+      catchError(() => of(fallback)),
+    );
+  }
+
   // --- Admin ---
   listAdmin(section: GallerySection): Observable<AdminGalleryImage[]> {
     return this.http.get<ApiResponse<AdminGalleryImage[]>>(this.admin, { params: { section } }).pipe(
       map((r) => (r.data ?? []).map((g) => ({ ...g, imageUrl: this.resolveImage(g.imageUrl) }))),
     );
+  }
+
+  getSectionTitleAdmin(section: GallerySection): Observable<string> {
+    return this.http.get<ApiResponse<string>>(`${this.admin}/title`, { params: { section } }).pipe(
+      map((r) => r.data ?? ''),
+    );
+  }
+
+  setSectionTitle(section: GallerySection, title: string): Observable<unknown> {
+    return this.http.put<ApiResponse<unknown>>(`${this.admin}/title`, { title }, { params: { section } });
   }
 
   create(body: SaveGalleryImageRequest): Observable<AdminGalleryImage> {
