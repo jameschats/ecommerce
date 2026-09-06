@@ -46,8 +46,9 @@ type Step = 'identify' | 'code';
             } @else {
               <label class="block mt-4">
                 <span class="form-label">Mobile number</span>
-                <input type="tel" [(ngModel)]="mobile" maxlength="10" inputmode="numeric" class="form-input"
-                       placeholder="10 digits" (keydown.enter)="requestCode()" />
+                <input type="tel" [ngModel]="mobile()" (ngModelChange)="mobile.set(sanitizeMobile($event))"
+                       maxlength="14" inputmode="numeric" class="form-input"
+                       placeholder="10 digits, +91 is fine" (keydown.enter)="requestCode()" />
               </label>
             }
 
@@ -110,6 +111,11 @@ export class OtpGateComponent {
   readonly error = signal<string | null>(null);
 
   readonly identifier = computed(() => (this.channel() === 'email' ? this.email() : this.mobile()));
+
+  /** Strips everything but digits and keeps the last 10, so a leading +91 doesn't overflow maxlength. */
+  sanitizeMobile(raw: string): string {
+    return raw.replace(/\D/g, '').slice(-10);
+  }
 
   readonly canRequest = computed(() =>
     this.channel() === 'email' ? /\S+@\S+\.\S+/.test(this.email()) : /^\d{10}$/.test(this.mobile()),

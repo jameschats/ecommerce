@@ -90,8 +90,9 @@ import { OtpGateComponent } from './otp-gate.component';
 
               <label class="block">
                 <span class="form-label">Mobile No <span class="text-red-500">*</span></span>
-                <input type="tel" [(ngModel)]="mobile" name="mobile" maxlength="10" inputmode="numeric"
-                       class="form-input" placeholder="10 digits, no +91" />
+                <input type="tel" [ngModel]="mobile()" (ngModelChange)="mobile.set(sanitizeMobile($event))"
+                       name="mobile" maxlength="14" inputmode="numeric"
+                       class="form-input" placeholder="10 digits, +91 is fine" />
                 @if (mobile() && !mobileValid()) {
                   <span class="text-xs text-red-600 mt-1 block">Enter exactly 10 digits, without +91 or spaces.</span>
                 }
@@ -144,7 +145,8 @@ import { OtpGateComponent } from './otp-gate.component';
 
                   <label class="block">
                     <span class="form-label">Mobile No</span>
-                    <input type="tel" [(ngModel)]="shipMobile" name="shipMobile" maxlength="10" inputmode="numeric"
+                    <input type="tel" [ngModel]="shipMobile()" (ngModelChange)="shipMobile.set(sanitizeMobile($event))"
+                           name="shipMobile" maxlength="14" inputmode="numeric"
                            class="form-input" placeholder="Leave blank to use the same number" />
                   </label>
 
@@ -300,6 +302,15 @@ export class OrderFormComponent {
 
   /** The reference site's rule, and a good one — it keeps a lot of bad data out. */
   readonly mobileValid = computed(() => /^\d{10}$/.test(this.mobile()));
+
+  /**
+   * Strips everything but digits and keeps the last 10, so typing a leading +91 (or a
+   * stray space/dash) still lands on the bare 10-digit number instead of overflowing
+   * the field's maxlength before the real number is even finished.
+   */
+  sanitizeMobile(raw: string): string {
+    return raw.replace(/\D/g, '').slice(-10);
+  }
 
   /**
    * Length only. A GSTIN has a checksum, but rejecting a real number because of a rule
