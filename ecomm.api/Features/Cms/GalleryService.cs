@@ -2,6 +2,7 @@ using ecomm.api.Common.Exceptions;
 using ecomm.api.Data.Context;
 using ecomm.api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ecomm.api.Features.Cms;
 
@@ -27,6 +28,13 @@ public interface IGalleryService
     Task<(byte[] Data, string ContentType)?> GetImageAsync(long id, CancellationToken ct = default);
     Task<string> GetSectionTitleAsync(string section, CancellationToken ct = default);
     Task SetSectionTitleAsync(string section, string title, CancellationToken ct = default);
+
+    /// <summary>
+    /// One-time: watermarks every gallery photo already stored from before watermarking
+    /// existed. Idempotent — a photo already backed up is left alone rather than watermarked
+    /// a second time.
+    /// </summary>
+    Task<Media.BackfillWatermarksResult> BackfillWatermarksAsync(CancellationToken ct = default);
 }
 
 public sealed class GalleryService : IGalleryService
@@ -43,8 +51,20 @@ public sealed class GalleryService : IGalleryService
     };
 
     private readonly EcommerceDbContext _db;
+    private readonly Media.IImageWatermarkService _watermark;
+    private readonly string _backupRoot;
+    private readonly ILogger<GalleryService> _log;
 
-    public GalleryService(EcommerceDbContext db) => _db = db;
+    public GalleryService(EcommerceDbContext db, Media.IImageWatermarkService watermark,
+        IOptions<Media.MediaOptions> mediaOpts, IHostEnvironment env, ILogger<GalleryService> log)
+    {
+        _db = db;
+        _watermark = watermark;
+        var opts = mediaOpts.Value;
+        var root = Path.IsPathRooted(opts.UploadPath) ? opts.UploadPath : Path.Combine(env.ContentRootPath, opts.UploadPath);
+        _backupRoot = Path.Combine(root, "_gallery-originals-backup");
+        _log = log;
+    }
 
     public static string NormalizeSection(string? section) =>
         section is not null && KnownSections.Contains(section) ? section : "new-designs";
@@ -149,6 +169,54 @@ public sealed class GalleryService : IGalleryService
             .FirstOrDefaultAsync(ct);
         return g?.ImageData is null ? null : (g.ImageData, g.ImageContentType ?? "image/jpeg");
     }
+
+    public async Task<Media.BackfillWatermarksResult> BackfillWatermarksAsync(CancellationToken ct = default)
+    {
+        var rows = await _db.GalleryImages
+            .Where(g => g.TenantId == Tenant && g.ImageData != null)
+            .Select(g => new { g.GalleryImageId, g.ImageContentType })
+            .ToListAsync(ct);
+
+        int done = 0, already = 0, failed = 0;
+        var failedIds = new List<string>();
+        Directory.CreateDirectory(_backupRoot);
+
+        foreach (var row in rows)
+        {
+            var ext = ExtensionFor(row.ImageContentType);
+            var backupPath = Path.Combine(_backupRoot, $"{row.GalleryImageId}{ext}");
+            if (File.Exists(backupPath)) { already++; continue; }
+
+            try
+            {
+                var g = await _db.GalleryImages.FirstAsync(x => x.GalleryImageId == row.GalleryImageId, ct);
+                var original = g.ImageData!;
+                var contentType = g.ImageContentType ?? "image/jpeg";
+
+                await File.WriteAllBytesAsync(backupPath, original, ct);
+                g.ImageData = _watermark.Apply(original, contentType);
+                g.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                done++;
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Failed to backfill watermark for gallery image {Id}", row.GalleryImageId);
+                failed++;
+                failedIds.Add(row.GalleryImageId.ToString());
+            }
+        }
+
+        return new Media.BackfillWatermarksResult(rows.Count, done, already, failed, failedIds);
+    }
+
+    private static string ExtensionFor(string? contentType) => contentType?.ToLowerInvariant() switch
+    {
+        "image/png" => ".png",
+        "image/webp" => ".webp",
+        "image/gif" => ".gif",
+        _ => ".jpg",
+    };
 
     private async Task<GalleryImage> Find(long id, CancellationToken ct) =>
         await _db.GalleryImages.FirstOrDefaultAsync(x => x.TenantId == Tenant && x.GalleryImageId == id, ct)

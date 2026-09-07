@@ -44,8 +44,13 @@ public sealed class GalleryAdminController : ControllerBase
     private const long MaxImageBytes = 5 * 1024 * 1024;
     private static readonly string[] AllowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     private readonly IGalleryService _gallery;
+    private readonly Media.IImageWatermarkService _watermark;
 
-    public GalleryAdminController(IGalleryService gallery) => _gallery = gallery;
+    public GalleryAdminController(IGalleryService gallery, Media.IImageWatermarkService watermark)
+    {
+        _gallery = gallery;
+        _watermark = watermark;
+    }
 
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] string section, CancellationToken ct)
@@ -89,7 +94,18 @@ public sealed class GalleryAdminController : ControllerBase
 
         using var ms = new MemoryStream();
         await file.CopyToAsync(ms, ct);
-        await _gallery.SetImageAsync(id, ms.ToArray(), type, ct);
+        var watermarked = _watermark.Apply(ms.ToArray(), type);
+        await _gallery.SetImageAsync(id, watermarked, type, ct);
         return Ok(ApiResponse<object>.Ok(null!, "Image uploaded."));
+    }
+
+    /// <summary>One-time: watermarks every gallery photo already stored from before watermarking existed.</summary>
+    [HttpPost("backfill-watermarks")]
+    public async Task<IActionResult> BackfillWatermarks(CancellationToken ct)
+    {
+        var result = await _gallery.BackfillWatermarksAsync(ct);
+        return Ok(ApiResponse<Media.BackfillWatermarksResult>.Ok(
+            result, $"Watermarked {result.Watermarked} of {result.Candidates} photo(s)."
+                    + (result.Failed > 0 ? $" {result.Failed} failed." : "")));
     }
 }

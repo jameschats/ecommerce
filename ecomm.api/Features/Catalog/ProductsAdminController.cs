@@ -58,4 +58,18 @@ public sealed class ProductsAdminController : ControllerBase
         var result = await _products.BulkAsync(req, ct);
         return Ok(ApiResponse<BulkProductActionResult>.Ok(result, result.Summary));
     }
+
+    /// <summary>
+    /// One-time: watermarks every product image already on disk from before watermarking
+    /// existed. Idempotent — re-running only touches files not yet done.
+    /// </summary>
+    [HttpPost("backfill-watermarks")]
+    public async Task<IActionResult> BackfillWatermarks(
+        [FromServices] Services.IProductImageBackfillService backfill, CancellationToken ct)
+    {
+        var result = await backfill.BackfillAsync(ct);
+        return Ok(ApiResponse<Media.BackfillWatermarksResult>.Ok(
+            result, $"Watermarked {result.Watermarked} of {result.Candidates} image(s)."
+                    + (result.Failed > 0 ? $" {result.Failed} failed." : "")));
+    }
 }
