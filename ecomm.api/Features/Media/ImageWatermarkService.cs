@@ -46,20 +46,25 @@ public sealed class ImageWatermarkService : IImageWatermarkService
 
         using var image = Image.Load<Rgba32>(source);
 
-        var font = family.CreateFont(FontSizeFor(image.Width), FontStyle.Bold);
+        var fontSize = FontSizeFor(image.Width);
+        var font = family.CreateFont(fontSize, FontStyle.Bold);
         // A dark outline behind the white fill keeps the text visible on both dark artwork
         // and light backgrounds (a calendar image's caption strip is often plain white,
         // where a pure white watermark would otherwise vanish).
         var fill = Brushes.Solid(Color.White.WithAlpha(0.35f));
-        var outline = Pens.Solid(Color.Black.WithAlpha(0.25f), Math.Max(1f, FontSizeFor(image.Width) / 16f));
+        var outline = Pens.Solid(Color.Black.WithAlpha(0.25f), Math.Max(1f, fontSize / 16f));
         var options = new RichTextOptions(font)
         {
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        var stepX = image.Width / 2.2f;
-        var stepY = image.Height / 4.5f;
+        // Spacing derived from the text's own rendered size, not the image's — a fixed
+        // fraction of image dimensions crowded tiles together (adjacent repeats overlapping
+        // into an unreadable smear) whenever the text came out wide relative to the canvas.
+        var textSize = TextMeasurer.MeasureSize(Text, new TextOptions(font));
+        var stepX = textSize.Width * 1.7f;
+        var stepY = textSize.Height * 3.5f;
         var center = new PointF(image.Width / 2f, image.Height / 2f);
         // Half the canvas diagonal: drawing this far out from centre in every direction, before
         // rotating, guarantees the tiled rows still fully cover the corners after rotation.
