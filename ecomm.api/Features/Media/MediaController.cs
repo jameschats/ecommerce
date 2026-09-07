@@ -18,8 +18,9 @@ public sealed class MediaController : ControllerBase
     private long? CurrentUserId =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
 
+    /// <param name="watermark">Set by the product-photo upload only — see IMediaStorage.SaveAsync.</param>
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> Upload(IFormFile? file, CancellationToken ct)
-        => Ok(ApiResponse<MediaDto>.Ok(await _media.UploadAsync(file!, CurrentUserId, ct), "Image uploaded."));
+    public async Task<IActionResult> Upload(IFormFile? file, [FromForm] bool watermark, CancellationToken ct)
+        => Ok(ApiResponse<MediaDto>.Ok(await _media.UploadAsync(file!, CurrentUserId, watermark, ct), "Image uploaded."));
 }

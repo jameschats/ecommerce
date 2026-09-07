@@ -9,16 +9,18 @@ public sealed class LocalDiskStorage : IMediaStorage
 {
     private readonly MediaOptions _opts;
     private readonly string _root;
+    private readonly IImageWatermarkService _watermark;
 
-    public LocalDiskStorage(IOptions<MediaOptions> opts, IHostEnvironment env)
+    public LocalDiskStorage(IOptions<MediaOptions> opts, IHostEnvironment env, IImageWatermarkService watermark)
     {
         _opts = opts.Value;
         _root = Path.IsPathRooted(_opts.UploadPath)
             ? _opts.UploadPath
             : Path.Combine(env.ContentRootPath, _opts.UploadPath);
+        _watermark = watermark;
     }
 
-    public async Task<StoredFile> SaveAsync(Stream data, string originalName, string contentType, CancellationToken ct = default)
+    public async Task<StoredFile> SaveAsync(Stream data, string originalName, string contentType, bool watermark = false, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
         var ext = Extension(originalName, contentType);
@@ -29,8 +31,18 @@ public sealed class LocalDiskStorage : IMediaStorage
         Directory.CreateDirectory(absDir);
         var absPath = Path.Combine(absDir, storedName);
 
-        await using (var fs = new FileStream(absPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        if (watermark)
+        {
+            using var buffer = new MemoryStream();
+            await data.CopyToAsync(buffer, ct);
+            var marked = _watermark.Apply(buffer.ToArray(), contentType);
+            await File.WriteAllBytesAsync(absPath, marked, ct);
+        }
+        else
+        {
+            await using var fs = new FileStream(absPath, FileMode.Create, FileAccess.Write, FileShare.None);
             await data.CopyToAsync(fs, ct);
+        }
 
         var size = new FileInfo(absPath).Length;
         var url = $"{_opts.PublicBaseUrl}{_opts.RequestPath}/{relDir}/{storedName}";

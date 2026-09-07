@@ -135,7 +135,7 @@ export class AdminProductFormComponent implements OnInit {
     if (!file) return;
     this.uploading.set(true);
     this.error.set(null);
-    this.media.upload(file).subscribe({
+    this.media.upload(file, true).subscribe({
       next: (m) => { img.url = m.url; img.mediaFileId = m.mediaFileId; this.uploading.set(false); },
       error: () => { this.uploading.set(false); this.error.set('Image upload failed (max 5 MB; JPG/PNG/WebP/GIF only).'); },
     });

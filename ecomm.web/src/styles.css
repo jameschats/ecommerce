@@ -119,6 +119,15 @@
   --text-5xl:  calc(3rem     * var(--app-text-scale, 1));
 }
 
+/* Deters casual image theft on the storefront (admin excluded — staff need normal image
+   handling for their own work). Not a real barrier: dev tools and screenshots always work
+   regardless — see App.protectImages() for the matching right-click/drag block. */
+.protect-images img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 /*
  * Header announcement — a continuously scrolling notice.
  *

@@ -16,9 +16,11 @@ export class MediaService {
   private readonly http = inject(HttpClient);
   private readonly base = `${API_BASE_URL}/admin/media`;
 
-  upload(file: File): Observable<UploadedMedia> {
+  /** @param watermark Set only for product photos — see IMediaStorage.SaveAsync on the API side. */
+  upload(file: File, watermark = false): Observable<UploadedMedia> {
     const form = new FormData();
     form.append('file', file);
+    if (watermark) form.append('watermark', 'true');
     return this.http.post<ApiResponse<UploadedMedia>>(this.base, form).pipe(map((r) => r.data as UploadedMedia));
   }
 }

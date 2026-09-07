@@ -142,6 +142,8 @@ export class App implements OnInit {
     });
     this.catalog.getCategories().subscribe((c) => this.categories.set(c));
 
+    if (typeof document !== 'undefined') this.protectImages();
+
     const adminNow = this.router.url.startsWith('/admin');
     this.isAdminRoute.set(adminNow);
     if (!adminNow) this.tracking.track(this.router.url);
@@ -160,6 +162,21 @@ export class App implements OnInit {
 
   /** Guards against double-tracking the initial route (tracked eagerly above, then again via the first NavigationEnd). */
   private lastTrackedUrl: string | null = null;
+
+  /**
+   * Deters casual image theft: blocks the right-click "Save image as" menu and image drag
+   * on the storefront (CSS in styles.css handles the mobile long-press "save image" gesture).
+   * Not a real barrier — dev tools and screenshots work regardless, and this is intentionally
+   * not applied on /admin, where staff need normal right-click for their own work.
+   */
+  private protectImages(): void {
+    const blockIfImage = (e: Event) => {
+      if (this.isAdminRoute()) return;
+      if ((e.target as HTMLElement)?.tagName === 'IMG') e.preventDefault();
+    };
+    document.addEventListener('contextmenu', blockIfImage);
+    document.addEventListener('dragstart', blockIfImage);
+  }
 
   logout(): void {
     this.menuOpen.set(false);

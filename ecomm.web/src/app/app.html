@@ -1,6 +1,6 @@
 <!-- app-text-scale only off admin: the admin tables and forms are tuned to the default
      type scale, and this setting exists for customers, not for the operator. -->
-<div class="min-h-screen flex flex-col bg-slate-50 text-slate-900" [class.app-text-scale]="!isAdminRoute()">
+<div class="min-h-screen flex flex-col bg-slate-50 text-slate-900" [class.app-text-scale]="!isAdminRoute()" [class.protect-images]="!isAdminRoute()">
   @if (!isAdminRoute()) {
   <header class="bg-white shadow-sm sticky top-0 z-30">
     <!--

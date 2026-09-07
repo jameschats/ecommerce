@@ -24,6 +24,15 @@
     <PackageReference Include="QuestPDF" Version="2024.12.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Bundled so the image watermark works regardless of what fonts (if any) the host has
+         installed — the production VPS has none. SIL Open Font License 1.1 (same file
+         QuestPDF already ships and redistributes for its own PDF text). -->
+    <Content Include="Features\Media\Fonts\Lato-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

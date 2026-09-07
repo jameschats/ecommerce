@@ -10,7 +10,7 @@ public sealed record MediaDto(long MediaFileId, string Url, long Size);
 
 public interface IMediaService
 {
-    Task<MediaDto> UploadAsync(IFormFile file, long? userId, CancellationToken ct = default);
+    Task<MediaDto> UploadAsync(IFormFile file, long? userId, bool watermark = false, CancellationToken ct = default);
 }
 
 public sealed class MediaService : IMediaService
@@ -29,7 +29,7 @@ public sealed class MediaService : IMediaService
         _opts = opts.Value;
     }
 
-    public async Task<MediaDto> UploadAsync(IFormFile file, long? userId, CancellationToken ct = default)
+    public async Task<MediaDto> UploadAsync(IFormFile file, long? userId, bool watermark = false, CancellationToken ct = default)
     {
         if (file is null || file.Length == 0) throw new AppException("Please choose a non-empty image file.");
         if (file.Length > _opts.MaxBytes) throw new AppException($"Image must be {_opts.MaxBytes / (1024 * 1024)} MB or smaller.");
@@ -38,7 +38,7 @@ public sealed class MediaService : IMediaService
 
         StoredFile stored;
         await using (var stream = file.OpenReadStream())
-            stored = await _storage.SaveAsync(stream, file.FileName, type, ct);
+            stored = await _storage.SaveAsync(stream, file.FileName, type, watermark, ct);
 
         var media = new MediaFile
         {

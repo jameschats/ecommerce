@@ -80,6 +80,7 @@ builder.Services.AddScoped<ecomm.api.Features.Cms.IBannerService, ecomm.api.Feat
 builder.Services.AddScoped<ecomm.api.Features.Cms.IGalleryService, ecomm.api.Features.Cms.GalleryService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.ITestimonialService, ecomm.api.Features.Cms.TestimonialService>();
 builder.Services.Configure<ecomm.api.Features.Media.MediaOptions>(builder.Configuration.GetSection(ecomm.api.Features.Media.MediaOptions.SectionName));
+builder.Services.AddSingleton<ecomm.api.Features.Media.IImageWatermarkService, ecomm.api.Features.Media.ImageWatermarkService>();
 builder.Services.AddSingleton<ecomm.api.Features.Media.IMediaStorage, ecomm.api.Features.Media.LocalDiskStorage>();
 builder.Services.AddScoped<ecomm.api.Features.Media.IMediaService, ecomm.api.Features.Media.MediaService>();
 

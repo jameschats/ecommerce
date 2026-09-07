@@ -123,7 +123,8 @@ public sealed class ProductImageZipService : IProductImageZipService
                 await stream.CopyToAsync(buffer, ct);
                 buffer.Position = 0;
 
-                var stored = await _storage.SaveAsync(buffer, entry.Name, ContentTypeFor(extension), ct);
+                // watermark: true — this path is exclusively product photos.
+                var stored = await _storage.SaveAsync(buffer, entry.Name, ContentTypeFor(extension), watermark: true, ct: ct);
 
                 if (!found.TryGetValue(productId, out var list))
                     found[productId] = list = [];

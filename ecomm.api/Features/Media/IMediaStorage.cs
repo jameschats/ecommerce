@@ -10,5 +10,9 @@ public sealed record StoredFile(string Url, string StoredName, long Size);
 /// </summary>
 public interface IMediaStorage
 {
-    Task<StoredFile> SaveAsync(Stream data, string originalName, string contentType, CancellationToken ct = default);
+    /// <param name="watermark">
+    /// True only for product photos — the shared upload endpoint behind this also handles the
+    /// site logo and favicon, which must never be watermarked with the shop's own name.
+    /// </param>
+    Task<StoredFile> SaveAsync(Stream data, string originalName, string contentType, bool watermark = false, CancellationToken ct = default);
 }
