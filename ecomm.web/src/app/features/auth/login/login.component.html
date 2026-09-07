@@ -139,10 +139,15 @@
           <span class="text-xs text-slate-400">or</span>
           <div class="h-px bg-slate-200 flex-1"></div>
         </div>
-        <button type="button" (click)="googleSignIn()"
-          class="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-lg transition">
-          Continue with Google
-        </button>
+        <!--
+          Google's own rendered button, not a custom one calling accounts.id.prompt(): the
+          One Tap prompt() this used to trigger depends on FedCM finding an active Google
+          browser session — with none, it fails outright (AbortError/NetworkError in
+          console) instead of falling back to a real sign-in screen, and even when it does
+          work it only ever shows as a small anchored popup, not the full account chooser
+          users expect from "Continue with Google". renderButton's popup has neither problem.
+        -->
+        <div #googleBtnContainer class="w-full flex justify-center"></div>
       }
     }
   </div>

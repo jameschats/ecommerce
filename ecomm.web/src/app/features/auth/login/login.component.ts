@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, PLATFORM_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthProvider } from '../../../core/models/auth.model';
@@ -19,6 +19,7 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly googleBtnContainer = viewChild<ElementRef<HTMLDivElement>>('googleBtnContainer');
 
   readonly loadingConfig = signal(true);
   readonly submitting = signal(false);
@@ -133,6 +134,14 @@ export class LoginComponent implements OnInit {
   }
 
   // --- Google Identity Services (only when enabled + configured) ---
+  //
+  // Renders Google's own button rather than a custom one driving accounts.id.prompt():
+  // prompt() is the One Tap flow, which depends on FedCM finding an already-signed-in
+  // Google browser session — with none, it fails outright (AbortError/NetworkError, never
+  // falling back to a real sign-in screen), and even when it does work it only shows as a
+  // small anchored popup, not the full account chooser "Continue with Google" implies.
+  // renderButton's popup has neither problem, at the cost of not being able to fully
+  // custom-style the button (theme/size/shape below are as close as Google allows).
   private initGoogle(): void {
     if (!this.isBrowser) return;
     const clientId = this.googleProvider()?.clientId;
@@ -142,6 +151,18 @@ export class LoginComponent implements OnInit {
       google.accounts.id.initialize({
         client_id: clientId,
         callback: (resp: { credential: string }) => this.run(this.auth.googleLogin(resp.credential)),
+      });
+      // Deferred a frame: the container only enters the DOM once googleProvider() flips
+      // true (same signal renderButton's own caller depends on), and on a repeat visit
+      // within the same SPA session — GSI script already loaded — this would otherwise
+      // run before that render lands.
+      requestAnimationFrame(() => {
+        const el = this.googleBtnContainer()?.nativeElement;
+        if (!el) return;
+        const width = Math.min(400, Math.round(el.getBoundingClientRect().width) || 300);
+        google.accounts.id.renderButton(el, {
+          type: 'standard', theme: 'outline', size: 'large', shape: 'rectangular', text: 'continue_with', width,
+        });
       });
     };
     if (typeof google !== 'undefined') {
@@ -153,10 +174,6 @@ export class LoginComponent implements OnInit {
       s.onload = start;
       document.head.appendChild(s);
     }
-  }
-
-  googleSignIn(): void {
-    if (this.isBrowser && typeof google !== 'undefined') google.accounts.id.prompt();
   }
 
   private run(obs: ReturnType<AuthService['login']>): void {
