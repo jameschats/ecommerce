@@ -166,7 +166,15 @@ public sealed class VariantService : IVariantService
     {
         if (string.IsNullOrWhiteSpace(sku)) throw new AppException("Variant SKU is required.");
         var trimmed = sku.Trim();
-        if (await _db.ProductVariants.AnyAsync(v => v.Sku == trimmed && v.ProductVariantId != (excludeId ?? 0), ct))
+        // Built as a conditional query rather than `v.ProductVariantId != (excludeId ?? 0)` in
+        // one predicate — that form throws at translation time ("NotEqual is not defined for
+        // Int64 and Nullable<Int64>"), since EF keeps the coalesce's nullable-typed result
+        // rather than collapsing it the way compiled imperative code would. Editing any
+        // existing variant's SKU/price/active status (the "Save" button on a generated variant
+        // row) called this and 500'd on every attempt until this was fixed.
+        var query = _db.ProductVariants.Where(v => v.Sku == trimmed);
+        if (excludeId is { } id) query = query.Where(v => v.ProductVariantId != id);
+        if (await query.AnyAsync(ct))
             throw new AppException($"Variant SKU '{trimmed}' already exists.", StatusCodes.Status409Conflict);
     }
 
