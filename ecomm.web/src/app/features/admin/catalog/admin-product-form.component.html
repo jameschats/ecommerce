@@ -138,34 +138,68 @@
 
     <!-- Variants + Attributes only when editing (need a product id) -->
     @if (isEdit()) {
-      <!-- Variants -->
+      <!-- Options -> Variants -->
       <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
-        <h2 class="font-medium text-slate-800 mb-3">Variants</h2>
-        <div class="space-y-2 mb-4">
-          @for (v of variants(); track v.productVariantId) {
-            <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-sm">
-              <span class="text-slate-700">{{ variantLabel(v) }} <span class="text-slate-400">· {{ v.sku }}</span></span>
-              <button type="button" (click)="deleteVariant(v)" class="text-red-600 hover:underline">Remove</button>
+        <h2 class="font-medium text-slate-800 mb-1">Product options &amp; variants</h2>
+        <p class="text-xs text-slate-500 mb-3">
+          Define each option and its values (e.g. Quantity: 100, 200, 500), then generate — every
+          combination becomes a row below you can price individually. Stock per variant is set on
+          the <a routerLink="/admin/inventory" class="text-blue-600 hover:underline">Inventory</a> page.
+        </p>
+
+        <div class="space-y-2 mb-3">
+          @for (g of optionGroups(); track $index) {
+            <div class="flex gap-2">
+              <input [ngModel]="g.name" (ngModelChange)="g.name = $event" [name]="'optname' + $index"
+                     placeholder="Option name (e.g. Quantity)" class="input w-48 shrink-0" />
+              <input [ngModel]="g.valuesText" (ngModelChange)="g.valuesText = $event" [name]="'optvals' + $index"
+                     placeholder="Values, comma separated (e.g. 100, 200, 500)" class="input flex-1" />
+              <button type="button" (click)="removeOptionGroup($index)" class="text-slate-400 hover:text-red-600 px-2">&times;</button>
             </div>
           }
-          @if (!variants().length) { <p class="text-xs text-slate-400">No variants.</p> }
         </div>
-        <div class="border-t border-slate-100 pt-3">
-          <div class="grid sm:grid-cols-2 gap-2 mb-2">
-            <input [(ngModel)]="newVariant.sku" name="vsku" placeholder="Variant SKU" class="input" />
-            <input [(ngModel)]="newVariant.name" name="vname" placeholder="Label (e.g. XL / Black)" class="input" />
-          </div>
-          @for (o of newVariant.options; track $index) {
-            <div class="flex gap-2 mb-2">
-              <input [(ngModel)]="o.optionName" [name]="'on' + $index" placeholder="Option (Size)" class="input" />
-              <input [(ngModel)]="o.optionValue" [name]="'ov' + $index" placeholder="Value (XL)" class="input" />
-            </div>
-          }
-          <div class="flex gap-2">
-            <button type="button" (click)="addVariantOption()" class="btn-ghost">+ Option</button>
-            <button type="button" (click)="addVariant()" class="btn-primary">Add variant</button>
-          </div>
+        <div class="flex gap-2 mb-4">
+          <button type="button" (click)="addOptionGroup()" class="btn-ghost">+ Option</button>
+          <button type="button" (click)="generateVariants()" [disabled]="generatingVariants()" class="btn-primary">
+            {{ generatingVariants() ? 'Generating…' : 'Generate variants' }}
+          </button>
         </div>
+
+        @if (variants().length) {
+          <div class="border-t border-slate-100 pt-3 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs text-slate-500">
+                  <th class="pb-2 pr-2">Variant</th>
+                  <th class="pb-2 pr-2">SKU</th>
+                  <th class="pb-2 pr-2 w-32">Price diff (±)</th>
+                  <th class="pb-2 pr-2 w-16">Active</th>
+                  <th class="pb-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (v of variants(); track v.productVariantId) {
+                  <tr class="border-t border-slate-100">
+                    <td class="py-1.5 pr-2 text-slate-700">{{ variantLabel(v) }}</td>
+                    <td class="py-1.5 pr-2"><input [(ngModel)]="v.sku" [name]="'vsku' + v.productVariantId" class="input" /></td>
+                    <td class="py-1.5 pr-2"><input type="number" [(ngModel)]="v.priceAdjustment" [name]="'vprice' + v.productVariantId" class="input" /></td>
+                    <td class="py-1.5 pr-2"><input type="checkbox" [(ngModel)]="v.isActive" [name]="'vactive' + v.productVariantId" /></td>
+                    <td class="py-1.5 whitespace-nowrap">
+                      <button type="button" (click)="saveVariant(v)" [disabled]="savingVariantId() === v.productVariantId"
+                              class="text-primary hover:underline mr-3">
+                        {{ savingVariantId() === v.productVariantId ? 'Saving…' : 'Save' }}
+                      </button>
+                      <button type="button" (click)="deleteVariant(v)" [disabled]="deletingVariantId() === v.productVariantId"
+                              class="text-red-600 hover:underline">Remove</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="text-xs text-slate-400">No variants yet.</p>
+        }
       </div>
 
       <!-- Specifications (attributes) -->

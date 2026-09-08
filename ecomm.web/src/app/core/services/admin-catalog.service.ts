@@ -85,8 +85,17 @@ export class AdminCatalogService {
   createVariant(productId: number, body: SaveVariantRequest): Observable<ProductVariant> {
     return this.unwrap(this.http.post<ApiResponse<ProductVariant>>(`${this.base}/products/${productId}/variants`, body));
   }
+  updateVariant(productId: number, variantId: number, body: SaveVariantRequest): Observable<ProductVariant> {
+    return this.unwrap(this.http.put<ApiResponse<ProductVariant>>(`${this.base}/products/${productId}/variants/${variantId}`, body));
+  }
   deleteVariant(productId: number, variantId: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/products/${productId}/variants/${variantId}`);
+  }
+  /** Wix-style bulk generator: one option group per name, its values as a list — every
+   *  combination becomes a variant. Additive server-side; safe to call again after adding
+   *  a value to an existing option. */
+  generateVariants(productId: number, options: { name: string; values: string[] }[]): Observable<ProductVariant[]> {
+    return this.unwrap(this.http.post<ApiResponse<ProductVariant[]>>(`${this.base}/products/${productId}/variants/generate`, { options }));
   }
 
   // --- Attributes ---

@@ -34,11 +34,16 @@ export class AdminProductFormComponent implements OnInit {
   readonly attributeDefs = signal<AttributeDef[]>([]);
   readonly variants = signal<ProductVariant[]>([]);
 
+  // --- Options -> variants (Wix-style generator) ---
+  readonly optionGroups = signal<{ name: string; valuesText: string }[]>([{ name: '', valuesText: '' }]);
+  readonly generatingVariants = signal(false);
+  readonly savingVariantId = signal<number | null>(null);
+  readonly deletingVariantId = signal<number | null>(null);
+
   readonly allSuppliers = signal<Supplier[]>([]);
   productSuppliers: ProductSupplierInput[] = [];
 
   form: SaveProductRequest = this.blank();
-  newVariant: SaveVariantRequest = this.blankVariant();
   attrValues: Record<number, string> = {};
 
   ngOnInit(): void {
@@ -91,10 +96,6 @@ export class AdminProductFormComponent implements OnInit {
       shortDescription: '', description: '', hsnCode: '', status: 'Active', isFeatured: false, images: [],
       metaTitle: '', metaDescription: '', metaKeywords: '',
     };
-  }
-
-  private blankVariant(): SaveVariantRequest {
-    return { sku: '', name: '', priceAdjustment: 0, isActive: true, options: [] };
   }
 
   private loadProduct(id: number): void {
@@ -161,28 +162,71 @@ export class AdminProductFormComponent implements OnInit {
     });
   }
 
-  // --- Variants ---
-  addVariantOption(): void {
-    this.newVariant.options!.push({ optionName: '', optionValue: '' });
+  // --- Options -> variants ---
+  addOptionGroup(): void {
+    this.optionGroups.update((g) => [...g, { name: '', valuesText: '' }]);
   }
-  addVariant(): void {
-    if (!this.productId() || !this.newVariant.sku.trim()) return;
-    this.api.createVariant(this.productId()!, this.newVariant).subscribe({
-      next: () => { this.newVariant = this.blankVariant(); this.reloadVariants(); },
-      error: (e) => this.error.set(e?.error?.message ?? 'Variant failed.'),
+  removeOptionGroup(i: number): void {
+    this.optionGroups.update((g) => g.filter((_, idx) => idx !== i));
+  }
+
+  /**
+   * Generates every combination across the option groups as a variant (Wix-style: define
+   * options once, get a row per combination, then edit each row's SKU/price here — stock is
+   * set afterwards on the Inventory page, which already supports per-variant stock).
+   * Additive on the server — safe to run again after adding a value to an existing option;
+   * only the new combinations are created, existing rows are untouched.
+   */
+  generateVariants(): void {
+    const id = this.productId();
+    if (!id) return;
+    const groups = this.optionGroups()
+      .map((g) => ({ name: g.name.trim(), values: g.valuesText.split(',').map((v) => v.trim()).filter((v) => v.length > 0) }))
+      .filter((g) => g.name.length > 0 && g.values.length > 0);
+    if (!groups.length) { this.error.set('Add at least one option with a name and at least one value.'); return; }
+
+    this.generatingVariants.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    this.api.generateVariants(id, groups).subscribe({
+      next: (v) => {
+        this.generatingVariants.set(false);
+        this.variants.set(v);
+        this.message.set('Variants generated.');
+      },
+      error: (e) => { this.generatingVariants.set(false); this.error.set(e?.error?.message ?? 'Could not generate variants.'); },
     });
   }
+
+  /** Persists SKU/price-difference/active edited in place on an existing variant row. */
+  saveVariant(v: ProductVariant): void {
+    const id = this.productId();
+    if (!id) return;
+    this.savingVariantId.set(v.productVariantId);
+    this.error.set(null);
+    const body: SaveVariantRequest = {
+      sku: v.sku, name: v.name, priceAdjustment: v.priceAdjustment, isActive: v.isActive,
+      options: v.options.map((o) => ({ optionName: o.optionName, optionValue: o.optionValue })),
+    };
+    this.api.updateVariant(id, v.productVariantId, body).subscribe({
+      next: () => this.savingVariantId.set(null),
+      error: (e) => { this.savingVariantId.set(null); this.error.set(e?.error?.message ?? 'Could not save variant.'); },
+    });
+  }
+
   deleteVariant(v: ProductVariant): void {
+    if (!confirm(`Delete variant "${v.name || v.sku}"? This cannot be undone.`)) return;
+    this.deletingVariantId.set(v.productVariantId);
     this.api.deleteVariant(this.productId()!, v.productVariantId).subscribe({
-      next: () => this.reloadVariants(),
-      error: (e) => this.error.set(e?.error?.message ?? 'Delete failed.'),
+      next: () => { this.deletingVariantId.set(null); this.reloadVariants(); },
+      error: (e) => { this.deletingVariantId.set(null); this.error.set(e?.error?.message ?? 'Delete failed.'); },
     });
   }
   private reloadVariants(): void {
     this.api.listVariants(this.productId()!).subscribe((v) => this.variants.set(v));
   }
   variantLabel(v: ProductVariant): string {
-    return v.options.length ? v.options.map((o) => `${o.optionName}: ${o.optionValue}`).join(', ') : v.sku;
+    return v.options.length ? v.options.map((o) => o.optionValue).join(' / ') : v.name || v.sku;
   }
 
   // --- Attributes ---

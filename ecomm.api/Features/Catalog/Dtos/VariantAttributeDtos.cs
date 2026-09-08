@@ -8,6 +8,19 @@ public sealed record ProductVariantDto(
 public sealed record SaveVariantRequest(
     string Sku, string? Name, decimal PriceAdjustment, bool IsActive, IReadOnlyList<VariantOptionDto>? Options);
 
+/// <summary>One option group and the values it can take — e.g. ("Quantity", ["100","200","500"]).</summary>
+public sealed record GenerateVariantsOptionInput(string Name, IReadOnlyList<string> Values);
+
+/// <summary>
+/// Generates every combination across the given option groups as a variant — e.g. Quantity ×
+/// Colour × Size with 5, 4 and 2 values respectively yields 40 variants. Additive: a
+/// combination that already exists as a variant (regardless of which request created it) is
+/// left untouched rather than duplicated, so re-running this after adding one more value to
+/// one group only creates the new combinations, never touches SKU/price/stock already set on
+/// the existing ones.
+/// </summary>
+public sealed record GenerateVariantsRequest(IReadOnlyList<GenerateVariantsOptionInput> Options);
+
 // --- Attribute definitions ---
 public sealed record AttributeValueDto(long AttributeValueId, string Value);
 public sealed record AttributeDto(

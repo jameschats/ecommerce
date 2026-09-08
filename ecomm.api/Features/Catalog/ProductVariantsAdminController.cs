@@ -39,4 +39,19 @@ public sealed class ProductVariantsAdminController : ControllerBase
         var ok = await _variants.DeleteAsync(productId, variantId, ct);
         return ok ? Ok(ApiResponse<object>.Ok(new { deleted = true })) : NotFound(ApiResponse<object>.Fail("Variant not found."));
     }
+
+    /// <summary>
+    /// Generates every combination across the given option groups as a variant (design.md's
+    /// Wix-style flow: define options, generate, then edit each row's SKU/price/stock).
+    /// Additive — a combination that already exists is left untouched, so this is safe to
+    /// call again after adding one more value to an existing option.
+    /// </summary>
+    [HttpPost("generate")]
+    public async Task<IActionResult> Generate(long productId, GenerateVariantsRequest request, CancellationToken ct)
+    {
+        var list = await _variants.GenerateAsync(productId, request, ct);
+        return list is null
+            ? NotFound(ApiResponse<object>.Fail("Product not found."))
+            : Ok(ApiResponse<List<ProductVariantDto>>.Ok(list, $"{list.Count} variant(s) total."));
+    }
 }
