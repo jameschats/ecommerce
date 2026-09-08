@@ -68,6 +68,49 @@ interface ZipImageResult {
         }
       </div>
 
+      <!-- A separate template: one row per variant, for setting each variant's own SKU/price
+           difference/stock in bulk — the main template above only defines option structure. -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <h2 class="font-medium text-slate-800 mb-2">Template 2 — products &amp; variants (one row per variant)</h2>
+        <p class="text-sm text-slate-500 mb-4">
+          Each product gets one <strong>Product</strong> row (creates/updates it, and names its
+          option slots), followed by one <strong>Variant</strong> row per combination — each
+          with its own SKU, price difference, active flag and stock. Use this when you need to
+          set exact variant details in bulk; use the template above just to define option
+          structure.
+        </p>
+        @if (variantError()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ variantError() }}</div> }
+
+        <div class="grid sm:grid-cols-2 gap-4 mb-4">
+          <button type="button" (click)="exportVariants()" class="btn-primary">Download template2-export.xlsx</button>
+          <button type="button" (click)="downloadVariantTemplate()" class="btn-ghost border border-slate-300">Download template2.xlsx</button>
+        </div>
+
+        <input type="file" accept=".xlsx" (change)="onVariantFile($event)" class="block text-sm mb-3" />
+        <button type="button" (click)="uploadVariants()" [disabled]="!variantFile || variantUploading()" class="btn-primary">
+          {{ variantUploading() ? 'Importing…' : 'Upload & import' }}
+        </button>
+
+        @if (variantResult(); as r) {
+          <div class="mt-5 border-t border-slate-100 pt-4">
+            <p class="text-sm">
+              <span class="font-medium">{{ r.job.status }}</span> —
+              {{ r.job.successRows }} imported, {{ r.job.failedRows }} failed of {{ r.job.totalRows }}.
+            </p>
+            @if (r.failedRows.length) {
+              <table class="w-full text-sm mt-3">
+                <thead class="text-slate-400 text-left"><tr><th class="py-1">Row</th><th class="py-1">Error</th></tr></thead>
+                <tbody>
+                  @for (f of r.failedRows; track f.rowNumber) {
+                    <tr class="border-t border-slate-100"><td class="py-1 w-16">{{ f.rowNumber }}</td><td class="py-1 text-red-600">{{ f.errorMessage }}</td></tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
+      </div>
+
       <!-- Bulk product images, matched by Design No (design.md §10.2) -->
       <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
         <h2 class="font-medium text-slate-800 mb-2">Product images (ZIP)</h2>
@@ -165,6 +208,36 @@ export class AdminImportComponent {
       next: (r) => { this.result.set(r); this.uploading.set(false); },
       error: (e) => { this.error.set(e?.error?.message ?? 'Import failed.'); this.uploading.set(false); },
     });
+  }
+
+  // --- products & variants sheet (one row per variant) ---
+
+  readonly variantUploading = signal(false);
+  readonly variantResult = signal<ImportJobResult | null>(null);
+  readonly variantError = signal<string | null>(null);
+  variantFile: File | null = null;
+
+  onVariantFile(event: Event): void {
+    this.variantFile = (event.target as HTMLInputElement).files?.[0] ?? null;
+  }
+
+  uploadVariants(): void {
+    if (!this.variantFile) return;
+    this.variantUploading.set(true);
+    this.variantError.set(null);
+    this.variantResult.set(null);
+    this.api.importProductVariants(this.variantFile).subscribe({
+      next: (r) => { this.variantResult.set(r); this.variantUploading.set(false); },
+      error: (e) => { this.variantError.set(e?.error?.message ?? 'Import failed.'); this.variantUploading.set(false); },
+    });
+  }
+
+  exportVariants(): void {
+    this.api.exportProductVariants().subscribe((blob) => this.download(blob, 'template2-export.xlsx'));
+  }
+
+  downloadVariantTemplate(): void {
+    this.api.downloadVariantTemplate().subscribe((blob) => this.download(blob, 'template2.xlsx'));
   }
 
   // --- bulk product images by Design No ---

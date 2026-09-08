@@ -144,6 +144,19 @@ export class AdminCatalogService {
     return this.http.get(`${this.base}/products/import-template`, { responseType: 'blob' });
   }
 
+  // --- Import / Export: variant sheet (one row per variant, a separate template) ---
+  importProductVariants(file: File): Observable<ImportJobResult> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.unwrap(this.http.post<ApiResponse<ImportJobResult>>(`${this.base}/products/import/variants`, form));
+  }
+  exportProductVariants(): Observable<Blob> {
+    return this.http.get(`${this.base}/products/export/variants`, { responseType: 'blob' });
+  }
+  downloadVariantTemplate(): Observable<Blob> {
+    return this.http.get(`${this.base}/products/import-template/variants`, { responseType: 'blob' });
+  }
+
   // --- Inventory ---
   listInventory(search: string, lowStockOnly: boolean, page: number): Observable<PagedResult<InventoryRow>> {
     let params = new HttpParams().set('page', page).set('pageSize', 20).set('lowStockOnly', lowStockOnly);

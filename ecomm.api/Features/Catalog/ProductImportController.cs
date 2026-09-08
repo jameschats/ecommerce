@@ -53,6 +53,26 @@ public sealed class ProductImportController : ControllerBase
         return Ok(ApiResponse<ImportResultDto>.Ok(result, $"Imported {result.Job.SuccessRows}/{result.Job.TotalRows} rows."));
     }
 
+    // --- variant sheet: one row per variant, a separate template/import from the ones above ---
+
+    [HttpGet("import-template/variants")]
+    public IActionResult VariantSheetTemplate()
+        => File(_import.VariantSheetTemplate(), XlsxMime, "template2.xlsx");
+
+    [HttpGet("export/variants")]
+    public async Task<IActionResult> ExportVariants(CancellationToken ct)
+        => File(await _import.VariantSheetExportAsync(ct), XlsxMime, "template2-export.xlsx");
+
+    [HttpPost("import/variants")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> ImportVariants(IFormFile? file, CancellationToken ct)
+    {
+        Validate(file);
+        await using var stream = file!.OpenReadStream();
+        var result = await _import.ImportVariantSheetAsync(stream, file.FileName, CurrentUserId, ct);
+        return Ok(ApiResponse<ImportResultDto>.Ok(result, $"Imported {result.Job.SuccessRows}/{result.Job.TotalRows} rows."));
+    }
+
     /// <summary>Both import endpoints accept the same formats, so the check lives in one place.</summary>
     private static void Validate(IFormFile? file)
     {
