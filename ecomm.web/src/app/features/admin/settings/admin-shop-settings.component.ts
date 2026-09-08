@@ -471,7 +471,23 @@ interface ShopSettings {
             </label>
             <label class="block sm:col-span-2">
               <span class="form-label">Send new-order alerts to</span>
-              <input class="form-input" [(ngModel)]="m.adminNotifyTo" placeholder="your@email.com" />
+              <div class="form-input flex flex-wrap items-center gap-1.5 min-h-[42px] py-1.5 cursor-text"
+                   (click)="emailChipInput.focus()">
+                @for (email of emailChips(m); track email; let i = $index) {
+                  <span class="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-sm rounded-md pl-2 pr-1 py-0.5">
+                    {{ email }}
+                    <button type="button" (click)="removeEmailChip(m, i)"
+                            class="text-slate-400 hover:text-red-600 leading-none w-4 h-4 grid place-items-center">&times;</button>
+                  </span>
+                }
+                <input #emailChipInput type="text" [(ngModel)]="emailDraft" name="adminNotifyEmailDraft"
+                       (keydown)="onEmailChipKeydown($event, m)" (blur)="commitEmailDraft(m)"
+                       class="flex-1 min-w-[160px] border-0 outline-none text-sm py-0.5 bg-transparent"
+                       [placeholder]="emailChips(m).length ? 'Add another…' : 'you@example.com'" />
+              </div>
+              <span class="text-xs mt-1 block" [class]="emailChipError() ? 'text-red-600' : 'text-slate-500'">
+                {{ emailChipError() || 'Press Enter, comma or Tab to add each address — several people can be alerted.' }}
+              </span>
             </label>
           </div>
 
@@ -563,6 +579,55 @@ export class AdminShopSettingsComponent {
 
   readonly uploading = signal<'faviconUrl' | 'logoUrl' | 'footerLogoUrl' | null>(null);
   readonly uploadError = signal<string | null>(null);
+
+  // --- New-order alert recipients: stored as one comma-separated string (adminNotifyTo),
+  // shown as chips so admin doesn't have to hand-punctuate a list — a stray trailing comma
+  // there previously would have handed .NET's mailer an empty address and failed silently. ---
+  emailDraft = '';
+  readonly emailChipError = signal<string | null>(null);
+
+  emailChips(m: ShopSettings): string[] {
+    return (m.adminNotifyTo || '').split(',').map((e) => e.trim()).filter((e) => e.length > 0);
+  }
+
+  onEmailChipKeydown(event: KeyboardEvent, m: ShopSettings): void {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      this.addEmailChip(m, this.emailDraft);
+    } else if (event.key === 'Tab' && this.emailDraft.trim()) {
+      this.addEmailChip(m, this.emailDraft); // no preventDefault — Tab still moves focus on
+    } else if (event.key === 'Backspace' && !this.emailDraft) {
+      const chips = this.emailChips(m);
+      if (chips.length) this.removeEmailChip(m, chips.length - 1);
+    }
+  }
+
+  /** Catches an address typed but never confirmed with Enter/comma/Tab before leaving the field. */
+  commitEmailDraft(m: ShopSettings): void {
+    if (this.emailDraft.trim()) this.addEmailChip(m, this.emailDraft);
+  }
+
+  addEmailChip(m: ShopSettings, raw: string): void {
+    const value = raw.trim().replace(/,$/, '');
+    this.emailDraft = '';
+    if (!value) return;
+    if (!value.includes('@')) {
+      this.emailChipError.set(`"${value}" doesn't look like an email address.`);
+      return;
+    }
+    this.emailChipError.set(null);
+    const chips = this.emailChips(m);
+    if (!chips.includes(value)) chips.push(value);
+    m.adminNotifyTo = chips.join(',');
+    this.model.set({ ...m });
+  }
+
+  removeEmailChip(m: ShopSettings, index: number): void {
+    const chips = this.emailChips(m);
+    chips.splice(index, 1);
+    m.adminNotifyTo = chips.join(',');
+    this.model.set({ ...m });
+  }
 
   constructor() {
     this.http.get<ApiResponse<ShopSettings>>(this.url).subscribe({

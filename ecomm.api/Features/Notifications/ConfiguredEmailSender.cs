@@ -59,7 +59,11 @@ public sealed class ConfiguredEmailSender : IEmailSender
             Body = htmlBody,
             IsBodyHtml = true,
         };
-        message.To.Add(toEmail);
+        // Admin-entered lists can carry a stray trailing comma or extra whitespace (the
+        // recipients field is free text); a blank entry there would otherwise throw here
+        // and silently drop every admin alert rather than just the malformed one.
+        foreach (var address in toEmail.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            message.To.Add(address);
 
         using var client = new SmtpClient(host, PortOf(cfg))
         {
