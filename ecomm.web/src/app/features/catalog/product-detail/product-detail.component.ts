@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { switchMap } from 'rxjs';
 import { SITE_URL } from '../../../core/api.config';
-import { ProductDetail } from '../../../core/models/catalog.model';
+import { ProductDetail, ProductVariant } from '../../../core/models/catalog.model';
 import { ProductReviews } from '../../../core/models/review.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { CatalogService } from '../../../core/services/catalog.service';
@@ -79,7 +79,11 @@ export class ProductDetailComponent implements OnInit {
     const p = this.product();
     if (!p) return [] as { name: string; values: string[] }[];
     const map = new Map<string, string[]>();
+    // Inactive variants (retired by admin) don't offer their options for selection — a
+    // customer choosing a combination that resolves to nothing purchasable was the bug
+    // resolveVariantId() used to leave the door open for.
     for (const v of p.variants) {
+      if (!v.isActive) continue;
       for (const o of v.options) {
         const list = map.get(o.optionName) ?? [];
         if (!list.includes(o.optionValue)) list.push(o.optionValue);
@@ -219,14 +223,25 @@ export class ProductDetailComponent implements OnInit {
     });
   }
 
-  /** Match the selected options to a concrete variant (null for simple products). */
-  private resolveVariantId(): number | null {
+  /** Match the selected options to a concrete active variant. Null for a simple product (no
+   *  options at all) or when the current selection doesn't match any active variant. */
+  private resolveVariant(): ProductVariant | null {
     const p = this.product();
     if (!p || p.variants.length === 0) return null;
-    const match = p.variants.find(
-      (v) => v.options.length > 0 && v.options.every((o) => this.selected[o.optionName] === o.optionValue),
-    );
-    return match?.productVariantId ?? null;
+    return p.variants.find(
+      (v) => v.isActive && v.options.length > 0 && v.options.every((o) => this.selected[o.optionName] === o.optionValue),
+    ) ?? null;
+  }
+
+  /** Resolved variant, as the args addToEstimate expects — undefined for a simple product. */
+  private variantArg(): { variantId: number; label: string; priceAdjustment: number } | undefined {
+    const v = this.resolveVariant();
+    if (!v) return undefined;
+    return {
+      variantId: v.productVariantId,
+      label: v.name?.trim() || v.options.map((o) => o.optionValue).join(' / '),
+      priceAdjustment: v.priceAdjustment,
+    };
   }
 
   /**
@@ -237,15 +252,20 @@ export class ProductDetailComponent implements OnInit {
    * that nothing in the header showed, so a buyer pressed Add, saw the badge stay at zero
    * and reasonably concluded it had not worked.
    *
-   * The chosen variant is not carried over — the estimate, the price list and the order are
-   * all keyed on the product alone, so there is nowhere to put it.
+   * The chosen variant IS carried over (as of the estimate's variant-line support) — it used
+   * not to be, which meant picking "500 / Red" silently added the plain product at its base
+   * price with no record of which option combination was actually wanted.
    */
   addToCart(): void {
     const p = this.product();
     if (!p || !p.inStock || this.adding()) return;
+    if (this.optionGroups().length > 0 && !this.resolveVariant()) {
+      this.cartError.set('Please choose a valid combination of options.');
+      return;
+    }
     this.adding.set(true);
     this.cartError.set(null);
-    this.quickOrder.addToEstimate(p.productId, this.clampedQty()).subscribe({
+    this.quickOrder.addToEstimate(p.productId, this.clampedQty(), this.variantArg()).subscribe({
       next: (added) => {
         this.adding.set(false);
         if (!added) {
@@ -262,9 +282,13 @@ export class ProductDetailComponent implements OnInit {
   buyNow(): void {
     const p = this.product();
     if (!p || !p.inStock || this.adding()) return;
+    if (this.optionGroups().length > 0 && !this.resolveVariant()) {
+      this.cartError.set('Please choose a valid combination of options.');
+      return;
+    }
     this.adding.set(true);
     this.cartError.set(null);
-    this.quickOrder.addToEstimate(p.productId, this.clampedQty()).subscribe({
+    this.quickOrder.addToEstimate(p.productId, this.clampedQty(), this.variantArg()).subscribe({
       next: (added) => {
         this.adding.set(false);
         if (!added) {

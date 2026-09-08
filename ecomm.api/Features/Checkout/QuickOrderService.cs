@@ -76,50 +76,75 @@ public sealed class QuickOrderService : IQuickOrderService
         var warnings = new List<string>();
 
         // Collapse duplicates and drop non-positive quantities before touching the database.
+        // Keyed by (ProductId, VariantId) rather than ProductId alone, so two variants of the
+        // same product price and stock-check independently instead of merging into one line.
         var wanted = (req.Lines ?? [])
             .Where(l => l.Quantity > 0)
-            .GroupBy(l => l.ProductId)
+            .GroupBy(l => (l.ProductId, l.VariantId))
             .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
 
         var lines = new List<QuickOrderQuoteLineDto>();
 
         if (wanted.Count > 0)
         {
-            var ids = wanted.Keys.ToList();
+            var ids = wanted.Keys.Select(k => k.ProductId).Distinct().ToList();
             var products = await _db.Products
                 .Where(p => p.TenantId == Tenant && !p.IsDeleted && p.IsActive
                             && p.Status == "Active" && ids.Contains(p.ProductId))
-                .Select(p => new
-                {
-                    p.ProductId,
-                    p.Sku,
-                    p.DesignNo,
-                    p.Name,
-                    p.Price,
-                    p.CompareAtPrice,
-                    InStock = p.InventoryRecords.Sum(i => i.AvailableQty) > 0,
-                })
+                .Select(p => new { p.ProductId, p.Sku, p.DesignNo, p.Name, p.Price, p.CompareAtPrice })
                 .ToListAsync(ct);
-
             var found = products.ToDictionary(p => p.ProductId);
 
-            // A product the buyer had in their basket but that is no longer purchasable is
-            // dropped from the quote and named, rather than silently priced at zero.
-            foreach (var id in ids.Where(id => !found.ContainsKey(id)))
+            var variantIds = wanted.Keys.Where(k => k.VariantId.HasValue).Select(k => k.VariantId!.Value).Distinct().ToList();
+            var variants = variantIds.Count == 0
+                ? new Dictionary<long, ProductVariant>()
+                : await _db.ProductVariants.Where(v => variantIds.Contains(v.ProductVariantId)).ToDictionaryAsync(v => v.ProductVariantId, ct);
+
+            // Stock per (product, variant): a plain product's row has ProductVariantId = null
+            // and is summed as before; a variant's row is looked up by its own id specifically
+            // — per-variant stock, not the whole product's combined total.
+            var invRows = await _db.Inventory
+                .Where(i => i.TenantId == Tenant && ids.Contains(i.ProductId))
+                .Select(i => new { i.ProductId, i.ProductVariantId, i.AvailableQty })
+                .ToListAsync(ct);
+
+            // A product/option combination the buyer had in their basket but that is no
+            // longer purchasable is dropped from the quote and named, rather than silently
+            // priced at zero.
+            foreach (var key in wanted.Keys.ToList())
             {
-                warnings.Add($"An item is no longer available and was removed (product {id}).");
-                wanted.Remove(id);
+                if (!found.ContainsKey(key.ProductId))
+                {
+                    warnings.Add($"An item is no longer available and was removed (product {key.ProductId}).");
+                    wanted.Remove(key);
+                }
+                else if (key.VariantId is { } vid && (!variants.TryGetValue(vid, out var v) || v.ProductId != key.ProductId || !v.IsActive))
+                {
+                    warnings.Add($"A selected option for {found[key.ProductId].Name} is no longer available and was removed.");
+                    wanted.Remove(key);
+                }
             }
 
-            foreach (var p in products.OrderBy(p => p.Name))
+            foreach (var kv in wanted.OrderBy(kv => found[kv.Key.ProductId].Name))
             {
-                var qty = wanted[p.ProductId];
+                var (key, qty) = (kv.Key, kv.Value);
+                var p = found[key.ProductId];
+                var variant = key.VariantId is { } vid ? variants[vid] : null;
+                var unitPrice = p.Price + (variant?.PriceAdjustment ?? 0m);
+                var compareAt = p.CompareAtPrice is { } m ? m + (variant?.PriceAdjustment ?? 0m) : (decimal?)null;
+
+                var available = variant is not null
+                    ? invRows.Where(i => i.ProductId == key.ProductId && i.ProductVariantId == variant.ProductVariantId).Sum(i => i.AvailableQty)
+                    : invRows.Where(i => i.ProductId == key.ProductId && i.ProductVariantId == null).Sum(i => i.AvailableQty);
+                var inStock = available > 0;
+
                 lines.Add(new QuickOrderQuoteLineDto(
                     p.ProductId, p.Sku, p.Name, qty,
-                    p.Price, p.CompareAtPrice,
-                    Round(p.Price * qty), p.InStock, p.DesignNo));
+                    unitPrice, compareAt,
+                    Round(unitPrice * qty), inStock, p.DesignNo,
+                    variant?.ProductVariantId, variant?.Name));
 
-                if (!p.InStock) warnings.Add($"{p.Name} is currently out of stock.");
+                if (!inStock) warnings.Add($"{p.Name}{(variant?.Name is { } vn ? $" ({vn})" : "")} is currently out of stock.");
             }
         }
 
@@ -267,6 +292,7 @@ public sealed class QuickOrderService : IQuickOrderService
             {
                 OrderId = order.OrderId,
                 ProductId = line.ProductId,
+                ProductVariantId = line.VariantId,
                 Sku = line.Sku,
                 ProductName = line.Name,
                 DesignNo = snapshot.TryGetValue(line.ProductId, out var snap) ? snap.DesignNo : null,
@@ -289,16 +315,15 @@ public sealed class QuickOrderService : IQuickOrderService
             // nothing for the orders that actually happen, and nobody was ever told to reorder.
             //
             // Only what exists is reserved: Phase 1 does not refuse an order for want of stock,
-            // so a short line reserves the remainder instead of failing the sale.
+            // so a short line reserves the remainder instead of failing the sale. Matched by
+            // variant, not just product — two variants of the same product hold separate stock.
             var available = await _db.Inventory
-                .Where(i => i.TenantId == Tenant && i.ProductId == line.ProductId)
-                .OrderByDescending(i => i.AvailableQty)
-                .Select(i => i.AvailableQty)
-                .FirstOrDefaultAsync(ct);
+                .Where(i => i.TenantId == Tenant && i.ProductId == line.ProductId && i.ProductVariantId == line.VariantId)
+                .SumAsync(i => (int?)i.AvailableQty, ct) ?? 0;
 
             var take = Math.Min(available, line.Quantity);
             if (take > 0)
-                await _inventory.ReserveAsync(line.ProductId, null, take, "Order", order.OrderId, ct);
+                await _inventory.ReserveAsync(line.ProductId, line.VariantId, take, "Order", order.OrderId, ct);
         }
 
         await SyncProfileAsync(userId, req, mobile, now, ct);

@@ -21,19 +21,28 @@
   --color-primary-dark: #1d4ed8;
 }
 
-/* Shared admin form controls */
-.input {
-  width: 100%;
-  border: 1px solid rgb(203 213 225);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  font-size: var(--text-sm);
-  background: #fff;
-}
-.input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgb(59 130 246);
-  border-color: rgb(59 130 246);
+/* Shared admin form controls.
+   Layered (like the button cursor-fix above) rather than left bare: an unlayered rule beats
+   *any* layered one under CSS Cascade Layers regardless of source order or specificity, so
+   this class's own `width: 100%` was silently overriding Tailwind width/flex utilities
+   (w-48, flex-1, w-32, ...) placed on the same element wherever admin paired two of these
+   inputs side by side expecting one narrow and one wide — the narrow one won the fight for
+   space instead, and the "wide" one got squeezed to a sliver. Layering lets those utilities
+   win as intended, with no visual change anywhere this class is used alone. */
+@layer base {
+  .input {
+    width: 100%;
+    border: 1px solid rgb(203 213 225);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    background: #fff;
+  }
+  .input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(59 130 246);
+    border-color: rgb(59 130 246);
+  }
 }
 .btn-primary {
   background: var(--color-primary);
@@ -188,20 +197,25 @@
   color: rgb(51 65 85);
   margin-bottom: 0.3rem;
 }
-.form-input {
-  display: block;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  font-size: calc(0.9rem * var(--app-type-mult, 1));
-  color: rgb(15 23 42);
-  background: #fff;
-  border: 1px solid rgb(203 213 225);
-  border-radius: 0.5rem;
-}
-.form-input:focus {
-  outline: none;
-  border-color: var(--color-primary, rgb(37 99 235));
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.15);
+/* Layered for the same reason .input is above: unlayered `width: 100%` was beating
+   Tailwind width/flex utilities (flex-1, w-32, ...) placed alongside this class wherever
+   two of these fields sit in one row expecting different widths. */
+@layer base {
+  .form-input {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: calc(0.9rem * var(--app-type-mult, 1));
+    color: rgb(15 23 42);
+    background: #fff;
+    border: 1px solid rgb(203 213 225);
+    border-radius: 0.5rem;
+  }
+  .form-input:focus {
+    outline: none;
+    border-color: var(--color-primary, rgb(37 99 235));
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.15);
+  }
 }
 
 /* Mock / Live toggle in admin settings */

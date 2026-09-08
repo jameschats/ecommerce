@@ -1,8 +1,9 @@
 namespace ecomm.api.Features.Checkout;
 
 /// <summary>One line as the browser believes it to be. Only the ids and quantities are
-/// trusted — every price is re-read from the database (see <c>QuickOrderService</c>).</summary>
-public sealed record QuickOrderLineRequest(long ProductId, int Quantity);
+/// trusted — every price is re-read from the database (see <c>QuickOrderService</c>).
+/// VariantId is null for a product with no variants, or when none was selected.</summary>
+public sealed record QuickOrderLineRequest(long ProductId, int Quantity, long? VariantId = null);
 
 public sealed record QuickOrderQuoteRequest(
     IReadOnlyList<QuickOrderLineRequest> Lines,
@@ -14,7 +15,10 @@ public sealed record QuickOrderQuoteLineDto(
     long ProductId, string Sku, string Name, int Quantity,
     decimal UnitPrice, decimal? CompareAtPrice, decimal LineTotal, bool InStock,
     /// <summary>What the trade orders by. Distinct from Sku, which is internal.</summary>
-    string? DesignNo = null);
+    string? DesignNo = null,
+    long? VariantId = null,
+    /// <summary>e.g. "500 / Red" — null for a plain product with no variant selected.</summary>
+    string? VariantLabel = null);
 
 /// <summary>
 /// The authoritative order summary. Mirrors the reference layout: Net Total, Discount

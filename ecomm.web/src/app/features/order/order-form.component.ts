@@ -403,6 +403,7 @@ export class OrderFormComponent {
       const lines = this.quickOrder.lines().map((l) => ({
         productId: l.item.productId,
         quantity: l.qty,
+        variantId: l.variantId ?? undefined,
       }));
       const state = this.state() || null;
       const coupon = this.appliedCoupon();
@@ -444,6 +445,7 @@ export class OrderFormComponent {
     const lines = this.quickOrder.lines().map((l) => ({
       productId: l.item.productId,
       quantity: l.qty,
+      variantId: l.variantId ?? undefined,
     }));
 
     this.checkout

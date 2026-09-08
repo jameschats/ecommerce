@@ -84,13 +84,22 @@ public sealed class InvoiceService : IInvoiceService
         await _db.SaveChangesAsync(ct);
         invoice.InvoiceNumber = $"INV-{invoice.InvoiceDate:yyyy}-{invoice.InvoiceId:D5}";
 
+        // Variant is folded into the printed name here rather than added as its own column —
+        // InvoiceItem is a frozen snapshot of what shipped, same idea as DesignNo/HsnCode below.
+        var variantIds = items.Where(i => i.ProductVariantId != null).Select(i => i.ProductVariantId!.Value).Distinct().ToList();
+        var variantNames = variantIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : await _db.ProductVariants.Where(v => variantIds.Contains(v.ProductVariantId))
+                .ToDictionaryAsync(v => v.ProductVariantId, v => v.Name, ct);
+
         foreach (var oi in items)
         {
+            var variantName = oi.ProductVariantId is { } vid && variantNames.TryGetValue(vid, out var n) ? n : null;
             _db.InvoiceItems.Add(new InvoiceItem
             {
                 InvoiceId = invoice.InvoiceId,
                 ProductId = oi.ProductId,
-                ProductName = oi.ProductName,
+                ProductName = string.IsNullOrWhiteSpace(variantName) ? oi.ProductName : $"{oi.ProductName} ({variantName})",
                 DesignNo = oi.DesignNo,
                 HsnCode = oi.HsnCode,
                 Quantity = oi.Quantity,

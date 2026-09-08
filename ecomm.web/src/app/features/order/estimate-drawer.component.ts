@@ -1,7 +1,7 @@
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { QuickOrderService } from '../../core/services/quick-order.service';
+import { QuickOrderLine, QuickOrderService } from '../../core/services/quick-order.service';
 import { QuickOrderCheckoutService } from '../../core/services/quick-order-checkout.service';
 
 /**
@@ -39,7 +39,7 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
             </div>
           } @else {
             <ul class="divide-y divide-slate-100">
-              @for (line of lines(); track line.item.productId) {
+              @for (line of lines(); track line.item.productId + ':' + (line.variantId ?? '')) {
                 <li class="flex gap-3 p-3">
                   @if (line.item.imageUrl) {
                     <img [src]="line.item.imageUrl" [alt]="line.item.name" width="48" height="48" loading="lazy"
@@ -50,12 +50,15 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
 
                   <div class="flex-1 min-w-0">
                     <p class="font-medium text-slate-800 text-sm leading-snug">{{ line.item.name }}</p>
+                    @if (line.variantLabel) {
+                      <p class="text-xs text-primary mt-0.5">{{ line.variantLabel }}</p>
+                    }
                     <p class="text-xs text-slate-500 font-mono mt-0.5">{{ line.item.sku }}</p>
 
                     <div class="mt-1.5 flex items-center gap-2">
                       <input type="number" min="0" step="1" inputmode="numeric"
                              [value]="line.qty"
-                             (input)="setQty(line.item.productId, $any($event.target).value)"
+                             (input)="setQty(line, $any($event.target).value)"
                              [attr.aria-label]="'Quantity for ' + line.item.name"
                              class="w-16 h-8 text-center rounded border border-slate-300 text-sm font-semibold
                                     [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
@@ -67,7 +70,7 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
                     </div>
                   </div>
 
-                  <button type="button" (click)="remove(line.item.productId)"
+                  <button type="button" (click)="remove(line)"
                           [attr.aria-label]="'Remove ' + line.item.name"
                           class="text-slate-400 hover:text-red-600 shrink-0 self-start text-lg leading-none">×</button>
                 </li>
@@ -158,13 +161,18 @@ export class EstimateDrawerComponent {
   private readonly config = toSignal(this.checkout.getConfig(), { initialValue: null });
   readonly stateMins = computed(() => this.config()?.stateMinOrders ?? []);
 
-  setQty(productId: number, value: string): void {
+  setQty(line: QuickOrderLine, value: string): void {
     const parsed = value === '' ? 0 : Number.parseInt(value, 10);
-    this.quickOrder.setQty(productId, Number.isNaN(parsed) ? 0 : parsed);
+    const qty = Number.isNaN(parsed) ? 0 : parsed;
+    if (line.variantId != null) {
+      this.quickOrder.setVariantLineQty(line.item.productId, line.variantId, qty);
+    } else {
+      this.quickOrder.setQty(line.item.productId, qty);
+    }
   }
 
-  remove(productId: number): void {
-    this.quickOrder.setQty(productId, 0);
+  remove(line: QuickOrderLine): void {
+    this.setQty(line, '0');
   }
 
   clearAll(): void {
@@ -187,7 +195,7 @@ export class EstimateDrawerComponent {
     this.downloading.set(true);
     this.quoteError.set(null);
 
-    const lines = this.lines().map((l) => ({ productId: l.item.productId, quantity: l.qty }));
+    const lines = this.lines().map((l) => ({ productId: l.item.productId, quantity: l.qty, variantId: l.variantId ?? undefined }));
 
     this.checkout.quotePdf(lines).subscribe({
       next: (blob) => {

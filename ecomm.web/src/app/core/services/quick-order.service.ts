@@ -36,9 +36,23 @@ export interface QuickOrderLine {
   item: PriceListItem;
   qty: number;
   lineTotal: number;
+  variantId: number | null;
+  variantLabel: string | null;
+}
+
+/** One line for a specific variant of a product — tracked separately from the plain
+ *  productId -> qty map so two variants of the same product hold their own quantity and
+ *  price instead of merging into one row. */
+interface VariantLine {
+  productId: number;
+  variantId: number;
+  variantLabel: string;
+  priceAdjustment: number;
+  qty: number;
 }
 
 const STORAGE_KEY = 'dcs.quickorder.v1';
+const VARIANT_STORAGE_KEY = 'dcs.quickorder.variants.v1';
 
 /**
  * State for the quick-order price list (design.md §5–6).
@@ -60,6 +74,9 @@ export class QuickOrderService {
 
   /** productId -> quantity. Only entries with qty > 0 are kept. */
   private readonly quantities = signal<Record<number, number>>({});
+
+  /** `${productId}:${variantId}` -> line. Only entries with qty > 0 are kept. */
+  private readonly variantLines = signal<Record<string, VariantLine>>({});
 
   /** Flat index of every item, so the drawer can resolve a productId without the bands. */
   private readonly itemsById = signal<Map<number, PriceListItem>>(new Map());
@@ -115,14 +132,24 @@ export class QuickOrderService {
    * Emits false when the product has no row in the price list, so the caller can say so
    * rather than silently appearing to work.
    */
-  addToEstimate(productId: number, qty: number): Observable<boolean> {
+  addToEstimate(
+    productId: number,
+    qty: number,
+    variant?: { variantId: number; label: string; priceAdjustment: number },
+  ): Observable<boolean> {
     return this.getPriceList().pipe(
       map(() => {
         if (!this.itemsById().has(productId)) return false;
         const add = Math.max(1, Math.floor(qty));
         // Adds to what is already there, rather than replacing it — pressing Add twice
         // should mean two, which is what the wording promises.
-        this.setQty(productId, this.qty(productId) + add);
+        if (variant) {
+          const key = variantKey(productId, variant.variantId);
+          const current = this.variantLines()[key]?.qty ?? 0;
+          this.setVariantQty(productId, variant.variantId, variant.label, variant.priceAdjustment, current + add);
+        } else {
+          this.setQty(productId, this.qty(productId) + add);
+        }
         return true;
       }),
     );
@@ -134,6 +161,32 @@ export class QuickOrderService {
       const next = { ...current };
       if (clean > 0) next[productId] = clean;
       else delete next[productId];
+      return next;
+    });
+    this.restored.set(false);
+    this.saveToStorage();
+    this.scheduleServerSync();
+  }
+
+  variantQty(productId: number, variantId: number): number {
+    return this.variantLines()[variantKey(productId, variantId)]?.qty ?? 0;
+  }
+
+  /** Changes just the quantity of a variant line that's already in the basket — the caller
+   *  (the drawer's own qty box) has no reason to know its label/priceAdjustment to do that. */
+  setVariantLineQty(productId: number, variantId: number, qty: number): void {
+    const current = this.variantLines()[variantKey(productId, variantId)];
+    if (!current) return;
+    this.setVariantQty(productId, variantId, current.variantLabel, current.priceAdjustment, qty);
+  }
+
+  setVariantQty(productId: number, variantId: number, label: string, priceAdjustment: number, qty: number): void {
+    const key = variantKey(productId, variantId);
+    const clean = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
+    this.variantLines.update((current) => {
+      const next = { ...current };
+      if (clean > 0) next[key] = { productId, variantId, variantLabel: label, priceAdjustment, qty: clean };
+      else delete next[key];
       return next;
     });
     this.restored.set(false);
@@ -158,8 +211,13 @@ export class QuickOrderService {
   }
 
   private syncToServer(): void {
-    const lines = Object.entries(this.quantities())
-      .map(([id, qty]) => ({ productId: Number(id), quantity: qty }));
+    // Variant lines are mirrored by productId + quantity only, same as a plain line — the
+    // shop-visible "unfinished basket" doesn't need the exact option combination, and the
+    // estimate endpoint's shape predates variants.
+    const lines = [
+      ...Object.entries(this.quantities()).map(([id, qty]) => ({ productId: Number(id), quantity: qty })),
+      ...Object.values(this.variantLines()).map((v) => ({ productId: v.productId, quantity: v.qty })),
+    ];
 
     this.http.post(`${this.base}/estimate`, { lines }).subscribe({
       next: () => {},
@@ -170,6 +228,7 @@ export class QuickOrderService {
 
   clear(): void {
     this.quantities.set({});
+    this.variantLines.set({});
     this.restored.set(false);
     this.saveToStorage();
   }
@@ -181,7 +240,21 @@ export class QuickOrderService {
     const out: QuickOrderLine[] = [];
     for (const [id, qty] of Object.entries(qtys)) {
       const item = index.get(Number(id));
-      if (item && qty > 0) out.push({ item, qty, lineTotal: round2(item.price * qty) });
+      if (item && qty > 0) out.push({ item, qty, lineTotal: round2(item.price * qty), variantId: null, variantLabel: null });
+    }
+    for (const v of Object.values(this.variantLines())) {
+      const item = index.get(v.productId);
+      if (!item || v.qty <= 0) continue;
+      const unitPrice = round2(item.price + v.priceAdjustment);
+      const adjustedItem: PriceListItem = {
+        ...item,
+        price: unitPrice,
+        compareAtPrice: item.compareAtPrice != null ? round2(item.compareAtPrice + v.priceAdjustment) : null,
+      };
+      out.push({
+        item: adjustedItem, qty: v.qty, lineTotal: round2(unitPrice * v.qty),
+        variantId: v.variantId, variantLabel: v.variantLabel,
+      });
     }
     return out;
   });
@@ -214,6 +287,10 @@ export class QuickOrderService {
       const qtys = this.quantities();
       if (Object.keys(qtys).length === 0) localStorage.removeItem(STORAGE_KEY);
       else localStorage.setItem(STORAGE_KEY, JSON.stringify(qtys));
+
+      const vlines = this.variantLines();
+      if (Object.keys(vlines).length === 0) localStorage.removeItem(VARIANT_STORAGE_KEY);
+      else localStorage.setItem(VARIANT_STORAGE_KEY, JSON.stringify(vlines));
     } catch {
       // Private browsing or a full quota — not worth breaking the page over.
     }
@@ -221,23 +298,47 @@ export class QuickOrderService {
 
   private loadFromStorage(): void {
     if (typeof localStorage === 'undefined') return; // SSR
+    let anyRestored = false;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Record<string, number>;
-      const restored: Record<number, number> = {};
-      for (const [id, qty] of Object.entries(parsed)) {
-        const n = Number(id);
-        const q = Math.floor(Number(qty));
-        if (Number.isFinite(n) && Number.isFinite(q) && q > 0) restored[n] = q;
-      }
-      if (Object.keys(restored).length) {
-        this.quantities.set(restored);
-        this.restored.set(true);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, number>;
+        const restored: Record<number, number> = {};
+        for (const [id, qty] of Object.entries(parsed)) {
+          const n = Number(id);
+          const q = Math.floor(Number(qty));
+          if (Number.isFinite(n) && Number.isFinite(q) && q > 0) restored[n] = q;
+        }
+        if (Object.keys(restored).length) {
+          this.quantities.set(restored);
+          anyRestored = true;
+        }
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
+
+    try {
+      const raw = localStorage.getItem(VARIANT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, VariantLine>;
+        const restored: Record<string, VariantLine> = {};
+        for (const [key, v] of Object.entries(parsed)) {
+          const qty = Math.floor(Number(v?.qty));
+          if (v && Number.isFinite(v.productId) && Number.isFinite(v.variantId) && Number.isFinite(qty) && qty > 0) {
+            restored[key] = { ...v, qty };
+          }
+        }
+        if (Object.keys(restored).length) {
+          this.variantLines.set(restored);
+          anyRestored = true;
+        }
+      }
+    } catch {
+      localStorage.removeItem(VARIANT_STORAGE_KEY);
+    }
+
+    if (anyRestored) this.restored.set(true);
   }
 
   private pruneToCatalogue(index: Map<number, PriceListItem>): void {
@@ -248,11 +349,24 @@ export class QuickOrderService {
       if (index.has(Number(id))) kept[Number(id)] = qty;
       else dropped = true;
     }
+
+    const vlines = this.variantLines();
+    const vkept: Record<string, VariantLine> = {};
+    for (const [key, v] of Object.entries(vlines)) {
+      if (index.has(v.productId)) vkept[key] = v;
+      else dropped = true;
+    }
+
     if (dropped) {
       this.quantities.set(kept);
+      this.variantLines.set(vkept);
       this.saveToStorage();
     }
   }
+}
+
+function variantKey(productId: number, variantId: number): string {
+  return `${productId}:${variantId}`;
 }
 
 function round2(n: number): number {
