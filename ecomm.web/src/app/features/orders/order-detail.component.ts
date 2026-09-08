@@ -42,6 +42,11 @@ import { orderStatusClass } from './order-status';
                 <div>
                   <div class="text-slate-800">{{ it.productName }}@if (it.variantLabel) { <span class="text-slate-400"> · {{ it.variantLabel }}</span> }</div>
                   <div class="text-xs text-slate-400">{{ it.sku }} · GST {{ it.taxRate }}% · × {{ it.quantity }}</div>
+                  @if (it.customFields?.length) {
+                    <div class="text-xs text-slate-500 mt-0.5">
+                      @for (f of it.customFields; track f.label) { <div>{{ f.label }}: {{ f.value }}</div> }
+                    </div>
+                  }
                 </div>
                 <div class="text-right text-slate-700">{{ it.lineTotal | currency:'INR':'symbol':'1.2-2' }}</div>
               </div>

@@ -35,7 +35,8 @@ public sealed class InvoiceService : IInvoiceService
 
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId, ct)
             ?? throw new InvalidOperationException($"Order {orderId} not found for invoicing.");
-        var items = await _db.OrderItems.Where(oi => oi.OrderId == orderId).OrderBy(oi => oi.OrderItemId).ToListAsync(ct);
+        var items = await _db.OrderItems.Include(oi => oi.CustomFieldValues)
+            .Where(oi => oi.OrderId == orderId).OrderBy(oi => oi.OrderItemId).ToListAsync(ct);
 
         var billing = order.BillingAddressId ?? order.ShippingAddressId;
         var addr = billing is null ? null : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == billing, ct);
@@ -92,10 +93,14 @@ public sealed class InvoiceService : IInvoiceService
             : await _db.ProductVariants.Where(v => variantIds.Contains(v.ProductVariantId))
                 .ToDictionaryAsync(v => v.ProductVariantId, v => v.Name, ct);
 
+        // Custom-field values need the InvoiceItemId, assigned onto these same tracked entities
+        // only once SaveChangesAsync below runs — so they're copied across in a second pass.
+        var itemsWithAnswers = new List<(InvoiceItem InvoiceItem, ICollection<OrderItemCustomFieldValue> Answers)>();
+
         foreach (var oi in items)
         {
             var variantName = oi.ProductVariantId is { } vid && variantNames.TryGetValue(vid, out var n) ? n : null;
-            _db.InvoiceItems.Add(new InvoiceItem
+            var invoiceItem = new InvoiceItem
             {
                 InvoiceId = invoice.InvoiceId,
                 ProductId = oi.ProductId,
@@ -108,9 +113,24 @@ public sealed class InvoiceService : IInvoiceService
                 TaxAmount = oi.TaxAmount,
                 LineTotal = oi.LineTotal,
                 CreatedAt = DateTime.UtcNow,
-            });
+            };
+            _db.InvoiceItems.Add(invoiceItem);
+            if (oi.CustomFieldValues.Count > 0) itemsWithAnswers.Add((invoiceItem, oi.CustomFieldValues));
         }
         await _db.SaveChangesAsync(ct);
+
+        foreach (var (invoiceItem, answers) in itemsWithAnswers)
+        {
+            foreach (var a in answers)
+            {
+                _db.InvoiceItemCustomFieldValues.Add(new InvoiceItemCustomFieldValue
+                {
+                    InvoiceItemId = invoiceItem.InvoiceItemId, Label = a.Label, Value = a.Value, CreatedAt = DateTime.UtcNow,
+                });
+            }
+        }
+        if (itemsWithAnswers.Count > 0) await _db.SaveChangesAsync(ct);
+
         return (invoice.InvoiceId, invoice.InvoiceNumber);
     }
 
@@ -122,7 +142,8 @@ public sealed class InvoiceService : IInvoiceService
 
         var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.OrderId == orderId, ct);
         if (invoice is null) return null;
-        var items = await _db.InvoiceItems.Where(i => i.InvoiceId == invoice.InvoiceId).OrderBy(i => i.InvoiceItemId).ToListAsync(ct);
+        var items = await _db.InvoiceItems.Include(i => i.CustomFieldValues)
+            .Where(i => i.InvoiceId == invoice.InvoiceId).OrderBy(i => i.InvoiceItemId).ToListAsync(ct);
         var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
         var sellerState = await SettingAsync("StoreState", ct) ?? "";
         var sellerContact = await SellerContactLinesAsync(ct);
@@ -259,7 +280,16 @@ public sealed class InvoiceService : IInvoiceService
                             // Amounts on the lines are bare numbers; the currency is stated once
                             // on the totals below rather than repeated on every row.
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(lineNo.ToString());
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.ProductName);
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Column(c =>
+                            {
+                                c.Item().Text(it.ProductName);
+                                // Custom-text answers (e.g. "Mention Correct Design number")
+                                // printed under the item so whoever packs the order sees them —
+                                // otherwise this is the one place the buyer's own words never
+                                // reach paper.
+                                foreach (var a in it.CustomFieldValues)
+                                    c.Item().Text($"{a.Label}: {a.Value}").FontSize(7.5f).FontColor(Colors.Grey.Darken1);
+                            });
                             // Blank, not "-", where no design number was captured: a dash reads as
                             // a value. Lines predating the snapshot genuinely have nothing to show.
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.DesignNo ?? "");

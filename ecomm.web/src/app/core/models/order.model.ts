@@ -53,6 +53,11 @@ export interface PlaceOrderResult {
   codOrder: boolean;
 }
 
+export interface OrderItemCustomField {
+  label: string;
+  value: string;
+}
+
 export interface OrderItem {
   orderItemId: number;
   productId: number;
@@ -66,6 +71,7 @@ export interface OrderItem {
   taxRate: number;
   taxAmount: number;
   lineTotal: number;
+  customFields: OrderItemCustomField[] | null;
 }
 
 export interface OrderAddress {

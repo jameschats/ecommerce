@@ -83,6 +83,13 @@ public sealed class QuickOrderService : IQuickOrderService
             .GroupBy(l => (l.ProductId, l.VariantId))
             .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
 
+        // Custom-field answers aren't summed like quantity — take the first line in each group
+        // that actually carries any, so a merged duplicate line still keeps what was typed.
+        var answersByKey = (req.Lines ?? [])
+            .Where(l => l.Quantity > 0 && l.CustomFields is { Count: > 0 })
+            .GroupBy(l => (l.ProductId, l.VariantId))
+            .ToDictionary(g => g.Key, g => g.First().CustomFields!);
+
         var lines = new List<QuickOrderQuoteLineDto>();
 
         if (wanted.Count > 0)
@@ -107,6 +114,14 @@ public sealed class QuickOrderService : IQuickOrderService
                 .Where(i => i.TenantId == Tenant && ids.Contains(i.ProductId))
                 .Select(i => new { i.ProductId, i.ProductVariantId, i.AvailableQty })
                 .ToListAsync(ct);
+
+            // Custom fields are defined per product (not per variant) — loaded once for every
+            // product in the basket so each line can resolve its own answers against them.
+            var customFieldsByProduct = (await _db.ProductCustomFields
+                    .Where(f => f.TenantId == Tenant && ids.Contains(f.ProductId))
+                    .ToListAsync(ct))
+                .GroupBy(f => f.ProductId)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
             // A product/option combination the buyer had in their basket but that is no
             // longer purchasable is dropped from the quote and named, rather than silently
@@ -138,11 +153,26 @@ public sealed class QuickOrderService : IQuickOrderService
                     : invRows.Where(i => i.ProductId == key.ProductId && i.ProductVariantId == null).Sum(i => i.AvailableQty);
                 var inStock = available > 0;
 
+                List<CustomFieldAnswerDto>? customFields = null;
+                if (answersByKey.TryGetValue(key, out var rawAnswers)
+                    && customFieldsByProduct.TryGetValue(key.ProductId, out var defs))
+                {
+                    customFields = rawAnswers
+                        .Join(defs, a => a.ProductCustomFieldId, d => d.ProductCustomFieldId,
+                            (a, d) => new CustomFieldAnswerDto(d.ProductCustomFieldId, d.Label,
+                                (a.Value ?? "").Trim() is { Length: > 0 } v
+                                    ? v[..Math.Min(v.Length, d.CharLimit)]
+                                    : ""))
+                        .Where(a => a.Value.Length > 0)
+                        .ToList();
+                    if (customFields.Count == 0) customFields = null;
+                }
+
                 lines.Add(new QuickOrderQuoteLineDto(
                     p.ProductId, p.Sku, p.Name, qty,
                     unitPrice, compareAt,
                     Round(unitPrice * qty), inStock, p.DesignNo,
-                    variant?.ProductVariantId, variant?.Name));
+                    variant?.ProductVariantId, variant?.Name, customFields));
 
                 if (!inStock) warnings.Add($"{p.Name}{(variant?.Name is { } vn ? $" ({vn})" : "")} is currently out of stock.");
             }
@@ -223,6 +253,8 @@ public sealed class QuickOrderService : IQuickOrderService
         if (!string.IsNullOrWhiteSpace(req.CouponCode) && !quote.CouponApplied)
             throw new AppException(quote.CouponMessage ?? "That coupon can't be applied.");
 
+        await ValidateCustomFieldsAsync(quote.Lines, ct);
+
         var now = DateTime.UtcNow;
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
@@ -286,9 +318,14 @@ public sealed class QuickOrderService : IQuickOrderService
             .Select(p => new { p.ProductId, p.CostPrice, p.DesignNo, p.HsnCode })
             .ToDictionaryAsync(x => x.ProductId, x => x, ct);
 
+        // Custom-field answers need the OrderItemId, which SaveChangesAsync below assigns onto
+        // these same tracked entities — so the value rows are added in a second pass afterward
+        // rather than inline here.
+        var itemsWithAnswers = new List<(OrderItem Item, IReadOnlyList<CustomFieldAnswerDto> Answers)>();
+
         foreach (var line in quote.Lines)
         {
-            _db.OrderItems.Add(new OrderItem
+            var orderItem = new OrderItem
             {
                 OrderId = order.OrderId,
                 ProductId = line.ProductId,
@@ -304,7 +341,9 @@ public sealed class QuickOrderService : IQuickOrderService
                 TaxRate = 0m,
                 TaxAmount = 0m,
                 LineTotal = line.LineTotal,
-            });
+            };
+            _db.OrderItems.Add(orderItem);
+            if (line.CustomFields is { Count: > 0 }) itemsWithAnswers.Add((orderItem, line.CustomFields));
 
             // Reserve rather than deduct: stock is committed when the payment is confirmed
             // and released if the order is cancelled, matching the platform's existing model.
@@ -350,6 +389,20 @@ public sealed class QuickOrderService : IQuickOrderService
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // Only now do the new OrderItems have real ids — add() above just tracked them.
+        foreach (var (item, answers) in itemsWithAnswers)
+        {
+            foreach (var a in answers)
+            {
+                _db.OrderItemCustomFieldValues.Add(new OrderItemCustomFieldValue
+                {
+                    OrderItemId = item.OrderItemId, Label = a.Label, Value = a.Value, CreatedAt = now,
+                });
+            }
+        }
+        if (itemsWithAnswers.Count > 0) await _db.SaveChangesAsync(ct);
+
         await tx.CommitAsync(ct);
 
         // After the commit, deliberately: the order exists whether or not the email goes
@@ -498,6 +551,37 @@ public sealed class QuickOrderService : IQuickOrderService
         var prefix = $"DCS{today:yyMMdd}";
         var todayCount = await _db.Orders.CountAsync(o => o.OrderNumber.StartsWith(prefix), ct);
         return $"{prefix}{(todayCount + 1):D4}";
+    }
+
+    /// <summary>
+    /// Enforces every product's mandatory custom fields at the moment an order is actually
+    /// placed — QuoteAsync only echoes back whatever was sent, since a running estimate should
+    /// never hard-fail on an incomplete field the buyer hasn't finished typing yet. This is the
+    /// gate that matters: it's what stops "Mention Correct Design number" being skipped by a
+    /// request that bypasses the storefront's own required-field check.
+    /// </summary>
+    private async Task ValidateCustomFieldsAsync(IReadOnlyList<QuickOrderQuoteLineDto> lines, CancellationToken ct)
+    {
+        var ids = lines.Select(l => l.ProductId).Distinct().ToList();
+        if (ids.Count == 0) return;
+
+        var mandatoryByProduct = (await _db.ProductCustomFields
+                .Where(f => f.TenantId == Tenant && f.IsMandatory && ids.Contains(f.ProductId))
+                .ToListAsync(ct))
+            .GroupBy(f => f.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        if (mandatoryByProduct.Count == 0) return;
+
+        foreach (var line in lines)
+        {
+            if (!mandatoryByProduct.TryGetValue(line.ProductId, out var required)) continue;
+            var answered = line.CustomFields?.ToDictionary(a => a.ProductCustomFieldId, a => a.Value) ?? [];
+            foreach (var field in required)
+            {
+                if (!answered.TryGetValue(field.ProductCustomFieldId, out var value) || string.IsNullOrWhiteSpace(value))
+                    throw new AppException($"'{field.Label}' is required for {line.Name}.");
+            }
+        }
     }
 
     /// <summary>Per-state override if one exists, otherwise the global minimum.</summary>

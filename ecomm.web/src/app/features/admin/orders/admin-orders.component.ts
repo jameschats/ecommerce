@@ -57,7 +57,14 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           </div>
           <div class="divide-y divide-slate-100 border-y border-slate-100 mb-3">
             @for (it of o.items; track it.orderItemId) {
-              <div class="flex justify-between py-2 text-sm"><span class="text-slate-700">{{ it.productName }}{{ it.variantLabel ? ' — ' + it.variantLabel : '' }} × {{ it.quantity }}</span><span>{{ it.lineTotal | currency:'INR':'symbol':'1.2-2' }}</span></div>
+              <div class="py-2 text-sm">
+                <div class="flex justify-between"><span class="text-slate-700">{{ it.productName }}{{ it.variantLabel ? ' — ' + it.variantLabel : '' }} × {{ it.quantity }}</span><span>{{ it.lineTotal | currency:'INR':'symbol':'1.2-2' }}</span></div>
+                @if (it.customFields?.length) {
+                  <div class="text-xs text-slate-500 mt-0.5">
+                    @for (f of it.customFields; track f.label) { <div>{{ f.label }}: {{ f.value }}</div> }
+                  </div>
+                }
+              </div>
             }
           </div>
           <div class="flex justify-between text-sm font-semibold mb-1"><span>Total</span><span>{{ o.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span></div>

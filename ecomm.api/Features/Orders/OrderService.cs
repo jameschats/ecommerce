@@ -453,7 +453,8 @@ public sealed class OrderService : IOrderService
                 i.OrderItemId, i.ProductId, i.ProductName, i.Sku,
                 _db.Products.Where(p => p.ProductId == i.ProductId).Select(p => p.Slug).FirstOrDefault(),
                 i.ProductVariantId == null ? null : _db.ProductVariants.Where(v => v.ProductVariantId == i.ProductVariantId).Select(v => v.Name).FirstOrDefault(),
-                i.HsnCode, i.Quantity, i.UnitPrice, i.TaxRate, i.TaxAmount, i.LineTotal))
+                i.HsnCode, i.Quantity, i.UnitPrice, i.TaxRate, i.TaxAmount, i.LineTotal,
+                i.CustomFieldValues.Select(c => new OrderItemCustomFieldDto(c.Label, c.Value)).ToList()))
             .ToListAsync(ct);
 
         var ship = await AddressDtoAsync(order.ShippingAddressId, ct);

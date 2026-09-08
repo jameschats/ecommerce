@@ -1,7 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AttributeDef, ProductImageInput, SaveProductRequest, SaveVariantRequest } from '../../../core/models/admin-catalog.model';
+import {
+  AttributeDef, ProductImageInput, SaveProductCustomFieldInput, SaveProductRequest, SaveVariantRequest,
+} from '../../../core/models/admin-catalog.model';
 import { Brand, Category, ProductDetail, ProductVariant } from '../../../core/models/catalog.model';
 import { AdminCatalogService } from '../../../core/services/admin-catalog.service';
 import { MediaService } from '../../../core/services/media.service';
@@ -39,6 +41,10 @@ export class AdminProductFormComponent implements OnInit {
   readonly generatingVariants = signal(false);
   readonly savingVariantId = signal<number | null>(null);
   readonly deletingVariantId = signal<number | null>(null);
+
+  // --- Custom text fields (Wix-style personalization) ---
+  readonly customFields = signal<SaveProductCustomFieldInput[]>([]);
+  readonly savingCustomFields = signal(false);
 
   readonly allSuppliers = signal<Supplier[]>([]);
   productSuppliers: ProductSupplierInput[] = [];
@@ -112,6 +118,9 @@ export class AdminProductFormComponent implements OnInit {
         };
         this.recomputeDiscount();
         this.variants.set(p.variants);
+        this.customFields.set(p.customFields.map((f) => ({
+          label: f.label, charLimit: f.charLimit, isMandatory: f.isMandatory, sortOrder: f.sortOrder,
+        })));
         this.attrValues = {};
         for (const a of p.attributes) this.attrValues[a.attributeId] = a.value ?? a.valueText ?? '';
         this.loading.set(false);
@@ -227,6 +236,34 @@ export class AdminProductFormComponent implements OnInit {
   }
   variantLabel(v: ProductVariant): string {
     return v.options.length ? v.options.map((o) => o.optionValue).join(' / ') : v.name || v.sku;
+  }
+
+  // --- Custom text fields ---
+  addCustomField(): void {
+    this.customFields.update((f) => [...f, { label: '', charLimit: 500, isMandatory: false, sortOrder: f.length }]);
+  }
+  removeCustomField(i: number): void {
+    this.customFields.update((f) => f.filter((_, idx) => idx !== i));
+  }
+  saveCustomFields(): void {
+    const id = this.productId();
+    if (!id) return;
+    const fields = this.customFields()
+      .map((f, i) => ({ ...f, label: f.label.trim(), sortOrder: i }))
+      .filter((f) => f.label.length > 0);
+    this.savingCustomFields.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    this.api.setProductCustomFields(id, fields).subscribe({
+      next: (saved) => {
+        this.savingCustomFields.set(false);
+        this.customFields.set(saved.map((f) => ({
+          label: f.label, charLimit: f.charLimit, isMandatory: f.isMandatory, sortOrder: f.sortOrder,
+        })));
+        this.message.set('Custom text fields saved.');
+      },
+      error: (e) => { this.savingCustomFields.set(false); this.error.set(e?.error?.message ?? 'Could not save custom fields.'); },
+    });
   }
 
   // --- Attributes ---

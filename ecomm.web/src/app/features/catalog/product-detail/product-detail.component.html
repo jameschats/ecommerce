@@ -94,6 +94,28 @@
           </div>
         }
 
+        <!-- Custom text (admin-defined personalization, e.g. "Mention Correct Design number")
+             — only offered once a variant is selected: this option is scoped to variant-bearing
+             products, and there is no line to attach the answer to before then. -->
+        @if (optionGroups().length > 0 && resolveVariant()) {
+          @for (f of product()!.customFields; track f.productCustomFieldId) {
+            <div class="mt-5">
+              <label class="text-sm font-medium text-slate-700 mb-2 block">
+                {{ f.label }}@if (!f.isMandatory) { <span class="text-slate-400 font-normal"> (optional)</span> }
+              </label>
+              <textarea rows="2" [maxlength]="f.charLimit"
+                [ngModel]="customFieldValues[f.productCustomFieldId] ?? ''"
+                (ngModelChange)="customFieldValues[f.productCustomFieldId] = $event"
+                [name]="'customfield' + f.productCustomFieldId"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+                       focus:border-primary focus:ring-2 focus:ring-primary/25 focus:outline-none"></textarea>
+              <p class="text-xs text-slate-400 mt-1 text-right">
+                {{ (customFieldValues[f.productCustomFieldId] ?? '').length }}/{{ f.charLimit }}
+              </p>
+            </div>
+          }
+        }
+
         <!-- Quantity + actions -->
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <!-- Direct-entry quantity, same input the price list and product cards use — a

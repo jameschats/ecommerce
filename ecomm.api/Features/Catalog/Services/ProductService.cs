@@ -447,6 +447,9 @@ public sealed class ProductService : IProductService
             p.AttributeValues
                 .Select(a => new ProductAttributeValueDto(a.ProductAttributeValueId, a.AttributeId, a.Attribute!.Name,
                     a.AttributeValueId, a.Value != null ? a.Value.Value : null, a.ValueText))
+                .ToList(),
+            p.CustomFields.OrderBy(f => f.SortOrder).ThenBy(f => f.ProductCustomFieldId)
+                .Select(f => new ProductCustomFieldDto(f.ProductCustomFieldId, f.Label, f.CharLimit, f.IsMandatory, f.SortOrder))
                 .ToList()))
         .FirstOrDefaultAsync(ct);
 

@@ -46,6 +46,9 @@ export class ProductDetailComponent implements OnInit {
   readonly currentImage = signal(0);
   readonly qty = signal(1);
   selected: Record<string, string> = {};
+  /** Text typed into the product's custom fields (see admin's "Custom text" panel), keyed by
+   *  productCustomFieldId. */
+  customFieldValues: Record<number, string> = {};
 
   // Reviews (loaded from the API once the product resolves).
   readonly reviewData = signal<ProductReviews | null>(null);
@@ -114,6 +117,7 @@ export class ProductDetailComponent implements OnInit {
           this.currentImage.set(0);
           this.qty.set(1);
           this.selected = {};
+          this.customFieldValues = {};
           for (const g of this.optionGroups()) this.selected[g.name] = g.values[0];
           this.applySeo(product);
           this.loadReviews(product.productId);
@@ -224,8 +228,9 @@ export class ProductDetailComponent implements OnInit {
   }
 
   /** Match the selected options to a concrete active variant. Null for a simple product (no
-   *  options at all) or when the current selection doesn't match any active variant. */
-  private resolveVariant(): ProductVariant | null {
+   *  options at all) or when the current selection doesn't match any active variant. Public:
+   *  the template also reads this to decide whether to show the custom-text inputs. */
+  resolveVariant(): ProductVariant | null {
     const p = this.product();
     if (!p || p.variants.length === 0) return null;
     return p.variants.find(
@@ -234,14 +239,34 @@ export class ProductDetailComponent implements OnInit {
   }
 
   /** Resolved variant, as the args addToEstimate expects — undefined for a simple product. */
-  private variantArg(): { variantId: number; label: string; priceAdjustment: number } | undefined {
+  private variantArg(): {
+    variantId: number; label: string; priceAdjustment: number;
+    customFieldAnswers?: { fieldId: number; label: string; value: string }[];
+  } | undefined {
     const v = this.resolveVariant();
     if (!v) return undefined;
+    const p = this.product();
+    const answers = (p?.customFields ?? [])
+      .map((f) => ({ fieldId: f.productCustomFieldId, label: f.label, value: (this.customFieldValues[f.productCustomFieldId] ?? '').trim() }))
+      .filter((a) => a.value.length > 0);
     return {
       variantId: v.productVariantId,
       label: v.name?.trim() || v.options.map((o) => o.optionValue).join(' / '),
       priceAdjustment: v.priceAdjustment,
+      customFieldAnswers: answers.length > 0 ? answers : undefined,
     };
+  }
+
+  /** Null when every mandatory custom field has been filled in; otherwise the message to show. */
+  private customFieldError(): string | null {
+    const p = this.product();
+    if (!p) return null;
+    for (const f of p.customFields) {
+      if (f.isMandatory && !(this.customFieldValues[f.productCustomFieldId] ?? '').trim()) {
+        return `Please fill in "${f.label}".`;
+      }
+    }
+    return null;
   }
 
   /**
@@ -261,6 +286,11 @@ export class ProductDetailComponent implements OnInit {
     if (!p || !p.inStock || this.adding()) return;
     if (this.optionGroups().length > 0 && !this.resolveVariant()) {
       this.cartError.set('Please choose a valid combination of options.');
+      return;
+    }
+    const fieldError = this.customFieldError();
+    if (fieldError) {
+      this.cartError.set(fieldError);
       return;
     }
     this.adding.set(true);
@@ -284,6 +314,11 @@ export class ProductDetailComponent implements OnInit {
     if (!p || !p.inStock || this.adding()) return;
     if (this.optionGroups().length > 0 && !this.resolveVariant()) {
       this.cartError.set('Please choose a valid combination of options.');
+      return;
+    }
+    const fieldError = this.customFieldError();
+    if (fieldError) {
+      this.cartError.set(fieldError);
       return;
     }
     this.adding.set(true);

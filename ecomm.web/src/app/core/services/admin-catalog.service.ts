@@ -10,9 +10,11 @@ import {
   InventoryTransaction,
   ProductAttributeInput,
   ProductAttributeValue,
+  ProductCustomField,
   SaveAttributeRequest,
   SaveBrandRequest,
   SaveCategoryRequest,
+  SaveProductCustomFieldInput,
   SaveProductRequest,
   SaveVariantRequest,
   StoreSettings,
@@ -96,6 +98,16 @@ export class AdminCatalogService {
    *  a value to an existing option. */
   generateVariants(productId: number, options: { name: string; values: string[] }[]): Observable<ProductVariant[]> {
     return this.unwrap(this.http.post<ApiResponse<ProductVariant[]>>(`${this.base}/products/${productId}/variants/generate`, { options }));
+  }
+
+  // --- Custom text fields ---
+  listProductCustomFields(productId: number): Observable<ProductCustomField[]> {
+    return this.unwrap(this.http.get<ApiResponse<ProductCustomField[]>>(`${this.base}/products/${productId}/custom-fields`));
+  }
+  setProductCustomFields(productId: number, fields: SaveProductCustomFieldInput[]): Observable<ProductCustomField[]> {
+    return this.unwrap(
+      this.http.put<ApiResponse<ProductCustomField[]>>(`${this.base}/products/${productId}/custom-fields`, { fields }),
+    );
   }
 
   // --- Attributes ---

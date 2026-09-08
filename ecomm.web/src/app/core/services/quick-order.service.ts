@@ -32,12 +32,21 @@ export interface PriceList {
   totalItems: number;
 }
 
+/** One answer to a product's admin-defined custom-text field (e.g. "Mention Correct Design
+ *  number"). Only carried on variant lines — see VariantLine. */
+export interface CustomFieldAnswer {
+  fieldId: number;
+  label: string;
+  value: string;
+}
+
 export interface QuickOrderLine {
   item: PriceListItem;
   qty: number;
   lineTotal: number;
   variantId: number | null;
   variantLabel: string | null;
+  customFieldAnswers: CustomFieldAnswer[] | null;
 }
 
 /** One line for a specific variant of a product — tracked separately from the plain
@@ -49,6 +58,9 @@ interface VariantLine {
   variantLabel: string;
   priceAdjustment: number;
   qty: number;
+  /** What the buyer typed into this product's custom-text field(s), if it has any. Whole-line,
+   *  not per-unit — re-adding with new text replaces what was there, it doesn't merge. */
+  customFieldAnswers?: CustomFieldAnswer[];
 }
 
 const STORAGE_KEY = 'dcs.quickorder.v1';
@@ -135,18 +147,23 @@ export class QuickOrderService {
   addToEstimate(
     productId: number,
     qty: number,
-    variant?: { variantId: number; label: string; priceAdjustment: number },
+    variant?: { variantId: number; label: string; priceAdjustment: number; customFieldAnswers?: CustomFieldAnswer[] },
   ): Observable<boolean> {
     return this.getPriceList().pipe(
       map(() => {
         if (!this.itemsById().has(productId)) return false;
         const add = Math.max(1, Math.floor(qty));
         // Adds to what is already there, rather than replacing it — pressing Add twice
-        // should mean two, which is what the wording promises.
+        // should mean two, which is what the wording promises. Custom text, unlike quantity,
+        // is replaced rather than accumulated: whatever the buyer just typed on the page is
+        // what should end up recorded for the line.
         if (variant) {
           const key = variantKey(productId, variant.variantId);
           const current = this.variantLines()[key]?.qty ?? 0;
-          this.setVariantQty(productId, variant.variantId, variant.label, variant.priceAdjustment, current + add);
+          this.setVariantQty(
+            productId, variant.variantId, variant.label, variant.priceAdjustment, current + add,
+            variant.customFieldAnswers,
+          );
         } else {
           this.setQty(productId, this.qty(productId) + add);
         }
@@ -173,19 +190,23 @@ export class QuickOrderService {
   }
 
   /** Changes just the quantity of a variant line that's already in the basket — the caller
-   *  (the drawer's own qty box) has no reason to know its label/priceAdjustment to do that. */
+   *  (the drawer's own qty box) has no reason to know its label/priceAdjustment to do that.
+   *  Whatever custom text was already on the line is carried over unchanged. */
   setVariantLineQty(productId: number, variantId: number, qty: number): void {
     const current = this.variantLines()[variantKey(productId, variantId)];
     if (!current) return;
-    this.setVariantQty(productId, variantId, current.variantLabel, current.priceAdjustment, qty);
+    this.setVariantQty(productId, variantId, current.variantLabel, current.priceAdjustment, qty, current.customFieldAnswers);
   }
 
-  setVariantQty(productId: number, variantId: number, label: string, priceAdjustment: number, qty: number): void {
+  setVariantQty(
+    productId: number, variantId: number, label: string, priceAdjustment: number, qty: number,
+    customFieldAnswers?: CustomFieldAnswer[],
+  ): void {
     const key = variantKey(productId, variantId);
     const clean = Number.isFinite(qty) ? Math.max(0, Math.floor(qty)) : 0;
     this.variantLines.update((current) => {
       const next = { ...current };
-      if (clean > 0) next[key] = { productId, variantId, variantLabel: label, priceAdjustment, qty: clean };
+      if (clean > 0) next[key] = { productId, variantId, variantLabel: label, priceAdjustment, qty: clean, customFieldAnswers };
       else delete next[key];
       return next;
     });
@@ -240,7 +261,9 @@ export class QuickOrderService {
     const out: QuickOrderLine[] = [];
     for (const [id, qty] of Object.entries(qtys)) {
       const item = index.get(Number(id));
-      if (item && qty > 0) out.push({ item, qty, lineTotal: round2(item.price * qty), variantId: null, variantLabel: null });
+      if (item && qty > 0) {
+        out.push({ item, qty, lineTotal: round2(item.price * qty), variantId: null, variantLabel: null, customFieldAnswers: null });
+      }
     }
     for (const v of Object.values(this.variantLines())) {
       const item = index.get(v.productId);
@@ -254,6 +277,7 @@ export class QuickOrderService {
       out.push({
         item: adjustedItem, qty: v.qty, lineTotal: round2(unitPrice * v.qty),
         variantId: v.variantId, variantLabel: v.variantLabel,
+        customFieldAnswers: v.customFieldAnswers?.length ? v.customFieldAnswers : null,
       });
     }
     return out;

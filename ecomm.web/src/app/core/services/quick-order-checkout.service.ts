@@ -18,6 +18,12 @@ export interface QuickOrderConfig {
   priceValidUpto: string | null;
 }
 
+export interface CustomFieldAnswer {
+  productCustomFieldId: number;
+  label: string;
+  value: string;
+}
+
 export interface QuickOrderQuoteLine {
   productId: number;
   sku: string;
@@ -30,6 +36,7 @@ export interface QuickOrderQuoteLine {
   variantId: number | null;
   /** e.g. "500 / Red" — null for a plain product with no variant selected. */
   variantLabel: string | null;
+  customFields: CustomFieldAnswer[] | null;
 }
 
 export interface QuickOrderQuote {
@@ -61,8 +68,15 @@ export interface PlacedOrder {
   status: string;
 }
 
+export interface QuickOrderRequestLine {
+  productId: number;
+  quantity: number;
+  variantId?: number | null;
+  customFields?: { productCustomFieldId: number; value: string }[];
+}
+
 export interface PlaceQuickOrderRequest {
-  lines: { productId: number; quantity: number; variantId?: number | null }[];
+  lines: QuickOrderRequestLine[];
   state: string;
   city: string;
   name: string;
@@ -120,7 +134,7 @@ export class QuickOrderCheckoutService {
   }
 
   quote(
-    lines: { productId: number; quantity: number; variantId?: number | null }[],
+    lines: QuickOrderRequestLine[],
     state: string | null,
     couponCode?: string | null,
   ): Observable<QuickOrderQuote> {
@@ -141,7 +155,7 @@ export class QuickOrderCheckoutService {
    * The basket as a printable quotation. Rendered on the server, because the totals include
    * packing and rounding that only the server computes.
    */
-  quotePdf(lines: { productId: number; quantity: number; variantId?: number | null }[], state?: string, customerName?: string): Observable<Blob> {
+  quotePdf(lines: QuickOrderRequestLine[], state?: string, customerName?: string): Observable<Blob> {
     return this.http.post(`${this.base}/quote/pdf`,
       { lines, state: state ?? null, customerName: customerName ?? null },
       { responseType: 'blob' });

@@ -138,6 +138,38 @@
 
     <!-- Variants + Attributes only when editing (need a product id) -->
     @if (isEdit()) {
+      <!-- Custom text -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <h2 class="font-medium text-slate-800 mb-1">Custom text</h2>
+        <p class="text-xs text-slate-500 mb-3">
+          Let customers personalize this product with a text field — e.g. "Mention Correct
+          Design number with quantity each". Shown on the product page below the options below.
+        </p>
+
+        <div class="space-y-2 mb-3">
+          @for (f of customFields(); track $index) {
+            <div class="flex items-center gap-2">
+              <input [ngModel]="f.label" (ngModelChange)="f.label = $event" [name]="'cflabel' + $index"
+                     placeholder="Text field title" class="input flex-1" />
+              <input type="number" [ngModel]="f.charLimit" (ngModelChange)="f.charLimit = $event" [name]="'cfchar' + $index"
+                     placeholder="Char limit" class="input w-28" />
+              <label class="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                <input type="checkbox" [ngModel]="f.isMandatory" (ngModelChange)="f.isMandatory = $event" [name]="'cfreq' + $index" />
+                Mandatory
+              </label>
+              <button type="button" (click)="removeCustomField($index)" class="text-slate-400 hover:text-red-600 px-2">&times;</button>
+            </div>
+          }
+          @if (!customFields().length) { <p class="text-xs text-slate-400">No custom text fields yet.</p> }
+        </div>
+        <div class="flex gap-2">
+          <button type="button" (click)="addCustomField()" class="btn-ghost">+ Add another</button>
+          <button type="button" (click)="saveCustomFields()" [disabled]="savingCustomFields()" class="btn-primary">
+            {{ savingCustomFields() ? 'Saving…' : 'Save custom text' }}
+          </button>
+        </div>
+      </div>
+
       <!-- Options -> Variants -->
       <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
         <h2 class="font-medium text-slate-800 mb-1">Product options &amp; variants</h2>

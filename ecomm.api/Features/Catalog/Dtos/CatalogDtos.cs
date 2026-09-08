@@ -32,7 +32,8 @@ public sealed record ProductDetailDto(
     string? MetaTitle, string? MetaDescription, string? MetaKeywords,
     IReadOnlyList<ProductImageDto> Images,
     IReadOnlyList<ProductVariantDto> Variants,
-    IReadOnlyList<ProductAttributeValueDto> Attributes);
+    IReadOnlyList<ProductAttributeValueDto> Attributes,
+    IReadOnlyList<ProductCustomFieldDto> CustomFields);
 
 public sealed record SaveProductRequest(
     string Sku, string? DesignNo, string Name, string? Slug, long CategoryId, long? BrandId, decimal Price,

@@ -16,4 +16,5 @@ public class InvoiceItem
     public DateTime CreatedAt { get; set; }
 
     public Invoice? Invoice { get; set; }
+    public ICollection<InvoiceItemCustomFieldValue> CustomFieldValues { get; set; } = new List<InvoiceItemCustomFieldValue>();
 }

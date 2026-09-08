@@ -36,6 +36,9 @@ public class EcommerceDbContext : DbContext
     public DbSet<AttributeDefinition> Attributes => Set<AttributeDefinition>();
     public DbSet<AttributeValue> AttributeValues => Set<AttributeValue>();
     public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
+    public DbSet<ProductCustomField> ProductCustomFields => Set<ProductCustomField>();
+    public DbSet<OrderItemCustomFieldValue> OrderItemCustomFieldValues => Set<OrderItemCustomFieldValue>();
+    public DbSet<InvoiceItemCustomFieldValue> InvoiceItemCustomFieldValues => Set<InvoiceItemCustomFieldValue>();
 
     // --- Import jobs ---
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
@@ -176,6 +179,8 @@ public class EcommerceDbContext : DbContext
 
         b.Entity<VariantOption>(e => { e.ToTable("VariantOptions"); e.HasKey(x => x.VariantOptionId); });
 
+        b.Entity<ProductCustomField>(e => { e.ToTable("ProductCustomFields"); e.HasKey(x => x.ProductCustomFieldId); });
+
         b.Entity<AttributeDefinition>(e =>
         {
             e.ToTable("Attributes");
@@ -261,7 +266,9 @@ public class EcommerceDbContext : DbContext
             foreach (var p in new[] { nameof(OrderItem.UnitPrice), nameof(OrderItem.UnitCost), nameof(OrderItem.DiscountAmount), nameof(OrderItem.TaxAmount), nameof(OrderItem.LineTotal) })
                 e.Property(p).HasPrecision(12, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
+            e.HasMany(x => x.CustomFieldValues).WithOne(v => v.OrderItem!).HasForeignKey(v => v.OrderItemId);
         });
+        b.Entity<OrderItemCustomFieldValue>(e => { e.ToTable("OrderItemCustomFieldValues"); e.HasKey(x => x.OrderItemCustomFieldValueId); });
         b.Entity<OrderStatusHistory>(e => { e.ToTable("OrderStatusHistory"); e.HasKey(x => x.OrderStatusHistoryId); });
         b.Entity<Payment>(e => { e.ToTable("Payments"); e.HasKey(x => x.PaymentId); e.Property(x => x.Amount).HasPrecision(12, 2); });
         b.Entity<PaymentTransaction>(e => { e.ToTable("PaymentTransactions"); e.HasKey(x => x.PaymentTransactionId); e.Property(x => x.Amount).HasPrecision(12, 2); });
@@ -296,7 +303,9 @@ public class EcommerceDbContext : DbContext
             foreach (var p in new[] { nameof(InvoiceItem.UnitPrice), nameof(InvoiceItem.TaxAmount), nameof(InvoiceItem.LineTotal) })
                 e.Property(p).HasPrecision(12, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
+            e.HasMany(x => x.CustomFieldValues).WithOne(v => v.InvoiceItem!).HasForeignKey(v => v.InvoiceItemId);
         });
+        b.Entity<InvoiceItemCustomFieldValue>(e => { e.ToTable("InvoiceItemCustomFieldValues"); e.HasKey(x => x.InvoiceItemCustomFieldValueId); });
         b.Entity<Setting>(e => { e.ToTable("Settings"); e.HasKey(x => x.SettingId); });
         b.Entity<StateMinOrderAmount>(e =>
         {

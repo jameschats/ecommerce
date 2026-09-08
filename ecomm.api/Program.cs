@@ -69,6 +69,7 @@ builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IVariantService, 
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IAttributeService, ecomm.api.Features.Catalog.Services.AttributeService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductAttributeService, ecomm.api.Features.Catalog.Services.ProductAttributeService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductImportService, ecomm.api.Features.Catalog.Services.ProductImportService>();
+builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductCustomFieldService, ecomm.api.Features.Catalog.Services.ProductCustomFieldService>();
 
 // Theme
 builder.Services.AddScoped<ecomm.api.Features.Theme.IThemeService, ecomm.api.Features.Theme.ThemeService>();

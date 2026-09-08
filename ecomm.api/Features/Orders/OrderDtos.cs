@@ -31,9 +31,14 @@ public sealed record PlaceOrderResult(long orderId, string orderNumber, decimal 
 public sealed record OrderAddressDto(
     string? recipientName, string? phone, string line1, string? line2, string city, string state, string pincode, string country);
 
+/// <summary>One answer to a product's admin-defined custom-text field, as typed by the buyer
+/// and snapshotted at sale time — see OrderItemCustomFieldValue.</summary>
+public sealed record OrderItemCustomFieldDto(string label, string value);
+
 public sealed record OrderItemDto(
     long orderItemId, long productId, string productName, string? sku, string? slug, string? variantLabel,
-    string? hsnCode, int quantity, decimal unitPrice, decimal taxRate, decimal taxAmount, decimal lineTotal);
+    string? hsnCode, int quantity, decimal unitPrice, decimal taxRate, decimal taxAmount, decimal lineTotal,
+    IReadOnlyList<OrderItemCustomFieldDto>? customFields = null);
 
 public sealed record OrderDto(
     long orderId, string orderNumber, string status, string currency,

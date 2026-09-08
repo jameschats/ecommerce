@@ -134,7 +134,13 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                             // the SKU is internal and the design number is what a dealer orders
                             // by, so the two drift apart and the quote stops matching the invoice.
                             Cell(l.DesignNo ?? "");
-                            Cell(l.VariantLabel is { Length: > 0 } vl ? $"{l.Name} ({vl})" : l.Name);
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Column(c =>
+                            {
+                                c.Item().Text(l.VariantLabel is { Length: > 0 } vl ? $"{l.Name} ({vl})" : l.Name);
+                                if (l.CustomFields is { Count: > 0 })
+                                    foreach (var a in l.CustomFields)
+                                        c.Item().Text($"{a.Label}: {a.Value}").FontSize(7.5f).FontColor(Colors.Grey.Darken1);
+                            });
                             Cell(l.Quantity.ToString(), true);
                             Cell(l.CompareAtPrice is { } m ? Money(m) : "—", true);
                             Cell(Money(l.UnitPrice), true);

@@ -20,4 +20,5 @@ public class OrderItem
     public DateTime CreatedAt { get; set; }
 
     public Order? Order { get; set; }
+    public ICollection<OrderItemCustomFieldValue> CustomFieldValues { get; set; } = new List<OrderItemCustomFieldValue>();
 }

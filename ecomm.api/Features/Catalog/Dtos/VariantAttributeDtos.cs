@@ -21,6 +21,11 @@ public sealed record GenerateVariantsOptionInput(string Name, IReadOnlyList<stri
 /// </summary>
 public sealed record GenerateVariantsRequest(IReadOnlyList<GenerateVariantsOptionInput> Options);
 
+// --- Custom text fields (admin-defined, customer-answered — see ProductCustomFieldService) ---
+public sealed record ProductCustomFieldDto(long ProductCustomFieldId, string Label, int CharLimit, bool IsMandatory, int SortOrder);
+public sealed record SaveProductCustomFieldInput(string Label, int CharLimit, bool IsMandatory, int SortOrder);
+public sealed record SetProductCustomFieldsRequest(IReadOnlyList<SaveProductCustomFieldInput> Fields);
+
 // --- Attribute definitions ---
 public sealed record AttributeValueDto(long AttributeValueId, string Value);
 public sealed record AttributeDto(

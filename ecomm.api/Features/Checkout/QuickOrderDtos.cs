@@ -1,14 +1,26 @@
 namespace ecomm.api.Features.Checkout;
 
+/// <summary>One answer to a product's admin-defined custom-text field (design ask: "Mention
+/// Correct Design number"-style personalization). ProductCustomFieldId is trusted only as a
+/// lookup key — QuickOrderService re-reads the field's own Label/CharLimit/IsMandatory from
+/// the database rather than the client's copy.</summary>
+public sealed record CustomFieldAnswerRequest(long ProductCustomFieldId, string Value);
+
 /// <summary>One line as the browser believes it to be. Only the ids and quantities are
 /// trusted — every price is re-read from the database (see <c>QuickOrderService</c>).
 /// VariantId is null for a product with no variants, or when none was selected.</summary>
-public sealed record QuickOrderLineRequest(long ProductId, int Quantity, long? VariantId = null);
+public sealed record QuickOrderLineRequest(
+    long ProductId, int Quantity, long? VariantId = null,
+    IReadOnlyList<CustomFieldAnswerRequest>? CustomFields = null);
 
 public sealed record QuickOrderQuoteRequest(
     IReadOnlyList<QuickOrderLineRequest> Lines,
     string? State,
     string? CouponCode = null);
+
+/// <summary>A resolved custom-field answer, with the field's own Label snapshotted from the
+/// database rather than trusted from the client. Carried forward onto the order item as-is.</summary>
+public sealed record CustomFieldAnswerDto(long ProductCustomFieldId, string Label, string Value);
 
 /// <summary>A priced line, with the server's numbers rather than the browser's.</summary>
 public sealed record QuickOrderQuoteLineDto(
@@ -18,7 +30,8 @@ public sealed record QuickOrderQuoteLineDto(
     string? DesignNo = null,
     long? VariantId = null,
     /// <summary>e.g. "500 / Red" — null for a plain product with no variant selected.</summary>
-    string? VariantLabel = null);
+    string? VariantLabel = null,
+    IReadOnlyList<CustomFieldAnswerDto>? CustomFields = null);
 
 /// <summary>
 /// The authoritative order summary. Mirrors the reference layout: Net Total, Discount

@@ -62,6 +62,21 @@ export interface SaveVariantRequest {
   options?: VariantOptionInput[];
 }
 
+export interface ProductCustomField {
+  productCustomFieldId: number;
+  label: string;
+  charLimit: number;
+  isMandatory: boolean;
+  sortOrder: number;
+}
+
+export interface SaveProductCustomFieldInput {
+  label: string;
+  charLimit: number;
+  isMandatory: boolean;
+  sortOrder: number;
+}
+
 export interface AttributeValueDef {
   attributeValueId: number;
   value: string;

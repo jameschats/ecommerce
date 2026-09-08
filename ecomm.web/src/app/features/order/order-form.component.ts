@@ -404,6 +404,7 @@ export class OrderFormComponent {
         productId: l.item.productId,
         quantity: l.qty,
         variantId: l.variantId ?? undefined,
+        customFields: l.customFieldAnswers?.map((a) => ({ productCustomFieldId: a.fieldId, value: a.value })),
       }));
       const state = this.state() || null;
       const coupon = this.appliedCoupon();
@@ -446,6 +447,7 @@ export class OrderFormComponent {
       productId: l.item.productId,
       quantity: l.qty,
       variantId: l.variantId ?? undefined,
+      customFields: l.customFieldAnswers?.map((a) => ({ productCustomFieldId: a.fieldId, value: a.value })),
     }));
 
     this.checkout

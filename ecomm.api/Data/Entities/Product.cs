@@ -53,5 +53,6 @@ public class Product
     public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
     public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
     public ICollection<ProductAttributeValue> AttributeValues { get; set; } = new List<ProductAttributeValue>();
+    public ICollection<ProductCustomField> CustomFields { get; set; } = new List<ProductCustomField>();
     public ICollection<Inventory> InventoryRecords { get; set; } = new List<Inventory>();
 }

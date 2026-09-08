@@ -94,6 +94,17 @@ export interface ProductDetail {
   images: ProductImage[];
   variants: ProductVariant[];
   attributes: ProductAttributeValue[];
+  customFields: ProductCustomField[];
+}
+
+/** Admin-defined "custom text" field (e.g. "Mention Correct Design number") — rendered as a
+ *  text input on the product page and carried onto the order. */
+export interface ProductCustomField {
+  productCustomFieldId: number;
+  label: string;
+  charLimit: number;
+  isMandatory: boolean;
+  sortOrder: number;
 }
 
 export interface ProductQuery {
