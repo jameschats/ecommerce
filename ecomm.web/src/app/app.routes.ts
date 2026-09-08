@@ -25,13 +25,17 @@ export const routes: Routes = [
     loadComponent: () => import('./features/order/order.component').then((m) => m.OrderComponent),
   },
   {
-    // Finished Calendar — the same table scoped to the one category that is kept out of
-    // the main price list. Declared above 'order/:orderId/pay' is not required, but it
-    // sits next to /order because it is the same screen with a different scope.
+    // Finished Calendar — the same product grid as /category/:slug, permanently scoped to
+    // that one category (its own page banners kept, via fixedCategorySlug since this route
+    // has no :slug segment of its own). Used to be the price-list table; that made sense
+    // when these were flat-priced ranges, but a finished, ready-made calendar is now a
+    // product with its own variants (quantity, colour, ...) worth a real product page, not
+    // a table row that can only ever hold one quantity.
     path: 'finished-calendar',
     resolve: { pageBanners: pageBannerResolver('finished-calendar') },
+    data: { fixedCategorySlug: 'finished-calendar' },
     loadComponent: () =>
-      import('./features/order/finished-calendar.component').then((m) => m.FinishedCalendarComponent),
+      import('./features/catalog/product-list/product-list.component').then((m) => m.ProductListComponent),
   },
   {
     // Payment instructions for a placed order — UPI QR + bank details (design.md §8).

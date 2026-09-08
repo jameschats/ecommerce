@@ -8,13 +8,15 @@ import { Subject, combineLatest, of, switchMap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { SITE_URL } from '../../../core/api.config';
 import { Brand, Category, ProductListItem, ProductQuery } from '../../../core/models/catalog.model';
+import { PageBannerData } from '../../../core/resolvers/page-banner.resolver';
 import { CatalogService } from '../../../core/services/catalog.service';
 import { SeoService } from '../../../core/services/seo.service';
+import { BannerCarouselComponent } from '../../../shared/banner-carousel/banner-carousel.component';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 
 @Component({
   selector: 'app-product-list',
-  imports: [FormsModule, RouterLink, ProductCardComponent],
+  imports: [FormsModule, RouterLink, ProductCardComponent, BannerCarouselComponent],
   templateUrl: './product-list.component.html',
 })
 export class ProductListComponent implements OnInit, OnDestroy {
@@ -23,6 +25,10 @@ export class ProductListComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly seo = inject(SeoService);
   private readonly platformId = inject(PLATFORM_ID);
+
+  /** Only set on routes that resolve one (e.g. /finished-calendar) — empty everywhere else,
+   *  which BannerCarouselComponent already renders as nothing. */
+  readonly pageBanners = (this.route.snapshot.data['pageBanners'] as PageBannerData | undefined)?.banners ?? [];
 
   readonly items = signal<ProductListItem[]>([]);
   readonly page = signal(1);
@@ -122,7 +128,10 @@ export class ProductListComponent implements OnInit, OnDestroy {
           this.loading.set(true);
           this.items.set([]);
           this.hasMore.set(false);
-          const slug = params.get('slug');
+          // Falls back to a fixed slug from route data for a page with no :slug segment of
+          // its own (/finished-calendar) — the same grid, just permanently scoped to one
+          // category instead of reading which one from the URL.
+          const slug = params.get('slug') ?? (this.route.snapshot.data['fixedCategorySlug'] as string | undefined) ?? null;
           return this.catalog.getCategories().pipe(
             switchMap((cats) => {
               this.categories.set(cats);
