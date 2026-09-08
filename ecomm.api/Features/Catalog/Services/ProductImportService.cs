@@ -37,6 +37,7 @@ public sealed class ProductImportService : IProductImportService
         "SKU", "DesignNo", "Name", "Category", "Brand", "Price", "MRP", "CostPrice",
         "HsnCode", "Status", "SortOrder", "ShortDescription", "Description",
         "MetaTitle", "MetaDescription", "MetaKeywords", "Featured", "ImageUrl", "Content",
+        "Option1 Name", "Option1 Values", "Option2 Name", "Option2 Values", "Option3 Name", "Option3 Values",
     ];
 
     /// <summary>
@@ -49,11 +50,17 @@ public sealed class ProductImportService : IProductImportService
         "compareatprice", "costprice", "cost", "hsncode", "status", "sortorder",
         "shortdescription", "description", "metatitle", "metadescription", "metakeywords",
         "keywords", "featured", "imageurl",
+        "option1 name", "option1 values", "option2 name", "option2 values", "option3 name", "option3 values",
     };
 
     private readonly EcommerceDbContext _db;
+    private readonly IVariantService _variants;
 
-    public ProductImportService(EcommerceDbContext db) => _db = db;
+    public ProductImportService(EcommerceDbContext db, IVariantService variants)
+    {
+        _db = db;
+        _variants = variants;
+    }
 
     // ------------------------------------------------------------------ template / export
 
@@ -78,6 +85,10 @@ public sealed class ProductImportService : IProductImportService
         ws.Cell(2, 16).Value = "wall calendar, wholesale, 2027";
         ws.Cell(2, 17).Value = "FALSE";
         ws.Cell(2, 19).Value = "1 Box (50 Pcs)";
+        ws.Cell(2, 20).Value = "Quantity";
+        ws.Cell(2, 21).Value = "100, 200, 500";
+        ws.Cell(2, 22).Value = "Colour";
+        ws.Cell(2, 23).Value = "Red, Blue";
 
         ws.Row(1).Style.Font.Bold = true;
         ws.Columns().AdjustToContents();
@@ -91,7 +102,7 @@ public sealed class ProductImportService : IProductImportService
             .OrderBy(p => p.Category!.DisplayOrder).ThenBy(p => p.SortOrder).ThenBy(p => p.Name)
             .Select(p => new
             {
-                p.Sku, p.DesignNo, p.Name, Category = p.Category!.Name,
+                p.ProductId, p.Sku, p.DesignNo, p.Name, Category = p.Category!.Name,
                 Brand = p.Brand != null ? p.Brand.Name : "",
                 p.Price, p.CompareAtPrice, p.CostPrice, p.HsnCode, p.Status, p.SortOrder, p.ShortDescription,
                 p.Description, p.MetaTitle, p.MetaDescription, p.MetaKeywords, p.IsFeatured,
@@ -100,6 +111,25 @@ public sealed class ProductImportService : IProductImportService
                     .Select(a => a.ValueText).FirstOrDefault(),
             })
             .ToListAsync(ct);
+
+        // Each product's current option structure (Quantity: 100, 200 / Colour: Red, Blue),
+        // derived from its variants — not the variants themselves. A product's individual
+        // variant SKUs/price differences/stock stay UI-only (Product edit + Inventory);
+        // re-exporting those as flat columns here would need a row per variant, which would
+        // turn this from "one row per product" into something else entirely. This round-trips
+        // the *shape* an admin defines with the option generator, which is what bulk-editing
+        // many products' options at once actually needs.
+        var productIds = products.Select(p => p.ProductId).ToList();
+        var optionGroupsByProduct = (await _db.VariantOptions
+                .Where(o => productIds.Contains(o.Variant!.ProductId))
+                .Select(o => new { o.Variant!.ProductId, o.OptionName, o.OptionValue })
+                .ToListAsync(ct))
+            .GroupBy(o => o.ProductId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(o => o.OptionName, StringComparer.OrdinalIgnoreCase)
+                    .Select(og => (Name: og.Key, Values: og.Select(o => o.OptionValue).Distinct().ToList()))
+                    .ToList());
 
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Products");
@@ -127,6 +157,15 @@ public sealed class ProductImportService : IProductImportService
             ws.Cell(r, 17).Value = p.IsFeatured;
             ws.Cell(r, 18).Value = p.ImageUrl;
             ws.Cell(r, 19).Value = p.Content;
+
+            if (optionGroupsByProduct.TryGetValue(p.ProductId, out var groups))
+            {
+                for (var g = 0; g < groups.Count && g < 3; g++)
+                {
+                    ws.Cell(r, 20 + g * 2).Value = groups[g].Name;
+                    ws.Cell(r, 21 + g * 2).Value = string.Join(", ", groups[g].Values);
+                }
+            }
             r++;
         }
         ws.Row(1).Style.Font.Bold = true;
@@ -359,6 +398,7 @@ public sealed class ProductImportService : IProductImportService
 
         await _db.SaveChangesAsync(ct);
         await ApplyAttributeColumnsAsync(row, headers, product.ProductId, now, ct);
+        await ApplyOptionColumnsAsync(row, product.ProductId, ct);
     }
 
     /// <summary>
@@ -425,6 +465,31 @@ public sealed class ProductImportService : IProductImportService
             }
             await _db.SaveChangesAsync(ct);
         }
+    }
+
+    /// <summary>
+    /// Generates variants from a row's Option1-3 Name/Values columns — the same cartesian-
+    /// product generator behind the "Generate variants" button on the product edit page, so a
+    /// bulk import defines exactly what that screen would, and it's additive there for the
+    /// same reason: a value added to an option and re-imported only creates the new
+    /// combinations, never disturbing SKUs/prices/stock already set on existing ones. A row
+    /// with no Option columns filled in touches no variants at all.
+    /// </summary>
+    private async Task ApplyOptionColumnsAsync(SheetRow row, long productId, CancellationToken ct)
+    {
+        var groups = new List<GenerateVariantsOptionInput>();
+        for (var i = 1; i <= 3; i++)
+        {
+            var name = row.Get($"Option{i} Name");
+            var valuesText = row.Get($"Option{i} Values");
+            if (name.Length == 0 || valuesText.Length == 0) continue;
+
+            var values = valuesText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (values.Length > 0) groups.Add(new GenerateVariantsOptionInput(name, values));
+        }
+        if (groups.Count == 0) return;
+
+        await _variants.GenerateAsync(productId, new GenerateVariantsRequest(groups), ct);
     }
 
     /// <summary>First non-empty value among several accepted spellings of a column.</summary>

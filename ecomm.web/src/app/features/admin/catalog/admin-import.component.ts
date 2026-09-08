@@ -19,7 +19,13 @@ interface ZipImageResult {
   template: `
     <div class="max-w-3xl mx-auto p-6">
       <h1 class="text-xl font-bold text-slate-900 mb-1">Import / Export products</h1>
-      <p class="text-sm text-slate-500 mb-6">Bulk-manage your catalog with Excel. Upsert by SKU; unknown columns become specifications.</p>
+      <p class="text-sm text-slate-500 mb-6">
+        Bulk-manage your catalog with Excel. Upsert by SKU; unknown columns become specifications.
+        Fill in Option1–3 Name/Values (e.g. "Quantity" / "100, 200, 500") to generate that
+        product's variants — same as the Generate variants button on the product page, and
+        just as additive: a value added and re-imported only creates the new combinations.
+        SKU/price/stock for each variant is still set on the product and Inventory pages.
+      </p>
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
 
       <div class="grid sm:grid-cols-2 gap-4 mb-6">
