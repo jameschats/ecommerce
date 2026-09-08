@@ -131,6 +131,7 @@ builder.Services.AddScoped<ecomm.api.Features.Payments.IManualPaymentService, ec
 builder.Services.AddScoped<ecomm.api.Features.Notifications.IOrderMailer, ecomm.api.Features.Notifications.OrderMailer>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductImageZipService, ecomm.api.Features.Catalog.Services.ProductImageZipService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IInvoiceService, ecomm.api.Features.Orders.InvoiceService>();
+builder.Services.AddScoped<ecomm.api.Features.Orders.IPackingSlipService, ecomm.api.Features.Orders.PackingSlipService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderService, ecomm.api.Features.Orders.OrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IStoreSettingsService, ecomm.api.Features.Settings.StoreSettingsService>();
 builder.Services.AddScoped<ecomm.api.Features.Settings.IDataResetService, ecomm.api.Features.Settings.DataResetService>();

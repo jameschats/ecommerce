@@ -52,6 +52,19 @@ export class OrderService {
     });
   }
 
+  /** Admin-only — the packer's copy of the order, with every price/tax/total column dropped. */
+  downloadPackingSlip(orderId: number): void {
+    const url = `${this.adminBase}/${orderId}/packing-slip`;
+    this.http.get(url, { responseType: 'blob' }).subscribe((blob) => {
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `packing-slip-${orderId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(href);
+    });
+  }
+
   // ----- admin -----
   adminList(status?: string, page = 1, pageSize = 20): Observable<PagedResult<OrderListItem>> {
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });

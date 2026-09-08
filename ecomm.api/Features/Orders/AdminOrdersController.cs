@@ -15,10 +15,12 @@ public class AdminOrdersController : ControllerBase
 {
     private readonly IOrderService _orders;
     private readonly IInvoiceService _invoices;
-    public AdminOrdersController(IOrderService orders, IInvoiceService invoices)
+    private readonly IPackingSlipService _packingSlips;
+    public AdminOrdersController(IOrderService orders, IInvoiceService invoices, IPackingSlipService packingSlips)
     {
         _orders = orders;
         _invoices = invoices;
+        _packingSlips = packingSlips;
     }
 
     private long? CurrentUserId =>
@@ -140,6 +142,13 @@ public class AdminOrdersController : ControllerBase
     {
         var pdf = await _invoices.RenderPdfAsync(id, null, true, ct);
         return pdf is null ? NotFound(ApiResponse<object>.Fail("Invoice not available.")) : File(pdf.Bytes, "application/pdf", pdf.FileName);
+    }
+
+    [HttpGet("{id:long}/packing-slip")]
+    public async Task<IActionResult> PackingSlip(long id, CancellationToken ct)
+    {
+        var pdf = await _packingSlips.RenderPdfAsync(id, ct);
+        return pdf is null ? NotFound(ApiResponse<object>.Fail("Order not found.")) : File(pdf.Bytes, "application/pdf", pdf.FileName);
     }
 }
 

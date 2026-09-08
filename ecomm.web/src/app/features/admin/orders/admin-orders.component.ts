@@ -97,6 +97,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
               <button type="button" (click)="markDelivered(o)" [disabled]="busy()" class="btn-primary text-sm px-4 py-2">Mark Delivered</button>
             }
             <button type="button" (click)="invoice(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Invoice PDF</button>
+            <button type="button" (click)="packingSlip(o.orderId)" class="btn-ghost border border-slate-300 text-sm">Packing List</button>
             @if (o.status === 'Paid' || o.status === 'Confirmed' || o.status === 'Packed' || o.status === 'Pending') {
               <button type="button" (click)="cancel(o)" [disabled]="busy()" class="text-sm px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">{{ o.status === 'Confirmed' ? 'Cancel order' : 'Cancel & refund' }}</button>
             }
@@ -176,6 +177,7 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   invoice(id: number): void { this.svc.downloadInvoice(id, true); }
+  packingSlip(id: number): void { this.svc.downloadPackingSlip(id); }
 
   private m(e: unknown): string {
     return (e as { error?: { message?: string } })?.error?.message ?? 'Something went wrong.';
