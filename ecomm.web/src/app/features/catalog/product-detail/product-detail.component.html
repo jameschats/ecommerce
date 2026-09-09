@@ -59,9 +59,11 @@
         @if (p.shortDescription) { <p class="text-slate-600 mt-3">{{ p.shortDescription }}</p> }
 
         <div class="mt-4 flex items-baseline gap-3">
-          <span class="text-3xl font-bold text-slate-900">{{ p.price | currency:'INR':'symbol':'1.2-2' }}</span>
-          @if (p.compareAtPrice && p.compareAtPrice > p.price) {
-            <span class="text-lg text-slate-400 line-through">{{ p.compareAtPrice | currency:'INR':'symbol':'1.2-2' }}</span>
+          <span class="text-3xl font-bold text-slate-900">{{ displayPrice() | currency:'INR':'symbol':'1.2-2' }}</span>
+          @if (displayCompareAtPrice(); as compareAt) {
+            @if (compareAt > displayPrice()) {
+              <span class="text-lg text-slate-400 line-through">{{ compareAt | currency:'INR':'symbol':'1.2-2' }}</span>
+            }
           }
         </div>
         <p class="text-xs text-slate-400">Inclusive of all taxes</p>

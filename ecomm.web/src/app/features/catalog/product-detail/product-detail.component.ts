@@ -238,6 +238,23 @@ export class ProductDetailComponent implements OnInit {
     ) ?? null;
   }
 
+  /** Effective unit price for whatever is currently selected — the base price plus the
+   *  resolved variant's own price difference, or just the base price for a plain product /
+   *  an incomplete selection. This is what the big price and the MRP strike-through must
+   *  read from — reading product.price directly left the price frozen at the master SKU's
+   *  figure no matter which option combination was picked. */
+  displayPrice(): number {
+    const p = this.product();
+    if (!p) return 0;
+    return p.price + (this.resolveVariant()?.priceAdjustment ?? 0);
+  }
+
+  displayCompareAtPrice(): number | null {
+    const p = this.product();
+    if (!p || p.compareAtPrice == null) return null;
+    return p.compareAtPrice + (this.resolveVariant()?.priceAdjustment ?? 0);
+  }
+
   /** Resolved variant, as the args addToEstimate expects — undefined for a simple product. */
   private variantArg(): {
     variantId: number; label: string; priceAdjustment: number;
