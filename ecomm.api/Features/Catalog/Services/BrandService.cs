@@ -91,12 +91,26 @@ public sealed class BrandService : IBrandService
         var baseSlug = Slug.From(source);
         var slug = baseSlug;
         var n = 1;
-        while (await _db.Brands.AnyAsync(
-            b => b.TenantId == Tenant && b.Slug == slug && b.BrandId != (excludeId ?? 0), ct))
+        while (await SlugTakenAsync(slug, excludeId, ct))
         {
             slug = $"{baseSlug}-{++n}";
         }
         return slug;
+    }
+
+    /// <summary>
+    /// Built as a conditional query rather than `b.BrandId != (excludeId ?? 0)` in one
+    /// predicate — that form throws at translation time ("NotEqual is not defined for Int64
+    /// and Nullable&lt;Int64&gt;"), since EF keeps the coalesce's nullable-typed result rather
+    /// than collapsing it the way compiled imperative code would (the same quirk fixed in
+    /// VariantService's EnsureSkuFree and CategoryService's slug check). Editing any existing
+    /// brand called this on every save and 500'd every time.
+    /// </summary>
+    private Task<bool> SlugTakenAsync(string slug, long? excludeId, CancellationToken ct)
+    {
+        var query = _db.Brands.Where(b => b.TenantId == Tenant && b.Slug == slug);
+        if (excludeId is { } id) query = query.Where(b => b.BrandId != id);
+        return query.AnyAsync(ct);
     }
 
     private static BrandDto Map(Brand b) =>
