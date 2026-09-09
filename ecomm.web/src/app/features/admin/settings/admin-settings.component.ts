@@ -35,7 +35,7 @@ export class AdminSettingsComponent {
     { path: '/admin/shipping', icon: '🚚', label: 'Shipping', desc: 'Rates, zones and pincode serviceability.' },
     { path: '/admin/checkout-settings', icon: '🛒', label: 'Checkout', desc: 'Checkout behaviour and options.' },
     { path: '/admin/policies', icon: '📜', label: 'Policies', desc: 'Refund, privacy, terms and shipping policies.' },
-    { path: '/admin/notification-templates', icon: '✉️', label: 'Email & SMS', desc: 'Customer notification templates.' },
+    { path: '/admin/notification-templates', icon: '✉️', label: 'Notifications', desc: 'Email, SMS and WhatsApp templates customers get.' },
     { path: '/admin/staff', icon: '👥', label: 'Staff', desc: 'Team members and their permissions.' },
     { path: '/admin/billing', icon: '🧾', label: 'Plan & billing', desc: 'Subscription plan and invoices.' },
     { path: '/admin/ai', icon: '✨', label: 'AI credits', desc: 'AI usage and credit balance.' },
