@@ -90,10 +90,39 @@ export class HomeComponent implements OnInit {
       const city = b.contactCity?.trim().split('|')[0]?.trim() || 'Sivakasi';
       const streetAddress = b.contactAddress?.trim().split('\n')[0]?.trim();
 
+      const logo = b.logoUrl?.trim() || b.footerLogoUrl?.trim();
+      const phone = b.contactMobile1?.trim();
+
       this.seo.setJsonLd([
         {
           '@context': 'https://schema.org', '@type': 'WebSite', name: siteName, url: SITE_URL,
           potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/products?search={search_term_string}`, 'query-input': 'required name=search_term_string' },
+        },
+        // The legal/trading identity behind the storefront — separate from the Store below,
+        // which describes the shop a buyer sees. url/logo/phone/address all read from the same
+        // Settings the rest of the page uses, rather than repeating literals that could drift.
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'Senthaamarai Press',
+          alternateName: ['Lotus Calendars', siteName],
+          url: SITE_URL,
+          ...(logo ? { logo } : {}),
+          foundingDate: '1961',
+          founder: { '@type': 'Person', name: 'S. Balusamy' },
+          address: {
+            '@type': 'PostalAddress',
+            ...(streetAddress ? { streetAddress } : {}),
+            addressLocality: city,
+            addressRegion: 'Tamil Nadu',
+            addressCountry: 'IN',
+          },
+          ...(phone ? {
+            contactPoint: {
+              '@type': 'ContactPoint', telephone: phone, contactType: 'customer service',
+              areaServed: 'IN', availableLanguage: ['Tamil', 'English'],
+            },
+          } : {}),
         },
         // LocalBusiness rather than a bare Organization: an AI asked "who sells wholesale
         // calendars in Sivakasi" can only answer from data that says where the shop is and
