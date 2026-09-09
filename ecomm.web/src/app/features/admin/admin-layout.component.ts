@@ -222,7 +222,7 @@ export class AdminLayoutComponent {
         { path: '/admin/notification-settings', label: 'What we send', perm: 'settings.manage', icon: 'send' },
         { path: '/admin/auth-providers', label: 'Sign-in methods', perm: 'settings.manage', icon: 'login' },
         { path: '/admin/users', label: 'Users & roles', perm: 'user.manage', icon: 'shield' },
-        { path: '/admin/notifications', label: 'Notifications', perm: 'settings.manage', icon: 'bell' },
+        { path: '/admin/notifications', label: 'Notifications', perm: 'settings.notifications', icon: 'bell' },
         { path: '/admin/data-reset', label: 'Go live', perm: 'settings.manage', icon: 'rocket' },
       ],
     },

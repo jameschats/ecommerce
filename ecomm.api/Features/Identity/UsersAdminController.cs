@@ -105,18 +105,21 @@ public sealed class UsersAdminController : ControllerBase
         var wanted = (req.Roles ?? []).Distinct().ToList();
         var roles = await _db.Roles.Where(r => r.TenantId == Tenant && wanted.Contains(r.Name)).ToListAsync(ct);
 
-        // The last Admin cannot be demoted. Without this the shop can be locked out of its
-        // own back office by one dropdown, with no way back in short of editing the database.
-        var isAdminNow = await _db.UserRoles.AnyAsync(
-            ur => ur.UserId == userId
-                  && _db.Roles.Any(r => r.RoleId == ur.RoleId && r.NormalizedName == "ADMIN"), ct);
-        var staysAdmin = roles.Any(r => r.NormalizedName == "ADMIN");
+        // The last person who can manage roles cannot be demoted out of that. Without this
+        // the shop can be locked out of its own back office by one dropdown, with no way back
+        // in short of editing the database. Based on holding role.manage rather than a
+        // hardcoded role name, so this protects whichever role(s) actually carry that
+        // capability — Super Admin today — without needing to know their name.
+        var isAdminNow = await HasRoleManageAsync(userId, ct);
+        var roleIds = roles.Select(r => r.RoleId).ToList();
+        var staysAdmin = await _db.RolePermissions.AnyAsync(
+            rp => roleIds.Contains(rp.RoleId) && rp.Permission!.Code == Perm.RoleManage, ct);
 
         if (isAdminNow && !staysAdmin)
         {
             var otherAdmins = await _db.UserRoles.CountAsync(
                 ur => ur.UserId != userId
-                      && _db.Roles.Any(r => r.RoleId == ur.RoleId && r.NormalizedName == "ADMIN"), ct);
+                      && _db.RolePermissions.Any(rp => rp.RoleId == ur.RoleId && rp.Permission!.Code == Perm.RoleManage), ct);
             if (otherAdmins == 0)
                 throw new AppException("This is the only administrator — give someone else the role first.");
         }
@@ -345,18 +348,24 @@ public sealed class UsersAdminController : ControllerBase
         if (user.UserId == CurrentUserId)
             throw new AppException($"You cannot {verb} your own account.");
 
-        var isAdmin = await _db.UserRoles.AnyAsync(
-            ur => ur.UserId == user.UserId
-                  && _db.Roles.Any(r => r.RoleId == ur.RoleId && r.NormalizedName == "ADMIN"), ct);
+        var isAdmin = await HasRoleManageAsync(user.UserId, ct);
         if (!isAdmin) return;
 
         var otherAdmins = await _db.UserRoles.CountAsync(
             ur => ur.UserId != user.UserId
-                  && _db.Roles.Any(r => r.RoleId == ur.RoleId && r.NormalizedName == "ADMIN")
+                  && _db.RolePermissions.Any(rp => rp.RoleId == ur.RoleId && rp.Permission!.Code == Perm.RoleManage)
                   && _db.Users.Any(u => u.UserId == ur.UserId && u.IsActive && !u.IsDeleted), ct);
         if (otherAdmins == 0)
             throw new AppException($"This is the only administrator — you cannot {verb} them.");
     }
+
+    /// <summary>Whether this user holds a role granting role.manage — the actual capability
+    /// that "must always have at least one administrator" protects, rather than a hardcoded
+    /// role name. Shared by SetRoles and RequireNotLastWayInAsync.</summary>
+    private Task<bool> HasRoleManageAsync(long userId, CancellationToken ct) =>
+        _db.UserRoles.AnyAsync(
+            ur => ur.UserId == userId
+                  && _db.RolePermissions.Any(rp => rp.RoleId == ur.RoleId && rp.Permission!.Code == Perm.RoleManage), ct);
 
     /// <summary>
     /// Ends every live session. Refresh is a rolling grant, so without this a change of rights

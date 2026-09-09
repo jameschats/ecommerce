@@ -23,6 +23,10 @@ public static class Perm
     public const string CmsManage = "cms.manage";
     public const string ThemeManage = "theme.manage";
     public const string SettingsManage = "settings.manage";
+    /// <summary>Narrower than SettingsManage: just the admin Notifications screen, so a role
+    /// can see notifications without also getting Store/Shop settings, templates, sign-in
+    /// methods and Go-live/Data-reset.</summary>
+    public const string SettingsNotifications = "settings.notifications";
     public const string MediaManage = "media.manage";
     public const string ImportManage = "import.manage";
     public const string ReportView = "report.view";
@@ -35,7 +39,7 @@ public static class Perm
         CatalogView, CatalogManage, InventoryView, InventoryManage,
         OrderView, OrderManage, CustomerView, CustomerManage, PaymentVerify,
         CouponManage, ReviewModerate, CmsManage, ThemeManage, SettingsManage,
-        MediaManage, ImportManage, ReportView, UserManage, RoleManage,
+        SettingsNotifications, MediaManage, ImportManage, ReportView, UserManage, RoleManage,
     ];
 
     /// <summary>The claim type the JWT carries these in (JwtTokenService).</summary>

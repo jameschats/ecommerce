@@ -14,7 +14,10 @@ export class AuthService {
 
   readonly currentUser = signal<AuthUser | null>(this.storage.getUser());
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
-  readonly isAdmin = computed(() => this.currentUser()?.roles?.includes('Admin') ?? false);
+  readonly isAdmin = computed(() => {
+    const roles = this.currentUser()?.roles ?? [];
+    return roles.includes('Admin') || roles.includes('Super Admin');
+  });
 
   /**
    * Permission codes from the token's "perm" claims.
