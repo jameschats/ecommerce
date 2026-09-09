@@ -7,8 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ecomm.api.Features.Notifications;
 
 public sealed record NotificationTemplateDto(
-    long Id, string Code, string Label, string Channel, string? Subject, string? Body, bool IsActive, DateTime? UpdatedAt);
-public sealed record UpdateNotificationTemplateRequest(string? Subject, string? Body, bool IsActive);
+    long Id, string Code, string Label, string Channel, string? Subject, string? Body,
+    string? ExternalTemplateId, bool IsActive, DateTime? UpdatedAt);
+public sealed record UpdateNotificationTemplateRequest(string? Subject, string? Body, string? ExternalTemplateId, bool IsActive);
 
 public sealed record NotificationSenderDto(string? SenderName, string? ReplyToEmail);
 
@@ -48,7 +49,7 @@ public sealed class NotificationAdminService(EcommerceDbContext db) : INotificat
         var rows = await db.NotificationTemplates.AsNoTracking()
             .OrderBy(t => t.Code).ThenBy(t => t.Channel)
             .Select(t => new NotificationTemplateDto(
-                t.NotificationTemplateId, t.Code, "", t.Channel, t.Subject, t.Body, t.IsActive, t.UpdatedAt))
+                t.NotificationTemplateId, t.Code, "", t.Channel, t.Subject, t.Body, t.ExternalTemplateId, t.IsActive, t.UpdatedAt))
             .ToListAsync(ct);
         return rows.Select(r => r with { Label = Labels.GetValueOrDefault(r.Code, Prettify(r.Code)) }).ToList();
     }
@@ -58,15 +59,18 @@ public sealed class NotificationAdminService(EcommerceDbContext db) : INotificat
         var t = await db.NotificationTemplates.FirstOrDefaultAsync(x => x.NotificationTemplateId == id, ct)
             ?? throw new AppException("Template not found.", 404);
 
-        // Email bodies are HTML → sanitize; SMS bodies are plain text.
+        // Email bodies are HTML → sanitize; SMS/WhatsApp bodies are plain text.
         t.Subject = req.Subject?.Trim();
         t.Body = t.Channel == "Email" ? new HtmlSanitizer().Sanitize(req.Body ?? "") : req.Body?.Trim();
+        // Only WhatsApp rows use this (Meta's BSP-assigned template id) — harmless to store on any
+        // channel, but the admin UI only ever shows/sends it for Channel="WhatsApp".
+        t.ExternalTemplateId = req.ExternalTemplateId?.Trim();
         t.IsActive = req.IsActive;
         t.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         return new NotificationTemplateDto(t.NotificationTemplateId, t.Code, Labels.GetValueOrDefault(t.Code, Prettify(t.Code)),
-            t.Channel, t.Subject, t.Body, t.IsActive, t.UpdatedAt);
+            t.Channel, t.Subject, t.Body, t.ExternalTemplateId, t.IsActive, t.UpdatedAt);
     }
 
     public async Task<NotificationSenderDto> GetSenderAsync(CancellationToken ct = default)

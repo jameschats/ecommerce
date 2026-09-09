@@ -11,6 +11,8 @@ export interface NotificationTemplate {
   channel: string;
   subject: string | null;
   body: string | null;
+  /** BSP-assigned template id (Gupshup/Meta) — only meaningful for channel "WhatsApp". */
+  externalTemplateId: string | null;
   isActive: boolean;
   updatedAt: string | null;
 }
@@ -27,7 +29,7 @@ export class NotificationTemplatesService {
   private unwrap<T>(o: Observable<ApiResponse<T>>): Observable<T> { return o.pipe(map((r) => r.data as T)); }
 
   list(): Observable<NotificationTemplate[]> { return this.unwrap(this.http.get<ApiResponse<NotificationTemplate[]>>(this.base)); }
-  update(id: number, body: { subject: string | null; body: string | null; isActive: boolean }): Observable<NotificationTemplate> {
+  update(id: number, body: { subject: string | null; body: string | null; externalTemplateId: string | null; isActive: boolean }): Observable<NotificationTemplate> {
     return this.unwrap(this.http.put<ApiResponse<NotificationTemplate>>(`${this.base}/${id}`, body));
   }
   getSender(): Observable<NotificationSender> { return this.unwrap(this.http.get<ApiResponse<NotificationSender>>(`${this.base}/sender`)); }

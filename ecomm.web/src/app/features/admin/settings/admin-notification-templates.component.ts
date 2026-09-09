@@ -46,6 +46,17 @@ import { NotificationSender, NotificationTemplate, NotificationTemplatesService 
                   @if (t.channel === 'Email') {
                     <label class="block"><span class="lbl">Subject</span><input class="input" [(ngModel)]="t.subject" [name]="'sub' + t.id" /></label>
                   }
+                  @if (t.channel === 'WhatsApp') {
+                    <div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2">
+                      WhatsApp only sends pre-approved Meta templates. Submit the template's wording for approval in your
+                      BSP's console first, then paste the approved template's id below — keep the message text here in
+                      the same wording and placeholder order as what got approved.
+                    </div>
+                    <label class="block">
+                      <span class="lbl">External template ID (from Gupshup/Meta)</span>
+                      <input class="input font-mono text-xs" [(ngModel)]="t.externalTemplateId" [name]="'ext' + t.id" placeholder="e.g. 8f2c1a90-..." />
+                    </label>
+                  }
                   <label class="block">
                     <span class="lbl">{{ t.channel === 'Email' ? 'Body (HTML)' : 'Message' }}</span>
                     <textarea class="input font-mono text-xs" rows="8" [(ngModel)]="t.body" [name]="'body' + t.id"></textarea>
@@ -55,6 +66,9 @@ import { NotificationSender, NotificationTemplate, NotificationTemplatesService 
                     <input type="checkbox" [(ngModel)]="t.isActive" [name]="'act' + t.id" class="w-4 h-4" />
                     <span class="text-sm text-slate-700">Active (send this notification)</span>
                   </label>
+                  @if (t.channel === 'WhatsApp' && t.isActive && !t.externalTemplateId) {
+                    <p class="text-xs text-red-600">Active with no template id set — sends on this channel will silently fail and fall back to SMS/Email.</p>
+                  }
                   <button type="button" (click)="save(t)" [disabled]="savingId() === t.id" class="btn-primary px-4 py-2">{{ savingId() === t.id ? 'Saving…' : 'Save template' }}</button>
                 </div>
               }
@@ -90,7 +104,7 @@ export class AdminNotificationTemplatesComponent implements OnInit {
 
   save(t: NotificationTemplate): void {
     this.savingId.set(t.id); this.message.set(null);
-    this.api.update(t.id, { subject: t.subject, body: t.body, isActive: t.isActive }).subscribe({
+    this.api.update(t.id, { subject: t.subject, body: t.body, externalTemplateId: t.externalTemplateId, isActive: t.isActive }).subscribe({
       next: (updated) => {
         this.templates.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
         this.savingId.set(null); this.flash(`${updated.label} template saved.`);
