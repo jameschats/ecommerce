@@ -11,10 +11,11 @@ import { ThemeService } from './core/services/theme.service';
 import { TrackingService } from './core/services/tracking.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
+import { EstimateDrawerComponent } from './features/order/estimate-drawer.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationBellComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationBellComponent, EstimateDrawerComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -42,6 +43,9 @@ export class App implements OnInit {
 
   private readonly branding = inject(BrandingService);
   private readonly quickOrder = inject(QuickOrderService);
+
+  /** The drawer's own [open] binding needs a public read of the shared signal. */
+  readonly drawerOpen = this.quickOrder.drawerOpen;
 
   /** Header and footer wordmark, configured in admin → Shop & payment settings. */
   readonly siteName = this.branding.siteName;
@@ -83,16 +87,34 @@ export class App implements OnInit {
   }
 
   /**
-   * Opens the estimate drawer. The drawer is rendered by the price-list table, so on a page
-   * without it (About, Contact) we navigate to the price list first — previously this was a
-   * plain link to /order, which did nothing at all when you were already on /order.
+   * Opens the estimate drawer. It's mounted once here in the root shell (rather than inside
+   * the price-list table), so it now overlays whatever page the buyer is already on — a
+   * product page, About, anywhere — instead of navigating away from it first.
    */
   openEstimate(): void {
+    this.quickOrder.drawerOpen.set(true);
+  }
+
+  /**
+   * "Confirm estimate" in the drawer. On the price list or home page there's an order form
+   * on the same page to scroll to; anywhere else (e.g. a product page) there isn't one, so
+   * this navigates to /order first, same as "Buy now" already does.
+   */
+  confirmEstimate(): void {
+    this.quickOrder.drawerOpen.set(false);
     if (this.router.url.startsWith('/order') || this.router.url === '/') {
-      this.quickOrder.drawerOpen.set(true);
+      this.scrollToOrderForm();
       return;
     }
-    void this.router.navigate(['/order']).then(() => this.quickOrder.drawerOpen.set(true));
+    void this.router.navigate(['/order']).then(() => {
+      if (typeof setTimeout === 'undefined') return;
+      setTimeout(() => this.scrollToOrderForm(), 0);
+    });
+  }
+
+  private scrollToOrderForm(): void {
+    if (typeof document === 'undefined') return;
+    document.getElementById('order-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   readonly displayName = computed(() => {
     const u = this.user();

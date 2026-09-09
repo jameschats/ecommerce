@@ -19,7 +19,6 @@ import {
   PriceListItem,
   QuickOrderService,
 } from '../../core/services/quick-order.service';
-import { EstimateDrawerComponent } from './estimate-drawer.component';
 import { ImageLightboxComponent } from './image-lightbox.component';
 import { OrderFormComponent } from './order-form.component';
 
@@ -33,7 +32,7 @@ import { OrderFormComponent } from './order-form.component';
 @Component({
   selector: 'app-quick-order-table',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe, EstimateDrawerComponent, OrderFormComponent, ImageLightboxComponent],
+  imports: [CurrencyPipe, DecimalPipe, OrderFormComponent, ImageLightboxComponent],
   templateUrl: './quick-order-table.component.html',
   host: { '(document:keydown)': 'onDocumentKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -208,13 +207,6 @@ export class QuickOrderTableComponent {
 
   openDrawer(): void {
     if (this.lineCount() > 0) this.drawerOpen.set(true);
-  }
-
-  /** "Confirm estimate" closes the drawer and takes the buyer to the form below. */
-  onEstimateConfirmed(): void {
-    this.drawerOpen.set(false);
-    if (typeof document === 'undefined') return;
-    document.getElementById('order-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   resetFilters(): void {

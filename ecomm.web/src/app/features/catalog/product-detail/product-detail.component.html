@@ -147,7 +147,7 @@
         </div>
         <!-- Points at the price list, where the estimate actually lives — /cart is the other
              basket and would look empty to someone who just pressed Add. -->
-        @if (addedMessage()) { <p class="text-sm text-green-600 mt-2">✓ Added to your estimate. <a routerLink="/order" class="underline font-medium">View estimate</a></p> }
+        @if (addedMessage()) { <p class="text-sm text-green-600 mt-2">✓ Added to your estimate. <button type="button" (click)="viewEstimate()" class="underline font-medium">View estimate</button></p> }
         @if (cartError(); as err) { <p class="text-sm text-red-600 mt-2">{{ err }}</p> }
 
         <div class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 border-t border-slate-100 pt-4">

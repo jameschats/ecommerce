@@ -149,6 +149,13 @@
     <router-outlet />
   </main>
 
+  <!-- Mounted once here rather than inside the price-list page, so it can overlay any
+       page — a product page included — instead of forcing a navigation to /order first. -->
+  <app-estimate-drawer
+    [open]="drawerOpen()"
+    (closed)="drawerOpen.set(false)"
+    (confirmed)="confirmEstimate()" />
+
   @if (!isAdminRoute()) {
   <footer class="bg-slate-900 text-slate-300 mt-12">
     <div class="page-container py-12 grid grid-cols-2 md:grid-cols-4 gap-8">

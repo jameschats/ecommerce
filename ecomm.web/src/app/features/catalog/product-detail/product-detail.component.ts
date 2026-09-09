@@ -190,6 +190,12 @@ export class ProductDetailComponent implements OnInit {
 
   selectOption(name: string, value: string): void { this.selected = { ...this.selected, [name]: value }; }
 
+  /** Opens the estimate drawer over this page — it's mounted globally now, so this no
+   *  longer needs to navigate to /order first. */
+  viewEstimate(): void {
+    this.quickOrder.drawerOpen.set(true);
+  }
+
   star(n: number): string { return '★'.repeat(Math.max(0, Math.min(5, n))); }
 
   private loadReviews(productId: number): void {
