@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using ecomm.api.Features.WhatsApp;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -7,6 +6,16 @@ using Xunit;
 
 namespace ecomm.tests;
 
+/// <summary>
+/// Exercises <see cref="GupshupWhatsAppProvider"/> against its real contract: Gupshup's
+/// GatewayAPI/rest line (mediaapi.smsgupshup.com), form-urlencoded, Bearer secret token,
+/// userid/send_to fields, and a `{"response":{...,"status":"success"}}` response envelope.
+/// Rewritten 2026-09-09 — the previous version asserted the earlier api.gupshup.io/sm/api/v1
+/// contract (an `apikey` header, `destination=`, a bare `{"status":"submitted"}` response) that
+/// the provider stopped using back on 2026-08-28; those stale assertions were failing against
+/// live code for two weeks before anyone noticed, since the mismatch never affected a real send
+/// (no Meta-approved template exists yet to actually verify against).
+/// </summary>
 public class GupshupWhatsAppProviderTests
 {
     private sealed class FakeHandler : HttpMessageHandler
@@ -15,7 +24,7 @@ public class GupshupWhatsAppProviderTests
         public string? LastBody;
         public HttpResponseMessage Response = new(HttpStatusCode.OK)
         {
-            Content = new StringContent("""{"status":"submitted","messageId":"abc-123"}"""),
+            Content = new StringContent("""{"response":{"id":"abc-123","phone":"919876543210","details":"submitted","status":"success"}}"""),
         };
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -32,13 +41,13 @@ public class GupshupWhatsAppProviderTests
         var http = new HttpClient(handler);
         var provider = new GupshupWhatsAppProvider(http, Options.Create(opts ?? new WhatsAppOptions
         {
-            Provider = "Gupshup", ApiKey = "test-key", SourceNumber = "917834811114", AppName = "TestApp",
+            Provider = "Gupshup", UserId = "2000270417", ApiKey = "test-secret-token",
         }), NullLogger<GupshupWhatsAppProvider>.Instance);
         return (provider, handler);
     }
 
     [Fact]
-    public async Task Template_send_posts_source_destination_and_template_json_with_apikey_header()
+    public async Task Template_send_posts_userid_send_to_and_template_fields_with_bearer_auth()
     {
         var (provider, handler) = NewProvider();
 
@@ -46,11 +55,16 @@ public class GupshupWhatsAppProviderTests
 
         Assert.True(result.Success);
         Assert.Equal("abc-123", result.MessageId);
-        Assert.Equal("api.gupshup.io", handler.LastRequest!.RequestUri!.Host);
-        Assert.Equal("test-key", handler.LastRequest.Headers.GetValues("apikey").Single());
-        Assert.Contains("destination=919876543210", handler.LastBody);
-        Assert.Contains("tmpl-guid-1", handler.LastBody);
-        Assert.Contains("Sam", handler.LastBody);
+        Assert.Equal("https://mediaapi.smsgupshup.com/GatewayAPI/rest", handler.LastRequest!.RequestUri!.ToString());
+        Assert.Equal("Bearer test-secret-token", handler.LastRequest.Headers.GetValues("Authorization").Single());
+        Assert.Contains("method=SendMessage", handler.LastBody);
+        Assert.Contains("userid=2000270417", handler.LastBody);
+        Assert.Contains("send_to=919876543210", handler.LastBody);
+        Assert.Contains("isHSM=true", handler.LastBody);
+        Assert.Contains("isTemplate=true", handler.LastBody);
+        Assert.Contains("whatsAppTemplateId=tmpl-guid-1", handler.LastBody);
+        Assert.Contains("var1=Sam", handler.LastBody);
+        Assert.Contains("var2=ORD-1", handler.LastBody);
     }
 
     [Fact]
@@ -60,7 +74,7 @@ public class GupshupWhatsAppProviderTests
 
         await provider.SendTemplateMessageAsync("9876543210", "t", []);
 
-        Assert.Contains("destination=919876543210", handler.LastBody);
+        Assert.Contains("send_to=919876543210", handler.LastBody);
     }
 
     [Fact]
@@ -87,12 +101,12 @@ public class GupshupWhatsAppProviderTests
     }
 
     [Fact]
-    public async Task Non_submitted_status_in_a_200_response_is_reported_as_failure()
+    public async Task Non_success_status_in_a_200_response_is_reported_as_failure()
     {
         var (provider, handler) = NewProvider();
         handler.Response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""{"status":"error","message":"invalid template"}"""),
+            Content = new StringContent("""{"response":{"id":"","details":"invalid template","status":"failed"}}"""),
         };
 
         var result = await provider.SendTemplateMessageAsync("9876543210", "t", []);
@@ -101,15 +115,17 @@ public class GupshupWhatsAppProviderTests
     }
 
     [Fact]
-    public async Task Session_message_posts_to_the_session_endpoint_with_channel_and_app_name()
+    public async Task Session_message_posts_msg_field_with_no_template_flags()
     {
         var (provider, handler) = NewProvider();
 
         var result = await provider.SendSessionMessageAsync("9876543210", "Hi there");
 
         Assert.True(result.Success);
-        Assert.Equal("/sm/api/v1/msg", handler.LastRequest!.RequestUri!.AbsolutePath);
-        Assert.Contains("channel=whatsapp", handler.LastBody);
-        Assert.Contains("TestApp", Uri.UnescapeDataString(handler.LastBody!));
+        Assert.Equal("https://mediaapi.smsgupshup.com/GatewayAPI/rest", handler.LastRequest!.RequestUri!.ToString());
+        Assert.Contains("send_to=919876543210", handler.LastBody);
+        Assert.Contains("msg=Hi+there", handler.LastBody);
+        Assert.DoesNotContain("isTemplate", handler.LastBody);
+        Assert.DoesNotContain("whatsAppTemplateId", handler.LastBody);
     }
 }
