@@ -103,6 +103,7 @@ export class QuickOrderTableComponent {
 
   readonly restored = this.quickOrder.restored;
   readonly lineCount = this.quickOrder.lineCount;
+  readonly totalUnits = this.quickOrder.totalUnits;
   readonly netTotal = this.quickOrder.netTotal;
   readonly discountTotal = this.quickOrder.discountTotal;
   readonly subTotal = this.quickOrder.subTotal;

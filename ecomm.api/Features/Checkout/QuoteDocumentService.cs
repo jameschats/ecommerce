@@ -161,6 +161,10 @@ public sealed class QuoteDocumentService : IQuoteDocumentService
                             });
                         }
 
+                        // Sum of quantities across every line — a dealer ordering many designs
+                        // wants this printed total to check their own tally against, same as
+                        // it's now shown in the estimate drawer and the price-list toolbar.
+                        Line("Items Total", quote.TotalUnits.ToString());
                         // Currency on the totals, bare figures on the lines above — the same rule
                         // the invoice follows, so a dealer holding both documents is not left
                         // wondering why one states a currency and the other does not.

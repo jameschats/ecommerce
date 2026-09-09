@@ -181,6 +181,10 @@ import { OtpGateComponent } from './otp-gate.component';
             <div class="lg:border-l lg:border-slate-200 lg:pl-6">
               <dl class="space-y-2 text-sm">
                 <div class="flex justify-between">
+                  <dt class="text-slate-500">Items Total</dt>
+                  <dd class="text-slate-700">{{ quote().totalUnits }}</dd>
+                </div>
+                <div class="flex justify-between">
                   <dt class="text-slate-500">Net Total</dt>
                   <dd class="text-slate-700">{{ quote().netTotal | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}</dd>
                 </div>

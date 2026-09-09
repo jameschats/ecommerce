@@ -34,11 +34,12 @@ export class App implements OnInit {
   readonly cartCount = this.cart.itemCount;
 
   /**
-   * Line count of the quick-order estimate. The header badge reads from the same signal
-   * the price-list toolbar does, so the two can never disagree — which is the bug that
-   * having a separate CartService-backed header cart introduced.
+   * Total units (sum of quantities across every line) in the quick-order estimate — "Items
+   * Total", the same figure now shown in the estimate drawer and the price-list toolbar, so
+   * the header badge agrees with both rather than showing a different number (distinct line
+   * count) of its own.
    */
-  readonly estimateCount = inject(QuickOrderService).lineCount;
+  readonly estimateCount = inject(QuickOrderService).totalUnits;
 
 
   private readonly branding = inject(BrandingService);

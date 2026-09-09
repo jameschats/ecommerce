@@ -41,6 +41,10 @@
 
     <div class="flex items-center gap-4 ml-auto text-sm">
       <div class="hidden sm:block">
+        <span class="text-slate-500">Items Total</span>
+        <span class="ml-1.5 font-semibold text-slate-700">{{ totalUnits() }}</span>
+      </div>
+      <div class="hidden sm:block">
         <span class="text-slate-500">Net Total</span>
         <span class="ml-1.5 font-semibold text-slate-700 line-through decoration-slate-400">
           {{ netTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}

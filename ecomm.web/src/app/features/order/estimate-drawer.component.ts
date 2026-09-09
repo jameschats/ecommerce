@@ -99,6 +99,10 @@ import { QuickOrderCheckoutService } from '../../core/services/quick-order-check
           <footer class="border-t border-slate-200 p-4 shrink-0 bg-white">
             <dl class="space-y-1 text-sm">
               <div class="flex justify-between">
+                <dt class="text-slate-500">Items Total</dt>
+                <dd class="text-slate-700 font-medium">{{ totalUnits() }}</dd>
+              </div>
+              <div class="flex justify-between">
                 <dt class="text-slate-500">Net Total</dt>
                 <dd class="text-slate-600">{{ netTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}</dd>
               </div>
@@ -154,6 +158,7 @@ export class EstimateDrawerComponent {
 
   readonly lines = this.quickOrder.lines;
   readonly lineCount = this.quickOrder.lineCount;
+  readonly totalUnits = this.quickOrder.totalUnits;
   readonly netTotal = this.quickOrder.netTotal;
   readonly discountTotal = this.quickOrder.discountTotal;
   readonly subTotal = this.quickOrder.subTotal;
