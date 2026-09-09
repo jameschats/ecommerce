@@ -88,6 +88,8 @@ export interface PlaceQuickOrderRequest {
   businessName?: string | null;
   /** The buyer's GST number, printed on their bill. */
   gstin?: string | null;
+  /** Transport/lorry the buyer wants the order dispatched by. Optional. */
+  transportName?: string | null;
   /** When false, every ship* field below is ignored and the billing address is used. */
   shipToDifferent?: boolean;
   shipName?: string | null;

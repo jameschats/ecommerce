@@ -78,6 +78,9 @@ public sealed record PlaceQuickOrderRequest(
     string State, string? City, string Name, string Mobile, string? Email, string Address,
     string? BusinessName = null,
     string? Gstin = null,
+    /// <summary>Transport/lorry the buyer wants the order dispatched by. Free text, optional —
+    /// carried through to admin and the packing slip, same as Email (see Order.Notes).</summary>
+    string? TransportName = null,
     bool ShipToDifferent = false,
     string? ShipName = null,
     string? ShipMobile = null,

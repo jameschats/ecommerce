@@ -54,6 +54,7 @@ const FLOW = ['Paid', 'Packed', 'Shipped', 'Delivered'];
           </div>
           <div class="text-sm text-slate-600 mb-3">
             @if (o.shippingAddress; as a) { <div>{{ a.recipientName }} · {{ a.phone }}</div><div>{{ a.line1 }}, {{ a.city }}, {{ a.state }} {{ a.pincode }}</div> }
+            @if (o.transportName) { <div class="mt-1 font-medium text-slate-700">Transport: {{ o.transportName }}</div> }
           </div>
           <div class="divide-y divide-slate-100 border-y border-slate-100 mb-3">
             @for (it of o.items; track it.orderItemId) {

@@ -49,7 +49,10 @@ public sealed record OrderDto(
     string? paymentMethod, string? paymentStatus,
     long? invoiceId, string? invoiceNumber,
     bool canCancel,
-    ShipmentDto? shipment);
+    ShipmentDto? shipment,
+    /// <summary>Transport/lorry name the buyer typed on the order form. Optional — read out of
+    /// Order.Notes the same way Email and Mobile are (OrderNotes.Field).</summary>
+    string? transportName = null);
 
 public sealed record OrderListItem(
     long orderId, string orderNumber, string status, decimal totalAmount, int itemCount,

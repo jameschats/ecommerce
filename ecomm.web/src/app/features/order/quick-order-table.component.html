@@ -62,6 +62,11 @@
           {{ subTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
         </span>
       </div>
+      @if (lineCount()) {
+        <button type="button" (click)="clearAll()" class="hidden sm:block text-slate-400 hover:text-red-600 shrink-0">
+          Clear all
+        </button>
+      }
       <button type="button" (click)="openDrawer()" [disabled]="!lineCount()"
               class="relative grid place-items-center w-9 h-9 rounded-full bg-primary/10 text-primary shrink-0
                      hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition"

@@ -295,9 +295,16 @@ public sealed class QuickOrderService : IQuickOrderService
             ShippingAmount = quote.PackingCharges,
             TotalAmount = quote.OverallAmount,
             // Addresses live in CustomerAddresses now, linked above. Notes keeps only what
-            // has nowhere else to go: the contact email, and the rounding applied to the
-            // total, which is otherwise unrecoverable from the stored amounts.
-            Notes = $"Email: {req.Email?.Trim()}\nRound off: {quote.RoundOff:0.00}",
+            // has nowhere else to go: the contact email, the buyer's transport/lorry
+            // preference (no column of its own — it is dispatch trivia, not a billing or
+            // shipping fact), and the rounding applied to the total, which is otherwise
+            // unrecoverable from the stored amounts.
+            Notes = string.Join("\n", new[]
+            {
+                $"Email: {req.Email?.Trim()}",
+                string.IsNullOrWhiteSpace(req.TransportName) ? null : $"Transport: {req.TransportName.Trim()}",
+                $"Round off: {quote.RoundOff:0.00}",
+            }.Where(line => line is not null)),
             PlacedAt = now,
             CreatedAt = now,
         };

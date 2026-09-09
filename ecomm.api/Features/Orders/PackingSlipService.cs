@@ -36,7 +36,11 @@ public sealed class PackingSlipService : IPackingSlipService
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
         if (order is null) return null;
 
-        var items = await _db.OrderItems.Where(oi => oi.OrderId == orderId).OrderBy(oi => oi.OrderItemId).ToListAsync(ct);
+        // By design number, not insertion order — matches InvoiceService's item order, so the
+        // two documents printed for the same order always list items in the same sequence.
+        var items = await _db.OrderItems.Where(oi => oi.OrderId == orderId)
+            .OrderBy(oi => oi.DesignNo == null || oi.DesignNo == "").ThenBy(oi => oi.DesignNo).ThenBy(oi => oi.OrderItemId)
+            .ToListAsync(ct);
 
         var billing = order.BillingAddressId ?? order.ShippingAddressId;
         var billAddr = billing is null ? null : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == billing, ct);
@@ -51,8 +55,12 @@ public sealed class PackingSlipService : IPackingSlipService
 
         var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
         var sellerContact = await SellerContactLinesAsync(ct);
+        // Typed on the order form, same field the buyer's Email comes from (Order.Notes) — the
+        // one thing on this document a courier/loading crew actually needs that a Bill To/Ship
+        // To block does not carry.
+        var transportName = OrderNotes.Field(order.Notes, "Transport");
 
-        var bytes = BuildPdf(order, items, billAddr, shipAddr, sellerName, sellerContact);
+        var bytes = BuildPdf(order, items, billAddr, shipAddr, sellerName, sellerContact, transportName);
         return new PackingSlipPdf(bytes, $"PackingSlip-{order.OrderNumber}.pdf");
     }
 
@@ -76,7 +84,7 @@ public sealed class PackingSlipService : IPackingSlipService
 
     private static byte[] BuildPdf(
         Order order, List<OrderItem> items, CustomerAddress? billAddr, CustomerAddress? shipAddr,
-        string sellerName, List<string> sellerContact)
+        string sellerName, List<string> sellerContact, string? transportName)
     {
         var doc = Document.Create(container =>
         {
@@ -100,6 +108,8 @@ public sealed class PackingSlipService : IPackingSlipService
                             c.Item().AlignRight().Text("PACKING LIST").FontSize(13).Bold().FontColor(Colors.Black);
                             c.Item().AlignRight().Text($"Order #{order.OrderNumber}");
                             c.Item().AlignRight().Text($"Order placed: {order.CreatedAt:dd MMM yyyy hh:mm tt}");
+                            if (!string.IsNullOrWhiteSpace(transportName))
+                                c.Item().AlignRight().Text($"Transport: {transportName}").Bold();
                         });
                     });
                     col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);

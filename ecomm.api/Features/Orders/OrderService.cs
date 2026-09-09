@@ -474,7 +474,8 @@ public sealed class OrderService : IOrderService
         return new OrderDto(order.OrderId, order.OrderNumber, order.Status, order.Currency,
             order.Subtotal, order.DiscountAmount, order.TaxAmount, order.ShippingAmount, order.TotalAmount,
             order.PlacedAt, order.CreatedAt, items, ship, bill,
-            payment?.Method, payment?.Status, invoice?.InvoiceId, invoice?.InvoiceNumber, canCancel, shipment);
+            payment?.Method, payment?.Status, invoice?.InvoiceId, invoice?.InvoiceNumber, canCancel, shipment,
+            OrderNotes.Field(order.Notes, "Transport"));
     }
 
     public async Task<PagedResult<OrderListItem>> ListAllAsync(string? status, int page, int pageSize, CancellationToken ct = default)

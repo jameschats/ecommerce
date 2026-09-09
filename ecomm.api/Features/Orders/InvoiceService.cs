@@ -142,8 +142,14 @@ public sealed class InvoiceService : IInvoiceService
 
         var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.OrderId == orderId, ct);
         if (invoice is null) return null;
+        // By design number, not insertion order — the buyer picks by design number, so that is
+        // the sequence a dealer scans the printed sheet in. Blank design numbers sort last
+        // rather than first, and InvoiceItemId breaks a tie between two equal (or two blank)
+        // design numbers so the order is still stable.
         var items = await _db.InvoiceItems.Include(i => i.CustomFieldValues)
-            .Where(i => i.InvoiceId == invoice.InvoiceId).OrderBy(i => i.InvoiceItemId).ToListAsync(ct);
+            .Where(i => i.InvoiceId == invoice.InvoiceId)
+            .OrderBy(i => i.DesignNo == null || i.DesignNo == "").ThenBy(i => i.DesignNo).ThenBy(i => i.InvoiceItemId)
+            .ToListAsync(ct);
         var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
         var sellerState = await SettingAsync("StoreState", ct) ?? "";
         var sellerContact = await SellerContactLinesAsync(ct);

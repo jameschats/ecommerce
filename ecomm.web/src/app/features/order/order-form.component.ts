@@ -10,6 +10,7 @@ import {
 } from '../../core/services/quick-order-checkout.service';
 import { QuickOrderService } from '../../core/services/quick-order.service';
 import { AuthService } from '../../core/services/auth.service';
+import { AccountService } from '../../core/services/account.service';
 import { OtpGateComponent } from './otp-gate.component';
 
 /**
@@ -107,6 +108,12 @@ import { OtpGateComponent } from './otp-gate.component';
                 <span class="form-label">Business name</span>
                 <input type="text" [(ngModel)]="businessName" name="businessName" class="form-input"
                        placeholder="Shop or firm name (optional)" />
+              </label>
+
+              <label class="block">
+                <span class="form-label">Transport / Lorry Name</span>
+                <input type="text" [(ngModel)]="transportName" name="transportName" class="form-input"
+                       placeholder="Optional — your preferred transport or lorry" />
               </label>
 
               <label class="block">
@@ -298,6 +305,7 @@ export class OrderFormComponent {
   private readonly quickOrder = inject(QuickOrderService);
   private readonly checkout = inject(QuickOrderCheckoutService);
   private readonly auth = inject(AuthService);
+  private readonly account = inject(AccountService);
   private readonly router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -315,6 +323,7 @@ export class OrderFormComponent {
   readonly address = signal('');
   readonly businessName = signal('');
   readonly gstin = signal('');
+  readonly transportName = signal('');
 
   readonly shipToDifferent = signal(false);
   readonly shipName = signal('');
@@ -424,6 +433,41 @@ export class OrderFormComponent {
         this.quoting.set(false);
       });
     });
+
+    this.prefillFromAccount();
+  }
+
+  /**
+   * Saves a signed-in, repeat buyer from retyping their own details on every order — a
+   * dealer placing a weekly order otherwise fills the same name/mobile/address by hand each
+   * time. Only ever fills a field that is still blank, both here and in the addresses
+   * response handler below, since the address call is async and must not clobber anything
+   * typed while it was in flight.
+   */
+  private prefillFromAccount(): void {
+    if (!this.auth.isAuthenticated()) return;
+
+    const user = this.auth.currentUser();
+    if (user) {
+      if (!this.name().trim() && user.fullName) this.name.set(user.fullName);
+      if (!this.email().trim() && user.email) this.email.set(user.email);
+      if (!this.mobile().trim() && user.phoneNumber) this.mobile.set(user.phoneNumber);
+    }
+
+    this.account.listAddresses().subscribe({
+      next: (addresses) => {
+        const preferred = addresses.find((a) => a.isDefault) ?? addresses[0];
+        if (!preferred) return;
+        if (!this.address().trim()) {
+          this.address.set(preferred.line2 ? `${preferred.line1}, ${preferred.line2}` : preferred.line1);
+        }
+        if (!this.city().trim() && preferred.city) this.city.set(preferred.city);
+        if (!this.state().trim() && preferred.state) this.state.set(preferred.state);
+      },
+      // A guest-like account with no saved address yet, or a transient failure — either way
+      // the form is still perfectly usable blank, so this fails silently.
+      error: () => {},
+    });
   }
 
   /**
@@ -465,6 +509,7 @@ export class OrderFormComponent {
         address: this.address(),
         businessName: this.businessName().trim() || null,
         gstin: this.gstin().trim().toUpperCase() || null,
+        transportName: this.transportName().trim() || null,
         shipToDifferent: this.shipToDifferent(),
         shipName: this.shipName().trim() || null,
         shipMobile: this.shipMobile().trim() ? this.toTenDigits(this.shipMobile()) : null,

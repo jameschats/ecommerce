@@ -106,6 +106,8 @@ export interface Order {
   invoiceNumber: string | null;
   canCancel: boolean;
   shipment: Shipment | null;
+  /** Transport/lorry the buyer typed on the order form. Null when not given. */
+  transportName: string | null;
 }
 
 export interface Shipment {
