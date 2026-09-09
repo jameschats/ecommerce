@@ -341,6 +341,9 @@
           Saving {{ discountTotal() | currency: 'INR' : 'symbol-narrow' : '1.2-2' }}
         </p>
       }
+      <button type="button" (click)="clearAll()" class="text-xs text-slate-400 hover:text-red-600 shrink-0">
+        Clear all
+      </button>
       <button type="button" (click)="openDrawer()"
               class="bg-primary text-white font-semibold text-sm px-4 py-2 rounded-lg">
         View estimate
