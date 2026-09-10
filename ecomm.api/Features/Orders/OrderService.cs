@@ -109,7 +109,7 @@ public sealed class OrderService : IOrderService
             var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == order.UserId, ct);
             if (user is null) return;
             var storeName = await _db.Settings.Where(s => s.TenantId == Tenant && s.SettingKey == "SiteName")
-                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "our store";
+                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "Store";
 
             var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
