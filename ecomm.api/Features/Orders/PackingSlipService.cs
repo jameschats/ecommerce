@@ -38,9 +38,17 @@ public sealed class PackingSlipService : IPackingSlipService
 
         // By design number, not insertion order — matches InvoiceService's item order, so the
         // two documents printed for the same order always list items in the same sequence.
-        var items = await _db.OrderItems.Where(oi => oi.OrderId == orderId)
+        var items = await _db.OrderItems.Include(oi => oi.CustomFieldValues).Where(oi => oi.OrderId == orderId)
             .OrderBy(oi => oi.DesignNo == null || oi.DesignNo == "").ThenBy(oi => oi.DesignNo).ThenBy(oi => oi.OrderItemId)
             .ToListAsync(ct);
+
+        // Variant folded into the printed name, same as InvoiceService — a packer reading
+        // "10 x 15 ... Finished" with no size/colour has nothing to pack correctly.
+        var variantIds = items.Where(i => i.ProductVariantId != null).Select(i => i.ProductVariantId!.Value).Distinct().ToList();
+        var variantNames = variantIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : await _db.ProductVariants.Where(v => variantIds.Contains(v.ProductVariantId))
+                .ToDictionaryAsync(v => v.ProductVariantId, v => v.Name, ct);
 
         var billing = order.BillingAddressId ?? order.ShippingAddressId;
         var billAddr = billing is null ? null : await _db.CustomerAddresses.FirstOrDefaultAsync(a => a.CustomerAddressId == billing, ct);
@@ -60,7 +68,7 @@ public sealed class PackingSlipService : IPackingSlipService
         // To block does not carry.
         var transportName = OrderNotes.Field(order.Notes, "Transport");
 
-        var bytes = BuildPdf(order, items, billAddr, shipAddr, sellerName, sellerContact, transportName);
+        var bytes = BuildPdf(order, items, variantNames, billAddr, shipAddr, sellerName, sellerContact, transportName);
         return new PackingSlipPdf(bytes, $"PackingSlip-{order.OrderNumber}.pdf");
     }
 
@@ -83,7 +91,8 @@ public sealed class PackingSlipService : IPackingSlipService
     }
 
     private static byte[] BuildPdf(
-        Order order, List<OrderItem> items, CustomerAddress? billAddr, CustomerAddress? shipAddr,
+        Order order, List<OrderItem> items, Dictionary<long, string?> variantNames,
+        CustomerAddress? billAddr, CustomerAddress? shipAddr,
         string sellerName, List<string> sellerContact, string? transportName)
     {
         var doc = Document.Create(container =>
@@ -160,7 +169,16 @@ public sealed class PackingSlipService : IPackingSlipService
                             // Blank, not "-", where no design number was captured — a dash reads
                             // as a value (same rule InvoiceService follows for this column).
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.DesignNo ?? "");
-                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(it.ProductName);
+                            var variantName = it.ProductVariantId is { } vid && variantNames.TryGetValue(vid, out var n) ? n : null;
+                            table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).Column(c =>
+                            {
+                                c.Item().Text(string.IsNullOrWhiteSpace(variantName) ? it.ProductName : $"{it.ProductName} ({variantName})");
+                                // Custom-text answers (e.g. "Mention Correct Design number") —
+                                // the one thing on this document that isn't a standard product
+                                // attribute, and the reason a packer would need to read it at all.
+                                foreach (var a in it.CustomFieldValues)
+                                    c.Item().Text($"{a.Label}: {a.Value}").FontSize(7.5f).FontColor(Colors.Grey.Darken1);
+                            });
                             table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4).AlignRight().Text(it.Quantity.ToString());
                         }
                     });
