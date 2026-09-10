@@ -12,8 +12,12 @@ public sealed record ChannelTogglesDto(bool EmailEnabled, bool SmsEnabled, bool 
 /// template approval) without touching provider config. A disabled channel is treated exactly like
 /// one the recipient can't be reached on: <see cref="NotificationRouter"/> skips it and falls
 /// through to the next channel in the chain, and <see cref="Auth.Services.OtpService"/> falls back
-/// from SMS to email OTP when SMS is disabled. Absent Settings row = enabled (opt-out, not opt-in),
-/// so this needs no seed/migration — every tenant starts with all three channels on.
+/// from SMS to email OTP when SMS is disabled.
+/// <para>Absent Settings row falls back to <see cref="Defaults"/>, not a blanket "enabled" — as of
+/// 2026-09-10, SMS and WhatsApp default OFF (SMS is blocked on DLT registration; WhatsApp has no
+/// Meta-approved template yet) so a tenant with no rows at all runs on Email alone, the one channel
+/// that's actually deliverable today. Needs no seed/migration: every existing and new tenant picks
+/// up the right default the moment this ships.</para>
 /// </summary>
 public interface INotificationChannelSettings
 {
@@ -25,6 +29,14 @@ public interface INotificationChannelSettings
 
 public sealed class NotificationChannelSettings(EcommerceDbContext db) : INotificationChannelSettings
 {
+    /// <summary>Fallback when no Settings row exists yet for a channel. Only Email starts on.</summary>
+    private static readonly Dictionary<string, bool> Defaults = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Email"] = true,
+        ["SMS"] = false,
+        ["WhatsApp"] = false,
+    };
+
     private long Tenant => db.CurrentTenantId;
     private static string KeyFor(string channelKey) => $"Channel{channelKey}Enabled";
 
@@ -33,7 +45,8 @@ public sealed class NotificationChannelSettings(EcommerceDbContext db) : INotifi
         var v = await db.Settings.AsNoTracking()
             .Where(s => s.TenantId == Tenant && s.SettingKey == KeyFor(channelKey))
             .Select(s => s.SettingValue).FirstOrDefaultAsync(ct);
-        return v is null || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+        if (v is not null) return string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+        return Defaults.GetValueOrDefault(channelKey, true);
     }
 
     public async Task<ChannelTogglesDto> GetAsync(CancellationToken ct = default) => new(

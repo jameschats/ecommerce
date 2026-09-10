@@ -50,6 +50,16 @@ public class NotificationRouterTests
             Code = code, Channel = channel, Subject = "Hi {{name}}", Body = "Body {{name}}", IsActive = true, CreatedAt = DateTime.UtcNow,
         });
 
+    /// <summary>WhatsApp defaults OFF (see NotificationChannelSettings.Defaults) — tests that mean to
+    /// exercise real WhatsApp delivery need to explicitly opt it back in, same as an admin would.</summary>
+    private static void EnableWhatsApp(ecomm.api.Data.Context.EcommerceDbContext db)
+        => db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelWhatsAppEnabled", SettingValue = "true", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
+
+    /// <summary>SMS also defaults OFF (see NotificationChannelSettings.Defaults) — tests exercising
+    /// generic SMS-fallback mechanics need to explicitly opt it back in.</summary>
+    private static void EnableSms(ecomm.api.Data.Context.EcommerceDbContext db)
+        => db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelSMSEnabled", SettingValue = "true", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
+
     [Fact]
     public async Task Primary_channel_success_records_one_history_row_and_no_retry_scheduled()
     {
@@ -82,8 +92,11 @@ public class NotificationRouterTests
     public async Task Failed_primary_falls_back_to_next_channel_in_chain_and_correlates_history()
     {
         using var db = TestDb.New(tenantId: 1);
-        SeedTemplate(db, "OrderCancelled", "Email");
-        SeedTemplate(db, "OrderCancelled", "SMS");
+        // A synthetic code (not in ChannelChains) so this exercises the generic DefaultChain
+        // [Email, SMS] mechanic, independent of whatever the real order codes' chains happen to be.
+        SeedTemplate(db, "GenericNotification", "Email");
+        SeedTemplate(db, "GenericNotification", "SMS");
+        EnableSms(db);
         await db.SaveChangesAsync();
 
         var email = new FakeChannel("Email") { Succeeds = false };
@@ -91,7 +104,7 @@ public class NotificationRouterTests
         var router = NewRouter(db, [email, sms]);
 
         var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
-        var sent = await router.DispatchAsync("OrderCancelled", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+        var sent = await router.DispatchAsync("GenericNotification", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(1, email.SendCount);
@@ -112,8 +125,9 @@ public class NotificationRouterTests
     public async Task Channel_the_recipient_cannot_be_reached_on_is_skipped_without_being_invoked()
     {
         using var db = TestDb.New(tenantId: 1);
-        SeedTemplate(db, "OrderCancelled", "Email");
-        SeedTemplate(db, "OrderCancelled", "SMS");
+        SeedTemplate(db, "GenericNotification", "Email");
+        SeedTemplate(db, "GenericNotification", "SMS");
+        EnableSms(db);
         await db.SaveChangesAsync();
 
         var email = new FakeChannel("Email") { Deliverable = false };   // e.g. no email on file
@@ -121,7 +135,7 @@ public class NotificationRouterTests
         var router = NewRouter(db, [email, sms]);
 
         var recipient = new NotificationRecipient(Phone: "9999999999");   // Email intentionally omitted
-        var sent = await router.DispatchAsync("OrderCancelled", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+        var sent = await router.DispatchAsync("GenericNotification", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(0, email.SendCount);
@@ -133,16 +147,17 @@ public class NotificationRouterTests
     public async Task Channel_not_registered_in_DI_is_skipped_silently()
     {
         using var db = TestDb.New(tenantId: 1);
-        SeedTemplate(db, "OrderShipped", "SMS");
+        SeedTemplate(db, "GenericNotification", "SMS");
+        EnableSms(db);
         await db.SaveChangesAsync();
 
-        // OrderShipped's chain is [WhatsApp, SMS, Email] but only SMS is registered here —
-        // this is exactly the pre-Track-C-launch state on the real chain.
+        // DefaultChain is [Email, SMS] but only SMS is registered here — the missing Email
+        // channel should be skipped silently rather than blowing up.
         var sms = new FakeChannel("SMS");
         var router = NewRouter(db, [sms]);
 
         var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
-        var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+        var sent = await router.DispatchAsync("GenericNotification", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(1, sms.SendCount);
@@ -189,7 +204,8 @@ public class NotificationRouterTests
     public async Task Missing_template_for_a_channel_skips_to_the_next_channel_in_the_chain()
     {
         using var db = TestDb.New(tenantId: 1);
-        SeedTemplate(db, "OrderCancelled", "SMS");   // no Email template seeded
+        SeedTemplate(db, "GenericNotification", "SMS");   // no Email template seeded
+        EnableSms(db);
         await db.SaveChangesAsync();
 
         var email = new FakeChannel("Email");
@@ -197,7 +213,7 @@ public class NotificationRouterTests
         var router = NewRouter(db, [email, sms]);
 
         var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
-        var sent = await router.DispatchAsync("OrderCancelled", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+        var sent = await router.DispatchAsync("GenericNotification", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(0, email.SendCount);
@@ -297,6 +313,7 @@ public class NotificationRouterTests
             ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
         });
         SeedTemplate(db, "OrderShipped", "SMS");
+        EnableWhatsApp(db);
         await db.SaveChangesAsync();
 
         var whatsapp = new FakeChannel("WhatsApp");
@@ -320,6 +337,7 @@ public class NotificationRouterTests
             Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}, order {{orderNo}} shipped",
             ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
         });
+        EnableWhatsApp(db);
         await db.SaveChangesAsync();
 
         IReadOnlyDictionary<string, string>? capturedMetadata = null;
@@ -343,20 +361,21 @@ public class NotificationRouterTests
             Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}",
             ExternalTemplateId = null, IsActive = true, CreatedAt = DateTime.UtcNow,   // not yet configured
         });
-        SeedTemplate(db, "OrderShipped", "SMS");
+        SeedTemplate(db, "OrderShipped", "Email");
+        EnableWhatsApp(db);
         await db.SaveChangesAsync();
 
         var fakeProvider = new FakeWhatsAppProvider();
         var whatsapp = new WhatsAppNotificationChannel(fakeProvider, NullLogger<WhatsAppNotificationChannel>.Instance);
-        var sms = new FakeChannel("SMS");
-        var router = NewRouter(db, [whatsapp, sms]);
+        var email = new FakeChannel("Email");
+        var router = NewRouter(db, [whatsapp, email]);
 
-        var recipient = new NotificationRecipient(Phone: "9999999999");
+        var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
         var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(0, fakeProvider.SendCount);   // real channel logic declined before ever calling the provider
-        Assert.Equal(1, sms.SendCount);
+        Assert.Equal(1, email.SendCount);
     }
 
     [Fact]
@@ -368,6 +387,7 @@ public class NotificationRouterTests
             Code = "OrderShipped", Channel = "WhatsApp", Body = "Hi {{name}}, order {{orderNo}} shipped",
             ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
         });
+        EnableWhatsApp(db);
         await db.SaveChangesAsync();
 
         var fakeProvider = new FakeWhatsAppProvider();
@@ -383,24 +403,48 @@ public class NotificationRouterTests
     }
 
     [Fact]
+    public async Task WhatsApp_is_off_by_default_with_no_settings_row_email_wins()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        // No Settings row at all — this is the real out-of-the-box state for every tenant today.
+        db.NotificationTemplates.Add(new NotificationTemplate
+        {
+            Code = "OrderShipped", Channel = "WhatsApp", ExternalTemplateId = "gupshup-tmpl-1", IsActive = true, CreatedAt = DateTime.UtcNow,
+        });
+        SeedTemplate(db, "OrderShipped", "Email");
+        await db.SaveChangesAsync();
+
+        var whatsapp = new FakeChannel("WhatsApp");
+        var email = new FakeChannel("Email");
+        var router = NewRouter(db, [whatsapp, email]);
+
+        var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
+        var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+
+        Assert.True(sent);
+        Assert.Equal(0, whatsapp.SendCount);   // off by default, never even asked CanDeliverTo
+        Assert.Equal(1, email.SendCount);
+    }
+
+    [Fact]
     public async Task Admin_disabled_channel_is_skipped_even_though_it_could_otherwise_deliver()
     {
         using var db = TestDb.New(tenantId: 1);
         SeedTemplate(db, "OrderShipped", "WhatsApp");
-        SeedTemplate(db, "OrderShipped", "SMS");
+        SeedTemplate(db, "OrderShipped", "Email");
         db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelWhatsAppEnabled", SettingValue = "false", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
         var whatsapp = new FakeChannel("WhatsApp");
-        var sms = new FakeChannel("SMS");
-        var router = NewRouter(db, [whatsapp, sms]);
+        var email = new FakeChannel("Email");
+        var router = NewRouter(db, [whatsapp, email]);
 
-        var recipient = new NotificationRecipient(Phone: "9999999999");
+        var recipient = new NotificationRecipient(Email: "a@b.com", Phone: "9999999999");
         var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(0, whatsapp.SendCount);   // admin-disabled, never even asked CanDeliverTo
-        Assert.Equal(1, sms.SendCount);
+        Assert.Equal(1, email.SendCount);
     }
 
     [Fact]
@@ -408,19 +452,19 @@ public class NotificationRouterTests
     {
         using var db = TestDb.New(tenantId: 1);
         SeedTemplate(db, "OrderShipped", "WhatsApp");
-        SeedTemplate(db, "OrderShipped", "SMS");
+        SeedTemplate(db, "OrderShipped", "Email");
         db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelWhatsAppEnabled", SettingValue = "true", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
         var whatsapp = new FakeChannel("WhatsApp");
-        var sms = new FakeChannel("SMS");
-        var router = NewRouter(db, [whatsapp, sms]);
+        var email = new FakeChannel("Email");
+        var router = NewRouter(db, [whatsapp, email]);
 
-        var sent = await router.DispatchAsync("OrderShipped", new NotificationRecipient(Phone: "9999999999"), new Dictionary<string, string> { ["name"] = "Sam" });
+        var sent = await router.DispatchAsync("OrderShipped", new NotificationRecipient(Email: "a@b.com", Phone: "9999999999"), new Dictionary<string, string> { ["name"] = "Sam" });
 
         Assert.True(sent);
         Assert.Equal(1, whatsapp.SendCount);
-        Assert.Equal(0, sms.SendCount);
+        Assert.Equal(0, email.SendCount);
     }
 
     private sealed class FakeWhatsAppProvider : ecomm.api.Features.WhatsApp.IWhatsAppProvider

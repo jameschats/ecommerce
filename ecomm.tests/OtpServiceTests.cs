@@ -55,9 +55,11 @@ public class OtpServiceTests
     }
 
     [Fact]
-    public async Task Sms_enabled_by_default_sends_via_sms_and_never_touches_email()
+    public async Task Sms_explicitly_enabled_sends_via_sms_and_never_touches_email()
     {
-        var (svc, sms, notify, _) = New();
+        var (svc, sms, notify, db) = New();
+        db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelSMSEnabled", SettingValue = "true", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
 
         await svc.RequestAsync("919876543210", "SMS", OtpPurpose.Login);
 
@@ -66,7 +68,23 @@ public class OtpServiceTests
     }
 
     [Fact]
-    public async Task Sms_disabled_falls_back_to_the_login_otp_email_template_for_a_known_user()
+    public async Task Sms_is_off_by_default_with_no_settings_row_and_falls_back_to_email_for_a_known_user()
+    {
+        // 2026-09-10: SMS defaults OFF (blocked on DLT registration) — no Settings row needed to see this.
+        var (svc, sms, notify, db) = New();
+        db.Users.Add(new User { TenantId = 1, PhoneNumber = "919876543210", Email = "sam@example.com", FullName = "Sam" });
+        await db.SaveChangesAsync();
+
+        await svc.RequestAsync("919876543210", "SMS", OtpPurpose.Login);
+
+        Assert.Equal(0, sms.SendCount);
+        Assert.Equal(1, notify.EmailCallCount);
+        Assert.Equal("LoginOtp", notify.LastCode);
+        Assert.Equal("sam@example.com", notify.LastToEmail);
+    }
+
+    [Fact]
+    public async Task Sms_explicitly_disabled_falls_back_to_the_login_otp_email_template_for_a_known_user()
     {
         var (svc, sms, notify, db) = New();
         db.Users.Add(new User { TenantId = 1, PhoneNumber = "919876543210", Email = "sam@example.com", FullName = "Sam" });

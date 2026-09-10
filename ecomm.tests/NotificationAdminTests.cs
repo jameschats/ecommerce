@@ -70,16 +70,18 @@ public class NotificationAdminTests
     }
 
     [Fact]
-    public async Task Channel_toggles_default_to_all_enabled_with_no_settings_rows()
+    public async Task Channel_toggles_default_to_email_only_with_no_settings_rows()
     {
+        // 2026-09-10: SMS is blocked on DLT registration and WhatsApp has no approved template yet,
+        // so a fresh tenant with no explicit rows should run on Email alone, not "everything on".
         using var db = TestDb.New(tenantId: 1);
         var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
 
         var toggles = await svc.GetChannelTogglesAsync();
 
         Assert.True(toggles.EmailEnabled);
-        Assert.True(toggles.SmsEnabled);
-        Assert.True(toggles.WhatsAppEnabled);
+        Assert.False(toggles.SmsEnabled);
+        Assert.False(toggles.WhatsAppEnabled);
     }
 
     [Fact]

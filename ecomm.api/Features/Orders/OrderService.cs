@@ -44,7 +44,7 @@ public sealed class OrderService : IOrderService
     private readonly IShippingService _shipping;
     private readonly IPaymentGateway _gateway;
     private readonly IInvoiceService _invoices;
-    private readonly INotificationService _notify;
+    private readonly INotificationRouter _router;
     private readonly INotificationFeedService _feed;
     private readonly ICouponService _coupons;
     private readonly Features.Shipping.Shiprocket.ITenantShiprocketService _shiprocket;
@@ -55,12 +55,12 @@ public sealed class OrderService : IOrderService
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
-        INotificationService notify, INotificationFeedService feed, ICouponService coupons,
+        INotificationRouter router, INotificationFeedService feed, ICouponService coupons,
         Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, IEntitlementService entitlements,
         Features.Catalog.Services.IBundleService bundles, Features.PublicApi.IWebhookDispatchService webhooks, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
-        _gateway = gateway; _invoices = invoices; _notify = notify; _feed = feed; _coupons = coupons;
+        _gateway = gateway; _invoices = invoices; _router = router; _feed = feed; _coupons = coupons;
         _shiprocket = shiprocket; _entitlements = entitlements; _bundles = bundles; _webhooks = webhooks; _log = log;
     }
 
@@ -92,10 +92,15 @@ public sealed class OrderService : IOrderService
         return v is null || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Fire order lifecycle notifications (email always; SMS when smsCode given).
+    /// <summary>Fire order lifecycle notifications via the router's own chain (WhatsApp -> Email for
+    /// order codes — see NotificationRouter.ChannelChains). One recipient carrying both contact
+    /// methods, one dispatch call: this replaces an earlier design that made two separate calls (an
+    /// email-only recipient and a phone-only recipient), which meant WhatsApp could only ever fire
+    /// on whichever call happened to carry a phone — silently dead for OrderStatusUpdate, whose call
+    /// sites never passed a phone-triggering code. A single call lets the chain genuinely try
+    /// WhatsApp first and fall to Email in one correlated attempt, for every order code.
     /// Never throws — notification failure must not break the order flow.</summary>
-    private async Task NotifyOrderAsync(long orderId, string emailCode, string? smsCode,
-        IReadOnlyDictionary<string, string>? extra, CancellationToken ct)
+    private async Task NotifyOrderAsync(long orderId, string code, IReadOnlyDictionary<string, string>? extra, CancellationToken ct)
     {
         try
         {
@@ -116,11 +121,11 @@ public sealed class OrderService : IOrderService
             };
             if (extra is not null) foreach (var kv in extra) tokens[kv.Key] = kv.Value;
 
-            if (!string.IsNullOrWhiteSpace(user.Email)) await _notify.SendEmailAsync(emailCode, user.Email!, tokens, ct);
-            if (smsCode is not null && !string.IsNullOrWhiteSpace(user.PhoneNumber)) await _notify.SendSmsAsync(smsCode, user.PhoneNumber!, tokens, ct);
+            if (!string.IsNullOrWhiteSpace(user.Email) || !string.IsNullOrWhiteSpace(user.PhoneNumber))
+                await _router.DispatchAsync(code, new NotificationRecipient(UserId: user.UserId, Email: user.Email, Phone: user.PhoneNumber), tokens, ct: ct);
 
             // In-app bell: notify the customer, and (on confirmation) the admins of a new order.
-            var feedTitle = emailCode switch
+            var feedTitle = code switch
             {
                 "OrderConfirmation" => "Order confirmed",
                 "OrderShipped" => "Order shipped",
@@ -128,13 +133,13 @@ public sealed class OrderService : IOrderService
                 _ => $"Order {order.Status}",
             };
             await _feed.NotifyUserAsync(order.UserId, "OrderUpdate", feedTitle, $"Order {order.OrderNumber}", $"/account/orders/{orderId}", ct);
-            if (emailCode == "OrderConfirmation")
+            if (code == "OrderConfirmation")
                 await _feed.NotifyAdminsAsync("NewOrder", "New order received",
                     $"Order {order.OrderNumber} · {order.Currency} {order.TotalAmount:0.00}", "/admin/orders", ct);
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Order notification '{Code}' failed for order {OrderId}", emailCode, orderId);
+            _log.LogError(ex, "Order notification '{Code}' failed for order {OrderId}", code, orderId);
         }
     }
 
@@ -373,7 +378,7 @@ public sealed class OrderService : IOrderService
             await tx.CommitAsync(ct);
 
             // COD orders are confirmed at placement → send the confirmation now (online sends on payment capture).
-            if (isCod) await NotifyOrderAsync(order.OrderId, "OrderConfirmation", "OrderConfirmation", null, ct);
+            if (isCod) await NotifyOrderAsync(order.OrderId, "OrderConfirmation", null, ct);
             await DispatchWebhookAsync("order.created", new { orderId = order.OrderId, orderNumber = order.OrderNumber, status = order.Status, totalAmount = result.amount, currency = result.currency }, ct);
 
             return result;
@@ -441,7 +446,7 @@ public sealed class OrderService : IOrderService
         try { await _invoices.GenerateForOrderAsync(orderId, ct); }
         catch (Exception ex) { _log.LogError(ex, "Invoice generation failed for order {OrderId}", orderId); }
 
-        await NotifyOrderAsync(orderId, "OrderConfirmation", "OrderConfirmation", null, ct);
+        await NotifyOrderAsync(orderId, "OrderConfirmation", null, ct);
 
         return (await GetAsync(orderId, userId, false, ct))!;
     }
@@ -511,7 +516,7 @@ public sealed class OrderService : IOrderService
             Notes = req.Reason ?? "Cancelled", ChangedBy = userId, CreatedAt = DateTime.UtcNow,
         });
         await _db.SaveChangesAsync(ct);
-        await NotifyOrderAsync(orderId, "OrderCancelled", "OrderCancelled", null, ct);
+        await NotifyOrderAsync(orderId, "OrderCancelled", null, ct);
         return (await GetAsync(orderId, userId, isAdmin, ct))!;
     }
 
@@ -631,7 +636,7 @@ public sealed class OrderService : IOrderService
         await _db.SaveChangesAsync(ct);
         if (toStatus == "Delivered") await CollectCodOnDeliveryAsync(orderId, ct);
         // Generic status email (Shipped-with-tracking is sent by the Shipments feature).
-        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
+        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, ct);
         await DispatchWebhookAsync("order.updated", new { orderId, orderNumber = order.OrderNumber, fromStatus = from, toStatus }, ct);
         return await GetAsync(orderId, null, true, ct);
     }
@@ -678,7 +683,7 @@ public sealed class OrderService : IOrderService
         });
         await _db.SaveChangesAsync(ct);
 
-        await NotifyOrderAsync(orderId, "OrderShipped", "OrderShipped",
+        await NotifyOrderAsync(orderId, "OrderShipped",
             new Dictionary<string, string> { ["Courier"] = req.Courier.Trim(), ["TrackingNumber"] = req.TrackingNumber.Trim() }, ct);
 
         return await GetAsync(orderId, null, true, ct);
@@ -741,7 +746,7 @@ public sealed class OrderService : IOrderService
 
         // Only notify "shipped" once we actually have a tracking number.
         if (!string.IsNullOrEmpty(result.Awb))
-            await NotifyOrderAsync(orderId, "OrderShipped", "OrderShipped",
+            await NotifyOrderAsync(orderId, "OrderShipped",
                 new Dictionary<string, string> { ["Courier"] = result.CourierName ?? "Shiprocket", ["TrackingNumber"] = result.Awb! }, ct);
 
         return await GetAsync(orderId, null, true, ct);
@@ -829,7 +834,7 @@ public sealed class OrderService : IOrderService
         });
         await _db.SaveChangesAsync(ct);
         await CollectCodOnDeliveryAsync(orderId, ct);
-        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, null, ct);
+        await NotifyOrderAsync(orderId, "OrderStatusUpdate", null, ct);
         return await GetAsync(orderId, null, true, ct);
     }
 

@@ -51,16 +51,19 @@ public sealed class HangfireBackgroundJobScheduler : IBackgroundJobScheduler
 public sealed class NotificationRouter : INotificationRouter
 {
     /// <summary>v1 hardcoded routing table (per Track A's design decision — not a per-tenant admin
-    /// UI yet, there's no delivery data to justify tuning it per merchant). WhatsApp is listed
-    /// ahead of SMS/Email for order updates per the design doc even though no WhatsApp channel is
-    /// registered yet; the router just skips it until Track C ships.</summary>
+    /// UI yet, there's no delivery data to justify tuning it per merchant). Order codes are
+    /// WhatsApp -> Email only for now (2026-09-10 decision) — SMS is left out of these chains
+    /// entirely while it's blocked on MSG91 DLT registration; add it back in once that clears.
+    /// WhatsApp itself is admin-toggleable (<see cref="INotificationChannelSettings"/>) and off by
+    /// default until its Meta templates are approved, so today every order code effectively runs on
+    /// Email alone — exactly the "disable WhatsApp, live with email" behavior asked for.</summary>
     private static readonly IReadOnlyDictionary<string, string[]> ChannelChains =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
-            ["OrderConfirmation"] = ["Email", "SMS"],
-            ["OrderStatusUpdate"] = ["WhatsApp", "SMS", "Email"],
-            ["OrderShipped"] = ["WhatsApp", "SMS", "Email"],
-            ["OrderCancelled"] = ["Email", "SMS"],
+            ["OrderConfirmation"] = ["WhatsApp", "Email"],
+            ["OrderStatusUpdate"] = ["WhatsApp", "Email"],
+            ["OrderShipped"] = ["WhatsApp", "Email"],
+            ["OrderCancelled"] = ["WhatsApp", "Email"],
             ["PasswordReset"] = ["Email"],
             ["EmailVerification"] = ["Email"],
             ["ConversationReply"] = ["Email"],
