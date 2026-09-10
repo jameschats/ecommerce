@@ -35,7 +35,7 @@ Follows the data model in [`/documents/design.md`](../../documents/design.md) §
 ## After applying: scaffold EF entities (database-first)
 ```bash
 cd ecomm.api
-dotnet ef dbcontext scaffold "Server=localhost;Database=ecommerce;Uid=root;Pwd=admin;CharSet=utf8mb4;" \
+dotnet ef dbcontext scaffold "Server=localhost;Database=ecommerce;Uid=root;Pwd=ZHnYHh4IP0QDGraWFHQicZicjQ7M81eu;CharSet=utf8mb4;" \
   Pomelo.EntityFrameworkCore.MySql -o Data/Entities --context-dir Data/Context \
   -c EcommerceDbContext --use-database-names --no-onconfiguring
 ```

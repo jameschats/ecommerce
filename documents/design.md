@@ -116,7 +116,7 @@ ecommerce/
 ### Database & connection
 - **Database name: `ecommerce`** (lowercase — safe across case-sensitive MySQL hosts).
 - Dev connection string (in `appsettings.json` → `ConnectionStrings:Default`):
-  `Server=localhost;Database=ecommerce;Uid=root;Pwd=admin;CharSet=utf8mb4;`
+  `Server=localhost;Database=ecommerce;Uid=root;Pwd=ZHnYHh4IP0QDGraWFHQicZicjQ7M81eu;CharSet=utf8mb4;`
 - ⚠️ For anything beyond local dev, move the password out of `appsettings.json` into **user-secrets** or environment variables.
 
 ---
