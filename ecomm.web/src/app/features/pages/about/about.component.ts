@@ -19,7 +19,7 @@ import { ContentSectionsComponent } from '../../../shared/content-sections/conte
     <app-banner-carousel [banners]="banners" />
 
     <section class="page-container py-12">
-      <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 max-w-3xl">{{ page?.title || 'About us' }}</h1>
+      <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 max-w-3xl mx-auto text-center">{{ page?.title || 'About us' }}</h1>
 
       @if (page?.sections?.length) {
         <app-content-sections [sections]="page!.sections" />

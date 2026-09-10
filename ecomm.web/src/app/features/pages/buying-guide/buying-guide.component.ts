@@ -28,7 +28,7 @@ interface Step {
     <section class="page-container py-10 sm:py-14">
       <div class="max-w-6xl mx-auto">
 
-        <header class="max-w-3xl">
+        <header class="max-w-3xl mx-auto text-center">
           <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">{{ page?.title || 'Buying guide' }}</h1>
           @if (page?.metaDescription) {
             <p class="mt-3 text-lg text-slate-600">{{ page!.metaDescription }}</p>
