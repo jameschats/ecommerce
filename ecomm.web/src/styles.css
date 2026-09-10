@@ -152,11 +152,10 @@
 }
 .marquee-group {
   /* 24s was the original base/default speed, used as-is by the home-page gallery strips (they
-     set no per-element override). 40s = 40% slower than that; 80s = a further 50% slower than
-     40s (half the speed takes twice the time to cover the same distance). The header
-     announcement always overrides this with its own measured-width duration (see
+     set no per-element override); tuned slower from there a few times, settling on 60s. The
+     header announcement always overrides this with its own measured-width duration (see
      App.marqueeSeconds below), so this change only affects the galleries. */
-  animation: announce-scroll 80s linear infinite;
+  animation: announce-scroll 60s linear infinite;
   will-change: transform;
 }
 /* Pause on hover so a passing notice can actually be read. (hover: hover) excludes touch
