@@ -96,14 +96,26 @@ public sealed class InvoiceService : IInvoiceService
         var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.OrderId == orderId, ct);
         if (invoice is null) return null;
         var items = await _db.InvoiceItems.Where(i => i.InvoiceId == invoice.InvoiceId).OrderBy(i => i.InvoiceItemId).ToListAsync(ct);
-        var sellerName = await SettingAsync("StoreLegalName", ct) ?? "CalendarShop";
+        // "StoreLegalName" is a real, admin-editable setting (Admin -> Settings -> Store details) —
+        // unlike the dead "SiteName" key elsewhere, this one just falls back to the tenant's own
+        // name when the merchant hasn't filled in a separate legal/trading name yet.
+        var sellerName = await SettingAsync("StoreLegalName", ct);
+        if (string.IsNullOrWhiteSpace(sellerName))
+            sellerName = await _db.Tenants.AsNoTracking().Where(t => t.TenantId == Tenant)
+                .Select(t => t.DisplayName ?? t.Name).FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(sellerName)) sellerName = "Store";
         var sellerState = await SettingAsync("StoreState", ct) ?? "";
+        // StorePhone/StoreAddress are captured by the same admin form but were never actually
+        // rendered anywhere on the invoice — added below alongside state/GSTIN.
+        var sellerPhone = await SettingAsync("StorePhone", ct) ?? "";
+        var sellerAddress = await SettingAsync("StoreAddress", ct) ?? "";
 
-        var bytes = BuildPdf(invoice, items, order, sellerName, sellerState);
+        var bytes = BuildPdf(invoice, items, order, sellerName, sellerState, sellerPhone, sellerAddress);
         return new InvoicePdf(bytes, $"{invoice.InvoiceNumber}.pdf");
     }
 
-    private static byte[] BuildPdf(Invoice inv, List<InvoiceItem> items, Order order, string sellerName, string sellerState)
+    private static byte[] BuildPdf(Invoice inv, List<InvoiceItem> items, Order order, string sellerName, string sellerState,
+        string sellerPhone, string sellerAddress)
     {
         var docTitle = inv.TaxAmount <= 0m ? "BILL OF SUPPLY" : "TAX INVOICE";
         var doc = Document.Create(container =>
@@ -121,6 +133,8 @@ public sealed class InvoiceService : IInvoiceService
                         row.RelativeItem().Column(c =>
                         {
                             c.Item().Text(sellerName).FontSize(15).Bold().FontColor(Colors.Black);
+                            if (!string.IsNullOrEmpty(sellerAddress)) c.Item().Text(sellerAddress);
+                            if (!string.IsNullOrEmpty(sellerPhone)) c.Item().Text($"Phone: {sellerPhone}");
                             if (!string.IsNullOrEmpty(inv.GstNumber)) c.Item().Text($"GSTIN: {inv.GstNumber}");
                             if (!string.IsNullOrEmpty(sellerState)) c.Item().Text($"State: {sellerState}");
                         });
@@ -217,7 +231,7 @@ public sealed class InvoiceService : IInvoiceService
                     });
                 });
 
-                page.Footer().AlignCenter().Text("Thank you for shopping with CalendarShop · This is a computer-generated invoice.")
+                page.Footer().AlignCenter().Text($"Thank you for shopping with {sellerName} · This is a computer-generated invoice.")
                     .FontSize(8).FontColor(Colors.Grey.Medium);
             });
         });
