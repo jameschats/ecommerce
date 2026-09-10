@@ -25,4 +25,12 @@ public sealed class NotificationAdminController(INotificationAdminService svc) :
     [HttpPut("sender")]
     public async Task<IActionResult> UpdateSender(NotificationSenderDto req, CancellationToken ct)
         => Ok(ApiResponse<NotificationSenderDto>.Ok(await svc.UpdateSenderAsync(req, ct), "Sender identity saved."));
+
+    [HttpGet("channels")]
+    public async Task<IActionResult> GetChannels(CancellationToken ct)
+        => Ok(ApiResponse<ChannelTogglesDto>.Ok(await svc.GetChannelTogglesAsync(ct)));
+
+    [HttpPut("channels")]
+    public async Task<IActionResult> UpdateChannels(ChannelTogglesDto req, CancellationToken ct)
+        => Ok(ApiResponse<ChannelTogglesDto>.Ok(await svc.UpdateChannelTogglesAsync(req, ct), "Channel settings saved."));
 }

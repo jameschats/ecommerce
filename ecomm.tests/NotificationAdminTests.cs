@@ -13,7 +13,7 @@ public class NotificationAdminTests
         using var db = TestDb.New(tenantId: 1);
         db.NotificationTemplates.Add(new NotificationTemplate { Code = "OrderShipped", Channel = "Email", Subject = "old", Body = "old", IsActive = true, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        var svc = new NotificationAdminService(db);
+        var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
         var id = (await svc.ListTemplatesAsync())[0].Id;
 
         var updated = await svc.UpdateTemplateAsync(id, new UpdateNotificationTemplateRequest(
@@ -30,7 +30,7 @@ public class NotificationAdminTests
         using var db = TestDb.New(tenantId: 1);
         db.NotificationTemplates.Add(new NotificationTemplate { Code = "OrderPlaced", Channel = "SMS", Body = "x", IsActive = true, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        var svc = new NotificationAdminService(db);
+        var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
         var id = (await svc.ListTemplatesAsync())[0].Id;
 
         var updated = await svc.UpdateTemplateAsync(id, new UpdateNotificationTemplateRequest(null, "Order {{orderNumber}} placed", null, false));
@@ -45,7 +45,7 @@ public class NotificationAdminTests
         using var db = TestDb.New(tenantId: 1);
         db.NotificationTemplates.Add(new NotificationTemplate { Code = "OrderShipped", Channel = "WhatsApp", Body = "x", IsActive = false, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        var svc = new NotificationAdminService(db);
+        var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
         var id = (await svc.ListTemplatesAsync())[0].Id;
 
         var updated = await svc.UpdateTemplateAsync(id, new UpdateNotificationTemplateRequest(
@@ -59,7 +59,7 @@ public class NotificationAdminTests
     public async Task Sender_round_trips_and_rejects_bad_reply_to()
     {
         using var db = TestDb.New(tenantId: 1);
-        var svc = new NotificationAdminService(db);
+        var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
 
         await svc.UpdateSenderAsync(new NotificationSenderDto("My Store", "hello@store.com"));
         var s = await svc.GetSenderAsync();
@@ -67,5 +67,32 @@ public class NotificationAdminTests
         Assert.Equal("hello@store.com", s.ReplyToEmail);
 
         await Assert.ThrowsAsync<AppException>(() => svc.UpdateSenderAsync(new NotificationSenderDto("X", "not-an-email")));
+    }
+
+    [Fact]
+    public async Task Channel_toggles_default_to_all_enabled_with_no_settings_rows()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
+
+        var toggles = await svc.GetChannelTogglesAsync();
+
+        Assert.True(toggles.EmailEnabled);
+        Assert.True(toggles.SmsEnabled);
+        Assert.True(toggles.WhatsAppEnabled);
+    }
+
+    [Fact]
+    public async Task Channel_toggles_round_trip_through_update_and_get()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        var svc = new NotificationAdminService(db, new NotificationChannelSettings(db));
+
+        await svc.UpdateChannelTogglesAsync(new ChannelTogglesDto(EmailEnabled: true, SmsEnabled: false, WhatsAppEnabled: false));
+        var toggles = await svc.GetChannelTogglesAsync();
+
+        Assert.True(toggles.EmailEnabled);
+        Assert.False(toggles.SmsEnabled);
+        Assert.False(toggles.WhatsAppEnabled);
     }
 }

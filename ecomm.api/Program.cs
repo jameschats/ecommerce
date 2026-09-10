@@ -171,6 +171,7 @@ builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductService, 
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IVariantService, ecomm.api.Features.Catalog.Services.VariantService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IAttributeService, ecomm.api.Features.Catalog.Services.AttributeService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductAttributeService, ecomm.api.Features.Catalog.Services.ProductAttributeService>();
+builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.ICustomTextFieldService, ecomm.api.Features.Catalog.Services.CustomTextFieldService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductImportService, ecomm.api.Features.Catalog.Services.ProductImportService>();
 
 // Theme
@@ -217,6 +218,10 @@ else
     builder.Services.AddScoped<ecomm.api.Features.WhatsApp.IWhatsAppProvider, ecomm.api.Features.WhatsApp.LoggingWhatsAppProvider>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannel, ecomm.api.Features.Notifications.WhatsAppNotificationChannel>();
 builder.Services.AddSingleton<ecomm.api.Features.Notifications.IBackgroundJobScheduler, ecomm.api.Features.Notifications.HangfireBackgroundJobScheduler>();
+// Per-tenant admin kill switch for each channel (Settings-backed, no migration needed) — lets a
+// merchant force-disable WhatsApp/SMS (e.g. mid-approval, or blocked on DLT) and fall back to
+// whatever's left in the chain; consumed by both NotificationRouter and OtpService's SMS->email fallback.
+builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationChannelSettings, ecomm.api.Features.Notifications.NotificationChannelSettings>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationRouter, ecomm.api.Features.Notifications.NotificationRouter>();
 builder.Services.AddScoped<ecomm.api.Features.Notifications.INotificationService, ecomm.api.Features.Notifications.NotificationService>();
 builder.Services.AddSignalR();

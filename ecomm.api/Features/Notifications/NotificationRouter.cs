@@ -71,14 +71,16 @@ public sealed class NotificationRouter : INotificationRouter
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly IReadOnlyDictionary<string, INotificationChannel> _channels;
+    private readonly INotificationChannelSettings _channelSettings;
     private readonly IBackgroundJobScheduler _scheduler;
     private readonly ILogger<NotificationRouter> _logger;
 
     public NotificationRouter(EcommerceDbContext db, IEnumerable<INotificationChannel> channels,
-        IBackgroundJobScheduler scheduler, ILogger<NotificationRouter> logger)
+        INotificationChannelSettings channelSettings, IBackgroundJobScheduler scheduler, ILogger<NotificationRouter> logger)
     {
         _db = db;
         _channels = channels.ToDictionary(c => c.Key, StringComparer.OrdinalIgnoreCase);
+        _channelSettings = channelSettings;
         _scheduler = scheduler;
         _logger = logger;
     }
@@ -109,6 +111,7 @@ public sealed class NotificationRouter : INotificationRouter
         foreach (var channelKey in chain)
         {
             if (!_channels.TryGetValue(channelKey, out var channel)) continue;
+            if (!await _channelSettings.IsEnabledAsync(channelKey, ct)) continue;
             if (!channel.CanDeliverTo(recipient)) continue;
             if (category.Equals("marketing", StringComparison.OrdinalIgnoreCase) && !await IsOptedInAsync(recipient, channelKey, ct)) continue;
 

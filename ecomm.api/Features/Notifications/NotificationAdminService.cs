@@ -19,14 +19,19 @@ public interface INotificationAdminService
     Task<NotificationTemplateDto> UpdateTemplateAsync(long id, UpdateNotificationTemplateRequest req, CancellationToken ct = default);
     Task<NotificationSenderDto> GetSenderAsync(CancellationToken ct = default);
     Task<NotificationSenderDto> UpdateSenderAsync(NotificationSenderDto req, CancellationToken ct = default);
+    Task<ChannelTogglesDto> GetChannelTogglesAsync(CancellationToken ct = default);
+    Task<ChannelTogglesDto> UpdateChannelTogglesAsync(ChannelTogglesDto req, CancellationToken ct = default);
 }
 
 /// <summary>
 /// Merchant management of transactional notifications: edit the per-tenant message templates
-/// (Email/SMS, <c>{{token}}</c> placeholders) and the sender identity (display name + reply-to).
+/// (Email/SMS, <c>{{token}}</c> placeholders), the sender identity (display name + reply-to), and
+/// the per-channel enable/disable switches (<see cref="INotificationChannelSettings"/>) that let a
+/// merchant force-disable WhatsApp or SMS — e.g. while a WhatsApp template is still pending Meta
+/// approval, or SMS is blocked on DLT registration — and fall back to whatever's left in the chain.
 /// Email HTML bodies are sanitized on write; SMS bodies are stored as plain text.
 /// </summary>
-public sealed class NotificationAdminService(EcommerceDbContext db) : INotificationAdminService
+public sealed class NotificationAdminService(EcommerceDbContext db, INotificationChannelSettings channelSettings) : INotificationAdminService
 {
     private long Tenant => db.CurrentTenantId;
 
@@ -101,6 +106,9 @@ public sealed class NotificationAdminService(EcommerceDbContext db) : INotificat
         else
             existing.SettingValue = value;
     }
+
+    public Task<ChannelTogglesDto> GetChannelTogglesAsync(CancellationToken ct = default) => channelSettings.GetAsync(ct);
+    public Task<ChannelTogglesDto> UpdateChannelTogglesAsync(ChannelTogglesDto req, CancellationToken ct = default) => channelSettings.UpdateAsync(req, ct);
 
     private static string Prettify(string code) =>
         System.Text.RegularExpressions.Regex.Replace(code, "(?<=[a-z])(?=[A-Z])", " ");

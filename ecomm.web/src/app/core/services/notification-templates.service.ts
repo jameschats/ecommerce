@@ -22,6 +22,12 @@ export interface NotificationSender {
   replyToEmail: string | null;
 }
 
+export interface ChannelToggles {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  whatsAppEnabled: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class NotificationTemplatesService {
   private readonly http = inject(HttpClient);
@@ -35,5 +41,9 @@ export class NotificationTemplatesService {
   getSender(): Observable<NotificationSender> { return this.unwrap(this.http.get<ApiResponse<NotificationSender>>(`${this.base}/sender`)); }
   updateSender(body: NotificationSender): Observable<NotificationSender> {
     return this.unwrap(this.http.put<ApiResponse<NotificationSender>>(`${this.base}/sender`, body));
+  }
+  getChannels(): Observable<ChannelToggles> { return this.unwrap(this.http.get<ApiResponse<ChannelToggles>>(`${this.base}/channels`)); }
+  updateChannels(body: ChannelToggles): Observable<ChannelToggles> {
+    return this.unwrap(this.http.put<ApiResponse<ChannelToggles>>(`${this.base}/channels`, body));
   }
 }

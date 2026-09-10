@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { NotificationSender, NotificationTemplate, NotificationTemplatesService } from '../../../core/services/notification-templates.service';
+import { ChannelToggles, NotificationSender, NotificationTemplate, NotificationTemplatesService } from '../../../core/services/notification-templates.service';
 
 @Component({
   selector: 'app-admin-notification-templates',
@@ -23,6 +23,37 @@ import { NotificationSender, NotificationTemplate, NotificationTemplatesService 
             <label class="block"><span class="lbl">Reply-to email</span><input class="input" [(ngModel)]="sender.replyToEmail" name="rt" placeholder="hello@yourstore.com" /></label>
           </div>
           <button type="button" (click)="saveSender()" [disabled]="savingSender()" class="btn-primary px-4 py-2">{{ savingSender() ? 'Saving…' : 'Save sender' }}</button>
+        </div>
+
+        <!-- Channel switches -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 mb-6 space-y-3">
+          <h2 class="font-semibold text-slate-800">Channel switches</h2>
+          <p class="text-xs text-slate-400">
+            Turn a channel off to stop using it entirely — notifications fall back to whatever's left below it
+            (WhatsApp → SMS → Email). Useful while a channel is still mid-setup, e.g. WhatsApp templates pending
+            Meta approval, or SMS blocked on carrier registration.
+          </p>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="channels.whatsAppEnabled" name="chWhatsApp" class="w-4 h-4" />
+              <span class="text-sm text-slate-700">WhatsApp</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="channels.smsEnabled" name="chSms" class="w-4 h-4" />
+              <span class="text-sm text-slate-700">SMS</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="channels.emailEnabled" name="chEmail" class="w-4 h-4" />
+              <span class="text-sm text-slate-700">Email</span>
+            </label>
+          </div>
+          @if (!channels.smsEnabled) {
+            <p class="text-xs text-slate-500">SMS off: mobile sign-in codes email the code instead, to whatever address that account has on file.</p>
+          }
+          @if (!channels.emailEnabled && !channels.smsEnabled && !channels.whatsAppEnabled) {
+            <p class="text-xs text-red-600">All three are off — no notification can be delivered on any channel right now.</p>
+          }
+          <button type="button" (click)="saveChannels()" [disabled]="savingChannels()" class="btn-primary px-4 py-2">{{ savingChannels() ? 'Saving…' : 'Save channels' }}</button>
         </div>
 
         <!-- Templates -->
@@ -84,16 +115,18 @@ export class AdminNotificationTemplatesComponent implements OnInit {
   readonly loading = signal(true);
   readonly savingId = signal<number | null>(null);
   readonly savingSender = signal(false);
+  readonly savingChannels = signal(false);
   readonly message = signal<string | null>(null);
   readonly open = signal<number | null>(null);
   readonly templates = signal<NotificationTemplate[]>([]);
   sender: NotificationSender = { senderName: '', replyToEmail: '' };
+  channels: ChannelToggles = { emailEnabled: true, smsEnabled: true, whatsAppEnabled: true };
   // Literal example text — kept as a property so Angular doesn't treat the {{…}} as interpolation.
   readonly tokenHint = 'Use {{token}} placeholders, e.g. {{orderNumber}}, {{customerName}}.';
 
   ngOnInit(): void {
-    forkJoin({ list: this.api.list(), sender: this.api.getSender() }).subscribe({
-      next: ({ list, sender }) => { this.templates.set(list); this.sender = sender; this.loading.set(false); },
+    forkJoin({ list: this.api.list(), sender: this.api.getSender(), channels: this.api.getChannels() }).subscribe({
+      next: ({ list, sender, channels }) => { this.templates.set(list); this.sender = sender; this.channels = channels; this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }
@@ -118,6 +151,14 @@ export class AdminNotificationTemplatesComponent implements OnInit {
     this.api.updateSender(this.sender).subscribe({
       next: (s) => { this.sender = s; this.savingSender.set(false); this.flash('Sender identity saved.'); },
       error: () => this.savingSender.set(false),
+    });
+  }
+
+  saveChannels(): void {
+    this.savingChannels.set(true); this.message.set(null);
+    this.api.updateChannels(this.channels).subscribe({
+      next: (c) => { this.channels = c; this.savingChannels.set(false); this.flash('Channel settings saved.'); },
+      error: () => this.savingChannels.set(false),
     });
   }
 }

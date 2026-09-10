@@ -40,7 +40,9 @@ public class NotificationRouterTests
 
     private static NotificationRouter NewRouter(ecomm.api.Data.Context.EcommerceDbContext db,
         IEnumerable<INotificationChannel> channels, IBackgroundJobScheduler? scheduler = null)
-        => new(db, channels, scheduler ?? new RecordingScheduler(), NullLogger<NotificationRouter>.Instance);
+        // Real NotificationChannelSettings, not a fake — with no Settings rows seeded, every channel
+        // defaults to enabled, so this is transparent to every test that doesn't care about the toggle.
+        => new(db, channels, new NotificationChannelSettings(db), scheduler ?? new RecordingScheduler(), NullLogger<NotificationRouter>.Instance);
 
     private static void SeedTemplate(ecomm.api.Data.Context.EcommerceDbContext db, string code, string channel)
         => db.NotificationTemplates.Add(new NotificationTemplate
@@ -378,6 +380,47 @@ public class NotificationRouterTests
         Assert.True(sent);
         Assert.Equal("gupshup-tmpl-1", fakeProvider.LastTemplateId);
         Assert.Equal(["Sam", "ORD-1"], fakeProvider.LastParameters);
+    }
+
+    [Fact]
+    public async Task Admin_disabled_channel_is_skipped_even_though_it_could_otherwise_deliver()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedTemplate(db, "OrderShipped", "WhatsApp");
+        SeedTemplate(db, "OrderShipped", "SMS");
+        db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelWhatsAppEnabled", SettingValue = "false", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var whatsapp = new FakeChannel("WhatsApp");
+        var sms = new FakeChannel("SMS");
+        var router = NewRouter(db, [whatsapp, sms]);
+
+        var recipient = new NotificationRecipient(Phone: "9999999999");
+        var sent = await router.DispatchAsync("OrderShipped", recipient, new Dictionary<string, string> { ["name"] = "Sam" });
+
+        Assert.True(sent);
+        Assert.Equal(0, whatsapp.SendCount);   // admin-disabled, never even asked CanDeliverTo
+        Assert.Equal(1, sms.SendCount);
+    }
+
+    [Fact]
+    public async Task Re_enabling_a_channel_makes_it_win_again()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedTemplate(db, "OrderShipped", "WhatsApp");
+        SeedTemplate(db, "OrderShipped", "SMS");
+        db.Settings.Add(new Setting { TenantId = 1, SettingKey = "ChannelWhatsAppEnabled", SettingValue = "true", DataType = "string", Category = "Notifications", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var whatsapp = new FakeChannel("WhatsApp");
+        var sms = new FakeChannel("SMS");
+        var router = NewRouter(db, [whatsapp, sms]);
+
+        var sent = await router.DispatchAsync("OrderShipped", new NotificationRecipient(Phone: "9999999999"), new Dictionary<string, string> { ["name"] = "Sam" });
+
+        Assert.True(sent);
+        Assert.Equal(1, whatsapp.SendCount);
+        Assert.Equal(0, sms.SendCount);
     }
 
     private sealed class FakeWhatsAppProvider : ecomm.api.Features.WhatsApp.IWhatsAppProvider
