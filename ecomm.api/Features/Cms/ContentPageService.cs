@@ -61,7 +61,11 @@ public sealed class ContentPageService : IContentPageService
     {
         var s = new HtmlSanitizer();
         s.AllowedTags.Clear();
-        foreach (var t in new[] { "p", "br", "strong", "b", "em", "i", "u", "h2", "h3", "h4", "ul", "ol", "li", "a", "blockquote" })
+        foreach (var t in new[]
+        {
+            "p", "br", "strong", "b", "em", "i", "u", "h2", "h3", "h4", "ul", "ol", "li", "a", "blockquote",
+            "table", "thead", "tbody", "tr", "th", "td",
+        })
             s.AllowedTags.Add(t);
 
         s.AllowedAttributes.Clear();

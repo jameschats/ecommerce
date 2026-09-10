@@ -120,6 +120,9 @@ interface Step {
     .guide-body :is(h3, h4) { font-weight: 600; margin-block: 0.9rem 0.3rem; color: rgb(30 41 59); }
     .guide-body strong { font-weight: 600; color: rgb(30 41 59); }
     .guide-body a { color: var(--color-primary, #2563eb); text-decoration: underline; }
+    .guide-body table { width: 100%; margin-block: 0.9rem; border-collapse: collapse; font-size: 0.925em; }
+    .guide-body :is(th, td) { border: 1px solid rgb(226 232 240); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+    .guide-body th { background: rgb(248 250 252); font-weight: 600; color: rgb(30 41 59); }
   `],
 })
 export class BuyingGuideComponent implements OnInit, OnDestroy {

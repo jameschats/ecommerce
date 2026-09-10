@@ -361,7 +361,7 @@ public sealed class InvoiceService : IInvoiceService
                     });
                 });
 
-                page.Footer().AlignCenter().Text("Thank you for shopping with CalendarShop · This is a computer-generated invoice.")
+                page.Footer().AlignCenter().Text("Thank you for Shopping with www.Dailycalendarstore.in | Senthaamarai Press. This is a computer-generated invoice.")
                     .FontSize(8).FontColor(Colors.Grey.Medium);
             });
         });
