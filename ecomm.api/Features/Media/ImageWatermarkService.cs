@@ -21,6 +21,15 @@ public interface IImageWatermarkService
     /// unmodified — a fixed watermark would only ever land on their first frame.
     /// </summary>
     byte[] Apply(byte[] source, string contentType);
+
+    /// <summary>
+    /// Scales an image down to at most maxWidth pixels wide (aspect ratio kept), leaving it
+    /// untouched if it's already that size or smaller — never upscales. A gallery strip tile
+    /// renders at a few hundred CSS pixels wide; serving every visitor whatever multi-megapixel
+    /// photo a phone camera produced is most of what makes a gallery slow to load. Animated
+    /// GIFs pass through unmodified, same as Apply.
+    /// </summary>
+    byte[] ResizeIfLarger(byte[] source, string contentType, int maxWidth);
 }
 
 public sealed class ImageWatermarkService : IImageWatermarkService
@@ -85,6 +94,21 @@ public sealed class ImageWatermarkService : IImageWatermarkService
                 }
             }
         });
+
+        using var output = new MemoryStream();
+        image.Save(output, EncoderFor(contentType));
+        return output.ToArray();
+    }
+
+    public byte[] ResizeIfLarger(byte[] source, string contentType, int maxWidth)
+    {
+        if (string.Equals(contentType, "image/gif", StringComparison.OrdinalIgnoreCase)) return source;
+
+        using var image = Image.Load<Rgba32>(source);
+        if (image.Width <= maxWidth) return source;
+
+        var newHeight = (int)Math.Round(image.Height * (maxWidth / (float)image.Width));
+        image.Mutate(ctx => ctx.Resize(maxWidth, newHeight));
 
         using var output = new MemoryStream();
         image.Save(output, EncoderFor(contentType));

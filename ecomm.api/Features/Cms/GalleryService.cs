@@ -35,6 +35,13 @@ public interface IGalleryService
     /// a second time.
     /// </summary>
     Task<Media.BackfillWatermarksResult> BackfillWatermarksAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// One-time: shrinks every gallery photo already stored at full upload resolution, from
+    /// before uploads were resized. Idempotent — a photo already at or under maxWidth is left
+    /// alone.
+    /// </summary>
+    Task<Media.BackfillResizeResult> BackfillResizeAsync(int maxWidth, CancellationToken ct = default);
 }
 
 public sealed class GalleryService : IGalleryService
@@ -208,6 +215,52 @@ public sealed class GalleryService : IGalleryService
         }
 
         return new Media.BackfillWatermarksResult(rows.Count, done, already, failed, failedIds);
+    }
+
+    public async Task<Media.BackfillResizeResult> BackfillResizeAsync(int maxWidth, CancellationToken ct = default)
+    {
+        var rows = await _db.GalleryImages
+            .Where(g => g.TenantId == Tenant && g.ImageData != null)
+            .Select(g => new { g.GalleryImageId, g.ImageContentType })
+            .ToListAsync(ct);
+
+        int done = 0, alreadySmall = 0, failed = 0;
+        long bytesBefore = 0, bytesAfter = 0;
+        var failedIds = new List<string>();
+        Directory.CreateDirectory(_backupRoot);
+
+        foreach (var row in rows)
+        {
+            try
+            {
+                var g = await _db.GalleryImages.FirstAsync(x => x.GalleryImageId == row.GalleryImageId, ct);
+                var original = g.ImageData!;
+                var contentType = g.ImageContentType ?? "image/jpeg";
+
+                // Same backup folder the watermark backfill uses — a photo that already went
+                // through that backfill already has its pre-processing original saved here.
+                var backupPath = Path.Combine(_backupRoot, $"{row.GalleryImageId}{ExtensionFor(contentType)}");
+                if (!File.Exists(backupPath)) await File.WriteAllBytesAsync(backupPath, original, ct);
+
+                var resized = _watermark.ResizeIfLarger(original, contentType, maxWidth);
+                if (resized.Length >= original.Length) { alreadySmall++; continue; }
+
+                bytesBefore += original.Length;
+                bytesAfter += resized.Length;
+                g.ImageData = resized;
+                g.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                done++;
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Failed to backfill resize for gallery image {Id}", row.GalleryImageId);
+                failed++;
+                failedIds.Add(row.GalleryImageId.ToString());
+            }
+        }
+
+        return new Media.BackfillResizeResult(rows.Count, done, alreadySmall, failed, failedIds, bytesBefore, bytesAfter);
     }
 
     private static string ExtensionFor(string? contentType) => contentType?.ToLowerInvariant() switch
