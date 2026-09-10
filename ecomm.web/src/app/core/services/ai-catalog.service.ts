@@ -6,7 +6,7 @@ import { ApiResponse } from '../models/api-response.model';
 
 export interface CatalogPreset { key: string; label: string; }
 export interface CatalogStatus { enabled: boolean; sampleProducts: number; presets: CatalogPreset[]; }
-export interface GenProduct { name: string; shortDescription: string; description: string; price: number; tags: string | null; imageUrl: string; }
+export interface GenProduct { name: string; shortDescription: string; description: string; price: number; tags: string | null; imageUrl: string; attributes: Record<string, string> | null; }
 export interface GenCategory { name: string; description: string; subcategories: GenCategory[] | null; products: GenProduct[]; }
 export interface GeneratedCatalog { storeType: string; categories: GenCategory[]; }
 export interface GenerateRequest { presetKey?: string | null; prompt?: string | null; categories: number; productsPerCategory: number; }

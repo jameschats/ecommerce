@@ -177,6 +177,7 @@ export const routes: Routes = [
       { path: 'domain', loadComponent: () => import('./features/admin/settings/admin-domain.component').then((m) => m.AdminDomainComponent) },
       { path: 'payments', loadComponent: () => import('./features/admin/settings/admin-payments.component').then((m) => m.AdminPaymentsComponent) },
       { path: 'shipping', loadComponent: () => import('./features/admin/settings/admin-shipping.component').then((m) => m.AdminShippingComponent) },
+      { path: 'go-live', loadComponent: () => import('./features/admin/settings/admin-go-live.component').then((m) => m.AdminGoLiveComponent) },
       { path: 'theme', loadComponent: () => import('./features/admin/theme/admin-theme.component').then((m) => m.AdminThemeComponent) },
       { path: 'themes', loadComponent: () => import('./features/admin/theme-editor/admin-theme-library.component').then((m) => m.AdminThemeLibraryComponent) },
       { path: 'pages', loadComponent: () => import('./features/admin/builder/admin-pages.component').then((m) => m.AdminPagesComponent) },

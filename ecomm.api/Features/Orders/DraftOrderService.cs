@@ -42,7 +42,7 @@ public interface IDraftOrderService
 public sealed class DraftOrderService(
     EcommerceDbContext db, ITaxService tax, IShippingService shipping, ICouponService coupons,
     IInventoryService inventory, IInvoiceService invoices, IEntitlementService entitlements,
-    Features.Catalog.Services.IBundleService bundles) : IDraftOrderService
+    Features.Catalog.Services.IBundleService bundles, Features.Settings.INumberSequenceService numbers) : IDraftOrderService
 {
     private long Tenant => db.CurrentTenantId;
 
@@ -174,7 +174,8 @@ public sealed class DraftOrderService(
                 Status = isCod ? "Pending" : "Paid", Amount = order.TotalAmount, Currency = "INR", CreatedAt = DateTime.UtcNow,
             });
 
-            order.OrderNumber = $"ORD{DateTime.UtcNow:yyyyMMdd}-{order.OrderId:D5}";
+            var seq = await numbers.NextOrderSeqAsync(Tenant, ct);
+            order.OrderNumber = $"ORD{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
             order.Status = "Confirmed";
             order.PlacedAt = DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;

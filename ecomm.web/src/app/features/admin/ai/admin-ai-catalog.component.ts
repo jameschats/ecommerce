@@ -100,6 +100,13 @@ import { AiCatalogService, CatalogStatus, GenCategory, GeneratedCatalog } from '
                           <div class="text-sm font-medium text-slate-800 leading-snug">{{ p.name }}</div>
                           <div class="text-sm text-slate-900 mt-0.5">{{ p.price | currency:'INR':'symbol':'1.0-0' }}</div>
                           <p class="text-xs text-slate-400 mt-1 line-clamp-2">{{ p.shortDescription }}</p>
+                          @if (p.attributes) {
+                            <div class="flex flex-wrap gap-1 mt-1.5">
+                              @for (a of attrEntries(p.attributes); track a[0]) {
+                                <span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{{ a[0] }}: {{ a[1] }}</span>
+                              }
+                            </div>
+                          }
                         </div>
                       </div>
                     }
@@ -152,6 +159,8 @@ export class AdminAiCatalogComponent implements OnInit {
   leavesOf(cat: GenCategory): GenCategory[] {
     return cat.subcategories && cat.subcategories.length ? cat.subcategories : [cat];
   }
+
+  attrEntries(attrs: Record<string, string>): [string, string][] { return Object.entries(attrs); }
 
   pick(key: string | null): void { this.form.presetKey = key; }
   canGenerate(): boolean { return this.form.presetKey !== null || this.form.prompt.trim().length > 0; }

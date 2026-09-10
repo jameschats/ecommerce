@@ -23,6 +23,13 @@ public class Tenant
     public DateTime? StandingUpdatedAt { get; set; }
     public string? PlatformTags { get; set; }        // comma-separated, platform-owner set (migration 173)
     public DateTime? OffboardedAt { get; set; }       // soft off-boarding, distinct from SuspendedAt
+    /// <summary>Next order/invoice display number to assign (per-tenant, atomically incremented via
+    /// NumberSequenceService) — NOT the row's own PK. Reset to 1 by the Go Live data reset.</summary>
+    public long NextOrderSeq { get; set; } = 1;
+    public long NextInvoiceSeq { get; set; } = 1;
+    /// <summary>Set once by "Mark this shop live" — never cleared. Gates the Go Live reset screen
+    /// permanently closed once set (no un-mark path exists anywhere).</summary>
+    public DateTime? GoneLiveAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

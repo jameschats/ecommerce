@@ -23,6 +23,11 @@ public sealed record ProductAttributeValueDto(
 public sealed record ProductAttributeInput(long AttributeId, long? AttributeValueId, string? ValueText);
 public sealed record SetProductAttributesRequest(IReadOnlyList<ProductAttributeInput> Attributes);
 
+// --- Custom text (personalization) fields ---
+public sealed record ProductCustomTextFieldDto(long ProductCustomTextFieldId, string Label, int MaxLength, bool IsMandatory, int DisplayOrder);
+public sealed record CustomTextFieldInput(string Label, int MaxLength, bool IsMandatory);
+public sealed record SetCustomTextFieldsRequest(IReadOnlyList<CustomTextFieldInput> Fields);
+
 // --- Import jobs ---
 public sealed record ImportJobItemDto(int RowNumber, string Status, string? ErrorMessage);
 public sealed record ImportJobDto(

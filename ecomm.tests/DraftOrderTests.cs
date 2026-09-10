@@ -28,7 +28,7 @@ public class DraftOrderTests
 
         var svc = new DraftOrderService(db, new TaxService(db), new ShippingService(db, new FakeShiprocket()),
             new CouponService(db, new ecomm.api.Features.Collections.CollectionService(db)), new ThrowingInventory(), new ThrowingInvoices(), new EntitlementService(db),
-            new ecomm.api.Features.Catalog.Services.BundleService(db));
+            new ecomm.api.Features.Catalog.Services.BundleService(db), new StubNumberSequence());
         return (db, svc, customer.UserId, product.ProductId);
     }
 
@@ -86,6 +86,16 @@ public class DraftOrderTests
     {
         public Task<(long invoiceId, string invoiceNumber)> GenerateForOrderAsync(long orderId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<InvoicePdf?> RenderPdfAsync(long orderId, long? userId, bool isAdmin, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    // The real NumberSequenceService uses MySQL-only raw SQL (LAST_INSERT_ID()) — unsupported by
+    // the InMemory provider these tests run against, so a plain in-memory counter stands in.
+    private sealed class StubNumberSequence : ecomm.api.Features.Settings.INumberSequenceService
+    {
+        private long _order;
+        private long _invoice;
+        public Task<long> NextOrderSeqAsync(long tenantId, CancellationToken ct = default) => Task.FromResult(++_order);
+        public Task<long> NextInvoiceSeqAsync(long tenantId, CancellationToken ct = default) => Task.FromResult(++_invoice);
     }
 
     // Store not on Shiprocket → rates null, so ShippingService uses the manual path.

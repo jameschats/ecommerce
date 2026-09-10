@@ -49,6 +49,14 @@ export interface ProductAttributeValue {
   valueText: string | null;
 }
 
+export interface ProductCustomTextField {
+  productCustomTextFieldId: number;
+  label: string;
+  maxLength: number;
+  isMandatory: boolean;
+  displayOrder: number;
+}
+
 export interface ProductListItem {
   productId: number;
   sku: string;

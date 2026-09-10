@@ -27,9 +27,26 @@ public class AiCatalogTests
     ]}
     """;
 
-    private static AiCatalogService New(EcommerceDbContext db)
+    // "Rugged Boot" carries a stray numeric + boolean attribute value despite the prompt asking for plain
+    // strings only — models do this in practice; MapAttributes must tolerate it instead of throwing and
+    // burning the 25-credit generation over one stray field. "Trail Cap" repeats the "Brand" field so the
+    // dedup/reuse path (one AttributeDefinition, not two) is exercised too.
+    private const string CatalogJsonWithAttributes = """
+    {"categories":[
+      {"name":"Footwear","description":"Shoes","products":[
+        {"name":"Rugged Boot","shortDescription":"boot","description":"A rugged boot.","price":1999,"tags":"boot",
+         "attributes":{"Brand":"Trailwalk","Size":"9","Warranty":12,"Waterproof":true,"Extras":["laces","insole"]}},
+        {"name":"Trail Cap","shortDescription":"cap","description":"A trail cap.","price":399,"tags":"cap",
+         "attributes":{"Brand":"Trailwalk","Material":"Cotton"}}
+      ]}
+    ]}
+    """;
+
+    private static AiCatalogService New(EcommerceDbContext db) => New(db, CatalogJson);
+
+    private static AiCatalogService New(EcommerceDbContext db, string json)
     {
-        var credits = new AiCreditService(db, new CannedAi(CatalogJson), new ecomm.api.Features.Ai.NullImageAiService(), new HttpContextAccessor());
+        var credits = new AiCreditService(db, new CannedAi(json), new ecomm.api.Features.Ai.NullImageAiService(), new HttpContextAccessor());
         return new AiCatalogService(db, credits);
     }
 
@@ -150,5 +167,63 @@ public class AiCatalogTests
         await svc.SeedAsync(await svc.GenerateAsync(new GenerateCatalogRequest("fashion", null, 6, 6)));
 
         Assert.Equal(3, await svc.SampleCountAsync());
+    }
+
+    [Fact]
+    public async Task Generate_tolerates_non_string_attribute_values_instead_of_failing_the_whole_response()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedPlan(db);
+        var svc = New(db, CatalogJsonWithAttributes);
+
+        var catalog = await svc.GenerateAsync(new GenerateCatalogRequest("footwear", null, 6, 6));
+
+        var boot = catalog.Categories.Single().Products.Single(p => p.Name == "Rugged Boot");
+        Assert.NotNull(boot.Attributes);
+        Assert.Equal("Trailwalk", boot.Attributes!["Brand"]);
+        Assert.Equal("9", boot.Attributes["Size"]);
+        Assert.Equal("12", boot.Attributes["Warranty"]);      // stringified number, not thrown away
+        Assert.Equal("Yes", boot.Attributes["Waterproof"]);   // stringified bool
+        Assert.False(boot.Attributes.ContainsKey("Extras"));  // array value dropped, not a crash
+    }
+
+    [Fact]
+    public async Task Seed_writes_product_attributes_and_reuses_one_definition_across_products()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedPlan(db);
+        var svc = New(db, CatalogJsonWithAttributes);
+
+        await svc.SeedAsync(await svc.GenerateAsync(new GenerateCatalogRequest("footwear", null, 6, 6)));
+
+        // "Brand" appears on both products but must exist as exactly one tenant-scoped AttributeDefinition.
+        var brandDefs = await db.Attributes.Where(a => a.Code == "brand").ToListAsync();
+        Assert.Single(brandDefs);
+        Assert.Equal("string", brandDefs[0].DataType);
+
+        var boot = await db.Products.SingleAsync(p => p.Name == "Rugged Boot");
+        var bootAttrs = await db.ProductAttributeValues.Include(v => v.Attribute)
+            .Where(v => v.ProductId == boot.ProductId).ToListAsync();
+        Assert.Equal(4, bootAttrs.Count);   // Brand, Size, Warranty, Waterproof (Extras was dropped)
+        Assert.Contains(bootAttrs, v => v.Attribute!.Name == "Brand" && v.ValueText == "Trailwalk");
+        Assert.Contains(bootAttrs, v => v.Attribute!.Name == "Waterproof" && v.ValueText == "Yes");
+
+        var cap = await db.Products.SingleAsync(p => p.Name == "Trail Cap");
+        var capBrand = await db.ProductAttributeValues.Include(v => v.Attribute)
+            .SingleAsync(v => v.ProductId == cap.ProductId && v.Attribute!.Name == "Brand");
+        Assert.Equal(brandDefs[0].AttributeId, capBrand.AttributeId);   // same definition, not a duplicate
+    }
+
+    [Fact]
+    public async Task Seed_writes_no_attribute_rows_when_the_ai_returned_none()
+    {
+        using var db = TestDb.New(tenantId: 1);
+        SeedPlan(db);
+        var svc = New(db);   // CatalogJson has no "attributes" key on any product
+
+        await svc.SeedAsync(await svc.GenerateAsync(new GenerateCatalogRequest("fashion", null, 6, 6)));
+
+        Assert.Equal(0, await db.ProductAttributeValues.CountAsync());
+        Assert.Equal(0, await db.Attributes.CountAsync());
     }
 }

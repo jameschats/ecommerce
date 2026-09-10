@@ -51,17 +51,20 @@ public sealed class OrderService : IOrderService
     private readonly IEntitlementService _entitlements;
     private readonly Features.Catalog.Services.IBundleService _bundles;
     private readonly Features.PublicApi.IWebhookDispatchService _webhooks;
+    private readonly Features.Settings.INumberSequenceService _numbers;
     private readonly ILogger<OrderService> _log;
 
     public OrderService(EcommerceDbContext db, IInventoryService inventory, ITaxService tax,
         IShippingService shipping, IPaymentGateway gateway, IInvoiceService invoices,
         INotificationRouter router, INotificationFeedService feed, ICouponService coupons,
         Features.Shipping.Shiprocket.ITenantShiprocketService shiprocket, IEntitlementService entitlements,
-        Features.Catalog.Services.IBundleService bundles, Features.PublicApi.IWebhookDispatchService webhooks, ILogger<OrderService> log)
+        Features.Catalog.Services.IBundleService bundles, Features.PublicApi.IWebhookDispatchService webhooks,
+        Features.Settings.INumberSequenceService numbers, ILogger<OrderService> log)
     {
         _db = db; _inventory = inventory; _tax = tax; _shipping = shipping;
         _gateway = gateway; _invoices = invoices; _router = router; _feed = feed; _coupons = coupons;
-        _shiprocket = shiprocket; _entitlements = entitlements; _bundles = bundles; _webhooks = webhooks; _log = log;
+        _shiprocket = shiprocket; _entitlements = entitlements; _bundles = bundles; _webhooks = webhooks;
+        _numbers = numbers; _log = log;
     }
 
     /// <summary>Fires a public-API webhook (v4 Phase 6 Track A) — never throws, same "must not break
@@ -262,7 +265,8 @@ public sealed class OrderService : IOrderService
             };
             _db.Orders.Add(order);
             await _db.SaveChangesAsync(ct);
-            order.OrderNumber = $"ORD{DateTime.UtcNow:yyyyMMdd}-{order.OrderId:D5}";
+            var seq = await _numbers.NextOrderSeqAsync(Tenant, ct);
+            order.OrderNumber = $"ORD{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
 
             foreach (var l in lines)
             {

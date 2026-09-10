@@ -21,11 +21,13 @@ public sealed class InvoiceService : IInvoiceService
     private long Tenant => _db.CurrentTenantId;
     private readonly EcommerceDbContext _db;
     private readonly ITaxService _tax;
+    private readonly Features.Settings.INumberSequenceService _numbers;
 
-    public InvoiceService(EcommerceDbContext db, ITaxService tax)
+    public InvoiceService(EcommerceDbContext db, ITaxService tax, Features.Settings.INumberSequenceService numbers)
     {
         _db = db;
         _tax = tax;
+        _numbers = numbers;
     }
 
     public async Task<(long invoiceId, string invoiceNumber)> GenerateForOrderAsync(long orderId, CancellationToken ct = default)
@@ -65,7 +67,8 @@ public sealed class InvoiceService : IInvoiceService
         };
         _db.Invoices.Add(invoice);
         await _db.SaveChangesAsync(ct);
-        invoice.InvoiceNumber = $"INV-{invoice.InvoiceDate:yyyy}-{invoice.InvoiceId:D5}";
+        var seq = await _numbers.NextInvoiceSeqAsync(Tenant, ct);
+        invoice.InvoiceNumber = $"INV-{invoice.InvoiceDate:yyyy}-{seq:D5}";
 
         foreach (var oi in items)
         {

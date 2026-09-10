@@ -171,6 +171,7 @@ builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductService, 
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IVariantService, ecomm.api.Features.Catalog.Services.VariantService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IAttributeService, ecomm.api.Features.Catalog.Services.AttributeService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductAttributeService, ecomm.api.Features.Catalog.Services.ProductAttributeService>();
+builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.ICustomTextFieldService, ecomm.api.Features.Catalog.Services.CustomTextFieldService>();
 builder.Services.AddScoped<ecomm.api.Features.Catalog.Services.IProductImportService, ecomm.api.Features.Catalog.Services.ProductImportService>();
 
 // Theme
@@ -267,6 +268,8 @@ builder.Services.AddHttpClient("domain-verify", c => c.Timeout = TimeSpan.FromSe
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = true, MaxAutomaticRedirections = 3 });
 builder.Services.AddScoped<ecomm.api.Features.Checkout.ITaxService, ecomm.api.Features.Checkout.TaxService>();
 builder.Services.AddScoped<ecomm.api.Features.Checkout.IShippingService, ecomm.api.Features.Checkout.ShippingService>();
+builder.Services.AddScoped<ecomm.api.Features.Settings.INumberSequenceService, ecomm.api.Features.Settings.NumberSequenceService>();
+builder.Services.AddScoped<ecomm.api.Features.GoLive.IGoLiveService, ecomm.api.Features.GoLive.GoLiveService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IInvoiceService, ecomm.api.Features.Orders.InvoiceService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IOrderService, ecomm.api.Features.Orders.OrderService>();
 builder.Services.AddScoped<ecomm.api.Features.Orders.IDraftOrderService, ecomm.api.Features.Orders.DraftOrderService>();

@@ -69,6 +69,16 @@ export interface SaveVariantRequest {
   options?: VariantOptionInput[];
 }
 
+export interface CustomTextFieldInput {
+  label: string;
+  maxLength: number;
+  isMandatory: boolean;
+}
+
+export interface SetCustomTextFieldsRequest {
+  fields: CustomTextFieldInput[];
+}
+
 export interface AttributeValueDef {
   attributeValueId: number;
   value: string;

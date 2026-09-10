@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ecomm.api.Features.Storefront;
 
 namespace ecomm.api.Features.Ai;
@@ -28,26 +29,66 @@ public static class SampleCatalogPresets
 
 /// <summary>
 /// Curated product imagery for generated catalogs — pulled from the prebuilt themes' already-verified
-/// hero/tile URLs (no new unverified links, no image generation). Photos are assigned round-robin so a
+/// image URLs (no new unverified links, no image generation). Photos are assigned round-robin so a
 /// generated store looks real enough to "get the feel"; they're meant to be replaced by the merchant.
 /// </summary>
 public static class SampleCatalogImages
 {
     private const string Fallback = "https://placehold.co/600x600?text=Product";
 
-    /// <summary>The image pool for a set of theme keys (+ bazaar for variety), de-duplicated.</summary>
+    /// <summary>
+    /// The image pool for a set of theme keys (+ bazaar for variety), de-duplicated. Scans every section
+    /// of every template in each bundle — not just the homepage hero/tile preview
+    /// (<see cref="SectionPreviewExtractor"/>, capped at 5 images/theme for the theme-picker card) — so a
+    /// full catalog run (up to 144 products) has a meaningfully bigger pool to round-robin through instead
+    /// of repeating the same handful of photos.
+    /// </summary>
     public static IReadOnlyList<string> For(IEnumerable<string> themeKeys)
     {
-        var byKey = PrebuiltThemeRegistry.Summaries.ToDictionary(s => s.Key, StringComparer.OrdinalIgnoreCase);
-        var keys = themeKeys.Append("bazaar");   // bazaar widens the pool
+        var keys = themeKeys.Append("bazaar").Distinct(StringComparer.OrdinalIgnoreCase);   // bazaar widens the pool
         var imgs = new List<string>();
         foreach (var k in keys)
-            if (byKey.TryGetValue(k, out var s))
-            {
-                if (!string.IsNullOrWhiteSpace(s.HeroImage)) imgs.Add(s.HeroImage!);
-                imgs.AddRange(s.TileImages.Where(u => !string.IsNullOrWhiteSpace(u)));
-            }
+        {
+            var theme = PrebuiltThemeRegistry.Get(k);
+            if (theme is null) continue;
+            foreach (var template in theme.Templates)
+                foreach (var section in template.Sections)
+                    CollectImageUrls(section.Blocks, imgs);
+        }
         var pool = imgs.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         return pool.Count > 0 ? pool : new List<string> { Fallback };
+    }
+
+    /// <summary>Recursively collects every string value under an "image" property, anywhere in the JSON.</summary>
+    private static void CollectImageUrls(string? blocksJson, List<string> into)
+    {
+        if (string.IsNullOrWhiteSpace(blocksJson)) return;
+        try
+        {
+            using var doc = JsonDocument.Parse(blocksJson);
+            Walk(doc.RootElement, into);
+        }
+        catch (JsonException) { /* malformed block JSON — skip, never break catalog generation */ }
+    }
+
+    private static void Walk(JsonElement el, List<string> into)
+    {
+        switch (el.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var prop in el.EnumerateObject())
+                {
+                    if (prop.NameEquals("image") && prop.Value.ValueKind == JsonValueKind.String)
+                    {
+                        var v = prop.Value.GetString();
+                        if (!string.IsNullOrWhiteSpace(v)) into.Add(v!);
+                    }
+                    else Walk(prop.Value, into);
+                }
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in el.EnumerateArray()) Walk(item, into);
+                break;
+        }
     }
 }

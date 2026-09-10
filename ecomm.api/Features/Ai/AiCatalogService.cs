@@ -10,7 +10,7 @@ namespace ecomm.api.Features.Ai;
 
 // ---- Wire shapes (generated preview; the client holds it and posts it back to seed/export) ----
 public sealed record GenerateCatalogRequest(string? PresetKey, string? Prompt, int Categories = 6, int ProductsPerCategory = 6);
-public sealed record GenProduct(string Name, string ShortDescription, string Description, decimal Price, string? Tags, string ImageUrl);
+public sealed record GenProduct(string Name, string ShortDescription, string Description, decimal Price, string? Tags, string ImageUrl, IReadOnlyDictionary<string, string>? Attributes = null);
 public sealed record GenCategory(string Name, string Description, IReadOnlyList<GenCategory>? Subcategories, IReadOnlyList<GenProduct> Products);
 public sealed record GeneratedCatalog(string StoreType, IReadOnlyList<GenCategory> Categories);
 public sealed record SeedResultDto(int Categories, int Products);
@@ -60,17 +60,27 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
             "You generate a realistic sample product catalog for an online store serving the Indian market. " +
             "Return STRICT JSON of the form: " +
             "{\"categories\":[{\"name\":string,\"description\":string,\"subcategories\":[{\"name\":string,\"description\":string,\"products\":[PRODUCT,...]}],\"products\":[PRODUCT,...]}]} " +
-            "where PRODUCT = {\"name\":string,\"shortDescription\":string,\"description\":string,\"price\":number,\"tags\":string}. " +
+            "where PRODUCT = {\"name\":string,\"shortDescription\":string,\"description\":string,\"price\":number,\"tags\":string,\"attributes\":object}. " +
             "A category has EITHER a non-empty \"subcategories\" array (products live at the leaf) OR its own \"products\" array — never both. " +
             "Prices are plain INR numbers (no symbol), realistic for each item. Names are concise and realistic. " +
             "shortDescription is one line; description is 1-3 sentences. tags is a short comma-separated list. " +
+            "attributes is an object of 3-5 short field-name to value pairs genuinely typical for THAT specific product — judge " +
+            "by the product itself, not the overall store type (a general bazaar selling both electronics and clothing should " +
+            "give each product its own fitting fields, not one shared set). Pick whichever of these fit " +
+            "(e.g. electronics: Brand, Warranty, Color, Storage; apparel/footwear: Size, Color, Material, Fit; " +
+            "grocery/packaged food: Weight, Brand, Shelf Life; restaurant/QSR menu items: Spice Level, Veg/Non-Veg, Serving Size " +
+            "— never Warranty/Size/Material for a food item; beauty: Volume, Skin Type, Brand; home: Material, Dimensions, Brand; " +
+            "toys/kids: Age Group, Material, Safety Certification) or invent equally fitting fields for anything else, " +
+            "and skip attributes that don't make sense for that item. Field names are short Title Case (e.g. \"Warranty\", not \"warranty_period\"). " +
+            "Attribute values are always short plain strings, never numbers, booleans, or nested objects/arrays. " +
             "Do NOT use real company or brand names. Output ONLY the JSON.";
         var user = $"Store: {brief}.\nGenerate about {cats} top-level categories and about {per} products per category. " +
                    "A few categories may have 2-3 subcategories.";
 
         // Budget must scale with the requested size, or a large catalog gets truncated mid-JSON and fails to
-        // parse. Roughly ~300 tokens per product plus headroom; capped so a runaway request stays bounded.
-        var maxTokens = Math.Min(16_000, 1_500 + cats * per * 300);
+        // parse. Roughly ~380 tokens per product (incl. its attributes) plus headroom; capped so a runaway
+        // request stays bounded.
+        var maxTokens = Math.Min(16_000, 1_500 + cats * per * 380);
 
         var catalog = await credits.MeterAsync(AiCreditPricing.SampleCatalog, async ai =>
         {
@@ -167,6 +177,7 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
         var skus = new HashSet<string>(await db.Products.Select(p => p.Sku).ToListAsync(ct), StringComparer.OrdinalIgnoreCase);
         var slugs = new HashSet<string>(await db.Products.Select(p => p.Slug).ToListAsync(ct), StringComparer.OrdinalIgnoreCase);
         var prodCount = 0;
+        var productsWithAttrs = new List<(Product Product, IReadOnlyDictionary<string, string> Attributes)>();
         foreach (var (gen, cat, featured) in leaves)
         {
             var firstInCat = true;
@@ -192,11 +203,37 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
                     },
                 };
                 db.Products.Add(product);
+                if (gp.Attributes is { Count: > 0 }) productsWithAttrs.Add((product, gp.Attributes));
                 prodCount++;
                 firstInCat = false;
             }
         }
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);   // new products get ids
+
+        // Phase D — attributes, same auto-create-by-name convention as the Excel importer
+        // (ProductImportService.ApplyAttributeColumns): find-or-create a tenant AttributeDefinition per
+        // field name, write a free-text ProductAttributeValue. Cached per-run so 100+ products sharing
+        // "Brand"/"Color" don't each round-trip a lookup.
+        if (productsWithAttrs.Count > 0)
+        {
+            var attrCache = new Dictionary<string, AttributeDefinition>(StringComparer.OrdinalIgnoreCase);
+            foreach (var existing in await db.Attributes.Where(a => a.TenantId == db.CurrentTenantId).ToListAsync(ct))
+                attrCache[existing.Code] = existing;
+
+            foreach (var (product, attrs) in productsWithAttrs)
+                foreach (var (fieldName, value) in attrs)
+                {
+                    var code = Slug.From(fieldName);
+                    if (!attrCache.TryGetValue(code, out var def))
+                    {
+                        def = new AttributeDefinition { TenantId = db.CurrentTenantId, Name = fieldName, Code = code, DataType = "string", IsActive = true, CreatedAt = now };
+                        db.Attributes.Add(def);
+                        attrCache[code] = def;
+                    }
+                    db.ProductAttributeValues.Add(new ProductAttributeValue { Product = product, Attribute = def, ValueText = value, CreatedAt = now });
+                }
+            await db.SaveChangesAsync(ct);
+        }
 
         return new SeedResultDto(catalog.Categories.Count, prodCount);
     }
@@ -247,7 +284,7 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
     }
 
     // ---- Parsing + image assignment ----
-    private sealed record RawProduct(string? name, string? shortDescription, string? description, decimal? price, string? tags);
+    private sealed record RawProduct(string? name, string? shortDescription, string? description, decimal? price, string? tags, Dictionary<string, JsonElement>? attributes);
     private sealed record RawCategory(string? name, string? description, List<RawCategory>? subcategories, List<RawProduct>? products);
     private sealed record RawCatalog(List<RawCategory>? categories);
 
@@ -267,7 +304,8 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
 
         GenProduct MapProduct(RawProduct p) => new(
             (p.name ?? "").Trim(), (p.shortDescription ?? "").Trim(), (p.description ?? "").Trim(),
-            p.price is > 0 ? p.price.Value : 0m, string.IsNullOrWhiteSpace(p.tags) ? null : p.tags!.Trim(), NextImage());
+            p.price is > 0 ? p.price.Value : 0m, string.IsNullOrWhiteSpace(p.tags) ? null : p.tags!.Trim(), NextImage(),
+            MapAttributes(p.attributes));
 
         GenCategory? MapCategory(RawCategory c)
         {
@@ -285,6 +323,33 @@ public sealed class AiCatalogService(EcommerceDbContext db, IAiCreditService cre
         if (mapped.Count == 0) throw new AppException("The AI didn't return any usable products. Please try again.", 502);
         return new GeneratedCatalog(storeType, mapped);
     }
+
+    /// <summary>Trims/filters the AI's free-form attribute map — short field names, non-empty values, capped so one
+    /// odd generation can't create dozens of one-off attribute definitions. Values are read via
+    /// <see cref="JsonElement"/> (not a strict <c>string?</c>) and tolerantly stringified: despite the prompt asking
+    /// for plain strings, models occasionally emit a bare number/bool for something like Warranty or Storage — that
+    /// used to throw a JsonException and fail the whole (25-credit) generation over one stray field. Only a real
+    /// array/object value is dropped now.</summary>
+    private static IReadOnlyDictionary<string, string>? MapAttributes(Dictionary<string, JsonElement>? raw)
+    {
+        if (raw is null || raw.Count == 0) return null;
+        var map = raw
+            .Select(kv => (Name: (kv.Key ?? "").Trim(), Value: (Stringify(kv.Value) ?? "").Trim()))
+            .Where(kv => kv.Name.Length is > 0 and <= 60 && kv.Value.Length is > 0 and <= 200)
+            .GroupBy(kv => kv.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.First())
+            .Take(6)
+            .ToDictionary(kv => kv.Name, kv => kv.Value);
+        return map.Count > 0 ? map : null;
+    }
+
+    private static string? Stringify(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.String => v.GetString(),
+        JsonValueKind.Number => v.GetRawText(),
+        JsonValueKind.True => "Yes",
+        JsonValueKind.False => "No",
+        _ => null,   // null / array / object — not a sane attribute value
+    };
 
     /// <summary>A representative photo for a category — its first product's image, else a descendant's.</summary>
     private static string? FirstImage(GenCategory c)

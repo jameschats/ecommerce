@@ -47,6 +47,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<VariantOption> VariantOptions => Set<VariantOption>();
+    public DbSet<ProductCustomTextField> ProductCustomTextFields => Set<ProductCustomTextField>();
     public DbSet<AttributeDefinition> Attributes => Set<AttributeDefinition>();
     public DbSet<AttributeValue> AttributeValues => Set<AttributeValue>();
     public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
@@ -94,6 +95,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
     public DbSet<ShippingZone> ShippingZones => Set<ShippingZone>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
+    public DbSet<CreditNoteItem> CreditNoteItems => Set<CreditNoteItem>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Setting> Settings => Set<Setting>();
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
@@ -278,6 +281,9 @@ public class EcommerceDbContext : DbContext
 
         b.Entity<Product>().HasMany(p => p.Variants).WithOne(v => v.Product!).HasForeignKey(v => v.ProductId);
         b.Entity<Product>().HasMany(p => p.AttributeValues).WithOne(a => a.Product!).HasForeignKey(a => a.ProductId);
+        b.Entity<Product>().HasMany(p => p.CustomTextFields).WithOne(f => f.Product!).HasForeignKey(f => f.ProductId);
+
+        b.Entity<ProductCustomTextField>(e => { e.ToTable("ProductCustomTextFields"); e.HasKey(x => x.ProductCustomTextFieldId); });
 
         b.Entity<Collection>(e =>
         {
@@ -411,6 +417,21 @@ public class EcommerceDbContext : DbContext
             foreach (var p in new[] { nameof(InvoiceItem.UnitPrice), nameof(InvoiceItem.TaxAmount), nameof(InvoiceItem.LineTotal) })
                 e.Property(p).HasPrecision(12, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
+        });
+        b.Entity<CreditNote>(e =>
+        {
+            e.ToTable("CreditNotes");
+            e.HasKey(x => x.CreditNoteId);
+            foreach (var p in new[] { nameof(CreditNote.Subtotal), nameof(CreditNote.TaxAmount), nameof(CreditNote.TotalAmount) })
+                e.Property(p).HasPrecision(12, 2);
+            e.HasMany(x => x.Items).WithOne(i => i.CreditNote!).HasForeignKey(i => i.CreditNoteId);
+        });
+        b.Entity<CreditNoteItem>(e =>
+        {
+            e.ToTable("CreditNoteItems");
+            e.HasKey(x => x.CreditNoteItemId);
+            foreach (var p in new[] { nameof(CreditNoteItem.UnitPrice), nameof(CreditNoteItem.TaxAmount), nameof(CreditNoteItem.LineTotal) })
+                e.Property(p).HasPrecision(12, 2);
         });
         b.Entity<Setting>(e => { e.ToTable("Settings"); e.HasKey(x => x.SettingId); });
         b.Entity<HomeBanner>(e =>

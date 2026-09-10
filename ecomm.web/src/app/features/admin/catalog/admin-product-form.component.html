@@ -127,19 +127,94 @@
 
     <!-- Variants + Attributes only when editing (need a product id) -->
     @if (isEdit()) {
-      <!-- Variants -->
+      <!-- Custom text -->
       <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
-        <h2 class="font-medium text-slate-800 mb-3">Variants</h2>
-        <div class="space-y-2 mb-4">
-          @for (v of variants(); track v.productVariantId) {
-            <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-sm">
-              <span class="text-slate-700">{{ variantLabel(v) }} <span class="text-slate-400">· {{ v.sku }}</span></span>
-              <button type="button" (click)="deleteVariant(v)" class="text-red-600 hover:underline">Remove</button>
+        <h2 class="font-medium text-slate-800 mb-1">Custom text</h2>
+        <p class="text-xs text-slate-400 mb-3">Let customers personalize this product with a text field — e.g. "Mention Correct Design number with quantity each". Shown on the product page below the options below.</p>
+        <div class="space-y-2 mb-3">
+          @for (row of ctfRows; track $index) {
+            <div class="flex flex-wrap gap-2 items-center">
+              <input [(ngModel)]="row.label" [name]="'ctflabel' + $index" placeholder="Field label" class="input flex-1 min-w-[12rem]" />
+              <input type="number" min="1" [(ngModel)]="row.maxLength" [name]="'ctfmax' + $index" class="input w-24" />
+              <label class="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                <input type="checkbox" [(ngModel)]="row.isMandatory" [name]="'ctfmand' + $index" /> Mandatory
+              </label>
+              <button type="button" (click)="removeCtfRow($index)" class="text-slate-400 hover:text-red-600 px-1">×</button>
             </div>
           }
-          @if (!variants().length) { <p class="text-xs text-slate-400">No variants.</p> }
+          @if (!ctfRows.length) { <p class="text-xs text-slate-400">No custom text fields.</p> }
         </div>
-        <div class="border-t border-slate-100 pt-3">
+        <div class="flex gap-2">
+          <button type="button" (click)="addCtfRow()" class="btn-ghost">+ Add another</button>
+          <button type="button" (click)="saveCustomTextFields()" class="btn-primary">Save custom text</button>
+        </div>
+      </div>
+
+      <!-- Product options & variants -->
+      <div class="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+        <h2 class="font-medium text-slate-800 mb-1">Product options & variants</h2>
+        <p class="text-xs text-slate-400 mb-3">Define each option and its values (e.g. Quantity: 100, 200, 500), then generate — every combination becomes a row below you can price individually. Stock per variant is set on the <a routerLink="/admin/inventory" class="text-blue-600 hover:underline">Inventory</a> page.</p>
+
+        <div class="space-y-2 mb-3">
+          @for (o of optionRows; track $index) {
+            <div class="flex gap-2 items-center">
+              <input [(ngModel)]="o.name" [name]="'optname' + $index" placeholder="Option name (e.g. Quantity)" class="input flex-1" />
+              <input [(ngModel)]="o.valuesCsv" [name]="'optvals' + $index" placeholder="Values, comma separated (e.g. 100, 200, 500)" class="input flex-[2]" />
+              <button type="button" (click)="removeOptionRow($index)" class="text-slate-400 hover:text-red-600 px-1">×</button>
+            </div>
+          }
+        </div>
+        <div class="flex gap-2 mb-4">
+          <button type="button" (click)="addOptionRow()" class="btn-ghost">+ Option</button>
+          <button type="button" (click)="generateVariants()" class="btn-primary">Generate variants</button>
+        </div>
+
+        @if (variants().length || pendingVariants().length) {
+          <div class="overflow-x-auto -mx-1">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-slate-500 border-b border-slate-100">
+                  <th class="py-1.5 px-1 font-medium">Variant</th>
+                  <th class="py-1.5 px-1 font-medium">SKU</th>
+                  <th class="py-1.5 px-1 font-medium">Price diff (±)</th>
+                  <th class="py-1.5 px-1 font-medium">Active</th>
+                  <th class="py-1.5 px-1 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (v of variants(); track v.productVariantId) {
+                  <tr class="border-b border-slate-50">
+                    <td class="py-1.5 px-1 text-slate-700 whitespace-nowrap">{{ variantLabel(v) }}</td>
+                    <td class="py-1.5 px-1"><input [(ngModel)]="v.sku" [name]="'vsku' + v.productVariantId" class="input" /></td>
+                    <td class="py-1.5 px-1"><input type="number" [(ngModel)]="v.priceAdjustment" [name]="'vpd' + v.productVariantId" class="input w-28" /></td>
+                    <td class="py-1.5 px-1"><input type="checkbox" [(ngModel)]="v.isActive" [name]="'vact' + v.productVariantId" /></td>
+                    <td class="py-1.5 px-1 whitespace-nowrap">
+                      <button type="button" (click)="saveVariant(v)" class="text-green-700 hover:underline">Save</button>
+                      <button type="button" (click)="deleteVariant(v)" class="text-red-600 hover:underline ml-2">Remove</button>
+                    </td>
+                  </tr>
+                }
+                @for (row of pendingVariants(); track row.key) {
+                  <tr class="border-b border-slate-50 bg-amber-50/50">
+                    <td class="py-1.5 px-1 text-slate-700 whitespace-nowrap">{{ row.name }} <span class="text-[10px] text-amber-600 align-middle">new</span></td>
+                    <td class="py-1.5 px-1"><input [(ngModel)]="row.sku" [name]="'psku' + row.key" class="input" /></td>
+                    <td class="py-1.5 px-1"><input type="number" [(ngModel)]="row.priceAdjustment" [name]="'ppd' + row.key" class="input w-28" /></td>
+                    <td class="py-1.5 px-1"><input type="checkbox" [(ngModel)]="row.isActive" [name]="'pact' + row.key" /></td>
+                    <td class="py-1.5 px-1 whitespace-nowrap">
+                      <button type="button" (click)="savePendingVariant(row)" class="text-green-700 hover:underline">Save</button>
+                      <button type="button" (click)="removePendingVariant(row)" class="text-red-600 hover:underline ml-2">Remove</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="text-xs text-slate-400">No variants yet. Define an option above and Generate variants — or add one manually below.</p>
+        }
+
+        <div class="border-t border-slate-100 pt-3 mt-4">
+          <p class="text-xs text-slate-400 mb-2">Or add a single variant manually:</p>
           <div class="grid sm:grid-cols-2 gap-2 mb-2">
             <input [(ngModel)]="newVariant.sku" name="vsku" placeholder="Variant SKU" class="input" />
             <input [(ngModel)]="newVariant.name" name="vname" placeholder="Label (e.g. XL / Black)" class="input" />

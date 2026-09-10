@@ -18,11 +18,12 @@ import {
   SaveCategoryRequest,
   SaveProductRequest,
   SaveVariantRequest,
+  SetCustomTextFieldsRequest,
   StoreSettings,
   VariantInventory,
 } from '../models/admin-catalog.model';
 import { ApiResponse, PagedResult } from '../models/api-response.model';
-import { Brand, BundleComponent, Category, ProductDetail, ProductListItem, ProductQuery, ProductVariant } from '../models/catalog.model';
+import { Brand, BundleComponent, Category, ProductCustomTextField, ProductDetail, ProductListItem, ProductQuery, ProductVariant } from '../models/catalog.model';
 
 @Injectable({ providedIn: 'root' })
 export class AdminCatalogService {
@@ -88,8 +89,19 @@ export class AdminCatalogService {
   createVariant(productId: number, body: SaveVariantRequest): Observable<ProductVariant> {
     return this.unwrap(this.http.post<ApiResponse<ProductVariant>>(`${this.base}/products/${productId}/variants`, body));
   }
+  updateVariant(productId: number, variantId: number, body: SaveVariantRequest): Observable<ProductVariant> {
+    return this.unwrap(this.http.put<ApiResponse<ProductVariant>>(`${this.base}/products/${productId}/variants/${variantId}`, body));
+  }
   deleteVariant(productId: number, variantId: number): Observable<unknown> {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/products/${productId}/variants/${variantId}`);
+  }
+
+  // --- Custom text (personalization) fields ---
+  getCustomTextFields(productId: number): Observable<ProductCustomTextField[]> {
+    return this.unwrap(this.http.get<ApiResponse<ProductCustomTextField[]>>(`${this.base}/products/${productId}/custom-text-fields`));
+  }
+  setCustomTextFields(productId: number, body: SetCustomTextFieldsRequest): Observable<ProductCustomTextField[]> {
+    return this.unwrap(this.http.put<ApiResponse<ProductCustomTextField[]>>(`${this.base}/products/${productId}/custom-text-fields`, body));
   }
 
   // --- Bundle contents ---
