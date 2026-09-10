@@ -108,8 +108,13 @@ public sealed class OrderService : IOrderService
             if (order is null) return;
             var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == order.UserId, ct);
             if (user is null) return;
-            var storeName = await _db.Settings.Where(s => s.TenantId == Tenant && s.SettingKey == "SiteName")
-                .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "Store";
+            // "Settings.SiteName" was never actually written anywhere in the app — this always fell
+            // back to a generic placeholder. Tenant.DisplayName/Name is the one source of the
+            // store's real name that's guaranteed to exist (set at signup), same fallback pair
+            // StorefrontThemeService already uses for the storefront's own default display name.
+            var storeName = await _db.Tenants.AsNoTracking().Where(t => t.TenantId == Tenant)
+                .Select(t => t.DisplayName ?? t.Name).FirstOrDefaultAsync(ct);
+            if (string.IsNullOrWhiteSpace(storeName)) storeName = "Store";
 
             var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {

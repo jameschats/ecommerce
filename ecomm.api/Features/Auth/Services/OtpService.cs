@@ -107,8 +107,11 @@ public sealed class OtpService : IOtpService
 
     private async Task SendEmailOtpAsync(string templateCode, string email, string name, string code, CancellationToken ct)
     {
-        var storeName = await _db.Settings.Where(s => s.SettingKey == "SiteName")
-            .Select(s => s.SettingValue).FirstOrDefaultAsync(ct) ?? "CalendarShop";
+        // Same fix as OrderService.NotifyOrderAsync: "Settings.SiteName" is never actually written
+        // anywhere — Tenant.DisplayName/Name is the real, always-populated source of the store name.
+        var storeName = await _db.Tenants.AsNoTracking().Where(t => t.TenantId == _db.CurrentTenantId)
+            .Select(t => t.DisplayName ?? t.Name).FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(storeName)) storeName = "Store";
         var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["OtpCode"] = code, ["CustomerName"] = name, ["StoreName"] = storeName!,
