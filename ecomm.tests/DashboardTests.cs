@@ -178,6 +178,42 @@ public class DashboardTests
     }
 
     [Fact]
+    public async Task Auto_seeded_bundle_content_pages_do_not_complete_the_design_step()
+    {
+        var svc = NewService(out var db);
+        using var _ = db;
+
+        // Exactly what signup's starter-theme install seeds (see ThemeLibraryService.InstallBundlePagesAsync)
+        // — bonus content pages like "Our Story", never the merchant's own home page.
+        var storyPage = new Page { Title = "Our Story", Slug = "minimal-our-story", Type = "Custom", CreatedAt = DateTime.UtcNow };
+        db.Pages.Add(storyPage);
+        await db.SaveChangesAsync();
+        db.PageSections.Add(new PageSection { PageId = storyPage.PageId, SectionType = "EditorialSplit", Title = "Story", Settings = "{}", Blocks = "[]", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var design = (await svc.GetAsync()).Checklist.Single(i => i.Key == "design");
+
+        Assert.False(design.Done);
+    }
+
+    [Fact]
+    public async Task Sections_on_the_home_page_complete_the_design_step()
+    {
+        var svc = NewService(out var db);
+        using var _ = db;
+
+        var home = new Page { Title = "Home", Slug = "home", Type = "Home", CreatedAt = DateTime.UtcNow };
+        db.Pages.Add(home);
+        await db.SaveChangesAsync();
+        db.PageSections.Add(new PageSection { PageId = home.PageId, SectionType = "Hero", Title = "Hero", Settings = "{}", Blocks = "[]", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var design = (await svc.GetAsync()).Checklist.Single(i => i.Key == "design");
+
+        Assert.True(design.Done);
+    }
+
+    [Fact]
     public async Task Product_step_reports_the_count()
     {
         var svc = NewService(out var db);

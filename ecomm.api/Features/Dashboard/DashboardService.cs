@@ -43,7 +43,13 @@ public sealed class DashboardService(
         var s = await settings.GetAsync(ct);
 
         var productCount = await db.Products.CountAsync(ct);
-        var hasStorefront = await db.PageSections.AnyAsync(ct);
+        // Same trap as the theme check below: signup's auto-installed starter theme also seeds two
+        // bonus content pages ("Our Story", "FAQ") complete with their own sections — so a blanket
+        // "any PageSections row exists" check reads every fresh store as having designed its
+        // storefront on day one. Scope it to the Home page specifically, the one this step's own
+        // description ("Arrange your home page sections") and its link actually mean.
+        var homePageId = await db.Pages.Where(p => p.Slug == "home").Select(p => (long?)p.PageId).FirstOrDefaultAsync(ct);
+        var hasStorefront = homePageId is not null && await db.PageSections.AnyAsync(s => s.PageId == homePageId, ct);
         var hasStoreDetails = !string.IsNullOrWhiteSpace(s.StoreLegalName)
             && (!string.IsNullOrWhiteSpace(s.StoreEmail) || !string.IsNullOrWhiteSpace(s.StoreAddress));
         var hasTax = !string.IsNullOrWhiteSpace(s.StoreGstin)
