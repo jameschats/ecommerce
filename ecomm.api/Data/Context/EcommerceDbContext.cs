@@ -83,6 +83,7 @@ public class EcommerceDbContext : DbContext
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
     public DbSet<GalleryImage> GalleryImages => Set<GalleryImage>();
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
+    public DbSet<Catalogue> Catalogues => Set<Catalogue>();
     public DbSet<PageView> PageViews => Set<PageView>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
@@ -353,6 +354,7 @@ public class EcommerceDbContext : DbContext
         b.Entity<WishlistItem>(e => { e.ToTable("WishlistItems"); e.HasKey(x => x.WishlistItemId); });
         b.Entity<Notification>(e => { e.ToTable("Notifications"); e.HasKey(x => x.NotificationId); });
         b.Entity<Supplier>(e => { e.ToTable("Suppliers"); e.HasKey(x => x.SupplierId); });
+        b.Entity<Catalogue>(e => { e.ToTable("Catalogues"); e.HasKey(x => x.CatalogueId); });
         b.Entity<Contact>(e => { e.ToTable("Contacts"); e.HasKey(x => x.ContactId); });
         b.Entity<Campaign>(e => { e.ToTable("Campaigns"); e.HasKey(x => x.CampaignId); });
         b.Entity<CampaignRecipient>(e => { e.ToTable("CampaignRecipients"); e.HasKey(x => x.CampaignRecipientId); });

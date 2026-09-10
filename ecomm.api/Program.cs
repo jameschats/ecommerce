@@ -80,6 +80,7 @@ builder.Services.AddScoped<ecomm.api.Features.Cms.ICmsService, ecomm.api.Feature
 builder.Services.AddScoped<ecomm.api.Features.Cms.IContentPageService, ecomm.api.Features.Cms.ContentPageService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.IBannerService, ecomm.api.Features.Cms.BannerService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.IGalleryService, ecomm.api.Features.Cms.GalleryService>();
+builder.Services.AddScoped<ecomm.api.Features.Cms.ICatalogueService, ecomm.api.Features.Cms.CatalogueService>();
 builder.Services.AddScoped<ecomm.api.Features.Cms.ITestimonialService, ecomm.api.Features.Cms.TestimonialService>();
 builder.Services.Configure<ecomm.api.Features.Media.MediaOptions>(builder.Configuration.GetSection(ecomm.api.Features.Media.MediaOptions.SectionName));
 builder.Services.AddSingleton<ecomm.api.Features.Media.IImageWatermarkService, ecomm.api.Features.Media.ImageWatermarkService>();

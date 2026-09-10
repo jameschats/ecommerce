@@ -103,6 +103,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/pages/enquiry/enquiry.component').then((m) => m.EnquiryComponent),
   },
   {
+    path: 'catalogues',
+    loadComponent: () => import('./features/pages/catalogues/catalogues.component').then((m) => m.CataloguesComponent),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then((m) => m.LoginComponent),
   },
@@ -148,6 +152,7 @@ export const routes: Routes = [
       { path: 'home-page', loadComponent: () => import('./features/admin/cms/admin-cms.component').then((m) => m.AdminCmsComponent) },
       { path: 'banners', loadComponent: () => import('./features/admin/cms/admin-banners.component').then((m) => m.AdminBannersComponent) },
       { path: 'gallery', loadComponent: () => import('./features/admin/cms/admin-gallery.component').then((m) => m.AdminGalleryComponent) },
+      { path: 'catalogues', loadComponent: () => import('./features/admin/cms/admin-catalogues.component').then((m) => m.AdminCataloguesComponent) },
       { path: 'testimonials', loadComponent: () => import('./features/admin/cms/admin-testimonials.component').then((m) => m.AdminTestimonialsComponent) },
       { path: 'import', loadComponent: () => import('./features/admin/catalog/admin-import.component').then((m) => m.AdminImportComponent) },
       { path: 'auth-providers', loadComponent: () => import('./features/admin/auth-providers/auth-providers.component').then((m) => m.AuthProvidersComponent) },
