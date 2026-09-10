@@ -6,6 +6,7 @@ import { AuthService } from './core/services/auth.service';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { tenantSsrInterceptor } from './core/interceptors/tenant-ssr.interceptor';
+import { storeAvailabilityInterceptor } from './core/interceptors/store-availability.interceptor';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 
 export const appConfig: ApplicationConfig = {
@@ -19,7 +20,7 @@ export const appConfig: ApplicationConfig = {
       // Smooth cross-fade between routes where the browser supports it.
       withViewTransitions(),
     ),
-    provideHttpClient(withFetch(), withInterceptors([tenantSsrInterceptor, authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([tenantSsrInterceptor, authInterceptor, storeAvailabilityInterceptor])),
     provideClientHydration(withEventReplay()),
     // Super-admin impersonation hand-off: adopt a token passed via URL fragment BEFORE routing,
     // so the /admin guard sees the impersonated (Admin) user. Browser-only.

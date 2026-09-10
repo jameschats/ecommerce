@@ -9,6 +9,7 @@ import { AuthService } from './core/services/auth.service';
 import { CartService } from './core/services/cart.service';
 import { CatalogService, MenuItem } from './core/services/catalog.service';
 import { PlatformInfoService } from './core/services/platform-info.service';
+import { StoreAvailabilityService } from './core/services/store-availability.service';
 import { ThemeService } from './core/services/theme.service';
 import { WebAnalyticsService } from './core/services/web-analytics.service';
 import { NotificationBellComponent } from './shared/notification-bell/notification-bell.component';
@@ -38,7 +39,9 @@ export class App implements OnInit {
   private readonly webAnalytics = inject(WebAnalyticsService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly platform = inject(PlatformInfoService);
+  private readonly storeAvailability = inject(StoreAvailabilityService);
 
+  readonly storeNotFound = this.storeAvailability.notFound;
   readonly user = this.auth.currentUser;
   readonly isAuthenticated = this.auth.isAuthenticated;
   readonly isAdmin = this.auth.isAdmin;

@@ -1,3 +1,9 @@
+@if (storeNotFound()) {
+  <div class="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-900 px-6 text-center">
+    <h1 class="text-2xl font-bold mb-2">This store isn't available</h1>
+    <p class="text-slate-500 max-w-md">We couldn't find a store at this address. Double-check the URL, or if you're the merchant, this store may have been renamed, suspended, or not fully set up yet.</p>
+  </div>
+} @else {
 <div class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
   @if (!hideStorefrontChrome()) {
   <app-announcement-bar />
@@ -376,3 +382,4 @@
     <app-live-chat-widget />
   }
 </div>
+}
