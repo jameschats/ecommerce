@@ -42,10 +42,6 @@ public sealed class GalleryController : ControllerBase
 public sealed class GalleryAdminController : ControllerBase
 {
     private const long MaxImageBytes = 5 * 1024 * 1024;
-    // A gallery strip tile renders at a few hundred CSS pixels wide (w-80 = 320px); 800px
-    // stays sharp on a 2x-retina screen while being far smaller than a typical phone-camera
-    // original (often 3000px+ wide), which is most of what makes the gallery slow to load.
-    private const int MaxImageWidth = 800;
     private static readonly string[] AllowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     private readonly IGalleryService _gallery;
     private readonly Media.IImageWatermarkService _watermark;
@@ -98,8 +94,7 @@ public sealed class GalleryAdminController : ControllerBase
 
         using var ms = new MemoryStream();
         await file.CopyToAsync(ms, ct);
-        var resized = _watermark.ResizeIfLarger(ms.ToArray(), type, MaxImageWidth);
-        var watermarked = _watermark.Apply(resized, type);
+        var watermarked = _watermark.Apply(ms.ToArray(), type);
         await _gallery.SetImageAsync(id, watermarked, type, ct);
         return Ok(ApiResponse<object>.Ok(null!, "Image uploaded."));
     }
@@ -114,19 +109,16 @@ public sealed class GalleryAdminController : ControllerBase
                     + (result.Failed > 0 ? $" {result.Failed} failed." : "")));
     }
 
-    /// <summary>One-time: shrinks every gallery photo already stored at full upload resolution,
-    /// from before uploads were resized. Idempotent — a photo already this size or smaller is
-    /// left alone.</summary>
-    [HttpPost("backfill-resize")]
-    public async Task<IActionResult> BackfillResize(CancellationToken ct)
+    /// <summary>One-time: restores every gallery photo to its pre-processing backup (full
+    /// resolution, watermark re-applied fresh) — undoes a resize backfill that was run and
+    /// then reverted.</summary>
+    [HttpPost("restore-originals")]
+    public async Task<IActionResult> RestoreOriginals(CancellationToken ct)
     {
-        var result = await _gallery.BackfillResizeAsync(MaxImageWidth, ct);
-        return Ok(ApiResponse<Media.BackfillResizeResult>.Ok(
-            result, $"Resized {result.Resized} of {result.Candidates} photo(s)"
-                    + $" ({FormatBytes(result.BytesBefore)} → {FormatBytes(result.BytesAfter)})."
+        var result = await _gallery.RestoreOriginalsAsync(ct);
+        return Ok(ApiResponse<Media.RestoreOriginalsResult>.Ok(
+            result, $"Restored {result.Restored} of {result.Candidates} photo(s)."
+                    + (result.NoBackupFound > 0 ? $" {result.NoBackupFound} had no backup to restore from." : "")
                     + (result.Failed > 0 ? $" {result.Failed} failed." : "")));
     }
-
-    private static string FormatBytes(long bytes) =>
-        bytes >= 1024 * 1024 ? $"{bytes / 1024.0 / 1024.0:0.#} MB" : $"{bytes / 1024.0:0.#} KB";
 }

@@ -151,7 +151,11 @@
   to   { transform: translateX(-100%); }
 }
 .marquee-group {
-  animation: announce-scroll 24s linear infinite;
+  /* 24s is the base/default speed, used as-is by the home-page gallery strips (they set no
+     per-element override) — 40s is 40% slower. The header announcement always overrides this
+     with its own measured-width duration (see App.marqueeSeconds below), so this change only
+     affects the galleries. */
+  animation: announce-scroll 40s linear infinite;
   will-change: transform;
 }
 /* Pause on hover so a passing notice can actually be read. (hover: hover) excludes touch
