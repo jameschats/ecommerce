@@ -9,6 +9,15 @@ namespace ecomm.tests;
 /// (up to 144 products) cycled through only ~10-15 curated images and repeated constantly. It now scans
 /// every section of every template in each bundle instead. These pin the fix against the real
 /// Themes/*.json bundles so a future bundle edit that shrinks the pool back down gets caught.
+///
+/// It also used to unconditionally widen every preset's pool with the "bazaar" theme "for variety" —
+/// which meant a store type as narrow as "footwear" got a pool contaminated with bazaar's phones/
+/// groceries/makeup/toys, and round-robin cycling handed most generated shoe products a completely
+/// unrelated photo the moment it drifted past the few genuinely footwear-relevant images (confirmed
+/// live: a real "Footwear / shoes" catalog run showed a red dress on "Cross Trainer Sneakers", a
+/// grocery stall on "Dark Brown Cap Toe Leather Shoes", a makeup palette on "Patent Leather Formal
+/// Shoes"). Fixed by no longer auto-appending bazaar — a preset that wants its variety (the "bazaar"
+/// preset itself) already lists it explicitly in its own ThemeKeys.
 /// </summary>
 public class SampleCatalogImagesTests
 {
@@ -17,11 +26,11 @@ public class SampleCatalogImagesTests
     {
         var pool = SampleCatalogImages.For(new[] { "boutique", "noir" });   // Fashion preset's theme keys
 
-        Assert.True(pool.Count >= 20, $"expected a wide pool, got {pool.Count}");
+        Assert.True(pool.Count >= 10, $"expected a wide pool (vs. the old ~5-image cap), got {pool.Count}");
     }
 
     [Fact]
-    public void For_deduplicates_across_the_requested_themes_and_the_always_appended_bazaar()
+    public void For_deduplicates_across_the_requested_themes()
     {
         var pool = SampleCatalogImages.For(new[] { "boutique", "noir" });
 
@@ -29,21 +38,35 @@ public class SampleCatalogImagesTests
     }
 
     [Fact]
-    public void For_still_returns_a_real_pool_when_the_requested_key_is_unknown_because_bazaar_is_always_appended()
+    public void For_does_not_silently_widen_the_pool_with_bazaar()
     {
-        var pool = SampleCatalogImages.For(new[] { "not-a-real-theme-key" });
+        // Regression test for the actual bug: adding "bazaar" explicitly must change the result —
+        // if it didn't, that would mean bazaar is still being merged in behind the scenes.
+        var withoutBazaar = SampleCatalogImages.For(new[] { "stride", "boutique" });   // Footwear preset's theme keys
+        var withBazaarExplicit = SampleCatalogImages.For(new[] { "stride", "boutique", "bazaar" });
 
-        Assert.True(pool.Count > 1, "bazaar's own images should still come through");
-        Assert.DoesNotContain(pool, url => url.Contains("placehold.co"));
+        Assert.True(withBazaarExplicit.Count > withoutBazaar.Count,
+            $"expected explicitly adding bazaar to grow the pool beyond the footwear-only pool ({withoutBazaar.Count}), got {withBazaarExplicit.Count}");
     }
 
     [Fact]
-    public void For_single_theme_preset_still_gets_a_usable_pool_via_the_bazaar_fallback()
+    public void For_an_unknown_theme_key_falls_back_to_the_single_placeholder()
     {
-        // "burgers" only maps to one theme (savor) — the always-appended "bazaar" is what keeps a
-        // single-theme preset from being stuck with just that one theme's handful of images.
+        // No bazaar safety net anymore — an unresolvable key legitimately has no real imagery to offer.
+        var pool = SampleCatalogImages.For(new[] { "not-a-real-theme-key" });
+
+        Assert.Single(pool);
+        Assert.Contains("placehold.co", pool[0]);
+    }
+
+    [Fact]
+    public void For_a_single_theme_preset_still_gets_a_real_pool_from_its_own_theme()
+    {
+        // "burgers" only maps to one theme (savor) — no bazaar padding anymore, but the theme's own
+        // content (scanned across every section of every template) is still enough to be usable.
         var pool = SampleCatalogImages.For(new[] { "savor" });
 
-        Assert.True(pool.Count >= 15, $"expected bazaar to meaningfully widen a single-theme preset, got {pool.Count}");
+        Assert.True(pool.Count >= 5, $"expected a usable pool from savor alone, got {pool.Count}");
+        Assert.DoesNotContain(pool, url => url.Contains("placehold.co"));
     }
 }

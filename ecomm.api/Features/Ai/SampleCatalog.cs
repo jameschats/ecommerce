@@ -37,15 +37,19 @@ public static class SampleCatalogImages
     private const string Fallback = "https://placehold.co/600x600?text=Product";
 
     /// <summary>
-    /// The image pool for a set of theme keys (+ bazaar for variety), de-duplicated. Scans every section
-    /// of every template in each bundle — not just the homepage hero/tile preview
-    /// (<see cref="SectionPreviewExtractor"/>, capped at 5 images/theme for the theme-picker card) — so a
-    /// full catalog run (up to 144 products) has a meaningfully bigger pool to round-robin through instead
-    /// of repeating the same handful of photos.
+    /// The image pool for a set of theme keys, de-duplicated. Scans every section of every template in
+    /// each bundle — not just the homepage hero/tile preview (<see cref="SectionPreviewExtractor"/>,
+    /// capped at 5 images/theme for the theme-picker card) — so a full catalog run (up to 144 products)
+    /// has a meaningfully bigger pool to round-robin through instead of repeating the same handful of
+    /// photos. Deliberately does NOT widen every preset's pool with the "bazaar" theme (it did once) —
+    /// bazaar's imagery spans every category, so mixing it into e.g. "footwear"'s pool meant most
+    /// generated shoe products got a random phone/grocery/makeup photo instead of a shoe photo once
+    /// round-robin cycled past the few genuinely footwear-relevant images. A preset that wants bazaar's
+    /// variety (the "bazaar" preset itself) already lists it explicitly in its own ThemeKeys.
     /// </summary>
     public static IReadOnlyList<string> For(IEnumerable<string> themeKeys)
     {
-        var keys = themeKeys.Append("bazaar").Distinct(StringComparer.OrdinalIgnoreCase);   // bazaar widens the pool
+        var keys = themeKeys.Distinct(StringComparer.OrdinalIgnoreCase);
         var imgs = new List<string>();
         foreach (var k in keys)
         {
