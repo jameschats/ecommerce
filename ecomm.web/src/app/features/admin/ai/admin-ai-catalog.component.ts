@@ -1,5 +1,5 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AiCatalogService, CatalogStatus, GenCategory, GeneratedCatalog } from '../../../core/services/ai-catalog.service';
@@ -74,8 +74,18 @@ import { AiCatalogService, CatalogStatus, GenCategory, GeneratedCatalog } from '
             </div>
           </div>
 
+          <!-- Loading state: rotating status messages, and the previous preview (if any) is already
+               cleared at this point so nothing stale lingers behind the spinner. -->
+          @if (generating()) {
+            <div class="bg-white border border-slate-200 rounded-xl p-10 mb-6 flex flex-col items-center justify-center text-center gap-3">
+              <div class="h-8 w-8 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin"></div>
+              <p class="text-sm font-medium text-slate-700">{{ generatingMessage() }}</p>
+              <p class="text-xs text-slate-400">This can take a little while for a bigger catalog.</p>
+            </div>
+          }
+
           <!-- Preview -->
-          @if (preview(); as pv) {
+          @if (!generating() && preview(); as pv) {
             <div class="flex items-center justify-between gap-3 mb-3">
               <h2 class="font-semibold text-slate-800">{{ pv.storeType }} — {{ productCount() }} products</h2>
               <div class="flex gap-2">
@@ -120,9 +130,19 @@ import { AiCatalogService, CatalogStatus, GenCategory, GeneratedCatalog } from '
     </div>
   `,
 })
-export class AdminAiCatalogComponent implements OnInit {
+export class AdminAiCatalogComponent implements OnInit, OnDestroy {
   private readonly api = inject(AiCatalogService);
   private readonly route = inject(ActivatedRoute);
+
+  // Rotates while a generation is in flight so a 10-30s AI call feels alive instead of a frozen
+  // button label — same idea as Claude's own "Thinking…"/"Writing…" status line.
+  private static readonly GENERATING_MESSAGES = [
+    'Thinking about your store…', 'Coming up with product ideas…', 'Writing product names…',
+    'Crafting descriptions…', 'Choosing sizes, colors and specs…', 'Curating photos…',
+    'Setting prices…', 'Putting it all together…',
+  ];
+  private messageTimer: ReturnType<typeof setInterval> | null = null;
+  readonly generatingMessage = signal(AdminAiCatalogComponent.GENERATING_MESSAGES[0]);
 
   readonly status = signal<CatalogStatus | null>(null);
   readonly generating = signal(false);
@@ -167,14 +187,31 @@ export class AdminAiCatalogComponent implements OnInit {
 
   private flash(m: string): void { this.message.set(m); setTimeout(() => this.message.set(null), 3500); }
 
+  private startGeneratingMessages(): void {
+    let i = 0;
+    this.generatingMessage.set(AdminAiCatalogComponent.GENERATING_MESSAGES[0]);
+    this.messageTimer = setInterval(() => {
+      i = (i + 1) % AdminAiCatalogComponent.GENERATING_MESSAGES.length;
+      this.generatingMessage.set(AdminAiCatalogComponent.GENERATING_MESSAGES[i]);
+    }, 1600);
+  }
+
+  private stopGeneratingMessages(): void {
+    if (this.messageTimer !== null) { clearInterval(this.messageTimer); this.messageTimer = null; }
+  }
+
+  ngOnDestroy(): void { this.stopGeneratingMessages(); }
+
   generate(): void {
     this.generating.set(true); this.error.set(null); this.message.set(null);
+    this.preview.set(null);   // drop the previous (or now-stale) result immediately, don't leave it showing behind the spinner
+    this.startGeneratingMessages();
     this.api.generate({
       presetKey: this.form.presetKey, prompt: this.form.presetKey === null ? this.form.prompt : null,
       categories: this.form.categories, productsPerCategory: this.form.productsPerCategory,
     }).subscribe({
-      next: (c) => { this.preview.set(c); this.generating.set(false); },
-      error: (e: unknown) => { this.generating.set(false); this.error.set(this.msg(e, true)); },
+      next: (c) => { this.preview.set(c); this.generating.set(false); this.stopGeneratingMessages(); },
+      error: (e: unknown) => { this.generating.set(false); this.stopGeneratingMessages(); this.error.set(this.msg(e, true)); },
     });
   }
 
