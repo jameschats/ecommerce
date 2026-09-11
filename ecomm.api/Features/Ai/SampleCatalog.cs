@@ -14,7 +14,13 @@ public static class SampleCatalogPresets
         new SampleCatalogPreset("bazaar", "General store / bazaar", "a general online bazaar selling a broad mix of everyday products across several departments", new[] { "bazaar", "emporium" }),
         new SampleCatalogPreset("electronics", "Electronics", "an electronics and gadgets store (phones, audio, wearables, accessories, home tech)", new[] { "ignition", "pulse" }),
         new SampleCatalogPreset("fashion", "Fashion & apparel", "a fashion and apparel store with men's, women's and kids' clothing", new[] { "boutique", "noir" }),
-        new SampleCatalogPreset("footwear", "Footwear / shoes", "a footwear store (sneakers, formal shoes, sandals, sports shoes)", new[] { "stride", "boutique" }),
+        // "stride" is the only theme in the library that's actually shoe-focused (10 images) — it used
+        // to also pull from "boutique" for variety, but boutique is a general fashion theme (dresses,
+        // shirts, bags), so more than half the combined pool ended up being non-shoe imagery. Confirmed
+        // live: a generated footwear catalog put a red dress on "Heeled Loafers" and a clothing rack on
+        // "Business Loafers". Stride alone means more repeats across a big catalog, but every photo is
+        // actually a shoe.
+        new SampleCatalogPreset("footwear", "Footwear / shoes", "a footwear store (sneakers, formal shoes, sandals, sports shoes)", new[] { "stride" }),
         new SampleCatalogPreset("food", "Food & gourmet", "a gourmet food and snacks store (packaged foods, beverages, treats)", new[] { "savor", "roast" }),
         new SampleCatalogPreset("burgers", "Burger joint / QSR", "a burger and fast-food outlet menu (burgers, sides, beverages, combos)", new[] { "savor" }),
         new SampleCatalogPreset("grocery", "Grocery & daily needs", "a daily grocery store (staples, snacks, beverages, household essentials)", new[] { "fresh", "harvest" }),

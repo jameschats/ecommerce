@@ -42,11 +42,23 @@ public class SampleCatalogImagesTests
     {
         // Regression test for the actual bug: adding "bazaar" explicitly must change the result —
         // if it didn't, that would mean bazaar is still being merged in behind the scenes.
-        var withoutBazaar = SampleCatalogImages.For(new[] { "stride", "boutique" });   // Footwear preset's theme keys
-        var withBazaarExplicit = SampleCatalogImages.For(new[] { "stride", "boutique", "bazaar" });
+        var withoutBazaar = SampleCatalogImages.For(new[] { "stride" });
+        var withBazaarExplicit = SampleCatalogImages.For(new[] { "stride", "bazaar" });
 
         Assert.True(withBazaarExplicit.Count > withoutBazaar.Count,
-            $"expected explicitly adding bazaar to grow the pool beyond the footwear-only pool ({withoutBazaar.Count}), got {withBazaarExplicit.Count}");
+            $"expected explicitly adding bazaar to grow the pool beyond the stride-only pool ({withoutBazaar.Count}), got {withBazaarExplicit.Count}");
+    }
+
+    [Fact]
+    public void Footwear_preset_no_longer_pairs_with_the_general_fashion_theme()
+    {
+        // "boutique" is a general fashion theme (dresses, shirts, bags) — pairing it with "stride" (the
+        // only genuinely shoe-focused theme) meant over half of footwear's pool was non-shoe imagery.
+        // Confirmed live: a generated catalog put a red dress on "Heeled Loafers" and a clothing rack on
+        // "Business Loafers". Footwear now round-robins through stride alone.
+        var footwear = SampleCatalogPresets.Get("footwear")!;
+
+        Assert.DoesNotContain("boutique", footwear.ThemeKeys, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
