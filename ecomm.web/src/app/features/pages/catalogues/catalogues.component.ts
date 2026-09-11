@@ -1,21 +1,28 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { SITE_URL } from '../../../core/api.config';
 import { Catalogue } from '../../../core/models/catalogue.model';
+import { ContentPage } from '../../../core/models/content-page.model';
 import { CatalogueService } from '../../../core/services/catalogue.service';
 import { SeoService } from '../../../core/services/seo.service';
 
 /** Downloadable PDF catalogues — the design booklets a dealer browses offline before ordering
- *  by design number. Plain download list, same card language as the rest of the site. */
+ *  by design number. Plain download list, same card language as the rest of the site. Title,
+ *  intro and search title/description are CMS-editable (066), same as Contact/FAQ/Buying guide. */
 @Component({
   selector: 'app-catalogues',
   template: `
     <section class="page-container py-10 sm:py-14">
       <div class="max-w-4xl mx-auto">
         <div class="max-w-2xl mx-auto text-center mb-8 sm:mb-10">
-          <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Catalogues</h1>
-          <p class="mt-3 text-slate-600">
-            Download our design catalogues as PDF — browse every design number offline, then order by design number on the price list.
-          </p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">{{ page?.title || 'Catalogues' }}</h1>
+          @if (intro) {
+            <div class="mt-3 text-slate-600 intro-copy" [innerHTML]="intro"></div>
+          } @else {
+            <p class="mt-3 text-slate-600">
+              Download our design catalogues as PDF — browse every design number offline, then order by design number on the price list.
+            </p>
+          }
         </div>
 
         @if (loading()) {
@@ -47,18 +54,30 @@ import { SeoService } from '../../../core/services/seo.service';
       </div>
     </section>
   `,
+  styles: [`
+    .intro-copy :is(p, ul, ol) { margin-block: 0.6rem; }
+    .intro-copy :is(ul, ol) { padding-inline-start: 1.4rem; }
+    .intro-copy ul { list-style: disc; }
+    .intro-copy ol { list-style: decimal; }
+    .intro-copy a { color: var(--color-primary, #2563eb); text-decoration: underline; }
+  `],
 })
 export class CataloguesComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
   private readonly svc = inject(CatalogueService);
   private readonly seo = inject(SeoService);
+
+  readonly page = this.route.snapshot.data['page'] as ContentPage | null;
+  readonly intro = (this.page?.sections ?? []).find((s) => s.sectionType === 'Prose')?.content ?? null;
 
   readonly catalogues = signal<Catalogue[]>([]);
   readonly loading = signal(true);
 
   ngOnInit(): void {
     this.seo.setMeta({
-      title: 'Catalogues — Download design catalogues (PDF)',
-      description: 'Download our calendar design catalogues as PDF — browse every design number offline before ordering.',
+      title: this.page?.metaTitle || 'Catalogues — Download design catalogues (PDF)',
+      description: this.page?.metaDescription
+        ?? 'Download our calendar design catalogues as PDF — browse every design number offline before ordering.',
       url: `${SITE_URL}/catalogues`,
     });
     this.svc.list().subscribe({

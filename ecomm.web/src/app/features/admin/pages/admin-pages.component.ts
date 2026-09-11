@@ -3,7 +3,9 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { API_BASE_URL } from '../../../core/api.config';
 import { ApiResponse } from '../../../core/models/api-response.model';
+import { Catalogue } from '../../../core/models/catalogue.model';
 import { ContentPage, ContentSection } from '../../../core/models/content-page.model';
+import { CatalogueService } from '../../../core/services/catalogue.service';
 import { RichTextComponent } from '../../../shared/rich-text/rich-text.component';
 
 interface Draft {
@@ -28,7 +30,7 @@ interface Draft {
   template: `
     <div class="max-w-5xl mx-auto p-6">
       <h1 class="text-xl font-bold text-slate-900 mb-1">Pages</h1>
-      <p class="text-sm text-slate-500 mb-5">The wording on your About, FAQ, Buying guide and Contact pages.</p>
+      <p class="text-sm text-slate-500 mb-5">The wording on your About, FAQ, Buying guide, Contact and Catalogues pages.</p>
 
       @if (message()) { <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2">{{ message() }}</div> }
       @if (error()) { <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error() }}</div> }
@@ -66,6 +68,54 @@ interface Draft {
           <button type="button" (click)="savePage()" [disabled]="saving()"
                   class="mt-3 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50">Save page</button>
         </div>
+
+        <!-- Catalogue files: Catalogues has no other page like it, so its files live here
+             rather than as a page section. -->
+        @if (pg.slug === 'catalogues') {
+          <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between mb-1">
+              <h2 class="text-sm font-semibold text-slate-700">Catalogue files</h2>
+              <label class="btn-primary shrink-0 ml-3 cursor-pointer text-sm" [class.opacity-60]="catalogueUploading()">
+                {{ catalogueUploading() ? 'Uploading…' : '+ Upload PDF' }}
+                <input type="file" accept="application/pdf" class="hidden" [disabled]="catalogueUploading()" (change)="onCatalogueUpload($event)" />
+              </label>
+            </div>
+
+            @if (catalogueLoading()) { <div class="p-8 text-center text-slate-400">Loading…</div> }
+            @else if (!catalogues().length) { <div class="p-8 text-center text-slate-400">No catalogues yet. Click "Upload PDF" to add one.</div> }
+            @else {
+              <div class="space-y-3 mt-3">
+                @for (c of catalogues(); track c.catalogueId; let i = $index) {
+                  <div class="border border-slate-200 rounded-xl p-3 flex gap-3 items-center" [class.opacity-60]="!c.isActive">
+                    <div class="flex flex-col justify-center">
+                      <button type="button" (click)="moveCatalogue(i, -1)" [disabled]="i === 0" class="text-slate-400 hover:text-slate-700 disabled:opacity-30 leading-none">▲</button>
+                      <button type="button" (click)="moveCatalogue(i, 1)" [disabled]="i === catalogues().length - 1" class="text-slate-400 hover:text-slate-700 disabled:opacity-30 leading-none">▼</button>
+                    </div>
+
+                    <div class="w-10 h-10 shrink-0 rounded-lg bg-red-50 text-red-600 grid place-items-center text-xs font-bold">PDF</div>
+
+                    <div class="flex-1 min-w-0 space-y-1.5">
+                      <input [(ngModel)]="c.title" [name]="'cti' + c.catalogueId" placeholder="Title" class="input w-full" />
+                      <div class="flex items-center justify-between">
+                        <p class="text-xs text-slate-400 truncate" [title]="c.fileName">{{ c.fileName }} · {{ formatSize(c.fileSizeBytes) }}</p>
+                        <a [href]="c.fileUrl" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline shrink-0 ml-2">View</a>
+                      </div>
+                      <div class="flex items-center justify-between pt-0.5">
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                          <input type="checkbox" [(ngModel)]="c.isActive" [name]="'ca' + c.catalogueId" /> Visible
+                        </label>
+                        <button type="button" (click)="removeCatalogue(c)" class="text-sm text-red-500 hover:text-red-700">Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+              <button type="button" (click)="saveCatalogues()" [disabled]="catalogueBusy()" class="btn-primary mt-4">
+                {{ catalogueBusy() ? 'Saving…' : 'Save changes' }}
+              </button>
+            }
+          </div>
+        }
 
         <!-- Sections -->
         <div class="space-y-3">
@@ -140,6 +190,7 @@ interface Draft {
 })
 export class AdminPagesComponent implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly catalogueSvc = inject(CatalogueService);
   private readonly base = `${API_BASE_URL}/admin/cms/pages`;
 
   readonly pages = signal<ContentPage[]>([]);
@@ -151,6 +202,12 @@ export class AdminPagesComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly draft = signal<Draft | null>(null);
   readonly draftError = signal<string | null>(null);
+
+  // Catalogue files — only loaded/shown when the selected page is 'catalogues'.
+  readonly catalogues = signal<Catalogue[]>([]);
+  readonly catalogueLoading = signal(true);
+  readonly catalogueBusy = signal(false);
+  readonly catalogueUploading = signal(false);
 
   pageForm = { title: '', isPublished: true, metaTitle: '', metaDescription: '' };
 
@@ -173,6 +230,73 @@ export class AdminPagesComponent implements OnInit {
       next: (r) => { this.apply(r.data ?? null); this.loading.set(false); },
       error: () => { this.loading.set(false); this.error.set('Could not load that page.'); },
     });
+    if (slug === 'catalogues') this.reloadCatalogues();
+  }
+
+  // --- catalogue files ---
+
+  private reloadCatalogues(): void {
+    this.catalogueLoading.set(true);
+    this.catalogueSvc.listAdmin().subscribe({
+      next: (c) => { this.catalogues.set(c); this.catalogueLoading.set(false); },
+      error: () => this.catalogueLoading.set(false),
+    });
+  }
+
+  formatSize(bytes: number): string {
+    return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+  }
+
+  onCatalogueUpload(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.catalogueUploading.set(true);
+    this.error.set(null);
+    this.catalogueSvc.upload(file).subscribe({
+      next: () => { this.catalogueUploading.set(false); this.flash('Catalogue uploaded.'); this.reloadCatalogues(); },
+      error: (e) => { this.catalogueUploading.set(false); this.error.set(e?.error?.message ?? 'Upload failed (max 25 MB, PDF only).'); },
+    });
+    input.value = '';
+  }
+
+  moveCatalogue(index: number, delta: number): void {
+    const arr = [...this.catalogues()];
+    const target = index + delta;
+    if (target < 0 || target >= arr.length) return;
+    [arr[index], arr[target]] = [arr[target], arr[index]];
+    this.catalogues.set(arr);
+  }
+
+  removeCatalogue(c: Catalogue): void {
+    if (!confirm(`Delete "${c.title}"?`)) return;
+    this.catalogueBusy.set(true);
+    this.catalogueSvc.remove(c.catalogueId).subscribe({
+      next: () => { this.catalogueBusy.set(false); this.flash('Catalogue deleted.'); this.reloadCatalogues(); },
+      error: () => { this.catalogueBusy.set(false); this.error.set('Delete failed.'); },
+    });
+  }
+
+  saveCatalogues(): void {
+    this.catalogueBusy.set(true);
+    this.message.set(null);
+    this.error.set(null);
+    const updates = this.catalogues().map((c, i) =>
+      this.catalogueSvc.update(c.catalogueId, { title: c.title, displayOrder: i + 1, isActive: c.isActive }),
+    );
+    let done = 0, failed = false;
+    updates.forEach((o) => o.subscribe({
+      next: () => { if (++done === updates.length) this.finishCatalogueSave(failed); },
+      error: () => { failed = true; if (++done === updates.length) this.finishCatalogueSave(failed); },
+    }));
+    if (!updates.length) this.finishCatalogueSave(false);
+  }
+
+  private finishCatalogueSave(failed: boolean): void {
+    this.catalogueBusy.set(false);
+    if (failed) this.error.set('Some catalogues failed to save.');
+    else this.flash('Saved.');
+    this.reloadCatalogues();
   }
 
   private apply(p: ContentPage | null): void {
