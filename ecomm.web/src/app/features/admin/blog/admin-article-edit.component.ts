@@ -16,7 +16,7 @@ import { Article, BlogService, SaveArticle } from '../../../core/services/blog.s
         <div class="text-sm font-medium text-violet-900">✨ Draft with AI</div>
         <p class="text-xs text-violet-700/70 mb-2">Give a topic and we'll write a first draft in your brand voice. You can edit everything after.</p>
         <div class="flex flex-col sm:flex-row gap-2">
-          <input [(ngModel)]="topic" name="topic" class="input flex-1" placeholder="e.g. How to care for cotton sarees" />
+          <input [(ngModel)]="topic" name="topic" class="input flex-1 min-w-0" placeholder="e.g. How to care for cotton sarees" />
           <select [(ngModel)]="draftLang" name="draftLang" class="input sm:w-40">
             <option [ngValue]="null">Brand default</option>
             @for (l of languages; track l) { <option [ngValue]="l">{{ l }}</option> }
