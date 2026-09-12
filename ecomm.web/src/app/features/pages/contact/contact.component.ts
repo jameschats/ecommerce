@@ -18,7 +18,7 @@ import { ThemeService } from '../../../core/services/theme.service';
       <div class="grid lg:grid-cols-3 gap-8">
         <!-- Details -->
         <div class="space-y-5">
-          @for (c of details; track c.label) {
+          @for (c of details(); track c.label) {
             <div class="flex items-start gap-3">
               <span class="text-xl">{{ c.icon }}</span>
               <div>
@@ -75,11 +75,14 @@ export class ContactComponent implements OnInit {
   readonly error = signal<string | null>(null);
   form = { name: '', email: '', phone: '', subject: '', body: '', website: '' };
 
-  readonly details = [
+  private static readonly BASE_DETAILS = [
     { icon: '💬', label: 'Response time', value: 'We usually reply within 1 business day.' },
     { icon: '🕒', label: 'Support hours', value: 'Mon–Sat, 9:30 AM – 6:30 PM' },
-    { icon: '✉️', label: 'Prefer email?', value: 'Send us a message using the form and we will get back to you.' },
   ];
+  private static readonly FALLBACK_EMAIL_DETAIL =
+    { icon: '✉️', label: 'Prefer email?', value: 'Send us a message using the form and we will get back to you.' };
+
+  readonly details = signal<{ icon: string; label: string; value: string }[]>(ContactComponent.BASE_DETAILS.concat(ContactComponent.FALLBACK_EMAIL_DETAIL));
 
   ngOnInit(): void {
     const name = this.theme.storeName() || 'our store';
@@ -87,6 +90,14 @@ export class ContactComponent implements OnInit {
       title: `Contact us — ${name}`,
       description: `Get in touch with ${name} for help with orders, products or any other questions.`,
       url: `${this.siteUrl}/contact`,
+    });
+
+    this.contact.getStoreContact().subscribe((c) => {
+      const extra: { icon: string; label: string; value: string }[] = [];
+      extra.push(c.storeEmail ? { icon: '✉️', label: 'Email us', value: c.storeEmail } : ContactComponent.FALLBACK_EMAIL_DETAIL);
+      if (c.storePhone) extra.push({ icon: '📞', label: 'Call us', value: c.storePhone });
+      if (c.storeAddress) extra.push({ icon: '📍', label: 'Visit us', value: c.storeAddress });
+      this.details.set(ContactComponent.BASE_DETAILS.concat(extra));
     });
   }
 

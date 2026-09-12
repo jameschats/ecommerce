@@ -15,6 +15,12 @@ export interface SubmitContactRequest {
   website?: string | null;
 }
 
+export interface StoreContact {
+  storeEmail: string | null;
+  storePhone: string | null;
+  storeAddress: string | null;
+}
+
 export interface ContactMessage {
   contactMessageId: number;
   name: string;
@@ -36,6 +42,10 @@ export class ContactService {
 
   submit(body: SubmitContactRequest): Observable<unknown> {
     return this.http.post<ApiResponse<unknown>>(`${this.base}/contact`, body);
+  }
+
+  getStoreContact(): Observable<StoreContact> {
+    return this.unwrap(this.http.get<ApiResponse<StoreContact>>(`${this.base}/catalog/store-contact`));
   }
 
   list(status?: string, page = 1, pageSize = 20): Observable<PagedResult<ContactMessage>> {

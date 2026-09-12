@@ -13,10 +13,14 @@ public sealed record UpdateStoreSettingsRequest(
     string TaxMode, string? StoreState, string? StoreGstin, string? StoreLegalName, bool CodEnabled,
     string? StoreEmail, string? StorePhone, string? StoreAddress, string? Timezone, bool AbandonedCartRecovery);
 
+/// <summary>Only what the storefront's Contact page needs — never GSTIN/legal name/tax mode.</summary>
+public sealed record PublicStoreContactDto(string? StoreEmail, string? StorePhone, string? StoreAddress);
+
 public interface IStoreSettingsService
 {
     Task<StoreSettingsDto> GetAsync(CancellationToken ct = default);
     Task<StoreSettingsDto> UpdateAsync(UpdateStoreSettingsRequest req, CancellationToken ct = default);
+    Task<PublicStoreContactDto> GetPublicContactAsync(CancellationToken ct = default);
 }
 
 public sealed class StoreSettingsService : IStoreSettingsService
@@ -47,6 +51,12 @@ public sealed class StoreSettingsService : IStoreSettingsService
             s.GetValueOrDefault("StoreAddress"),
             s.GetValueOrDefault("Timezone"),
             string.Equals(s.GetValueOrDefault("AbandonedCartRecoveryEnabled"), "true", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<PublicStoreContactDto> GetPublicContactAsync(CancellationToken ct = default)
+    {
+        var s = await GetAsync(ct);
+        return new PublicStoreContactDto(s.StoreEmail, s.StorePhone, s.StoreAddress);
     }
 
     public async Task<StoreSettingsDto> UpdateAsync(UpdateStoreSettingsRequest req, CancellationToken ct = default)

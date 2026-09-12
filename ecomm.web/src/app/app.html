@@ -260,8 +260,8 @@
             <h3 class="text-white font-semibold text-sm mb-3">Support</h3>
             <ul class="space-y-2 text-sm text-slate-400">
               <li><a routerLink="/faq" class="hover:text-white">Help center</a></li>
-              <li><a routerLink="/faq" class="hover:text-white">Shipping &amp; delivery</a></li>
-              <li><a routerLink="/faq" class="hover:text-white">Returns &amp; refunds</a></li>
+              <li><a [routerLink]="['/policies', 'shipping']" class="hover:text-white">Shipping &amp; delivery</a></li>
+              <li><a [routerLink]="['/policies', 'refund']" class="hover:text-white">Returns &amp; refunds</a></li>
               <li><a routerLink="/faq" class="hover:text-white">FAQ</a></li>
             </ul>
           </div>
