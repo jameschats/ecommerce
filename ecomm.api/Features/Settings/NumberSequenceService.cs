@@ -39,6 +39,11 @@ public sealed class NumberSequenceService : INumberSequenceService
         // one of the two hardcoded literals above, never caller-supplied.
         var sql = "UPDATE `Tenants` SET `" + column + "` = LAST_INSERT_ID(`" + column + "` + 1) WHERE `TenantId` = {0}";
         await _db.Database.ExecuteSqlRawAsync(sql, [tenantId], ct);
-        return await _db.Database.SqlQueryRaw<long>("SELECT LAST_INSERT_ID()").SingleAsync(ct);
+        // SqlQueryRaw<T> for a scalar type wraps the query as `SELECT s.Value FROM (<sql>) AS s` —
+        // it requires the inner query's column to literally be named "Value", which an unaliased
+        // function call is not (MySQL names it "LAST_INSERT_ID()"). Verified against real MySQL only
+        // via the raw mysql CLI before shipping, which never exercises this EF wrapping — that gap is
+        // exactly how this broke every checkout in production the first time a real order was placed.
+        return await _db.Database.SqlQueryRaw<long>("SELECT LAST_INSERT_ID() AS Value").SingleAsync(ct);
     }
 }
