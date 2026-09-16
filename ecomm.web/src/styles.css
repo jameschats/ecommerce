@@ -1,6 +1,12 @@
 /* Global styles. Tailwind CSS v4 entrypoint. */
 @import "tailwindcss";
 
+/* Smooth-scroll anchor jumps (e.g. the landing page's Features/Pricing nav links) instead of an
+   instant snap. Respects motion-sensitive users. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
 /* Tailwind v4 removed the default `cursor: pointer` on buttons (it now matches the
    browser's arrow default). Restore it for interactive controls — users expect a
    hand cursor on clickable things. Disabled controls keep the default cursor. */

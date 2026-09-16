@@ -49,6 +49,31 @@ import { SeoService } from '../../core/services/seo.service';
       background-size: 10px 1px;
     }
     @media (max-width: 760px) { .steps-rule::before { display: none; } }
+
+    /* Nav links: an underline that grows from the center on hover/focus, and a quick press-down
+       on click — so jumping to a section feels like it responded, not just teleported. */
+    .navlink { position: relative; padding-block: 4px; }
+    .navlink::after {
+      content: "";
+      position: absolute; left: 50%; right: 50%; bottom: 0; height: 2px;
+      background: rgb(79 70 229);
+      border-radius: 2px;
+      transition: left 0.22s ease, right 0.22s ease;
+    }
+    .navlink:hover::after, .navlink:focus-visible::after { left: 0; right: 0; }
+    .navlink:active { transform: scale(0.95); }
+    @media (prefers-reduced-motion: no-preference) { .navlink { transition: transform 0.1s ease; } }
+
+    /* The section a nav link jumps to gets a brief highlight once it settles into view, so a
+       same-page "navigation" reads as an actual event rather than an invisible scroll. */
+    .anchor-target { scroll-margin-top: 84px; }
+    @media (prefers-reduced-motion: no-preference) {
+      .anchor-target:target { animation: anchor-pulse 1.1s ease-out; }
+    }
+    @keyframes anchor-pulse {
+      0% { background-color: rgba(79, 70, 229, 0.08); }
+      100% { background-color: transparent; }
+    }
   `],
   template: `
     <div class="min-h-screen flex flex-col bg-white text-slate-900">
@@ -57,9 +82,9 @@ import { SeoService } from '../../core/services/seo.service';
         <div class="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between">
           <a routerLink="/welcome" class="f-display font-extrabold text-xl">Wav<span class="text-indigo-600">Commerce</span></a>
           <nav class="hidden sm:flex items-center gap-8 text-sm font-semibold text-slate-600">
-            <a routerLink="/welcome" fragment="features" class="hover:text-slate-900">Features</a>
-            <a routerLink="/welcome" fragment="pricing" class="hover:text-slate-900">Pricing</a>
-            @if (!auth.isAuthenticated()) { <a routerLink="/login" class="hover:text-slate-900">Log in</a> }
+            <a routerLink="/welcome" fragment="features" class="navlink hover:text-slate-900">Features</a>
+            <a routerLink="/welcome" fragment="pricing" class="navlink hover:text-slate-900">Pricing</a>
+            @if (!auth.isAuthenticated()) { <a routerLink="/login" class="navlink hover:text-slate-900">Log in</a> }
           </nav>
           @if (auth.isSuperAdmin()) {
             <a routerLink="/superadmin" class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl">Platform admin →</a>
@@ -152,7 +177,7 @@ import { SeoService } from '../../core/services/seo.service';
       </section>
 
       <!-- Features (bento) -->
-      <section id="features" class="py-16">
+      <section id="features" class="anchor-target py-16">
         <div class="max-w-6xl mx-auto px-5">
           <div class="max-w-xl mb-10">
             <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Everything included</p>
@@ -201,7 +226,7 @@ import { SeoService } from '../../core/services/seo.service';
       </section>
 
       <!-- Pricing -->
-      <section id="pricing" class="py-16">
+      <section id="pricing" class="anchor-target py-16">
         <div class="max-w-6xl mx-auto px-5">
           <div class="text-center mb-10">
             <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Simple, transparent pricing</p>
