@@ -208,8 +208,11 @@
 
   @if (!hideStorefrontChrome()) {
     @if (footerLayout() === 'simple') {
-      <!-- Simple footer: centered brand + inline links + socials + copyright. -->
-      <footer #footerRoot class="bg-slate-900 text-slate-300 mt-12">
+      <!-- Simple footer: centered brand + inline links + socials + copyright. No top margin — the
+           footer's own background color is what separates it from content, and a margin here left a
+           visible gap of the page's base background whenever the section right above it was also
+           dark (e.g. a dark newsletter/CTA section), making two adjacent dark blocks look disconnected. -->
+      <footer #footerRoot class="bg-slate-900 text-slate-300">
         <div class="page-container py-10 text-center">
           <a routerLink="/" class="font-bold text-xl text-white">{{ storeName() || 'Store' }}</a>
           <div class="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
@@ -226,8 +229,8 @@
         </div>
       </footer>
     } @else {
-      <!-- Columns footer (default). -->
-      <footer #footerRoot class="bg-slate-900 text-slate-300 mt-12">
+      <!-- Columns footer (default). No top margin — see the simple-footer comment above. -->
+      <footer #footerRoot class="bg-slate-900 text-slate-300">
         <div class="page-container py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
           <div class="col-span-2 md:col-span-1">
             <a routerLink="/" class="font-bold text-xl text-white">{{ storeName() || 'Store' }}</a>
