@@ -15,7 +15,18 @@ type Method = 'email' | 'otp';
   selector: 'app-login',
   imports: [FormsModule, RouterLink],
   templateUrl: './login.component.html',
-  styles: [`.f-display { font-family: 'Sora', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }`],
+  styles: [`
+    .f-display { font-family: 'Sora', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+    .navlink { position: relative; padding-block: 4px; }
+    .navlink::after {
+      content: ""; position: absolute; left: 50%; right: 50%; bottom: 0; height: 2px;
+      background: rgb(79 70 229); border-radius: 2px;
+      transition: left 0.22s ease, right 0.22s ease;
+    }
+    .navlink:hover::after, .navlink:focus-visible::after { left: 0; right: 0; }
+    .navlink:active { transform: scale(0.95); }
+    @media (prefers-reduced-motion: no-preference) { .navlink { transition: transform 0.1s ease; } }
+  `],
 })
 export class LoginComponent implements OnInit {
   private readonly auth = inject(AuthService);

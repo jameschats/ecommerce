@@ -80,7 +80,17 @@ import { SeoService } from '../../core/services/seo.service';
       <!-- Marketing header -->
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur">
         <div class="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between">
-          <a routerLink="/welcome" class="f-display font-extrabold text-xl">Wav<span class="text-indigo-600">Commerce</span></a>
+          <a routerLink="/welcome" class="flex items-center gap-2 f-display font-extrabold text-xl">
+            <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
+              <rect x="4" y="4" width="56" height="56" rx="14" fill="#4f46e5"/>
+              <g stroke="#fff" stroke-width="6" stroke-linecap="round">
+                <line x1="16" y1="27" x2="16" y2="37"/><line x1="26" y1="19" x2="26" y2="45"/>
+                <line x1="36" y1="13" x2="36" y2="51"/><line x1="46" y1="19" x2="46" y2="45"/>
+                <line x1="56" y1="27" x2="56" y2="37"/>
+              </g>
+            </svg>
+            Wav<span class="text-indigo-600">Commerce</span>
+          </a>
           <nav class="hidden sm:flex items-center gap-8 text-sm font-semibold text-slate-600">
             <a routerLink="/welcome" fragment="features" class="navlink hover:text-slate-900">Features</a>
             <a routerLink="/welcome" fragment="pricing" class="navlink hover:text-slate-900">Pricing</a>
