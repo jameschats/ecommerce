@@ -1,9 +1,10 @@
-import { CurrencyPipe, DOCUMENT } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlanOption } from '../../core/models/onboarding.model';
 import { AuthService } from '../../core/services/auth.service';
 import { OnboardingService } from '../../core/services/onboarding.service';
+import { PlatformBrandService } from '../../core/services/platform-brand.service';
 import { SeoService } from '../../core/services/seo.service';
 
 /**
@@ -11,9 +12,8 @@ import { SeoService } from '../../core/services/seo.service';
  * Self-contained chrome (own header/footer); the app shell suppresses storefront chrome on /welcome.
  * Every CTA leads into the free trial signup.
  *
- * Visual identity is fixed (not Theme-Engine driven, unlike tenant storefronts) — Sora/Manrope/JetBrains
- * Mono loaded once here, mirroring ThemeService.loadFonts' link-injection pattern but scoped to this
- * page's own one-off brand fonts rather than the tenant font allowlist.
+ * Visual identity is fixed (not Theme-Engine driven, unlike tenant storefronts) — brand fonts come
+ * from PlatformBrandService, shared with the login/signup pages' own platform header.
  */
 @Component({
   selector: 'app-landing',
@@ -291,7 +291,7 @@ import { SeoService } from '../../core/services/seo.service';
 export class LandingComponent implements OnInit {
   private readonly onboarding = inject(OnboardingService);
   private readonly seo = inject(SeoService);
-  private readonly document = inject(DOCUMENT);
+  private readonly brand = inject(PlatformBrandService);
   /** Signed-in staff landing on the apex need a way back into their console. */
   readonly auth = inject(AuthService);
 
@@ -335,17 +335,6 @@ export class LandingComponent implements OnInit {
       description: 'Build, run and grow your online store with WavCommerce. AI-assisted setup, themes, UPI/COD payments, shipping and your own domain. Start free — 14-day trial, no card required.',
     });
     this.onboarding.plans().subscribe((p) => this.plans.set(p));
-    this.loadLandingFonts();
-  }
-
-  /** One-off brand fonts for this fixed marketing page — not tenant-themeable, so injected directly
-   *  rather than through ThemeService's tenant font allowlist. */
-  private loadLandingFonts(): void {
-    const href = 'https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap';
-    if (this.document.querySelector(`link[href="${href}"]`)) return;
-    const link = this.document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    this.document.head.appendChild(link);
+    this.brand.loadFonts();
   }
 }

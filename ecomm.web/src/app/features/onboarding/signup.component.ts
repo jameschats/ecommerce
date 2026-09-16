@@ -4,21 +4,28 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { OnboardingResult, PlanOption, SignupRequest } from '../../core/models/onboarding.model';
 import { OnboardingService } from '../../core/services/onboarding.service';
+import { PlatformBrandService } from '../../core/services/platform-brand.service';
 
 @Component({
   selector: 'app-signup',
   imports: [FormsModule, DatePipe, RouterLink],
+  styles: [`.f-display { font-family: 'Sora', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }`],
   template: `
-    <!-- Minimal platform header (this is the SaaS signup, not a storefront) -->
-    <header class="border-b border-slate-100">
-      <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <a routerLink="/welcome" class="font-extrabold text-xl tracking-tight">Wav<span class="text-indigo-600">Commerce</span></a>
-        <a routerLink="/login" class="text-sm text-slate-600 hover:text-slate-900">Log in</a>
+    <!-- Platform header: /signup is always chromeless (it's the SaaS trial signup, not a storefront
+         page), so it brings its own header — matching /welcome and /login's apex header. -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur">
+      <div class="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between">
+        <a routerLink="/welcome" class="f-display font-extrabold text-xl">Wav<span class="text-indigo-600">Commerce</span></a>
+        <nav class="hidden sm:flex items-center gap-8 text-sm font-semibold text-slate-600">
+          <a routerLink="/welcome" fragment="features" class="hover:text-slate-900">Features</a>
+          <a routerLink="/welcome" fragment="pricing" class="hover:text-slate-900">Pricing</a>
+        </nav>
+        <a routerLink="/login" class="text-sm font-semibold text-slate-600 hover:text-slate-900">Log in</a>
       </div>
     </header>
 
     <div class="max-w-3xl mx-auto p-6">
-      <h1 class="text-2xl font-bold text-slate-900">Start your own store</h1>
+      <h1 class="f-display text-2xl font-bold text-slate-900">Start your own store</h1>
       <p class="text-slate-500 mb-6">Launch a store in minutes — 14-day free trial, no card required.</p>
 
       @if (created()) {
@@ -79,6 +86,7 @@ import { OnboardingService } from '../../core/services/onboarding.service';
 export class SignupComponent implements OnInit {
   private readonly svc = inject(OnboardingService);
   private readonly route = inject(ActivatedRoute);
+  private readonly brand = inject(PlatformBrandService);
 
   readonly plans = signal<PlanOption[]>([]);
   readonly saving = signal(false);
@@ -92,6 +100,7 @@ export class SignupComponent implements OnInit {
   form: SignupRequest = { storeName: '', slug: '', ownerName: '', ownerEmail: '', password: '', planSlug: 'starter' };
 
   ngOnInit(): void {
+    this.brand.loadFonts();
     this.svc.plans().subscribe((p) => this.plans.set(p));
     // Preselect the plan chosen on the landing page's pricing (/signup?plan=…).
     const plan = this.route.snapshot.queryParamMap.get('plan');

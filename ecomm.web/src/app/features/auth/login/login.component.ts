@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthProvider } from '../../../core/models/auth.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { PlatformBrandService } from '../../../core/services/platform-brand.service';
+import { PlatformInfoService } from '../../../core/services/platform-info.service';
 
 declare const google: any;
 
@@ -13,12 +15,20 @@ type Method = 'email' | 'otp';
   selector: 'app-login',
   imports: [FormsModule, RouterLink],
   templateUrl: './login.component.html',
+  styles: [`.f-display { font-family: 'Sora', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }`],
 })
 export class LoginComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly platform = inject(PlatformInfoService);
+  private readonly brand = inject(PlatformBrandService);
+
+  /** The apex host has no tenant/store, so the normal storefront header never renders here — this
+   *  page brings its own platform header only in that case (a tenant store's login keeps its real
+   *  storefront header from the app shell, untouched). */
+  readonly isApex = signal(false);
 
   readonly loadingConfig = signal(true);
   readonly submitting = signal(false);
@@ -42,6 +52,11 @@ export class LoginComponent implements OnInit {
   code = '';
 
   ngOnInit(): void {
+    this.platform.hostInfo().subscribe((info) => {
+      if (info.hostType !== 'apex') return;
+      this.isApex.set(true);
+      this.brand.loadFonts();
+    });
     this.auth.getConfig().subscribe({
       next: (cfg) => {
         this.providers.set(cfg.providers);
