@@ -35,7 +35,7 @@ import { PlatformBrandService } from '../../core/services/platform-brand.service
               <line x1="56" y1="27" x2="56" y2="37"/>
             </g>
           </svg>
-          Wav<span class="text-indigo-600">Commerce</span>
+          <span>Wav<span class="text-indigo-600">Commerce</span></span>
         </a>
         <nav class="hidden sm:flex items-center gap-8 text-sm font-semibold text-slate-600">
           <a routerLink="/welcome" fragment="features" class="navlink hover:text-slate-900">Features</a>
